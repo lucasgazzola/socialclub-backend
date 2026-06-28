@@ -1,0 +1,52 @@
+name: socialclub-backend
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Levanta la base de datos + la API en modo desarrollo (hot-reload).
+#   docker compose up --build
+# La API queda en http://localhost:3000/api/v1 y Swagger en /api/docs.
+# ─────────────────────────────────────────────────────────────────────────────
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: socialclub
+      POSTGRES_PASSWORD: socialclub
+      POSTGRES_DB: socialclub
+    ports:
+      - '5432:5432'
+    volumes:
+      # Postgres 18+ guarda los datos en un subdirectorio bajo /var/lib/postgresql
+      # (cambió respecto de versiones previas que usaban /var/lib/postgresql/data).
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U socialclub -d socialclub']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      target: dev
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Sobreescribe el host de la BD para apuntar al servicio "db" de esta red.
+      DATABASE_URL: postgresql://socialclub:socialclub@db:5432/socialclub?schema=public
+    ports:
+      - '3000:3000'
+    volumes:
+      # Monta el código para que nest --watch detecte cambios...
+      - .:/usr/src/app
+      # ...pero conserva el node_modules y el dist del contenedor (evita que el
+      # contenedor, que corre como root, escriba esas carpetas en el host).
+      - /usr/src/app/node_modules
+      - /usr/src/app/dist
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

@@ -1,0 +1,127 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Prisma Schema — SocialClub
+//
+// Alcance de esta versión inicial (Sprint 1):
+//   - Autenticación (login / logout)             → US-39, US-40
+//   - Auditoría inalterable de operaciones        → US-32 / RF12 / RNF03
+//   - Usuarios administrativos con roles           → US-01, US-02, US-03 / RF02
+//   - Socios (Persona + CategoriaSocio)            → US-12 a US-15 / RF01
+//
+// El modelo está diseñado para crecer hacia el dominio completo del Diagrama de
+// Clases (Disciplina, Inscripcion, CuotaSocio, Pago, Evento, Entrada,
+// Documentacion, etc.). Esas entidades se incorporarán en sprints posteriores
+// sobre esta misma base, sin rediseños mayores (RNF08 - Escalabilidad modular).
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Acciones registradas en la auditoría. Tiparlas evita inconsistencias de
+/// strings sueltos y facilita filtrar/reportar (RF12).
+enum AccionAuditoria {
+  CREAR
+  EDITAR
+  BAJA
+  REACTIVAR
+  LOGIN
+  LOGOUT
+  LOGIN_FALLIDO
+}
+
+/// Catálogo de roles del sistema. Un Usuario puede tener uno o más roles
+/// simultáneos (RF02), de ahí la tabla intermedia UsuarioRol.
+model Rol {
+  id          Int          @id @default(autoincrement())
+  nombre      String       @unique // ej: ADMIN, COLABORADOR
+  descripcion String?
+  creadoEn    DateTime     @default(now())
+  usuarios    UsuarioRol[]
+
+  @@map("roles")
+}
+
+/// Usuario del sistema (quien inicia sesión). Es distinto de "Persona", que
+/// representa a alguien gestionado por el club (socio, alumno, participante).
+model Usuario {
+  id                 Int                 @id @default(autoincrement())
+  email              String              @unique
+  passwordHash       String
+  nombre             String
+  apellido           String
+  activo             Boolean             @default(true)
+  ultimoLogin        DateTime?
+  creadoEn           DateTime            @default(now())
+  actualizadoEn      DateTime            @updatedAt
+  roles              UsuarioRol[]
+  registrosAuditoria RegistroAuditoria[] @relation("usuarioResponsable")
+
+  @@map("usuarios")
+}
+
+/// Relación N a N entre Usuario y Rol (RF02: múltiples roles simultáneos).
+model UsuarioRol {
+  usuarioId   Int
+  rolId       Int
+  asignadoEn  DateTime @default(now())
+  usuario     Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  rol         Rol      @relation(fields: [rolId], references: [id], onDelete: Cascade)
+
+  @@id([usuarioId, rolId])
+  @@map("usuarios_roles")
+}
+
+/// Categoría de socio (ej: Activo, Vitalicio, Cadete). En sprints posteriores
+/// condiciona el cálculo de cuotas (RF04).
+model CategoriaSocio {
+  id          Int       @id @default(autoincrement())
+  nombre      String    @unique
+  descripcion String?
+  personas    Persona[]
+
+  @@map("categorias_socio")
+}
+
+/// Persona gestionada por la organización. En el Diagrama de Clases es la
+/// entidad base; en esta versión se usa para representar socios (US-12 a US-15).
+/// En sprints futuros se vincula con Documentacion, CuotaSocio e Inscripcion.
+model Persona {
+  id              Int             @id @default(autoincrement())
+  nombre          String
+  apellido        String
+  dni             String          @unique
+  fechaNacimiento DateTime?
+  email           String?
+  telefono        String?
+  activo          Boolean         @default(true)
+  categoriaId     Int?
+  categoria       CategoriaSocio? @relation(fields: [categoriaId], references: [id])
+  creadoEn        DateTime        @default(now())
+  actualizadoEn   DateTime        @updatedAt
+
+  @@index([apellido, nombre])
+  @@map("personas")
+}
+
+/// Registro de auditoría inalterable (RF12 / RNF03 / RNF11).
+/// IMPORTANTE: esta tabla SOLO admite INSERT desde la aplicación.
+/// No debe ejecutarse UPDATE ni DELETE sobre ella (ver AuditoriaService).
+model RegistroAuditoria {
+  id            Int             @id @default(autoincrement())
+  fechaHora     DateTime        @default(now())
+  accion        AccionAuditoria
+  entidad       String // "Usuario" | "Persona" | ...
+  idEntidad     Int?
+  detalle       String?
+  responsableId Int?
+  responsable   Usuario?        @relation("usuarioResponsable", fields: [responsableId], references: [id])
+
+  @@index([entidad, idEntidad])
+  @@index([fechaHora])
+  @@map("registros_auditoria")
+}

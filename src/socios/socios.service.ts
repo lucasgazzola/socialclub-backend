@@ -1,0 +1,125 @@
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { AuditoriaService } from '../auditoria/auditoria.service';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { CreateSocioDto } from './dto/create-socio.dto';
+import { UpdateSocioDto } from './dto/update-socio.dto';
+
+@Injectable()
+export class SociosService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditoria: AuditoriaService,
+  ) {}
+
+  /** US-12: Registrar socio */
+  async create(dto: CreateSocioDto, responsableId: number) {
+    const existente = await this.prisma.persona.findUnique({ where: { dni: dto.dni } });
+    if (existente) {
+      throw new ConflictException('Ya existe una persona registrada con ese DNI');
+    }
+
+    const socio = await this.prisma.persona.create({
+      data: {
+        nombre: dto.nombre,
+        apellido: dto.apellido,
+        dni: dto.dni,
+        email: dto.email,
+        telefono: dto.telefono,
+        categoriaId: dto.categoriaId,
+        fechaNacimiento: dto.fechaNacimiento ? new Date(dto.fechaNacimiento) : undefined,
+      },
+      include: { categoria: true },
+    });
+
+    await this.auditoria.registrar({
+      accion: 'CREAR',
+      entidad: 'Persona',
+      idEntidad: socio.id,
+      responsableId,
+    });
+
+    return socio;
+  }
+
+  /** US-15: Consultar socios, con búsqueda simple y paginación. */
+  async findAll({ busqueda, pagina, porPagina }: PaginationQueryDto) {
+    const where: Prisma.PersonaWhereInput = busqueda
+      ? {
+          OR: [
+            { nombre: { contains: busqueda, mode: 'insensitive' } },
+            { apellido: { contains: busqueda, mode: 'insensitive' } },
+            { dni: { contains: busqueda } },
+          ],
+        }
+      : {};
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.persona.findMany({
+        where,
+        include: { categoria: true },
+        orderBy: { apellido: 'asc' },
+        skip: (pagina - 1) * porPagina,
+        take: porPagina,
+      }),
+      this.prisma.persona.count({ where }),
+    ]);
+
+    return { items, total, pagina, porPagina };
+  }
+
+  async findOne(id: number) {
+    const socio = await this.prisma.persona.findUnique({
+      where: { id },
+      include: { categoria: true },
+    });
+    if (!socio) {
+      throw new NotFoundException('Socio no encontrado');
+    }
+    return socio;
+  }
+
+  /** US-13: Editar socio */
+  async update(id: number, dto: UpdateSocioDto, responsableId: number) {
+    await this.findOne(id);
+
+    const socio = await this.prisma.persona.update({
+      where: { id },
+      data: {
+        ...dto,
+        fechaNacimiento: dto.fechaNacimiento ? new Date(dto.fechaNacimiento) : undefined,
+      },
+      include: { categoria: true },
+    });
+
+    await this.auditoria.registrar({
+      accion: 'EDITAR',
+      entidad: 'Persona',
+      idEntidad: id,
+      responsableId,
+    });
+
+    return socio;
+  }
+
+  /** US-14: Dar de baja socio (baja lógica) */
+  async deactivate(id: number, responsableId: number) {
+    await this.findOne(id);
+
+    const socio = await this.prisma.persona.update({
+      where: { id },
+      data: { activo: false },
+      include: { categoria: true },
+    });
+
+    await this.auditoria.registrar({
+      accion: 'BAJA',
+      entidad: 'Persona',
+      idEntidad: id,
+      responsableId,
+    });
+
+    return socio;
+  }
+}

@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Prisma
+prisma/migrations/dev.db*
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Coverage / tests
+coverage/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.tsbuildinfo
