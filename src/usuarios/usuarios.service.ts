@@ -11,6 +11,7 @@ const SALT_ROUNDS = 10;
 /** Campos que se exponen del usuario (nunca el passwordHash). */
 const SELECT_PUBLICO = {
   id: true,
+  dni: true,
   email: true,
   nombre: true,
   apellido: true,
@@ -29,9 +30,14 @@ export class UsuariosService {
 
   /** US-01: Registrar usuario administrativo */
   async create(dto: CreateUsuarioDto, responsableId: number) {
-    const existente = await this.prisma.usuario.findUnique({ where: { email: dto.email } });
-    if (existente) {
-      throw new ConflictException('Ya existe un usuario con ese email');
+
+    const email = dto.email.trim().toLowerCase();
+    
+    const emailexistente = await this.prisma.usuario.findUnique({ where: { email: dto.email } });
+    const dniexistente = await this.prisma.persona.findUnique({ where: { dni: dto.dni } });
+
+    if (emailexistente || dniexistente) {
+      throw new ConflictException('Ya existe un usuario con ese email o DNI');
     }
 
     const rolesIds = await this.resolverRoles(dto.roles);
@@ -39,6 +45,7 @@ export class UsuariosService {
 
     const usuario = await this.prisma.usuario.create({
       data: {
+        dni: dto.dni,
         email: dto.email,
         passwordHash,
         nombre: dto.nombre,
