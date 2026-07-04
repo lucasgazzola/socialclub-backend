@@ -50,6 +50,7 @@ model Rol {
 /// representa a alguien gestionado por el club (socio, alumno, participante).
 model Usuario {
   id                 Int                 @id @default(autoincrement())
+  dni                String?             @unique
   email              String              @unique
   passwordHash       String
   nombre             String

@@ -43,7 +43,6 @@ services:
       # ...pero conserva el node_modules y el dist del contenedor (evita que el
       # contenedor, que corre como root, escriba esas carpetas en el host).
       - /usr/src/app/node_modules
-      - /usr/src/app/dist
     depends_on:
       db:
         condition: service_healthy
