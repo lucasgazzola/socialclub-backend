@@ -1,10 +1,16 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
-import { UpdateUsuarioDto } from './dto/update-usuario.dto';
+import { UpdateUsuarioPasswordDto } from './dto/update-usuario.dto';
 
 const SALT_ROUNDS = 10;
 
@@ -30,23 +36,18 @@ export class UsuariosService {
 
   /** US-01: Registrar usuario administrativo */
   async create(dto: CreateUsuarioDto, responsableId: number) {
-
     const email = dto.email.trim().toLowerCase();
-    
-    const emailexistente = await this.prisma.usuario.findUnique({ where: { email: dto.email } });
-    const dniexistente = await this.prisma.persona.findUnique({ where: { dni: dto.dni } });
+    const dni = dto.dni.trim();
 
-    if (emailexistente || dniexistente) {
-      throw new ConflictException('Ya existe un usuario con ese email o DNI');
-    }
+    await this.validarUnicidad({ email, dni });
 
     const rolesIds = await this.resolverRoles(dto.roles);
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
 
     const usuario = await this.prisma.usuario.create({
       data: {
-        dni: dto.dni,
-        email: dto.email,
+        dni,
+        email,
         passwordHash,
         nombre: dto.nombre,
         apellido: dto.apellido,
@@ -84,14 +85,45 @@ export class UsuariosService {
   }
 
   /** US-02: Editar usuario administrativo */
-  async update(id: number, dto: UpdateUsuarioDto, responsableId: number) {
-    await this.findOne(id);
+  async update(id: number, dto: UpdateUsuarioPasswordDto, responsableId: number) {
+    const usuarioExistente = await this.prisma.usuario.findUnique({ where: { id } });
+    if (!usuarioExistente) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const email = dto.email?.trim().toLowerCase();
+    const dni = dto.dni?.trim();
+
+    if (email || dni) {
+      await this.validarUnicidad({ email, dni }, id);
+    }
 
     const data: Prisma.UsuarioUpdateInput = {};
     if (dto.nombre) data.nombre = dto.nombre;
     if (dto.apellido) data.apellido = dto.apellido;
-    if (dto.email) data.email = dto.email;
-    if (dto.password) data.passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
+    if (email) data.email = email;
+    if (dni) data.dni = dni;
+    if (dto.password) {
+      if (!dto.currentPassword) {
+        throw new BadRequestException(
+          'Debes indicar la contraseña actual para cambiar la contraseña.',
+        );
+      }
+
+      const passwordActualValida = await bcrypt.compare(
+        dto.currentPassword,
+        usuarioExistente.passwordHash,
+      );
+      if (!passwordActualValida) {
+        throw new UnauthorizedException('La contraseña actual es incorrecta');
+      }
+
+      data.passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
+    } else if (dto.currentPassword) {
+      throw new BadRequestException(
+        'La contraseña nueva es obligatoria si ingresas la contraseña actual.',
+      );
+    }
 
     if (dto.roles) {
       const rolesIds = await this.resolverRoles(dto.roles);
@@ -143,5 +175,35 @@ export class UsuariosService {
       throw new NotFoundException('Uno o más roles indicados no existen');
     }
     return roles.map((rol) => rol.id);
+  }
+
+  private async validarUnicidad(datos: { email?: string; dni?: string }, excluirId?: number) {
+    if (datos.email) {
+      const existente = await this.prisma.usuario.findFirst({
+        where: {
+          email: datos.email,
+          ...(excluirId ? { id: { not: excluirId } } : {}),
+        },
+        select: { id: true },
+      });
+
+      if (existente) {
+        throw new ConflictException('Ya existe otro usuario con ese email');
+      }
+    }
+
+    if (datos.dni) {
+      const existente = await this.prisma.usuario.findFirst({
+        where: {
+          dni: datos.dni,
+          ...(excluirId ? { id: { not: excluirId } } : {}),
+        },
+        select: { id: true },
+      });
+
+      if (existente) {
+        throw new ConflictException('Ya existe otro usuario con ese DNI');
+      }
+    }
   }
 }
