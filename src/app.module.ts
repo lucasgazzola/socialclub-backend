@@ -7,6 +7,7 @@ import { AuditoriaModule } from './auditoria/auditoria.module';
 import { AuthModule } from './auth/auth.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
 import { SociosModule } from './socios/socios.module';
+import { CategoriasModule } from './categorias/categorias.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { SociosModule } from './socios/socios.module';
     AuthModule,
     UsuariosModule,
     SociosModule,
+    CategoriasModule,
   ],
   controllers: [AppController],
 })

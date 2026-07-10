@@ -2,7 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { EstadoSocioFiltro, FindSociosQueryDto } from './dto/find-socios-query.dto';
 import { CreateSocioDto } from './dto/create-socio.dto';
 import { UpdateSocioDto } from './dto/update-socio.dto';
 
@@ -43,17 +43,39 @@ export class SociosService {
     return socio;
   }
 
-  /** US-15: Consultar socios, con búsqueda simple y paginación. */
-  async findAll({ busqueda, pagina, porPagina }: PaginationQueryDto) {
-    const where: Prisma.PersonaWhereInput = busqueda
-      ? {
-          OR: [
-            { nombre: { contains: busqueda, mode: 'insensitive' } },
-            { apellido: { contains: busqueda, mode: 'insensitive' } },
-            { dni: { contains: busqueda } },
-          ],
-        }
-      : {};
+  /**
+   * US-15: Buscar y filtrar socios.
+   * - Búsqueda parcial e insensible a mayúsculas por nombre, apellido o DNI.
+   * - Filtro opcional por categoría.
+   * - Filtro opcional por estado (alta/baja).
+   * - Todos los filtros son combinables entre sí.
+   * - Paginación resuelta enteramente en el backend (skip/take + count).
+   */
+  async findAll(query: FindSociosQueryDto) {
+    const { busqueda, categoriaId, estado, pagina, porPagina } = query;
+
+    const filtros: Prisma.PersonaWhereInput[] = [];
+
+    if (busqueda) {
+      const termino = busqueda.trim();
+      filtros.push({
+        OR: [
+          { nombre: { contains: termino, mode: 'insensitive' } },
+          { apellido: { contains: termino, mode: 'insensitive' } },
+          { dni: { contains: termino, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (categoriaId) {
+      filtros.push({ categoriaId });
+    }
+
+    if (estado) {
+      filtros.push({ activo: estado === EstadoSocioFiltro.ALTA });
+    }
+
+    const where: Prisma.PersonaWhereInput = filtros.length ? { AND: filtros } : {};
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.persona.findMany({

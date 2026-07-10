@@ -14,7 +14,7 @@ import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SociosService } from './socios.service';
 import { CreateSocioDto } from './dto/create-socio.dto';
 import { UpdateSocioDto } from './dto/update-socio.dto';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { FindSociosQueryDto } from './dto/find-socios-query.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -37,8 +37,10 @@ export class SociosController {
 
   @Get()
   @Roles('ADMIN', 'COLABORADOR')
-  @ApiOperation({ summary: 'US-15 — Consultar socios (con búsqueda y paginación)' })
-  findAll(@Query() query: PaginationQueryDto) {
+  @ApiOperation({
+    summary: 'US-15 — Buscar y filtrar socios (nombre, DNI, categoría, estado) con paginación',
+  })
+  findAll(@Query() query: FindSociosQueryDto) {
     return this.sociosService.findAll(query);
   }
 
