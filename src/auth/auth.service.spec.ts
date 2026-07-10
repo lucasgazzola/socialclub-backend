@@ -124,4 +124,20 @@ describe('AuthService', () => {
       expect(jwtMock.sign).not.toHaveBeenCalled();
     });
   });
+
+  // ── US-40: Cerrar sesión ───────────────────────────────────────────────────
+  describe('logout (US-40)', () => {
+    it('deja constancia del cierre de sesión en la auditoría', async () => {
+      await service.logout(7);
+
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'LOGOUT',
+          entidad: 'Usuario',
+          idEntidad: 7,
+          responsableId: 7,
+        }),
+      );
+    });
+  });
 });
