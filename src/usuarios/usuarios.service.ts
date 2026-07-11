@@ -150,9 +150,14 @@ export class UsuariosService {
 
   /** US-03: Dar de baja (baja lógica; nunca se elimina físicamente). */
   async deactivate(id: number, responsableId: number) {
-    await this.findOne(id);
+    
+    const usuario = await this.findOne(id);
 
-    const usuario = await this.prisma.usuario.update({
+    if (!usuario.activo) {
+      throw new BadRequestException('El usuario ya está inactivo');
+    }
+
+    const actualizado = await this.prisma.usuario.update({
       where: { id },
       data: { activo: false },
       select: SELECT_PUBLICO,
@@ -165,7 +170,7 @@ export class UsuariosService {
       responsableId,
     });
 
-    return usuario;
+    return actualizado;
   }
 
   /** Traduce nombres de rol a sus ids, validando que todos existan. */
