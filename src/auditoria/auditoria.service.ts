@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AccionAuditoria, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { FindAuditoriaQueryDto } from './dto/find-auditoria-query.dto'; // Asegúrate de que esta ruta sea la correcta
 
 interface RegistrarParams {
   accion: AccionAuditoria;
@@ -45,5 +46,38 @@ export class AuditoriaService {
         responsable: { select: { id: true, email: true, nombre: true, apellido: true } },
       },
     });
+  }
+
+  async listarTodos(query: FindAuditoriaQueryDto) {
+    const { accion, entidad, responsableId, fechaDesde, fechaHasta, pagina = 1, porPagina = 20 } = query;
+
+    const where: Prisma.RegistroAuditoriaWhereInput = {
+      ...(accion && { accion }),
+      ...(entidad && { entidad }),
+      ...(responsableId && { responsableId }),
+      ...((fechaDesde || fechaHasta) && {
+        fechaHora: {
+          ...(fechaDesde && { gte: new Date(fechaDesde) }),
+          ...(fechaHasta && { lte: new Date(fechaHasta) }),
+        },
+      }),
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.registroAuditoria.findMany({
+        where,
+        orderBy: { fechaHora: 'desc' },
+        skip: (pagina - 1) * porPagina,
+        take: porPagina,
+        include: {
+          responsable: {
+            select: { id: true, email: true, nombre: true, apellido: true },
+          },
+        },
+      }),
+      this.prisma.registroAuditoria.count({ where }),
+    ]);
+
+    return { items, total, pagina, porPagina };
   }
 }

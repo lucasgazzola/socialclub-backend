@@ -1,12 +1,10 @@
 import { Global, Module } from '@nestjs/common';
 import { AuditoriaService } from './auditoria.service';
+import { AuditoriaController } from './auditoria.controller';
 
-/**
- * Módulo global: cualquier módulo de dominio puede inyectar AuditoriaService
- * para registrar sus operaciones sin importarlo explícitamente.
- */
 @Global()
 @Module({
+  controllers: [AuditoriaController],
   providers: [AuditoriaService],
   exports: [AuditoriaService],
 })
