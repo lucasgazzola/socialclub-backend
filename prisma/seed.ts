@@ -4,8 +4,12 @@ import * as bcrypt from 'bcrypt';
 
 /**
  * Seed idempotente: puede ejecutarse múltiples veces sin duplicar datos
- * (usa `upsert`). Crea los roles base, una categoría de socio inicial y el
- * usuario administrador con el que el equipo arranca el sistema.
+ * (usa `upsert`). Crea los roles base, una categoría de socio inicial, el
+ * usuario administrador con el que el equipo arranca el sistema y un set de
+ * eventos de ejemplo (mock).
+ *
+ * IMPORTANTE: los eventos solo se crean si la tabla está vacía, para no pisar
+ * los eventos creados desde la user story de "crear evento".
  */
 const prisma = new PrismaClient();
 
@@ -48,6 +52,45 @@ async function main() {
       roles: { create: [{ rolId: rolAdmin.id }] },
     },
   });
+
+  // ── Mock de eventos ────────────────────────────────────────────────────────
+  // Se insertan únicamente si no existe ningún evento, así la futura pantalla
+  // de "crear evento" no se ve afectada por datos de ejemplo repetidos.
+  const cantidadEventos = await prisma.evento.count();
+  if (cantidadEventos === 0) {
+    const eventos = [
+      {
+        nombre: 'Fiesta de Fin de Año',
+        descripcion: 'Celebración anual del club con música en vivo y cena.',
+        entradasDisponibles: 150,
+      },
+      {
+        nombre: 'Torneo de Fútbol 2026',
+        descripcion: 'Torneo interclubes de fútbol 7. Incluye partidos los fines de semana.',
+        entradasDisponibles: 80,
+      },
+      {
+        nombre: 'Gran Baile de Carnaval',
+        descripcion: 'Noche de disfraces y música de carnaval con bandas locales.',
+        entradasDisponibles: 200,
+      },
+      {
+        nombre: 'Show de Stand-Up',
+        descripcion: 'Noche de humor con comediantes invitados.',
+        entradasDisponibles: 60,
+      },
+      {
+        nombre: 'Clínica de Natación',
+        descripcion: 'Jornada de entrenamiento y técnicas de natación para todas las edades.',
+        entradasDisponibles: 40,
+      },
+    ];
+
+    for (const evento of eventos) {
+      await prisma.evento.create({ data: evento });
+    }
+    console.log(`  ${eventos.length} evento(s) de ejemplo creados.`);
+  }
 
   console.log('Seed completado.');
   console.log(`  Usuario admin: ${admin.email} / contraseña: ${passwordPlano}`);

@@ -49,7 +49,15 @@ export class AuditoriaService {
   }
 
   async listarTodos(query: FindAuditoriaQueryDto) {
-    const { accion, entidad, responsableId, fechaDesde, fechaHasta, pagina = 1, porPagina = 20 } = query;
+    const {
+      accion,
+      entidad,
+      responsableId,
+      fechaDesde,
+      fechaHasta,
+      pagina = 1,
+      porPagina = 20,
+    } = query;
 
     const where: Prisma.RegistroAuditoriaWhereInput = {
       ...(accion && { accion }),

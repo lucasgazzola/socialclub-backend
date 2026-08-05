@@ -8,6 +8,8 @@ import { AuthModule } from './auth/auth.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
 import { SociosModule } from './socios/socios.module';
 import { CategoriasModule } from './categorias/categorias.module';
+import { EventosModule } from './eventos/eventos.module';
+import { EntradasModule } from './entradas/entradas.module';
 
 @Module({
   imports: [
@@ -23,6 +25,8 @@ import { CategoriasModule } from './categorias/categorias.module';
     UsuariosModule,
     SociosModule,
     CategoriasModule,
+    EventosModule,
+    EntradasModule,
   ],
   controllers: [AppController],
 })
