@@ -6,6 +6,7 @@
 //   - Auditoría inalterable de operaciones        → US-32 / RF12 / RNF03
 //   - Usuarios administrativos con roles           → US-01, US-02, US-03 / RF02
 //   - Socios (Persona + CategoriaSocio)            → US-12 a US-15 / RF01
+//   - Eventos y Entradas con código QR             → US-XX (entradas únicas)
 //
 // El modelo está diseñado para crecer hacia el dominio completo del Diagrama de
 // Clases (Disciplina, Inscripcion, CuotaSocio, Pago, Evento, Entrada,
@@ -32,6 +33,14 @@ enum AccionAuditoria {
   LOGIN
   LOGOUT
   LOGIN_FALLIDO
+}
+
+/// Estados posibles de una entrada vendida. Una entrada nace VALIDA y cambia
+/// de estado cuando se la usa (acceso al evento) o cuando expira.
+enum EstadoEntrada {
+  VALIDA
+  USADA
+  EXPIRADA
 }
 
 /// Catálogo de roles del sistema. Un Usuario puede tener uno o más roles
@@ -110,6 +119,36 @@ model Persona {
   @@map("personas")
 }
 
+/// Evento del club. Cada Evento tiene un cupo de entradas disponibles; al
+/// vender entradas se decrementa ese cupo de forma atómica.
+model Evento {
+  id                  Int       @id @default(autoincrement())
+  nombre              String
+  descripcion         String?
+  entradasDisponibles Int       @default(0)
+  entradas            Entrada[]
+  creadoEn            DateTime  @default(now())
+  actualizadoEn       DateTime  @updatedAt
+
+  @@map("eventos")
+}
+
+/// Entrada única de un Evento. El `token` es un UUID v4 generado por el sistema
+/// (único e irrepetible) que se codifica en el código QR de la entrada.
+/// La constraint `@unique` en `token` garantiza que no existen dos entradas
+/// con el mismo identificador (criterio de aceptación de la US).
+model Entrada {
+  id       Int           @id @default(autoincrement())
+  token    String        @unique // UUID v4 seguro, único por entrada
+  eventoId Int
+  evento   Evento        @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  estado   EstadoEntrada @default(VALIDA)
+  creadoEn DateTime      @default(now())
+
+  @@index([eventoId])
+  @@map("entradas")
+}
+
 /// Registro de auditoría inalterable (RF12 / RNF03 / RNF11).
 /// IMPORTANTE: esta tabla SOLO admite INSERT desde la aplicación.
 /// No debe ejecutarse UPDATE ni DELETE sobre ella (ver AuditoriaService).
@@ -117,7 +156,7 @@ model RegistroAuditoria {
   id            Int             @id @default(autoincrement())
   fechaHora     DateTime        @default(now())
   accion        AccionAuditoria
-  entidad       String // "Usuario" | "Persona" | ...
+  entidad       String // "Usuario" | "Persona" | "Evento" | "Entrada" | ...
   idEntidad     Int?
   detalle       String?
   responsableId Int?
@@ -126,99 +165,4 @@ model RegistroAuditoria {
   @@index([entidad, idEntidad])
   @@index([fechaHora])
   @@map("registros_auditoria")
-}
-
-/// Disciplina o deporte al que se pueden inscribir participantes.
-model Disciplina {
-  id            Int                    @id @default(autoincrement())
-  nombre        String                 @unique
-  descripcion   String?
-  activo        Boolean                @default(true)
-  creadoEn      DateTime               @default(now())
-  actualizadoEn DateTime               @updatedAt
-
-  categorias    CategoriaDisciplina[]
-  inscripciones Inscripcion[]
-  valoresCuota  ValorCuotaDisciplina[]
-
-  @@map("disciplinas")
-}
-
-/// Categoría dentro de una disciplina (ej: "Sub-15", "Primera", "Adultos").
-model CategoriaDisciplina {
-  id           Int      @id @default(autoincrement())
-  nombre       String
-  disciplinaId Int
-  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id])
-  activo       Boolean  @default(true)
-  creadoEn     DateTime @default(now())
-
-  inscripciones Inscripcion[]
-  valoresCuota  ValorCuotaDisciplina[]
-
-  @@unique([disciplinaId, nombre])
-  @@unique([id, disciplinaId])
-  @@map("categorias_disciplina")
-}
-
-/// Una persona puede inscribirse en varias disciplinas a la vez, 
-/// y cada inscripción se asocia como máximo
-/// a una única CategoriaDisciplina.
-model Inscripcion {
-  id                    Int                  @id @default(autoincrement())
-  personaId             Int
-  persona               Persona              @relation(fields: [personaId], references: [id])
-  disciplinaId          Int
-  disciplina            Disciplina           @relation(fields: [disciplinaId], references: [id])
-  categoriaDisciplinaId Int?
-  categoriaDisciplina   CategoriaDisciplina? @relation(fields: [categoriaDisciplinaId], references: [id])
-
-  fechaInscripcion DateTime @default(now())
-  activo           Boolean  @default(true)
-  creadoEn         DateTime @default(now())
-  actualizadoEn    DateTime @updatedAt
-
-  cuotas CuotaParticipante[]
-
-  @@unique([personaId, disciplinaId])
-  @@index([disciplinaId])
-  @@map("inscripciones")
-}
-
-model ValorCuotaDisciplina {
-  id                    Int                  @id @default(autoincrement())
-  disciplinaId          Int
-  disciplina            Disciplina           @relation(fields: [disciplinaId], references: [id])
-  categoriaDisciplinaId Int?
-  categoriaDisciplina   CategoriaDisciplina? @relation(fields: [categoriaDisciplinaId, disciplinaId], references: [id, disciplinaId])
-
-  monto        Decimal
-  vigenteDesde DateTime @default(now())
-  activo       Boolean  @default(true)
-
-  cuotas CuotaParticipante[]
-
-  @@unique([disciplinaId, categoriaDisciplinaId, vigenteDesde])
-  @@index([disciplinaId, categoriaDisciplinaId, activo])
-  @@map("valores_cuota_disciplina")
-}
-
-/// Cuota generada automáticamente al inscribir a un participante,
-/// en base al ValorCuotaDisciplina vigente para esa disciplina/categoría.
-model CuotaParticipante {
-  id             Int                   @id @default(autoincrement())
-  inscripcionId  Int
-  inscripcion    Inscripcion           @relation(fields: [inscripcionId], references: [id])
-  valorCuotaId   Int?
-  valorCuota     ValorCuotaDisciplina? @relation(fields: [valorCuotaId], references: [id])
-
-  periodo          String // ej: "2026-07"
-  monto            Decimal
-  fechaVencimiento DateTime
-  pagada           Boolean  @default(false)
-  fechaPago        DateTime?
-  creadoEn         DateTime @default(now())
-
-  @@unique([inscripcionId, periodo])
-  @@map("cuotas_participante")
 }
