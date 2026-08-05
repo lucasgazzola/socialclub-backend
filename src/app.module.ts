@@ -8,7 +8,8 @@ import { AuthModule } from './auth/auth.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
 import { SociosModule } from './socios/socios.module';
 import { CategoriasModule } from './categorias/categorias.module';
-import { InscripcionModule } from './inscripcion/inscripcion.module';
+import { EventosModule } from './eventos/eventos.module';
+import { EntradasModule } from './entradas/entradas.module';
 
 @Module({
   imports: [
@@ -24,7 +25,8 @@ import { InscripcionModule } from './inscripcion/inscripcion.module';
     UsuariosModule,
     SociosModule,
     CategoriasModule,
-    InscripcionModule,
+    EventosModule,
+    EntradasModule,
   ],
   controllers: [AppController],
 })
