@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
 import { SociosModule } from './socios/socios.module';
 import { CategoriasModule } from './categorias/categorias.module';
+import { InscripcionModule } from './inscripcion/inscripcion.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { CategoriasModule } from './categorias/categorias.module';
     UsuariosModule,
     SociosModule,
     CategoriasModule,
+    InscripcionModule,
   ],
   controllers: [AppController],
 })
