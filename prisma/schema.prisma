@@ -202,3 +202,98 @@ model RegistroAuditoria {
   @@index([fechaHora])
   @@map("registros_auditoria")
 }
+
+/// Disciplina o deporte al que se pueden inscribir participantes.
+model Disciplina {
+  id            Int                    @id @default(autoincrement())
+  nombre        String                 @unique
+  descripcion   String?
+  activo        Boolean                @default(true)
+  creadoEn      DateTime               @default(now())
+  actualizadoEn DateTime               @updatedAt
+
+  categorias    CategoriaDisciplina[]
+  inscripciones Inscripcion[]
+  valoresCuota  ValorCuotaDisciplina[]
+
+  @@map("disciplinas")
+}
+
+/// Categoría dentro de una disciplina (ej: "Sub-15", "Primera", "Adultos").
+model CategoriaDisciplina {
+  id           Int      @id @default(autoincrement())
+  nombre       String
+  disciplinaId Int
+  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id])
+  activo       Boolean  @default(true)
+  creadoEn     DateTime @default(now())
+
+  inscripciones Inscripcion[]
+  valoresCuota  ValorCuotaDisciplina[]
+
+  @@unique([disciplinaId, nombre])
+  @@unique([id, disciplinaId])
+  @@map("categorias_disciplina")
+}
+
+/// Una persona puede inscribirse en varias disciplinas a la vez, 
+/// y cada inscripción se asocia como máximo
+/// a una única CategoriaDisciplina.
+model Inscripcion {
+  id                    Int                  @id @default(autoincrement())
+  personaId             Int
+  persona               Persona              @relation(fields: [personaId], references: [id])
+  disciplinaId          Int
+  disciplina            Disciplina           @relation(fields: [disciplinaId], references: [id])
+  categoriaDisciplinaId Int?
+  categoriaDisciplina   CategoriaDisciplina? @relation(fields: [categoriaDisciplinaId], references: [id])
+
+  fechaInscripcion DateTime @default(now())
+  activo           Boolean  @default(true)
+  creadoEn         DateTime @default(now())
+  actualizadoEn    DateTime @updatedAt
+
+  cuotas CuotaParticipante[]
+
+  @@unique([personaId, disciplinaId])
+  @@index([disciplinaId])
+  @@map("inscripciones")
+}
+
+model ValorCuotaDisciplina {
+  id                    Int                  @id @default(autoincrement())
+  disciplinaId          Int
+  disciplina            Disciplina           @relation(fields: [disciplinaId], references: [id])
+  categoriaDisciplinaId Int?
+  categoriaDisciplina   CategoriaDisciplina? @relation(fields: [categoriaDisciplinaId, disciplinaId], references: [id, disciplinaId])
+
+  monto        Decimal
+  vigenteDesde DateTime @default(now())
+  activo       Boolean  @default(true)
+
+  cuotas CuotaParticipante[]
+
+  @@unique([disciplinaId, categoriaDisciplinaId, vigenteDesde])
+  @@index([disciplinaId, categoriaDisciplinaId, activo])
+  @@map("valores_cuota_disciplina")
+}
+
+/// Cuota generada automáticamente al inscribir a un participante,
+/// en base al ValorCuotaDisciplina vigente para esa disciplina/categoría.
+model CuotaParticipante {
+  id             Int                   @id @default(autoincrement())
+  inscripcionId  Int
+  inscripcion    Inscripcion           @relation(fields: [inscripcionId], references: [id])
+  valorCuotaId   Int?
+  valorCuota     ValorCuotaDisciplina? @relation(fields: [valorCuotaId], references: [id])
+
+  periodo          String // ej: "2026-07"
+  monto            Decimal
+  fechaVencimiento DateTime
+  pagada           Boolean  @default(false)
+  fechaPago        DateTime?
+  creadoEn         DateTime @default(now())
+
+  @@unique([inscripcionId, periodo])
+  @@map("cuotas_participante")
+}
