@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UnauthorizedException } from '@nestjs/common';
+import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,6 +20,7 @@ describe('AuthService', () => {
     usuario: {
       findUnique: jest.fn(),
       update: jest.fn(),
+      create: jest.fn(),
     },
   };
   const jwtMock = { sign: jest.fn() };
@@ -138,6 +139,54 @@ describe('AuthService', () => {
           responsableId: 7,
         }),
       );
+    });
+  });
+
+  // ── US-38: Registro público ────────────────────────────────────────────────
+  describe('register (US-38)', () => {
+    const dto = {
+      email: 'Nuevo@SocialClub.local',
+      password: 'Nuevo123!',
+      nombre: 'Ana',
+      apellido: 'Pérez',
+    };
+
+    it('crea la cuenta sin roles, normaliza el email y audita CREAR', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(null);
+      prismaMock.usuario.create.mockResolvedValue({
+        id: 12,
+        email: 'nuevo@socialclub.local',
+        nombre: 'Ana',
+        apellido: 'Pérez',
+      });
+
+      const { usuario } = await service.register(dto);
+
+      // El alta pública nace sin roles (los asigna un ADMIN después).
+      expect(usuario).toEqual({
+        id: 12,
+        email: 'nuevo@socialclub.local',
+        nombre: 'Ana',
+        apellido: 'Pérez',
+        roles: [],
+      });
+      // Email normalizado a minúsculas y contraseña guardada como hash (no plana).
+      const dataCreada = prismaMock.usuario.create.mock.calls[0][0].data;
+      expect(dataCreada.email).toBe('nuevo@socialclub.local');
+      expect(dataCreada.passwordHash).not.toBe(dto.password);
+      expect(bcrypt.compareSync(dto.password, dataCreada.passwordHash)).toBe(true);
+      expect(dataCreada.roles).toBeUndefined();
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({ accion: 'CREAR', entidad: 'Usuario', idEntidad: 12 }),
+      );
+    });
+
+    it('rechaza el registro si el email ya está en uso', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ id: 1 });
+
+      await expect(service.register(dto)).rejects.toBeInstanceOf(ConflictException);
+      // No crea el usuario duplicado.
+      expect(prismaMock.usuario.create).not.toHaveBeenCalled();
     });
   });
 });

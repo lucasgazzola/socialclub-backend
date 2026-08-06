@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import type { CookieOptions, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from './types/authenticated-user';
@@ -26,6 +27,12 @@ export class AuthController {
       sameSite: 'lax',
       maxAge: COOKIE_MAX_AGE_MS,
     };
+  }
+
+  @Post('register')
+  @ApiOperation({ summary: 'US-38 — Registrarse como usuario' })
+  async register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
   }
 
   @Post('login')
