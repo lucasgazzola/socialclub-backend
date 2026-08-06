@@ -10,6 +10,8 @@ import { SociosModule } from './socios/socios.module';
 import { CategoriasModule } from './categorias/categorias.module';
 import { EventosModule } from './eventos/eventos.module';
 import { EntradasModule } from './entradas/entradas.module';
+import { DisciplinasModule } from './disciplinas/disciplinas.module';
+import { CuotasModule } from './cuotas/cuotas.module';
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { EntradasModule } from './entradas/entradas.module';
     CategoriasModule,
     EventosModule,
     EntradasModule,
+    DisciplinasModule,
+    CuotasModule,
   ],
   controllers: [AppController],
 })

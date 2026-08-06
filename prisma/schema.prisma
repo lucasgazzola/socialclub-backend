@@ -89,12 +89,48 @@ model UsuarioRol {
 /// Categoría de socio (ej: Activo, Vitalicio, Cadete). En sprints posteriores
 /// condiciona el cálculo de cuotas (RF04).
 model CategoriaSocio {
-  id          Int       @id @default(autoincrement())
-  nombre      String    @unique
-  descripcion String?
-  personas    Persona[]
+  id                             Int                                @id @default(autoincrement())
+  nombre                         String                             @unique
+  descripcion                    String?
+  personas                       Persona[]
+  configuracionesCuotaDeportiva  ConfiguracionCuotaDeportiva[]
 
   @@map("categorias_socio")
+}
+
+/// Disciplina deportiva del club (ej: Fútbol, Vóley, Básquet). Cada una puede
+/// tener un monto de cuota mensual distinto por categoría de socio.
+model Disciplina {
+  id                             Int                                @id @default(autoincrement())
+  nombre                         String                             @unique
+  descripcion                    String?
+  activo                         Boolean                            @default(true)
+  creadoEn                       DateTime                           @default(now())
+  actualizadoEn                  DateTime                           @updatedAt
+  configuracionesCuotaDeportiva  ConfiguracionCuotaDeportiva[]
+
+  @@map("disciplinas")
+}
+
+/// Configuración del monto mensual de la cuota deportiva por combinación
+/// disciplina-categoría-período.
+/// Los cambios de monto aplican a partir del período siguiente al configurado,
+/// conservando el histórico de períodos anteriores.
+model ConfiguracionCuotaDeportiva {
+  id               Int             @id @default(autoincrement())
+  disciplinaId     Int
+  categoriaId      Int
+  periodoAplicacion String         // "YYYY-MM" — período al que aplica el monto
+  monto            Decimal         @db.Decimal(12, 2)
+  activo           Boolean         @default(true)
+  creadoEn         DateTime        @default(now())
+  actualizadoEn    DateTime        @updatedAt
+  disciplina       Disciplina      @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
+  categoria        CategoriaSocio  @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+
+  @@unique([disciplinaId, categoriaId, periodoAplicacion])
+  @@index([periodoAplicacion])
+  @@map("configuraciones_cuota_deportiva")
 }
 
 /// Persona gestionada por la organización. En el Diagrama de Clases es la

@@ -31,11 +31,36 @@ async function main() {
     },
   });
 
-  await prisma.categoriaSocio.upsert({
-    where: { nombre: 'Activo' },
-    update: {},
-    create: { nombre: 'Activo', descripcion: 'Socio activo con cuota al día' },
-  });
+  // ── Categorías de socio (upsert: idempotente) ──────────────────────────────
+  const categorias = [
+    { nombre: 'Senior', descripcion: 'Socios de la categoría senior' },
+    { nombre: 'Mayores', descripcion: 'Socios de la categoría mayores' },
+    { nombre: 'Infantil', descripcion: 'Socios de la categoría infantil' },
+  ];
+  for (const categoria of categorias) {
+    await prisma.categoriaSocio.upsert({
+      where: { nombre: categoria.nombre },
+      update: {},
+      create: categoria,
+    });
+  }
+
+  // ── Disciplinas deportivas (upsert: idempotente) ───────────────────────────
+  const disciplinas = [
+    { nombre: 'Fútbol Mayor' },
+    { nombre: 'Fútbol Femenino' },
+    { nombre: 'Jockey Femenino' },
+    { nombre: 'Natación' },
+    { nombre: 'Pelota Paleta' },
+  ];
+  for (const disciplina of disciplinas) {
+    await prisma.disciplina.upsert({
+      where: { nombre: disciplina.nombre },
+      update: {},
+      create: disciplina,
+    });
+  }
+  console.log(`  ${disciplinas.length} disciplina(s) aseguradas.`);
 
   const email = process.env.SEED_ADMIN_EMAIL ?? 'admin@socialclub.local';
   const passwordPlano = process.env.SEED_ADMIN_PASSWORD ?? 'Admin123!';
