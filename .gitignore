@@ -27,3 +27,6 @@ coverage/
 *.tsbuildinfo
 
 dist/
+
+# Seed compilado (build artifact para imagen prod)
+prisma/seed.js

@@ -34,7 +34,7 @@ CMD ["npm", "run", "dev"]
 #####################################################################
 FROM deps AS build
 COPY . .
-RUN npx prisma generate && npm run build && npm prune --omit=dev
+RUN npx prisma generate && npm run build && npm run build:seed && npm prune --omit=dev
 
 #####################################################################
 # Etapa prod: imagen final liviana, sin herramientas de build.
