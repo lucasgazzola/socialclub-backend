@@ -1,8 +1,11 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
+import { RegisterDto } from './dto/register.dto';
+
+const SALT_ROUNDS = 10;
 
 @Injectable()
 export class AuthService {
@@ -11,6 +14,44 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly auditoria: AuditoriaService,
   ) {}
+
+  /**
+   * US-38: Registro público de usuario. Crea la cuenta sin roles (un ADMIN los
+   * asigna luego) y sin iniciar sesión: el usuario ingresa después vía /login.
+   */
+  async register(dto: RegisterDto) {
+    const email = dto.email.trim().toLowerCase();
+
+    const existente = await this.prisma.usuario.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    if (existente) {
+      throw new ConflictException('Ya existe un usuario registrado con ese email');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
+
+    const usuario = await this.prisma.usuario.create({
+      data: {
+        email,
+        passwordHash,
+        nombre: dto.nombre,
+        apellido: dto.apellido,
+      },
+      select: { id: true, email: true, nombre: true, apellido: true },
+    });
+
+    await this.auditoria.registrar({
+      accion: 'CREAR',
+      entidad: 'Usuario',
+      idEntidad: usuario.id,
+      responsableId: usuario.id,
+      detalle: 'Auto-registro público (US-38)',
+    });
+
+    return { usuario: { ...usuario, roles: [] as string[] } };
+  }
 
   /** US-39: Iniciar sesión. Valida credenciales y emite un JWT. */
   async login(email: string, password: string) {
