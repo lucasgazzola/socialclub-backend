@@ -1,0 +1,35 @@
+# CI — se ejecuta en Pull Requests a dev/test/main y en push a dev.
+# Valida lint + tests + build. NO despliega.
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, test, main]
+  push:
+    branches: [dev]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Generar Prisma Client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests (Jest)
+        run: npm test
+
+      - name: Build
+        run: npm run build
