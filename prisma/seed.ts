@@ -118,8 +118,14 @@ async function main() {
   }
 
   console.log('Seed completado.');
-  console.log(`  Usuario admin: ${admin.email} / contraseña: ${passwordPlano}`);
-  console.log('  IMPORTANTE: cambiá esta contraseña fuera del entorno local.');
+  // La contraseña en texto plano solo se muestra fuera de producción, para no
+  // exponerla en los logs del contenedor en entornos productivos.
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`  Usuario admin: ${admin.email} / contraseña: ${passwordPlano}`);
+    console.log('  IMPORTANTE: cambiá esta contraseña fuera del entorno local.');
+  } else {
+    console.log(`  Usuario admin: ${admin.email} (contraseña oculta en producción)`);
+  }
 }
 
 main()

@@ -76,6 +76,7 @@ jobs:
                      seed-admin-password=${{ secrets.SEED_ADMIN_PASSWORD }}"
 
             ENVVARS="NODE_ENV=production PORT=3000 JWT_EXPIRES_IN=8h \
+                     SWAGGER_ENABLED=true \
                      CORS_ORIGIN=${{ secrets.CORS_ORIGIN }} \
                      SEED_ADMIN_EMAIL=${{ secrets.SEED_ADMIN_EMAIL }} \
                      DATABASE_URL=secretref:database-url \
