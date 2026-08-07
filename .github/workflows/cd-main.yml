@@ -1,0 +1,99 @@
+# CD MAIN (producción) — se ejecuta en push a la rama `main`.
+# Igual que cd-test pero contra el entorno MAIN. El environment `production`
+# de GitHub debe tener configurado un reviewer para exigir aprobación manual.
+name: CD Main
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: cd-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production # aprobación manual vía protection rules
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}
+      RESOURCE_GROUP: rg-socialclub
+      ACA_ENV: cae-socialclub
+      APP_NAME: ca-socialclub-api-main
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login a ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push imagen (target prod)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: prod
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:main
+            ${{ env.IMAGE }}:main-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Login a Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy a Azure Container Apps
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            set -e
+            az extension add --name containerapp --only-show-errors || true
+            RESOURCE_GROUP="rg-socialclub"
+            ACA_ENV="cae-socialclub"
+            APP_NAME="ca-socialclub-api-main"
+            IMG="ghcr.io/${{ github.repository }}:main-${{ github.sha }}"
+
+            SECRETS="database-url=${{ secrets.DATABASE_URL }} \
+                     jwt-secret=${{ secrets.JWT_SECRET }} \
+                     seed-admin-password=${{ secrets.SEED_ADMIN_PASSWORD }}"
+
+            ENVVARS="NODE_ENV=production PORT=3000 JWT_EXPIRES_IN=8h \
+                     CORS_ORIGIN=${{ secrets.CORS_ORIGIN }} \
+                     SEED_ADMIN_EMAIL=${{ secrets.SEED_ADMIN_EMAIL }} \
+                     DATABASE_URL=secretref:database-url \
+                     JWT_SECRET=secretref:jwt-secret \
+                     SEED_ADMIN_PASSWORD=secretref:seed-admin-password"
+
+            if az containerapp show -g "$RESOURCE_GROUP" -n "$APP_NAME" >/dev/null 2>&1; then
+              echo "Actualizando Container App existente..."
+              az containerapp secret set -g "$RESOURCE_GROUP" -n "$APP_NAME" --secrets $SECRETS
+              az containerapp update -g "$RESOURCE_GROUP" -n "$APP_NAME" \
+                --image "$IMG" --set-env-vars $ENVVARS
+            else
+              echo "Creando Container App..."
+              az containerapp create -g "$RESOURCE_GROUP" -n "$APP_NAME" \
+                --environment "$ACA_ENV" \
+                --image "$IMG" \
+                --target-port 3000 --ingress external \
+                --min-replicas 0 --max-replicas 1 \
+                --cpu 0.5 --memory 1.0Gi \
+                --secrets $SECRETS \
+                --env-vars $ENVVARS
+            fi
+
+            FQDN=$(az containerapp show -g "$RESOURCE_GROUP" -n "$APP_NAME" \
+              --query "properties.configuration.ingress.fqdn" -o tsv)
+            echo "API MAIN desplegada en: https://$FQDN/api/v1"
