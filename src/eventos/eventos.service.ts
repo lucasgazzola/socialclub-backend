@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditoriaService } from '../auditoria/auditoria.service';
+import { CrearEventoDto } from './dto/crear-evento.dto';
 
 /**
  * Servicio del modulo Eventos.
@@ -9,7 +11,10 @@ import { PrismaService } from '../prisma/prisma.service';
  */
 @Injectable()
 export class EventosService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+  private readonly prisma: PrismaService,
+  private readonly auditoria: AuditoriaService,
+) {}
 
   async findAll() {
     const items = await this.prisma.evento.findMany({
@@ -41,4 +46,26 @@ export class EventosService {
     const { _count, ...rest } = evento;
     return { ...rest, entradasVendidas: _count.entradas };
   }
+
+  async create(dto: CrearEventoDto, responsableId: number) {
+  const evento = await this.prisma.evento.create({
+    data: {
+      nombre: dto.nombre,
+      descripcion: dto.descripcion,
+      entradasDisponibles: dto.entradasDisponibles,
+    },
+  });
+
+  await this.auditoria.registrar({
+    accion: 'CREAR',
+    entidad: 'Evento',
+    idEntidad: evento.id,
+    responsableId,
+  });
+
+  return evento;
 }
+  
+}
+
+
