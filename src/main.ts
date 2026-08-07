@@ -42,8 +42,13 @@ async function bootstrap() {
   // Formato de error consistente para toda la API
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  // Documentación Swagger (solo fuera de producción)
-  if (nodeEnv !== 'production') {
+  // Documentación Swagger: visible en todos los entornos salvo producción (main).
+  // Por defecto se muestra fuera de 'production'. `SWAGGER_ENABLED` permite forzarlo
+  // independientemente de NODE_ENV: el entorno test corre con NODE_ENV=production
+  // (por la cookie `Secure` cross-site) pero igual expone Swagger con SWAGGER_ENABLED=true.
+  const swaggerEnabled =
+    (config.get<string>('SWAGGER_ENABLED') ?? (nodeEnv !== 'production' ? 'true' : 'false')) === 'true';
+  if (swaggerEnabled) {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('SocialClub API')
       .setDescription('API REST del sistema SocialClub')
