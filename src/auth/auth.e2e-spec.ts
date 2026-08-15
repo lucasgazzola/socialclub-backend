@@ -11,23 +11,13 @@ import { AuditoriaService } from '../auditoria/auditoria.service';
 
 /**
  * e2e de US-38 (registro público) contra AuthController + AuthService reales,
- * con PrismaService/JwtService/AuditoriaService/ConfigService mockeados (no
- * hay DB real acá). Cubre:
+ * con PrismaService/JwtService/AuditoriaService/ConfigService mockeados.
  *   TC-070 -> registro válido: no setea cookie (no auto-login) y responde con
  *             el usuario sin roles
  *   TC-071 -> con la cuenta recién registrada, login exitoso setea la cookie
  *             de sesión (US-39)
  *   TC-073 -> email duplicado -> 409
  *   TC-077 -> payload con "roles" -> 400 (rechazado por el ValidationPipe)
- *
- * SUPUESTO EXPLÍCITO: para que TC-077 devuelva 400 (y no simplemente ignore
- * el campo, que es lo que ya garantiza el AuthService a nivel unitario) el
- * bootstrap real de la app necesita:
- *   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
- * y que `RegisterDto` esté decorado con class-validator sin una propiedad
- * `roles` permitida. No tengo `register.dto.ts` para confirmar los
- * decoradores exactos ni el `main.ts`/bootstrap real, así que replico esa
- * config acá; si en el proyecto el pipe se configura distinto, alinear.
  */
 describe('AuthController (e2e) — US-38', () => {
   let app: INestApplication;
