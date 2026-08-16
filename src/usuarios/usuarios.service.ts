@@ -150,7 +150,6 @@ export class UsuariosService {
 
   /** US-03: Dar de baja (baja lógica; nunca se elimina físicamente). */
   async deactivate(id: number, responsableId: number) {
-    
     const usuario = await this.findOne(id);
 
     if (!usuario.activo) {
@@ -165,6 +164,30 @@ export class UsuariosService {
 
     await this.auditoria.registrar({
       accion: 'BAJA',
+      entidad: 'Usuario',
+      idEntidad: id,
+      responsableId,
+    });
+
+    return actualizado;
+  }
+
+  /** US-03 (complemento): Reactivar un usuario previamente dado de baja. */
+  async activate(id: number, responsableId: number) {
+    const usuario = await this.findOne(id);
+
+    if (usuario.activo) {
+      throw new BadRequestException('El usuario ya está activo');
+    }
+
+    const actualizado = await this.prisma.usuario.update({
+      where: { id },
+      data: { activo: true },
+      select: SELECT_PUBLICO,
+    });
+
+    await this.auditoria.registrar({
+      accion: 'REACTIVAR',
       entidad: 'Usuario',
       idEntidad: id,
       responsableId,
