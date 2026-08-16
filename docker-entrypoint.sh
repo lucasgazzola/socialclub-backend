@@ -23,7 +23,13 @@ else
 fi
 
 echo "[entrypoint] Ejecutando seed..."
-npm run prisma:seed || echo "[entrypoint] Seed omitido o ya aplicado."
+# En prod usamos el seed precompilado a JS (node puro, sin ts-node); en dev,
+# si no existe el compilado, caemos al seed vía ts-node.
+if [ -f prisma/seed.js ]; then
+  node prisma/seed.js || echo "[entrypoint] Seed omitido o ya aplicado."
+else
+  npm run prisma:seed || echo "[entrypoint] Seed omitido o ya aplicado."
+fi
 
 echo "[entrypoint] Iniciando aplicación..."
 exec "$@"

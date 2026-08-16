@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import type { CookieOptions, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from './types/authenticated-user';
@@ -20,12 +21,23 @@ export class AuthController {
   ) {}
 
   private get cookieOptions(): CookieOptions {
+    const isProduction = this.config.get<string>('NODE_ENV') === 'production';
     return {
       httpOnly: true,
-      secure: this.config.get<string>('NODE_ENV') === 'production',
-      sameSite: 'lax',
+      // En producción el frontend y la API suelen vivir en dominios distintos
+      // (p. ej. Static Web Apps + Container Apps), por lo que la cookie debe ser
+      // cross-site: `SameSite=None` lo permite y exige `Secure`. En desarrollo
+      // (mismo host, http) usamos `lax` porque `None` requiere HTTPS.
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       maxAge: COOKIE_MAX_AGE_MS,
     };
+  }
+
+  @Post('register')
+  @ApiOperation({ summary: 'US-38 — Registrarse como usuario' })
+  async register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
   }
 
   @Post('login')
@@ -43,7 +55,9 @@ export class AuthController {
   @ApiOperation({ summary: 'US-40 — Cerrar sesión' })
   async logout(@CurrentUser() user: AuthenticatedUser, @Res({ passthrough: true }) res: Response) {
     await this.authService.logout(user.id);
-    res.clearCookie(COOKIE_NAME);
+    // El borrado debe usar los mismos atributos (sameSite/secure/path) con los
+    // que se seteó la cookie; si no, el navegador no la elimina cross-site.
+    res.clearCookie(COOKIE_NAME, this.cookieOptions);
     return { message: 'Sesión cerrada correctamente' };
   }
 

@@ -58,15 +58,15 @@ acceso seguro, usuarios con roles, socios y auditoría inalterable de operacione
 Levanta PostgreSQL + la API, aplica el esquema y ejecuta el seed automáticamente.
 
 ```bash
-cp .env.example .env        # 1) crear el archivo de entorno
-docker compose up --build   # 2) levantar todo
+cp .env.example .env   # 1) crear el archivo de entorno (solo la primera vez)
+npm run up             # 2) levantar DB + API en background
 ```
 
 - API:     <http://localhost:3000/api/v1>
 - Swagger:  <http://localhost:3000/api/docs>
 - Postgres: `localhost:5432` (usuario / pass / db: `socialclub`)
 
-Para detener: `docker compose down` (agregá `-v` para borrar también los datos).
+Para detener: `npm run down` (o `docker compose down -v` para borrar también los datos).
 
 ### Opción B — local, sin Docker
 
@@ -126,6 +126,8 @@ falla con un mensaje claro en vez de romperse más tarde.
 | `npm run prisma:seed`    | Ejecuta el seed (roles + admin inicial).           |
 | `npm run prisma:studio`  | Abre Prisma Studio (explorador visual de la BD).   |
 | `npm run db:setup`       | Migración + seed en un solo comando.               |
+| `npm run up`             | Levanta DB + API con Docker Compose (detached).    |
+| `npm run down`           | Detiene y elimina los contenedores de Docker.      |
 
 ---
 
