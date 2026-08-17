@@ -6,7 +6,7 @@ import type { AuthenticatedUser } from '../../auth/types/authenticated-user';
  * Inyecta el usuario autenticado (extraído del JWT) en el handler.
  *
  * @example
- * miMetodo(@CurrentUser() usuario: AuthenticatedUser) { ... }
+ * miMetodo(@CurrentUser() user: AuthenticatedUser) { ... }
  */
 export const CurrentUser = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): AuthenticatedUser => {

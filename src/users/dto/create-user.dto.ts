@@ -1,16 +1,26 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  IsArray,
+  IsEmail,
+  IsString,
+  MinLength,
+  Length,
+  Matches,
+  IsNotEmpty,
+  MaxLength,
+} from 'class-validator';
 
-/**
- * US-38 — Registro público de usuario.
- *
- * A diferencia de CreateUserDto (US-01, alta administrativa), este DTO NO
- * admite `roles` ni `dni`: el rol lo define el sistema (sin rol hasta que un
- * ADMIN lo asigne) para evitar escalada de privilegios en el alta pública.
- */
-export class RegisterDto {
-  @ApiProperty({ example: 'nuevo@socialclub.local' })
-  @IsEmail({}, { message: 'Ingresá un email válido.' })
+export class CreateUserDto {
+  @ApiProperty({ example: '123456789', description: 'DNI sin puntos o guiones' })
+  @IsString()
+  @Length(7, 8)
+  @Matches(/^\d+$/, { message: 'El DNI debe contener únicamente números' })
+  @IsNotEmpty()
+  dni: string;
+
+  @ApiProperty({ example: 'coordinador@socialclub.local' })
+  @IsEmail()
   @IsNotEmpty()
   email: string;
 
@@ -42,4 +52,10 @@ export class RegisterDto {
   @MaxLength(30)
   @Matches(/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s'-]+$/, { message: 'El apellido contiene caracteres inválidos' })
   lastName: string;
+
+  @ApiProperty({ example: ['ADMIN'], description: 'Nombres de los roles a asignar' })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
+  roles: string[];
 }

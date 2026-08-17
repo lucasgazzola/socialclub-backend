@@ -7,11 +7,11 @@ import request from 'supertest';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { AuditoriaService } from '../auditoria/auditoria.service';
+import { AuditService } from '../audit/audit.service';
 
 /**
  * e2e de US-38 (registro público) contra AuthController + AuthService reales,
- * con PrismaService/JwtService/AuditoriaService/ConfigService mockeados.
+ * con PrismaService/JwtService/AuditService/ConfigService mockeados.
  *   TC-070 -> registro válido: no setea cookie (no auto-login) y responde con
  *             el usuario sin roles
  *   TC-071 -> con la cuenta recién registrada, login exitoso setea la cookie
@@ -23,13 +23,13 @@ describe('AuthController (e2e) — US-38', () => {
   let app: INestApplication;
 
   const prismaMock = {
-    usuario: {
+    user: {
       findUnique: jest.fn(),
       update: jest.fn(),
       create: jest.fn(),
     },
   };
-  const auditoriaMock = { registrar: jest.fn() };
+  const auditMock = { record: jest.fn() };
   const configMock = { get: jest.fn(() => 'test') }; // NODE_ENV=test -> cookie sameSite=lax, secure=false
 
   beforeAll(async () => {
@@ -39,7 +39,7 @@ describe('AuthController (e2e) — US-38', () => {
         AuthService,
         JwtService,
         { provide: PrismaService, useValue: prismaMock },
-        { provide: AuditoriaService, useValue: auditoriaMock },
+        { provide: AuditService, useValue: auditMock },
         { provide: ConfigService, useValue: configMock },
       ],
     }).compile();
@@ -60,8 +60,8 @@ describe('AuthController (e2e) — US-38', () => {
   });
 
   const datosValidos = {
-    nombre: 'Ana',
-    apellido: 'Pérez',
+    name: 'Ana',
+    lastName: 'Pérez',
     email: 'ana@test.com',
     password: 'Nuevo123!',
   };
@@ -69,12 +69,12 @@ describe('AuthController (e2e) — US-38', () => {
   describe('TC-070: registrarse con datos válidos', () => {
     it('POST /auth/register crea la cuenta, no setea cookie de sesión y no devuelve roles', async () => {
       const httpServer = app.getHttpServer() as Server;
-      prismaMock.usuario.findUnique.mockResolvedValue(null);
-      prismaMock.usuario.create.mockResolvedValue({
+      prismaMock.user.findUnique.mockResolvedValue(null);
+      prismaMock.user.create.mockResolvedValue({
         id: 40,
         email: datosValidos.email,
-        nombre: datosValidos.nombre,
-        apellido: datosValidos.apellido,
+        name: datosValidos.name,
+        lastName: datosValidos.lastName,
       });
 
       const response = await request(httpServer)
@@ -83,11 +83,11 @@ describe('AuthController (e2e) — US-38', () => {
         .expect(201);
 
       expect(response.body).toEqual({
-        usuario: {
+        user: {
           id: 40,
           email: datosValidos.email,
-          nombre: datosValidos.nombre,
-          apellido: datosValidos.apellido,
+          name: datosValidos.name,
+          lastName: datosValidos.lastName,
           roles: [],
         },
       });
@@ -99,32 +99,32 @@ describe('AuthController (e2e) — US-38', () => {
   describe('TC-071: iniciar sesión con la cuenta recién registrada', () => {
     it('tras registrarse, el login con las mismas credenciales setea la cookie access_token', async () => {
       const httpServer = app.getHttpServer() as Server;
-      prismaMock.usuario.findUnique.mockResolvedValueOnce(null); // chequeo de duplicado en register
+      prismaMock.user.findUnique.mockResolvedValueOnce(null); // chequeo de duplicado en register
       let hashGuardado = '';
-      prismaMock.usuario.create.mockImplementation(async ({ data }) => {
+      prismaMock.user.create.mockImplementation(async ({ data }) => {
         hashGuardado = data.passwordHash;
-        return { id: 41, email: data.email, nombre: data.nombre, apellido: data.apellido };
+        return { id: 41, email: data.email, name: data.name, lastName: data.lastName };
       });
 
       await request(httpServer).post('/auth/register').send(datosValidos).expect(201);
 
-      prismaMock.usuario.findUnique.mockResolvedValueOnce({
+      prismaMock.user.findUnique.mockResolvedValueOnce({
         id: 41,
         email: datosValidos.email,
         passwordHash: hashGuardado,
-        nombre: datosValidos.nombre,
-        apellido: datosValidos.apellido,
-        activo: true,
+        name: datosValidos.name,
+        lastName: datosValidos.lastName,
+        active: true,
         roles: [],
       });
-      prismaMock.usuario.update.mockResolvedValue({});
+      prismaMock.user.update.mockResolvedValue({});
 
       const loginResponse = await request(httpServer)
         .post('/auth/login')
         .send({ email: datosValidos.email, password: datosValidos.password })
         .expect(200);
 
-      expect(loginResponse.body.usuario).toEqual(
+      expect(loginResponse.body.user).toEqual(
         expect.objectContaining({ id: 41, email: datosValidos.email, roles: [] }),
       );
       const cookies = loginResponse.headers['set-cookie'] as unknown as string[] | undefined;
@@ -136,25 +136,25 @@ describe('AuthController (e2e) — US-38', () => {
   describe('TC-073: email ya existente', () => {
     it('POST /auth/register devuelve 409 y no crea la cuenta', async () => {
       const httpServer = app.getHttpServer() as Server;
-      prismaMock.usuario.findUnique.mockResolvedValue({ id: 1 });
+      prismaMock.user.findUnique.mockResolvedValue({ id: 1 });
 
       await request(httpServer).post('/auth/register').send(datosValidos).expect(409);
 
-      expect(prismaMock.usuario.create).not.toHaveBeenCalled();
+      expect(prismaMock.user.create).not.toHaveBeenCalled();
     });
   });
 
   describe('TC-077: impedir auto-asignación de rol', () => {
     it('POST /auth/register con "roles" en el body es rechazado con 400 y no crea el usuario', async () => {
       const httpServer = app.getHttpServer() as Server;
-      prismaMock.usuario.findUnique.mockResolvedValue(null);
+      prismaMock.user.findUnique.mockResolvedValue(null);
 
       await request(httpServer)
         .post('/auth/register')
         .send({ ...datosValidos, roles: ['ADMIN'] })
         .expect(400);
 
-      expect(prismaMock.usuario.create).not.toHaveBeenCalled();
+      expect(prismaMock.user.create).not.toHaveBeenCalled();
     });
   });
 });

@@ -44,9 +44,9 @@ export class AuthController {
   @HttpCode(200)
   @ApiOperation({ summary: 'US-39 — Iniciar sesión' })
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
-    const { accessToken, usuario } = await this.authService.login(dto.email, dto.password);
+    const { accessToken, user } = await this.authService.login(dto.email, dto.password);
     res.cookie(COOKIE_NAME, accessToken, this.cookieOptions);
-    return { usuario };
+    return { user };
   }
 
   @UseGuards(JwtAuthGuard)

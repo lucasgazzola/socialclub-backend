@@ -2,7 +2,7 @@ import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
-import { AuditoriaService } from '../auditoria/auditoria.service';
+import { AuditService } from '../audit/audit.service';
 import { RegisterDto } from './dto/register.dto';
 
 const SALT_ROUNDS = 10;
@@ -12,7 +12,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
-    private readonly auditoria: AuditoriaService,
+    private readonly audit: AuditService,
   ) {}
 
   /**
@@ -22,7 +22,7 @@ export class AuthService {
   async register(dto: RegisterDto) {
     const email = dto.email.trim().toLowerCase();
 
-    const existente = await this.prisma.usuario.findUnique({
+    const existente = await this.prisma.user.findUnique({
       where: { email },
       select: { id: true },
     });
@@ -32,32 +32,32 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
 
-    const usuario = await this.prisma.usuario.create({
+    const user = await this.prisma.user.create({
       data: {
         email,
         passwordHash,
-        nombre: dto.nombre,
-        apellido: dto.apellido,
+        name: dto.name,
+        lastName: dto.lastName,
       },
-      select: { id: true, email: true, nombre: true, apellido: true },
+      select: { id: true, email: true, name: true, lastName: true },
     });
 
-    await this.auditoria.registrar({
-      accion: 'CREAR',
-      entidad: 'Usuario',
-      idEntidad: usuario.id,
-      responsableId: usuario.id,
-      detalle: 'Auto-registro público (US-38)',
+    await this.audit.record({
+      action: 'CREATE',
+      entity: 'User',
+      entityId: user.id,
+      responsibleId: user.id,
+      detail: 'Auto-registro público (US-38)',
     });
 
-    return { usuario: { ...usuario, roles: [] as string[] } };
+    return { user: { ...user, roles: [] as string[] } };
   }
 
   /** US-39: Iniciar sesión. Valida credenciales y emite un JWT. */
   async login(email: string, password: string) {
-    const usuario = await this.prisma.usuario.findUnique({
+    const usuario = await this.prisma.user.findUnique({
       where: { email },
-      include: { roles: { include: { rol: true } } },
+      include: { roles: { include: { role: true } } },
     });
 
     // Comparamos siempre contra un hash (aunque el usuario no exista) para no
@@ -65,56 +65,56 @@ export class AuthService {
     const passwordValida = usuario ? await bcrypt.compare(password, usuario.passwordHash) : false;
 
     if (!usuario || !passwordValida) {
-      await this.auditoria.registrar({
-        accion: 'LOGIN_FALLIDO',
-        entidad: 'Usuario',
-        detalle: `Intento de login fallido para: ${email}`,
+      await this.audit.record({
+        action: 'LOGIN_FAILED',
+        entity: 'User',
+        detail: `Intento de login fallido para: ${email}`,
       });
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    if (!usuario.activo) {
+    if (!usuario.active) {
       throw new UnauthorizedException('El usuario se encuentra dado de baja');
     }
 
-    const roles = usuario.roles.map((ur) => ur.rol.nombre);
+    const roles = usuario.roles.map((ur) => ur.role.name);
     const accessToken = this.jwtService.sign({
       sub: usuario.id,
       email: usuario.email,
       roles,
     });
 
-    await this.prisma.usuario.update({
+    await this.prisma.user.update({
       where: { id: usuario.id },
-      data: { ultimoLogin: new Date() },
+      data: { lastLogin: new Date() },
     });
 
-    await this.auditoria.registrar({
-      accion: 'LOGIN',
-      entidad: 'Usuario',
-      idEntidad: usuario.id,
-      responsableId: usuario.id,
+    await this.audit.record({
+      action: 'LOGIN',
+      entity: 'User',
+      entityId: usuario.id,
+      responsibleId: usuario.id,
     });
 
     return {
       accessToken,
-      usuario: {
+      user: {
         id: usuario.id,
         email: usuario.email,
-        nombre: usuario.nombre,
-        apellido: usuario.apellido,
+        name: usuario.name,
+        lastName: usuario.lastName,
         roles,
       },
     };
   }
 
   /** US-40: Cerrar sesión. Deja constancia en la auditoría. */
-  async logout(usuarioId: number) {
-    await this.auditoria.registrar({
-      accion: 'LOGOUT',
-      entidad: 'Usuario',
-      idEntidad: usuarioId,
-      responsableId: usuarioId,
+  async logout(userId: number) {
+    await this.audit.record({
+      action: 'LOGOUT',
+      entity: 'User',
+      entityId: userId,
+      responsibleId: userId,
     });
   }
 }

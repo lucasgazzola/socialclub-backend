@@ -3,15 +3,15 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { validateEnv } from './config/env.validation';
 import { PrismaModule } from './prisma/prisma.module';
-import { AuditoriaModule } from './auditoria/auditoria.module';
+import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
-import { UsuariosModule } from './usuarios/usuarios.module';
-import { SociosModule } from './socios/socios.module';
-import { CategoriasModule } from './categorias/categorias.module';
-import { EventosModule } from './eventos/eventos.module';
-import { EntradasModule } from './entradas/entradas.module';
-import { DisciplinasModule } from './disciplinas/disciplinas.module';
-import { CuotasModule } from './cuotas/cuotas.module';
+import { UsersModule } from './users/users.module';
+import { MembersModule } from './members/members.module';
+import { CategoriesModule } from './categories/categories.module';
+import { EventsModule } from './events/events.module';
+import { TicketsModule } from './tickets/tickets.module';
+import { DisciplinesModule } from './disciplines/disciplines.module';
+import { FeesModule } from './fees/fees.module';
 
 @Module({
   imports: [
@@ -21,16 +21,16 @@ import { CuotasModule } from './cuotas/cuotas.module';
       validate: validateEnv,
     }),
     PrismaModule,
-    AuditoriaModule,
+    AuditModule,
     // Módulos de dominio (un módulo por área funcional → escalabilidad modular)
     AuthModule,
-    UsuariosModule,
-    SociosModule,
-    CategoriasModule,
-    EventosModule,
-    EntradasModule,
-    DisciplinasModule,
-    CuotasModule,
+    UsersModule,
+    MembersModule,
+    CategoriesModule,
+    EventsModule,
+    TicketsModule,
+    DisciplinesModule,
+    FeesModule,
   ],
   controllers: [AppController],
 })

@@ -1,17 +1,17 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Prisma Schema — SocialClub
 //
-// Alcance de esta versión inicial (Sprint 1):
-//   - Autenticación (login / logout)             → US-39, US-40
-//   - Auditoría inalterable de operaciones        → US-32 / RF12 / RNF03
-//   - Usuarios administrativos con roles           → US-01, US-02, US-03 / RF02
-//   - Socios (Persona + CategoriaSocio)            → US-12 a US-15 / RF01
-//   - Eventos y Entradas con código QR             → US-XX (entradas únicas)
+// Scope of this base version:
+//   - Authentication (login / logout)              → US-39, US-40
+//   - Immutable operation audit log                → US-32
+//   - Administrative users with roles              → US-01, US-02, US-03
+//   - Members (Person + MemberCategory)            → US-12 to US-15
+//   - Events and Tickets with QR code              → US-30 (unique tickets)
+//   - Sports fee configuration                     → US-20
 //
-// El modelo está diseñado para crecer hacia el dominio completo del Diagrama de
-// Clases (Disciplina, Inscripcion, CuotaSocio, Pago, Evento, Entrada,
-// Documentacion, etc.). Esas entidades se incorporarán en sprints posteriores
-// sobre esta misma base, sin rediseños mayores (RNF08 - Escalabilidad modular).
+// The model is designed to grow towards the full domain (Discipline,
+// Enrollment, MemberFee, Payment, Event, Ticket, ...). New entities are added
+// on top of this same base without major redesigns (modular scalability).
 // ─────────────────────────────────────────────────────────────────────────────
 
 generator client {
@@ -23,181 +23,178 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Acciones registradas en la auditoría. Tiparlas evita inconsistencias de
-/// strings sueltos y facilita filtrar/reportar (RF12).
-enum AccionAuditoria {
-  CREAR
-  EDITAR
-  BAJA
-  REACTIVAR
+/// Actions recorded in the audit log. Typing them avoids inconsistent loose
+/// strings and makes filtering/reporting easier.
+enum AuditAction {
+  CREATE
+  UPDATE
+  DEACTIVATE
+  REACTIVATE
   LOGIN
   LOGOUT
-  LOGIN_FALLIDO
+  LOGIN_FAILED
 }
 
-/// Estados posibles de una entrada vendida. Una entrada nace VALIDA y cambia
-/// de estado cuando se la usa (acceso al evento) o cuando expira.
-enum EstadoEntrada {
-  VALIDA
-  USADA
-  EXPIRADA
+/// Possible states of a sold ticket. A ticket is born VALID and changes state
+/// when it is used (event access) or when it expires.
+enum TicketStatus {
+  VALID
+  USED
+  EXPIRED
 }
 
-/// Catálogo de roles del sistema. Un Usuario puede tener uno o más roles
-/// simultáneos (RF02), de ahí la tabla intermedia UsuarioRol.
-model Rol {
-  id          Int          @id @default(autoincrement())
-  nombre      String       @unique // ej: ADMIN, COLABORADOR
-  descripcion String?
-  creadoEn    DateTime     @default(now())
-  usuarios    UsuarioRol[]
+/// System role catalog. A User can hold one or more roles at the same time,
+/// hence the UserRole join table.
+model Role {
+  id          Int        @id @default(autoincrement())
+  name        String     @unique // e.g. ADMIN, COLLABORATOR
+  description String?
+  createdAt   DateTime   @default(now())
+  users       UserRole[]
 
   @@map("roles")
 }
 
-/// Usuario del sistema (quien inicia sesión). Es distinto de "Persona", que
-/// representa a alguien gestionado por el club (socio, alumno, participante).
-model Usuario {
-  id                 Int                 @id @default(autoincrement())
-  dni                String?             @unique
-  email              String              @unique
-  passwordHash       String
-  nombre             String
-  apellido           String
-  activo             Boolean             @default(true)
-  ultimoLogin        DateTime?
-  creadoEn           DateTime            @default(now())
-  actualizadoEn      DateTime            @updatedAt
-  roles              UsuarioRol[]
-  registrosAuditoria RegistroAuditoria[] @relation("usuarioResponsable")
+/// System user (whoever logs in). Different from "Person", which represents
+/// someone managed by the club (member, student, participant).
+model User {
+  id            Int         @id @default(autoincrement())
+  dni           String?     @unique
+  email         String      @unique
+  passwordHash  String
+  name          String
+  lastName      String
+  active        Boolean     @default(true)
+  lastLogin     DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  roles         UserRole[]
+  auditLogs     AuditLog[]  @relation("auditResponsible")
 
-  @@map("usuarios")
+  @@map("users")
 }
 
-/// Relación N a N entre Usuario y Rol (RF02: múltiples roles simultáneos).
-model UsuarioRol {
-  usuarioId   Int
-  rolId       Int
-  asignadoEn  DateTime @default(now())
-  usuario     Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  rol         Rol      @relation(fields: [rolId], references: [id], onDelete: Cascade)
+/// N-to-N relation between User and Role (multiple simultaneous roles).
+model UserRole {
+  userId     Int
+  roleId     Int
+  assignedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
-  @@id([usuarioId, rolId])
-  @@map("usuarios_roles")
+  @@id([userId, roleId])
+  @@map("user_roles")
 }
 
-/// Categoría de socio (ej: Activo, Vitalicio, Cadete). En sprints posteriores
-/// condiciona el cálculo de cuotas (RF04).
-model CategoriaSocio {
-  id                             Int                                @id @default(autoincrement())
-  nombre                         String                             @unique
-  descripcion                    String?
-  personas                       Persona[]
-  configuracionesCuotaDeportiva  ConfiguracionCuotaDeportiva[]
+/// Member category (e.g. Active, Life, Cadet). In later sprints it conditions
+/// the fee calculation.
+model MemberCategory {
+  id           Int                  @id @default(autoincrement())
+  name         String               @unique
+  description  String?
+  people       Person[]
+  feeConfigs   SportsFeeConfig[]
 
-  @@map("categorias_socio")
+  @@map("member_categories")
 }
 
-/// Disciplina deportiva del club (ej: Fútbol, Vóley, Básquet). Cada una puede
-/// tener un monto de cuota mensual distinto por categoría de socio.
-model Disciplina {
-  id                             Int                                @id @default(autoincrement())
-  nombre                         String                             @unique
-  descripcion                    String?
-  activo                         Boolean                            @default(true)
-  creadoEn                       DateTime                           @default(now())
-  actualizadoEn                  DateTime                           @updatedAt
-  configuracionesCuotaDeportiva  ConfiguracionCuotaDeportiva[]
+/// Club sports discipline (e.g. Football, Volleyball, Basketball). Each one may
+/// have a different monthly fee amount per member category.
+model Discipline {
+  id           Int                  @id @default(autoincrement())
+  name         String               @unique
+  description  String?
+  active       Boolean              @default(true)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  feeConfigs   SportsFeeConfig[]
 
-  @@map("disciplinas")
+  @@map("disciplines")
 }
 
-/// Configuración del monto mensual de la cuota deportiva por combinación
-/// disciplina-categoría-período.
-/// Los cambios de monto aplican a partir del período siguiente al configurado,
-/// conservando el histórico de períodos anteriores.
-model ConfiguracionCuotaDeportiva {
-  id               Int             @id @default(autoincrement())
-  disciplinaId     Int
-  categoriaId      Int
-  periodoAplicacion String         // "YYYY-MM" — período al que aplica el monto
-  monto            Decimal         @db.Decimal(12, 2)
-  activo           Boolean         @default(true)
-  creadoEn         DateTime        @default(now())
-  actualizadoEn    DateTime        @updatedAt
-  disciplina       Disciplina      @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
-  categoria        CategoriaSocio  @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
-
-  @@unique([disciplinaId, categoriaId, periodoAplicacion])
-  @@index([periodoAplicacion])
-  @@map("configuraciones_cuota_deportiva")
-}
-
-/// Persona gestionada por la organización. En el Diagrama de Clases es la
-/// entidad base; en esta versión se usa para representar socios (US-12 a US-15).
-/// En sprints futuros se vincula con Documentacion, CuotaSocio e Inscripcion.
-model Persona {
-  id              Int             @id @default(autoincrement())
-  nombre          String
-  apellido        String
-  dni             String          @unique
-  fechaNacimiento DateTime?
-  email           String?
-  telefono        String?
-  activo          Boolean         @default(true)
-  categoriaId     Int?
-  categoria       CategoriaSocio? @relation(fields: [categoriaId], references: [id])
-  creadoEn        DateTime        @default(now())
-  actualizadoEn   DateTime        @updatedAt
-
-  @@index([apellido, nombre])
-  @@map("personas")
-}
-
-/// Evento del club. Cada Evento tiene un cupo de entradas disponibles; al
-/// vender entradas se decrementa ese cupo de forma atómica.
-model Evento {
-  id                  Int       @id @default(autoincrement())
-  nombre              String
-  descripcion         String?
-  entradasDisponibles Int       @default(0)
-  entradas            Entrada[]
-  creadoEn            DateTime  @default(now())
-  actualizadoEn       DateTime  @updatedAt
-
-  @@map("eventos")
-}
-
-/// Entrada única de un Evento. El `token` es un UUID v4 generado por el sistema
-/// (único e irrepetible) que se codifica en el código QR de la entrada.
-/// La constraint `@unique` en `token` garantiza que no existen dos entradas
-/// con el mismo identificador (criterio de aceptación de la US).
-model Entrada {
-  id       Int           @id @default(autoincrement())
-  token    String        @unique // UUID v4 seguro, único por entrada
-  eventoId Int
-  evento   Evento        @relation(fields: [eventoId], references: [id], onDelete: Cascade)
-  estado   EstadoEntrada @default(VALIDA)
-  creadoEn DateTime      @default(now())
-
-  @@index([eventoId])
-  @@map("entradas")
-}
-
-/// Registro de auditoría inalterable (RF12 / RNF03 / RNF11).
-/// IMPORTANTE: esta tabla SOLO admite INSERT desde la aplicación.
-/// No debe ejecutarse UPDATE ni DELETE sobre ella (ver AuditoriaService).
-model RegistroAuditoria {
+/// Monthly sports fee amount configuration per discipline-category-period.
+/// Amount changes apply from the period following the configured one, keeping
+/// the history of previous periods.
+model SportsFeeConfig {
   id            Int             @id @default(autoincrement())
-  fechaHora     DateTime        @default(now())
-  accion        AccionAuditoria
-  entidad       String // "Usuario" | "Persona" | "Evento" | "Entrada" | ...
-  idEntidad     Int?
-  detalle       String?
-  responsableId Int?
-  responsable   Usuario?        @relation("usuarioResponsable", fields: [responsableId], references: [id])
+  disciplineId  Int
+  categoryId    Int
+  appliedPeriod String          // "YYYY-MM" — period the amount applies to
+  amount        Decimal         @db.Decimal(12, 2)
+  active        Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  discipline    Discipline      @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+  category      MemberCategory  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  @@index([entidad, idEntidad])
-  @@index([fechaHora])
-  @@map("registros_auditoria")
+  @@unique([disciplineId, categoryId, appliedPeriod])
+  @@index([appliedPeriod])
+  @@map("sports_fee_configs")
+}
+
+/// Person managed by the organization. It is the base entity; in this version
+/// it represents members (US-12 to US-15).
+model Person {
+  id          Int             @id @default(autoincrement())
+  name        String
+  lastName    String
+  dni         String          @unique
+  birthDate   DateTime?
+  email       String?
+  phone       String?
+  active      Boolean         @default(true)
+  categoryId  Int?
+  category    MemberCategory? @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([lastName, name])
+  @@map("people")
+}
+
+/// Club event. Each Event has a number of available tickets; selling tickets
+/// atomically decrements that quota.
+model Event {
+  id               Int      @id @default(autoincrement())
+  name             String
+  description      String?
+  availableTickets Int      @default(0)
+  tickets          Ticket[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("events")
+}
+
+/// Unique Event ticket. The `token` is a system-generated UUID v4 (unique and
+/// non-repeatable) encoded in the ticket QR code. The `@unique` constraint on
+/// `token` guarantees no two tickets share the same identifier.
+model Ticket {
+  id        Int          @id @default(autoincrement())
+  token     String       @unique // secure UUID v4, unique per ticket
+  eventId   Int
+  event     Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  status    TicketStatus @default(VALID)
+  createdAt DateTime     @default(now())
+
+  @@index([eventId])
+  @@map("tickets")
+}
+
+/// Immutable audit log.
+/// IMPORTANT: this table only accepts INSERT from the application.
+/// No UPDATE or DELETE must be run on it (see AuditService).
+model AuditLog {
+  id            Int         @id @default(autoincrement())
+  timestamp     DateTime    @default(now())
+  action        AuditAction
+  entity        String // "User" | "Person" | "Event" | "Ticket" | ...
+  entityId      Int?
+  detail        String?
+  responsibleId Int?
+  responsible   User?       @relation("auditResponsible", fields: [responsibleId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([timestamp])
+  @@map("audit_logs")
 }
