@@ -7,6 +7,7 @@
 //   - Usuarios administrativos con roles           → US-01, US-02, US-03 / RF02
 //   - Socios (Persona + CategoriaSocio)            → US-12 a US-15 / RF01
 //   - Eventos y Entradas con código QR             → US-XX (entradas únicas)
+//   - Eventos y Entradas con código QR             → US-XX (entradas únicas)
 //
 // El modelo está diseñado para crecer hacia el dominio completo del Diagrama de
 // Clases (Disciplina, Inscripcion, CuotaSocio, Pago, Evento, Entrada,
