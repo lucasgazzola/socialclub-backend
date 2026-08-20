@@ -48,20 +48,42 @@ export class InscripcionService {
 
     try{
       return await this.prisma.$transaction(async (tx) => {
-        
-        let persona = await tx.persona.findUnique({ where: { dni: dto.dni } });
-        
-        if (!persona) {
-          persona = await tx.persona.create({
-            data: {
-              nombre: dto.nombre,
-              apellido: dto.apellido,
-              dni: dto.dni,
-              fechaNacimiento: dto.fechaNacimiento? new Date(dto.fechaNacimiento): undefined,
-              email: dto.email,
-              telefono: dto.telefono,
-            },
-          });
+
+        let persona;
+
+        // Modo 1: ya conocemos al participante (lo buscamos por DNI previamente).
+        if (dto.personaId) {
+          persona = await tx.persona.findUnique({ where: { id: dto.personaId } });
+          if (!persona) {
+            throw new NotFoundException('Participante no encontrado');
+          }
+        } else {
+          // Modo 2: participante nuevo. Localizamos el DNI; si no existe, se crea
+          // con sus datos básicos. Estos campos se exigen aquí (modo 2).
+          const nombre = dto.nombre;
+          const apellido = dto.apellido;
+          const dni = dto.dni;
+
+          if (!nombre || !apellido || !dni) {
+            throw new BadRequestException(
+              'Faltan los datos básicos del participante nuevo (nombre, apellido y DNI)',
+            );
+          }
+
+          persona = await tx.persona.findUnique({ where: { dni } });
+
+          if (!persona) {
+            persona = await tx.persona.create({
+              data: {
+                nombre,
+                apellido,
+                dni,
+                fechaNacimiento: dto.fechaNacimiento ? new Date(dto.fechaNacimiento) : undefined,
+                email: dto.email,
+                telefono: dto.telefono,
+              },
+            });
+          }
         }
 
         const inscripcionExistente = await tx.inscripcion.findUnique({
@@ -87,46 +109,22 @@ export class InscripcionService {
           },
         });
 
-        const valorCuota = await this.obtenerValorCuota(
-          tx,
-          dto.disciplinaId,
-          dto.categoriaDisciplinaId ?? null,
-        );
-
-        let cuota = null;
-        if (valorCuota) {
-          cuota = await tx.cuotaParticipante.create({
-            data: {
-              inscripcionId: inscripcion.id,
-              valorCuotaId: valorCuota.id,
-              periodo: this.periodoActual(),
-              monto: valorCuota.monto,
-              fechaVencimiento: this.calcularFechaVencimiento(),
-            },
-          });
-        }
-
         await tx.registroAuditoria.create({
           data: {
             accion: 'CREAR',
             entidad: 'Inscripcion',
             idEntidad: inscripcion.id,
-            detalle: 'Inscripción de ${persona.apellido} ${persona.nombre}, ${persona.dni} en la disciplina ${disciplina.nombre}',
+            detalle: `Inscripción de ${persona.apellido} ${persona.nombre}, ${persona.dni} en la disciplina ${disciplina.nombre}`,
             responsableId,
           },
         });
-        
-        return {
-          persona,
-          inscripcion,
-          cuotaGenerada: cuota,
-          ...(cuota? {}: {aviso: 'No hay un valor de cuota vigente configurado para esta disciplina/categoría; la inscripción se confirmó sin generar cuota.',}),
-        }; 
+
+        return {persona, inscripcion,};
 
       })
 
     } catch (error) {
-      //si dos requests concurrentes pasan la verificación 2b al mismo tiempo, el
+      // Si dos requests concurrentes pasan la verificación al mismo tiempo, el
       // constraint único de la DB corta el segundo insert acá.
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
           throw new ConflictException('Ya existe una persona registrada con ese DNI');
@@ -134,7 +132,6 @@ export class InscripcionService {
       throw error;
     }
 
-    
   }
 
   findAll() {
@@ -149,46 +146,4 @@ export class InscripcionService {
     return `This action removes a #${id} inscripcion`;
   }
 
-  private async obtenerValorCuota(tx: Prisma.TransactionClient, disciplinaId: number, categoriaDisciplinaId: number | null,) {
-    const condicionVigencia = {
-      activo: true,
-      vigenteDesde: { lte: new Date() },
-    } as const;
- 
-    if (categoriaDisciplinaId) {
-      const valorPorCategoria = await tx.valorCuotaDisciplina.findFirst({
-        where: {
-          disciplinaId,
-          categoriaDisciplinaId,
-          ...condicionVigencia,
-        },
-        orderBy: { vigenteDesde: 'desc' },
-      });
-      if (valorPorCategoria) return valorPorCategoria;
-    }
- 
-    return tx.valorCuotaDisciplina.findFirst({
-      where: {
-        disciplinaId,
-        categoriaDisciplinaId: null,
-        ...condicionVigencia,
-      },
-      orderBy: { vigenteDesde: 'desc' },
-    });
-  }
- 
-  private periodoActual(): string {
-    const ahora = new Date();
-    const mes = String(ahora.getMonth() + 1).padStart(2, '0');
-    return `${ahora.getFullYear()}-${mes}`;
-  }
- 
-  private calcularFechaVencimiento(): Date {
-    // Ajustar según la regla de negocio real del club (ej. día fijo del mes).
-    const vencimiento = new Date();
-    vencimiento.setDate(vencimiento.getDate() + 30);
-    return vencimiento;
-  }
 }
-
-

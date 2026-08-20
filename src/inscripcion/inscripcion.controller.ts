@@ -1,10 +1,10 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, UseGuards } from '@nestjs/common';
 import { InscripcionService } from './inscripcion.service';
 import { CreateInscripcionDto } from './dto/create-inscripcion.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { Roles } from '@/common/decorators/roles.decorator';
-import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
@@ -16,11 +16,10 @@ export class InscripcionController {
   constructor(private readonly inscripcionService: InscripcionService) {}
 
   @Post()
-  // @Roles('ADMIN', 'DELEGADO')
+  @Roles('ADMIN', 'DELEGADO')
+  @ApiOperation({ summary: 'US — Inscribir a un participante en una disciplina' })
   create(@Body() dto: CreateInscripcionDto, @CurrentUser() user: AuthenticatedUser) {
-    console.log(dto);
-    console.log(user);
-    return this.inscripcionService.create(dto, 1);
+    return this.inscripcionService.create(dto, user.id);
   }
 
   @Get()

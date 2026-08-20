@@ -34,14 +34,14 @@ export class DisciplinasController {
   }
 
   @Get()
-  @Roles('ADMIN', 'COLABORADOR')
+  @Roles('ADMIN', 'COLABORADOR', 'DELEGADO')
   @ApiOperation({ summary: 'Listar disciplinas deportivas' })
   findAll() {
     return this.disciplinasService.findAll();
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'COLABORADOR')
+  @Roles('ADMIN', 'COLABORADOR', 'DELEGADO')
   @ApiOperation({ summary: 'Obtener una disciplina por id' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.disciplinasService.findOne(id);

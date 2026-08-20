@@ -3,5 +3,8 @@
   "compilerOptions": {
     "rootDir": "./src"
   },
+  "include": [
+    "src/**/*.ts"
+  ],
   "exclude": ["node_modules", "test", "dist", "prisma", "**/*spec.ts"]
 }
