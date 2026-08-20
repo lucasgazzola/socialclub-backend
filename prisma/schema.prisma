@@ -7,6 +7,7 @@
 //   - Usuarios administrativos con roles           → US-01, US-02, US-03 / RF02
 //   - Socios (Persona + CategoriaSocio)            → US-12 a US-15 / RF01
 //   - Eventos y Entradas con código QR             → US-XX (entradas únicas)
+//   - Eventos y Entradas con código QR             → US-XX (entradas únicas)
 //
 // El modelo está diseñado para crecer hacia el dominio completo del Diagrama de
 // Clases (Disciplina, Inscripcion, CuotaSocio, Pago, Evento, Entrada,
@@ -108,6 +109,8 @@ model Disciplina {
   creadoEn                       DateTime                           @default(now())
   actualizadoEn                  DateTime                           @updatedAt
   configuracionesCuotaDeportiva  ConfiguracionCuotaDeportiva[]
+  categorias    CategoriaDisciplina[]
+  inscripciones Inscripcion[]
 
   @@map("disciplinas")
 }
@@ -147,6 +150,7 @@ model Persona {
   activo          Boolean         @default(true)
   categoriaId     Int?
   categoria       CategoriaSocio? @relation(fields: [categoriaId], references: [id])
+  inscripciones   Inscripcion[]   
   creadoEn        DateTime        @default(now())
   actualizadoEn   DateTime        @updatedAt
 
@@ -200,4 +204,44 @@ model RegistroAuditoria {
   @@index([entidad, idEntidad])
   @@index([fechaHora])
   @@map("registros_auditoria")
+}
+
+
+/// Categoría dentro de una disciplina (ej: "Sub-15", "Primera", "Adultos").
+model CategoriaDisciplina {
+  id           Int      @id @default(autoincrement())
+  nombre       String
+  disciplinaId Int
+  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id])
+  activo       Boolean  @default(true)
+  creadoEn     DateTime @default(now())
+
+  inscripciones Inscripcion[]
+
+  @@unique([disciplinaId, nombre])
+  @@unique([id, disciplinaId])
+  @@map("categorias_disciplina")
+}
+
+/// Una persona puede inscribirse en varias disciplinas a la vez, 
+/// y cada inscripción se asocia como máximo
+/// a una única CategoriaDisciplina.
+model Inscripcion {
+  id                    Int                  @id @default(autoincrement())
+  personaId             Int
+  persona               Persona              @relation(fields: [personaId], references: [id])
+  disciplinaId          Int
+  disciplina            Disciplina           @relation(fields: [disciplinaId], references: [id])
+  categoriaDisciplinaId Int?
+  categoriaDisciplina   CategoriaDisciplina? @relation(fields: [categoriaDisciplinaId], references: [id])
+
+  fechaInscripcion DateTime @default(now())
+  activo           Boolean  @default(true)
+  creadoEn         DateTime @default(now())
+  actualizadoEn    DateTime @updatedAt
+
+
+  @@unique([personaId, disciplinaId])
+  @@index([disciplinaId])
+  @@map("inscripciones")
 }

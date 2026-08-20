@@ -32,13 +32,26 @@ export class DisciplinasService {
   }
 
   async findAll() {
-    return this.prisma.disciplina.findMany({
-      orderBy: { nombre: 'asc' },
-      include: {
-        _count: { select: { configuracionesCuotaDeportiva: true } },
+  return this.prisma.disciplina.findMany({
+    orderBy: { nombre: 'asc' },
+    include: {
+      categorias: {
+        where: { activo: true },
+        orderBy: { nombre: 'asc' },
+        select: {
+          id: true,
+          nombre: true,
+          activo: true,
+        },
       },
-    });
-  }
+      _count: {
+        select: {
+          configuracionesCuotaDeportiva: true,
+        },
+      },
+    },
+  });
+}
 
   async findOne(id: number) {
     const disciplina = await this.prisma.disciplina.findUnique({
