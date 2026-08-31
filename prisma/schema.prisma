@@ -58,6 +58,9 @@ model Rol {
 
 /// Usuario del sistema (quien inicia sesión). Es distinto de "Persona", que
 /// representa a alguien gestionado por el club (socio, alumno, participante).
+/// Un Usuario puede tener como máximo una Persona asociada (relación 1:1,
+/// garantizada por `Persona.usuarioId` @unique). Así, el mismo Usuario que se
+/// autogestiona como socio (US-09) queda vinculado a su ficha de Persona.
 model Usuario {
   id                 Int                 @id @default(autoincrement())
   dni                String?             @unique
@@ -71,6 +74,7 @@ model Usuario {
   actualizadoEn      DateTime            @updatedAt
   roles              UsuarioRol[]
   registrosAuditoria RegistroAuditoria[] @relation("usuarioResponsable")
+  persona            Persona?
 
   @@map("usuarios")
 }
@@ -139,6 +143,8 @@ model ConfiguracionCuotaDeportiva {
 /// Persona gestionada por la organización. En el Diagrama de Clases es la
 /// entidad base; en esta versión se usa para representar socios (US-12 a US-15).
 /// En sprints futuros se vincula con Documentacion, CuotaSocio e Inscripcion.
+/// La relación opcional 1:1 con Usuario (US-09: "Registrarme como socio")
+/// permite autogestionar el alta: el usuario logueado crea su propia ficha.
 model Persona {
   id              Int             @id @default(autoincrement())
   nombre          String
@@ -150,7 +156,10 @@ model Persona {
   activo          Boolean         @default(true)
   categoriaId     Int?
   categoria       CategoriaSocio? @relation(fields: [categoriaId], references: [id])
-  inscripciones   Inscripcion[]   
+  usuarioId       Int?            @unique
+  usuario         Usuario?        @relation(fields: [usuarioId], references: [id])
+  fechaAlta       DateTime        @default(now())
+  inscripciones   Inscripcion[]
   creadoEn        DateTime        @default(now())
   actualizadoEn   DateTime        @updatedAt
 

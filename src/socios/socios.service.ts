@@ -1,9 +1,16 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { EstadoSocioFiltro, FindSociosQueryDto } from './dto/find-socios-query.dto';
 import { CreateSocioDto } from './dto/create-socio.dto';
+import { RegistrarSocioDto } from './dto/registrar-socio.dto';
 import { UpdateSocioDto } from './dto/update-socio.dto';
 
 @Injectable()
@@ -41,6 +48,107 @@ export class SociosService {
     });
 
     return socio;
+  }
+
+  /**
+   * US-09: Registrarme como socio.
+   * - Reutiliza el Usuario de la sesion autenticada.
+   * - Un Usuario no puede tener mas de una Persona asociada.
+   * - El DNI/email se validan contra Persona (no contra Usuario).
+   * - Se asigna el rol SOCIO sin remover otros roles del usuario.
+   * - Queda constancia en RegistroAuditoria (CREAR / Persona).
+   */
+  async registrarme(dto: RegistrarSocioDto, usuarioId: number) {
+    const dni = dto.dni.trim();
+
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: {
+        id: true,
+        email: true,
+        nombre: true,
+        apellido: true,
+        activo: true,
+        persona: { select: { id: true } },
+      },
+    });
+
+    if (!usuario || !usuario.activo) {
+      throw new UnauthorizedException(
+        'El usuario no está habilitado para autogestionarse como socio',
+      );
+    }
+
+    // Un usuario ya socio no puede duplicar el alta.
+    if (usuario.persona) {
+      throw new ConflictException('Ya sos socio: tu ficha de socio ya está asociada a esta cuenta');
+    }
+
+    // DNI duplicado contra Persona (dni es @unique).
+    const conDni = await this.prisma.persona.findUnique({ where: { dni } });
+    if (conDni?.activo) {
+      throw new ConflictException('Ya existe un socio activo con ese DNI');
+    }
+    if (conDni) {
+      throw new ConflictException('Ese DNI ya está registrado en una ficha dada de baja');
+    }
+
+    // Email duplicado contra Persona (insensible a mayusculas).
+    const email = usuario.email.toLowerCase();
+    const conEmail = await this.prisma.persona.findFirst({
+      where: { email, activo: true },
+      select: { id: true },
+    });
+    if (conEmail) {
+      throw new ConflictException('Ya existe un socio activo con ese email');
+    }
+
+    const categoria = await this.prisma.categoriaSocio.findUnique({
+      where: { id: dto.categoriaId },
+    });
+    if (!categoria) {
+      throw new BadRequestException('La categoría de socio seleccionada no existe');
+    }
+
+    const rolSocio = await this.prisma.rol.findUnique({ where: { nombre: 'SOCIO' } });
+    if (!rolSocio) {
+      throw new BadRequestException('El rol SOCIO no está configurado en el sistema');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const persona = await tx.persona.create({
+        data: {
+          nombre: usuario.nombre,
+          apellido: usuario.apellido,
+          dni,
+          email,
+          categoriaId: categoria.id,
+          usuarioId: usuario.id,
+        },
+        include: { categoria: true },
+      });
+
+      // Asigna el rol SOCIO preservando los roles existentes (varios roles simultaneos).
+      const yaTieneRol = await tx.usuarioRol.findUnique({
+        where: { usuarioId_rolId: { usuarioId: usuario.id, rolId: rolSocio.id } },
+      });
+      if (!yaTieneRol) {
+        await tx.usuarioRol.create({ data: { usuarioId: usuario.id, rolId: rolSocio.id } });
+      }
+
+      await this.auditoria.registrar(
+        {
+          accion: 'CREAR',
+          entidad: 'Persona',
+          idEntidad: persona.id,
+          responsableId: usuario.id,
+          detalle: `Alta autogestionada como socio (US-09) · categoría: ${categoria.nombre}`,
+        },
+        tx,
+      );
+
+      return persona;
+    });
   }
 
   /**

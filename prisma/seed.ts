@@ -31,6 +31,15 @@ async function main() {
     },
   });
 
+  await prisma.rol.upsert({
+    where: { nombre: 'SOCIO' },
+    update: {},
+    create: {
+      nombre: 'SOCIO',
+      descripcion: 'Socio del club con membresía autogestionada (US-09)',
+    },
+  });
+
   // ── Categorías de socio (upsert: idempotente) ──────────────────────────────
   const categorias = [
     { nombre: 'Senior', descripcion: 'Socios de la categoría senior' },
