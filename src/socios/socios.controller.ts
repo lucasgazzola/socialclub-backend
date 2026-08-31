@@ -13,6 +13,7 @@ import {
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SociosService } from './socios.service';
 import { CreateSocioDto } from './dto/create-socio.dto';
+import { RegistrarSocioDto } from './dto/registrar-socio.dto';
 import { UpdateSocioDto } from './dto/update-socio.dto';
 import { FindSociosQueryDto } from './dto/find-socios-query.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -33,6 +34,13 @@ export class SociosController {
   @ApiOperation({ summary: 'US-12 — Registrar socio' })
   create(@Body() dto: CreateSocioDto, @CurrentUser() user: AuthenticatedUser) {
     return this.sociosService.create(dto, user.id);
+  }
+
+  // 'Registrarme como socio' es accesible para cualquier usuario autenticado
+  @Post('registrar')
+  @ApiOperation({ summary: 'US-09 — Registrarme como socio' })
+  registrarmeComoSocio(@Body() dto: RegistrarSocioDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.sociosService.registrarme(dto, user.id);
   }
 
   @Get()
