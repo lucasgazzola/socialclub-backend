@@ -142,7 +142,7 @@ export class SociosService {
           entidad: 'Persona',
           idEntidad: persona.id,
           responsableId: usuario.id,
-          detalle: `Alta autogestionada como socio (US-09) · categoría: ${categoria.nombre}`,
+          detalle: `Alta autogestionada como socio - categoría: ${categoria.nombre}`,
         },
         tx,
       );
