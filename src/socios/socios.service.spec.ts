@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { SociosService } from './socios.service';
@@ -14,20 +14,40 @@ import { SociosService } from './socios.service';
 describe('SociosService', () => {
   let service: SociosService;
 
-  const prismaMock = {
+  const prismaMock: any = {
     persona: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
     },
-    $transaction: jest.fn(),
+    usuario: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
+    usuarioRol: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+    },
+    rol: {
+      findUnique: jest.fn(),
+    },
+    categoriaSocio: {
+      findUnique: jest.fn(),
+    },
+    $transaction: jest.fn((arg: any) => (typeof arg === 'function' ? arg(prismaMock) : arg)),
   };
 
   const auditoriaMock = { registrar: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    prismaMock.$transaction.mockImplementation((arg: any) =>
+      typeof arg === 'function' ? arg(prismaMock) : arg,
+    );
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [
         SociosService,
@@ -154,6 +174,151 @@ describe('SociosService', () => {
         expect.objectContaining({ id: creado.id, dni: dto.dni, nombre: dto.nombre }),
       );
       expect(listado.total).toBe(1);
+    });
+  });
+
+  describe('US-11: Editar datos personales del socio', () => {
+    const usuarioMock = {
+      id: 5,
+      email: 'socio@club.com',
+      nombre: 'Pedro',
+      apellido: 'Gomez',
+      activo: true,
+      persona: {
+        id: 12,
+        dni: '38111222',
+        nombre: 'Pedro',
+        apellido: 'Gomez',
+        email: 'socio@club.com',
+        telefono: '351 111 2222',
+        activo: true,
+        categoriaId: 1,
+        categoria: { id: 1, nombre: 'Activo' },
+      },
+    };
+
+    it('actualiza los datos permitidos del socio, sincroniza usuario y persona, y genera registro de auditoría', async () => {
+      const dto = {
+        nombre: 'Pedro Pablo',
+        apellido: 'Gomez Alvarez',
+        email: 'pedro.nuevo@club.com',
+        telefono: '351 999 8888',
+      };
+
+      const personaActualizada = {
+        ...usuarioMock.persona,
+        nombre: dto.nombre,
+        apellido: dto.apellido,
+        email: dto.email,
+        telefono: dto.telefono,
+      };
+
+      prismaMock.usuario.findUnique.mockResolvedValue(usuarioMock);
+      prismaMock.usuario.findFirst.mockResolvedValue(null);
+      prismaMock.persona.findFirst.mockResolvedValue(null);
+      prismaMock.usuario.update.mockResolvedValue({ ...usuarioMock, ...dto });
+      prismaMock.persona.update.mockResolvedValue(personaActualizada);
+
+      const resultado = await service.updatePerfil(5, dto);
+
+      // Sincroniza Usuario
+      expect(prismaMock.usuario.update).toHaveBeenCalledWith({
+        where: { id: 5 },
+        data: {
+          nombre: dto.nombre,
+          apellido: dto.apellido,
+          email: dto.email,
+        },
+      });
+
+      // Actualiza ficha Persona
+      expect(prismaMock.persona.update).toHaveBeenCalledWith({
+        where: { id: 12 },
+        data: {
+          nombre: dto.nombre,
+          apellido: dto.apellido,
+          email: dto.email,
+          telefono: dto.telefono,
+        },
+        include: { categoria: true },
+      });
+
+      // Registra en auditoria inalterable
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'EDITAR',
+          entidad: 'Persona',
+          idEntidad: 12,
+          responsableId: 5,
+        }),
+        expect.anything(),
+      );
+
+      expect(resultado).toEqual(personaActualizada);
+    });
+
+    it('rechaza la edición si el nuevo correo ya está registrado por otro usuario activo', async () => {
+      const dto = {
+        nombre: 'Pedro',
+        apellido: 'Gomez',
+        email: 'otro@club.com',
+      };
+
+      prismaMock.usuario.findUnique.mockResolvedValue(usuarioMock);
+      prismaMock.usuario.findFirst.mockResolvedValue({ id: 99 }); // Otro usuario con ese mail
+
+      await expect(service.updatePerfil(5, dto)).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.updatePerfil(5, dto)).rejects.toThrow(
+        'El correo electrónico ya se encuentra registrado por otro usuario',
+      );
+
+      expect(prismaMock.persona.update).not.toHaveBeenCalled();
+      expect(auditoriaMock.registrar).not.toHaveBeenCalled();
+    });
+
+    it('rechaza la edición si el nuevo correo ya está registrado por otro socio activo', async () => {
+      const dto = {
+        nombre: 'Pedro',
+        apellido: 'Gomez',
+        email: 'otro.socio@club.com',
+      };
+
+      prismaMock.usuario.findUnique.mockResolvedValue(usuarioMock);
+      prismaMock.usuario.findFirst.mockResolvedValue(null);
+      prismaMock.persona.findFirst.mockResolvedValue({ id: 99 }); // Otra persona con ese mail
+
+      await expect(service.updatePerfil(5, dto)).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.updatePerfil(5, dto)).rejects.toThrow(
+        'El correo electrónico ya se encuentra registrado por otro socio',
+      );
+
+      expect(prismaMock.persona.update).not.toHaveBeenCalled();
+    });
+
+    it('rechaza la edición si el usuario no tiene ficha de socio asociada', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({
+        id: 5,
+        email: 'usuario@club.com',
+        activo: true,
+        persona: null,
+      });
+
+      await expect(
+        service.updatePerfil(5, { nombre: 'A', apellido: 'B', email: 'a@b.com' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rechaza la edición si el usuario está dado de baja', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({
+        id: 5,
+        email: 'usuario@club.com',
+        activo: false,
+        persona: usuarioMock.persona,
+      });
+
+      await expect(
+        service.updatePerfil(5, { nombre: 'A', apellido: 'B', email: 'a@b.com' }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
     });
   });
 
