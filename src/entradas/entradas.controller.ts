@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { EntradasService } from './entradas.service';
 import { CrearEntradasDto } from './dto/crear-entradas.dto';
+import { ValidarAccesoDto } from './dto/validar-acceso.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -29,5 +30,13 @@ export class EntradasController {
   @ApiOperation({ summary: 'Listar entradas de un evento' })
   listarPorEvento(@Param('eventoId', ParseIntPipe) eventoId: number) {
     return this.entradasService.listarPorEvento(eventoId);
+  }
+
+  @Post('validar')
+  @HttpCode(200)
+  @Roles('ADMIN', 'COLABORADOR')
+  @ApiOperation({ summary: 'US-31 — Validar acceso mediante lectura de QR' })
+  validarAcceso(@Body() dto: ValidarAccesoDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.entradasService.validarAcceso(dto.token, user.id);
   }
 }
