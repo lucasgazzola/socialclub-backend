@@ -12,6 +12,7 @@ import { EstadoSocioFiltro, FindSociosQueryDto } from './dto/find-socios-query.d
 import { CreateSocioDto } from './dto/create-socio.dto';
 import { RegistrarSocioDto } from './dto/registrar-socio.dto';
 import { UpdateSocioDto } from './dto/update-socio.dto';
+import { UpdatePerfilSocioDto } from './dto/update-perfil-socio.dto';
 
 @Injectable()
 export class SociosService {
@@ -251,5 +252,101 @@ export class SociosService {
     });
 
     return socio;
+  }
+
+  /**
+   * US-11: Editar datos personales del socio.
+   * - Solo permite modificar Nombre, Apellido, Email y Telefono.
+   * - El DNI y la categoria son inalterables por el socio.
+   * - Valida unicidad de email contra otros usuarios y personas activos.
+   * - Actualiza Usuario y Persona.
+   * - Registra la operacion en RegistroAuditoria.
+   */
+  async updatePerfil(usuarioId: number, dto: UpdatePerfilSocioDto) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      include: { persona: { include: { categoria: true } } },
+    });
+
+    if (!usuario || !usuario.activo) {
+      throw new UnauthorizedException('Usuario no habilitado');
+    }
+
+    const persona = usuario.persona;
+    if (!persona || !persona.activo) {
+      throw new NotFoundException(
+        'No se encontró una ficha de socio activa asociada a este usuario',
+      );
+    }
+
+    const email = dto.email.trim().toLowerCase();
+
+    // Validar unicidad del email contra otros usuarios activos
+    const conEmailUsuario = await this.prisma.usuario.findFirst({
+      where: {
+        email,
+        activo: true,
+        id: { not: usuarioId },
+      },
+      select: { id: true },
+    });
+    if (conEmailUsuario) {
+      throw new ConflictException(
+        'El correo electrónico ya se encuentra registrado por otro usuario',
+      );
+    }
+
+    // Validar unicidad del email contra otras personas activas
+    const conEmailPersona = await this.prisma.persona.findFirst({
+      where: {
+        email,
+        activo: true,
+        id: { not: persona.id },
+      },
+      select: { id: true },
+    });
+    if (conEmailPersona) {
+      throw new ConflictException(
+        'El correo electrónico ya se encuentra registrado por otro socio',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Actualizar Usuario
+      await tx.usuario.update({
+        where: { id: usuarioId },
+        data: {
+          nombre: dto.nombre.trim(),
+          apellido: dto.apellido.trim(),
+          email,
+        },
+      });
+
+      // 2. Actualizar Persona (ficha del socio)
+      const personaActualizada = await tx.persona.update({
+        where: { id: persona.id },
+        data: {
+          nombre: dto.nombre.trim(),
+          apellido: dto.apellido.trim(),
+          email,
+          telefono: dto.telefono ? dto.telefono.trim() : null,
+        },
+        include: { categoria: true },
+      });
+
+      // 3. Registrar auditoría (inalterable)
+      await this.auditoria.registrar(
+        {
+          accion: 'EDITAR',
+          entidad: 'Persona',
+          idEntidad: persona.id,
+          responsableId: usuarioId,
+          detalle: `Actualización de datos personales del socio: ${dto.nombre.trim()} ${dto.apellido.trim()} (${email})`,
+        },
+        tx,
+      );
+
+      return personaActualizada;
+    });
   }
 }
