@@ -94,4 +94,87 @@ export class EntradasService {
 
     return items;
   }
+
+  /**
+   * US-31: Validar el acceso a partir del token leído de un código QR.
+   *
+   * Marca la entrada como USADA de forma atómica (updateMany con filtro por
+   * estado VALIDA) para que un mismo QR no habilite el ingreso dos veces aunque
+   * se escanee simultáneamente en dos puertas. Toda validación (permitida o
+   * rechazada) queda registrada en la auditoría.
+   */
+  async validarAcceso(token: string, responsableId: number) {
+    // Intento atómico de "consumir" la entrada: solo cambia si estaba VALIDA.
+    const { count } = await this.prisma.entrada.updateMany({
+      where: { token, estado: 'VALIDA' },
+      data: { estado: 'USADA' },
+    });
+
+    const entrada = await this.prisma.entrada.findUnique({
+      where: { token },
+      include: { evento: true },
+    });
+
+    if (!entrada) {
+      await this.auditoria.registrar({
+        accion: 'EDITAR',
+        entidad: 'Entrada',
+        responsableId,
+        detalle: `Acceso RECHAZADO: token inexistente (${token})`,
+      });
+      return {
+        valido: false,
+        estado: 'NO_ENCONTRADA' as const,
+        motivo: 'La entrada no existe o el código QR es inválido.',
+        entrada: null,
+      };
+    }
+
+    const info = {
+      id: entrada.id,
+      token: entrada.token,
+      estado: entrada.estado,
+      evento: { id: entrada.evento.id, nombre: entrada.evento.nombre },
+    };
+
+    // count === 1 → estaba VALIDA y la acabamos de marcar USADA → acceso permitido.
+    if (count === 1) {
+      await this.auditoria.registrar({
+        accion: 'EDITAR',
+        entidad: 'Entrada',
+        idEntidad: entrada.id,
+        responsableId,
+        detalle: `Acceso PERMITIDO al evento "${entrada.evento.nombre}" (entrada id=${entrada.id})`,
+      });
+      return {
+        valido: true,
+        estado: 'VALIDA' as const,
+        motivo: 'Acceso permitido.',
+        entrada: info,
+      };
+    }
+
+    // count === 0 → no estaba VALIDA. El estado real explica el rechazo.
+    const motivo =
+      entrada.estado === 'USADA'
+        ? 'La entrada ya fue utilizada.'
+        : entrada.estado === 'EXPIRADA'
+          ? 'La entrada está expirada.'
+          : 'La entrada no es válida.';
+
+    await this.auditoria.registrar({
+      accion: 'EDITAR',
+      entidad: 'Entrada',
+      idEntidad: entrada.id,
+      responsableId,
+      detalle: `Acceso RECHAZADO (${entrada.estado}) al evento "${entrada.evento.nombre}" (entrada id=${entrada.id})`,
+    });
+
+    return {
+      valido: false,
+      estado: entrada.estado,
+      motivo,
+      entrada: info,
+    };
+  }
 }
