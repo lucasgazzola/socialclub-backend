@@ -22,8 +22,11 @@ RUN npm install
 #####################################################################
 FROM deps AS dev
 COPY prisma ./prisma
+COPY src ./src
+COPY tsconfig*.json ./
+COPY nest-cli.json ./
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh && npx prisma generate
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh && npx prisma generate && npm run build
 ENV NODE_ENV=development
 EXPOSE 3000
 ENTRYPOINT ["docker-entrypoint.sh"]
