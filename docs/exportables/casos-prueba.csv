@@ -1,0 +1,11 @@
+ID Caso,US asociada,Objetivo,Precondición,Datos de entrada,Pasos,Resultado Esperado,Prioridad,Tipo
+TC-001,US-38,Registrarse con datos válidos,Visitante sin sesión,"email, contraseña válida, nombre y apellido",1. Abrir /register / 2. Completar y enviar,Crea la cuenta (HTTP 201) sin roles y redirige a /login,Alta,Funcional
+TC-002,US-38,Rechazar email ya registrado,Existe un usuario con ese email,Email repetido,1. Enviar el registro con un email existente,"No crea la cuenta e informa ""Ya existe un usuario registrado con ese email"" (409)",Alta,Funcional
+TC-003,US-38,Validar contraseña débil,Visitante sin sesión,Contraseña sin mayúscula/número/especial o < 8,1. Enviar el registro,Rechaza por validación (400) con el detalle de la política,Media,Unitaria
+TC-004,US-38,Impedir auto-asignarse un rol,Registro público disponible,"Payload con roles:[""ADMIN""]","1. Enviar registro incluyendo ""roles""",El backend rechaza por campo no permitido (400); no crea usuario con rol,Alta,No funcional
+TC-005,US-39,Iniciar sesión con credenciales válidas,Usuario activo registrado,Email y contraseña correctos,1. Enviar login,Inicia sesión (HTTP 200) y setea la cookie de sesión,Alta,Funcional
+TC-006,US-39,Rechazar credenciales inválidas,Usuario activo registrado,"Email correcto, contraseña incorrecta",1. Enviar login,"No inicia sesión: ""Credenciales inválidas"" (401)",Alta,Funcional
+TC-007,US-39,No revelar si el email existe,Sin sesión,Email inexistente,1. Enviar login con email no registrado,"Devuelve el mismo error genérico ""Credenciales inválidas"" (401)",Media,No funcional
+TC-008,US-39,Rechazar a un usuario dado de baja,Existe un usuario con activo=false,Credenciales de un usuario inactivo,1. Enviar login,"No inicia sesión: ""El usuario se encuentra dado de baja"" (401)",Media,Funcional
+TC-009,US-40,Cerrar sesión correctamente,Usuario con sesión iniciada,Sesión activa,1. Enviar logout,"Cierra la sesión (200), elimina la cookie y audita LOGOUT",Alta,Funcional
+TC-010,US-40,Bloquear logout sin sesión,Sin sesión activa,Sin cookie de sesión,1. Enviar logout sin estar logueado,El sistema responde 401 (no autorizado),Media,No funcional
