@@ -86,8 +86,11 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
-    "collectCoverageFrom": ["**/*.(t|j)s"],
+    "collectCoverageFrom": ["**/*.service.ts", "**/*.controller.ts", "!**/*.spec.ts"],
     "coverageDirectory": "../coverage",
+    "coverageThreshold": {
+      "global": { "statements": 35, "branches": 45, "functions": 22, "lines": 35 }
+    },
     "testEnvironment": "node"
   }
 }

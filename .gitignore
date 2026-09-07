@@ -33,3 +33,8 @@ prisma/seed.js
 
 # Documento de credenciales (secretos reales) — NUNCA commitear
 CREDENCIALES.md
+
+# Documentación binaria del proyecto (vive en Google Drive; ver docs/README.md)
+docs/documentacion/
+# Config local de Claude Code (por usuario)
+.claude/settings.local.json
