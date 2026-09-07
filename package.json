@@ -89,7 +89,7 @@
     "collectCoverageFrom": ["**/*.service.ts", "**/*.controller.ts", "!**/*.spec.ts"],
     "coverageDirectory": "../coverage",
     "coverageThreshold": {
-      "global": { "statements": 40, "branches": 52, "functions": 28, "lines": 40 }
+      "global": { "statements": 46, "branches": 56, "functions": 35, "lines": 46 }
     },
     "testEnvironment": "node"
   }
