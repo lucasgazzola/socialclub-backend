@@ -28,8 +28,19 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Tests (Jest)
-        run: npm test
+      # Corre los tests con cobertura. El umbral (ratchet) está en package.json > jest.coverageThreshold.
+      # Piso actual sobre lógica de negocio (services + controllers); objetivo DoD: 70%.
+      # Subir el ratchet a medida que /casos-a-tests agregue tests.
+      - name: Tests + cobertura (Jest)
+        run: npm run test:cov
+
+      - name: Publicar cobertura (evidencia de ejecución)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-backend
+          path: coverage/
+          if-no-files-found: warn
 
       - name: Build
         run: npm run build
