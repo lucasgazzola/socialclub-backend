@@ -7,8 +7,15 @@ import { UsuariosService } from './usuarios.service';
 describe('UsuariosService', () => {
   let service: UsuariosService;
 
-  const prismaMock = {
+  const prismaMock: any = {
     usuario: {
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      findMany: jest.fn(),
+    },
+    persona: {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
@@ -20,6 +27,7 @@ describe('UsuariosService', () => {
     rol: {
       findMany: jest.fn(),
     },
+    $transaction: jest.fn((cb: any) => (typeof cb === 'function' ? cb(prismaMock) : cb)),
   };
   const auditoriaMock = {
     registrar: jest.fn(),
@@ -27,6 +35,15 @@ describe('UsuariosService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    prismaMock.$transaction.mockImplementation((cb: any) =>
+      typeof cb === 'function' ? cb(prismaMock) : cb,
+    );
+    prismaMock.persona.findFirst.mockResolvedValue(null);
+    prismaMock.persona.findUnique.mockResolvedValue(null);
+    prismaMock.persona.create.mockImplementation(async ({ data }: any) => ({
+      id: 88,
+      ...data,
+    }));
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [
@@ -41,16 +58,20 @@ describe('UsuariosService', () => {
 
   it('registra un usuario administrativo válido y audita la creación', async () => {
     prismaMock.usuario.findFirst.mockResolvedValue(null);
+    prismaMock.persona.findFirst.mockResolvedValue(null);
+    prismaMock.persona.findUnique.mockResolvedValue(null);
+    prismaMock.persona.create.mockResolvedValue({ id: 88, dni: '40123456' });
     prismaMock.rol.findMany.mockResolvedValue([{ id: 2, nombre: 'ADMIN' }]);
-    prismaMock.usuario.create.mockImplementation(async ({ data }) => ({
+    prismaMock.usuario.create.mockImplementation(async ({ data }: any) => ({
       id: 15,
-      dni: data.dni,
       email: data.email,
       nombre: data.nombre,
       apellido: data.apellido,
       activo: true,
       ultimoLogin: null,
       creadoEn: '2026-07-21T12:00:00.000Z',
+      personaId: data.personaId,
+      persona: { dni: '40123456' },
       roles: [{ rol: { id: 2, nombre: 'ADMIN' } }],
     }));
 
@@ -78,7 +99,7 @@ describe('UsuariosService', () => {
     expect(prismaMock.usuario.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { email: 'nuevo.admin@socialclub.local' } }),
     );
-    expect(prismaMock.usuario.findFirst).toHaveBeenCalledWith(
+    expect(prismaMock.persona.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { dni: '40123456' } }),
     );
     expect(prismaMock.rol.findMany).toHaveBeenCalledWith({
@@ -87,10 +108,10 @@ describe('UsuariosService', () => {
     expect(prismaMock.usuario.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          dni: '40123456',
           email: 'nuevo.admin@socialclub.local',
           nombre: 'Nuevo',
           apellido: 'Administrador',
+          personaId: 88,
           roles: { create: [{ rolId: 2 }] },
         }),
       }),
@@ -125,7 +146,8 @@ describe('UsuariosService', () => {
 
   it('rechaza un usuario con DNI duplicado', async () => {
     prismaMock.usuario.findFirst.mockResolvedValueOnce(null);
-    prismaMock.usuario.findFirst.mockResolvedValueOnce({ id: 9 });
+    prismaMock.persona.findFirst.mockResolvedValueOnce(null);
+    prismaMock.persona.findFirst.mockResolvedValueOnce({ id: 9, dni: '40123456' });
 
     await expect(
       service.create(
@@ -164,7 +186,8 @@ describe('UsuariosService', () => {
   describe('TC-009: Editar los datos de un usuario de gestión existente', () => {
     const usuarioExistente = {
       id: 1,
-      dni: '12345678',
+      personaId: 88,
+      persona: { id: 88, dni: '12345678' },
       email: 'admin@socialclub.local',
       passwordHash: 'hash-de-12345678',
       nombre: 'Admin',
@@ -176,7 +199,8 @@ describe('UsuariosService', () => {
 
     const usuarioActualizado = {
       id: 1,
-      dni: '12345678',
+      personaId: 88,
+      persona: { id: 88, dni: '12345678' },
       email: 'admin.actualizado@socialclub.local',
       nombre: 'Admin',
       apellido: 'Actualizado',
@@ -189,6 +213,8 @@ describe('UsuariosService', () => {
     beforeEach(() => {
       prismaMock.usuario.findUnique.mockResolvedValue(usuarioExistente);
       prismaMock.usuario.findFirst.mockResolvedValue(null);
+      prismaMock.persona.findFirst.mockResolvedValue(null);
+      prismaMock.persona.update.mockResolvedValue({ id: 88, dni: '12345678' });
       prismaMock.usuario.update.mockResolvedValue(usuarioActualizado);
     });
 
@@ -244,7 +270,7 @@ describe('UsuariosService', () => {
     });
 
     it('rechaza la edición con ConflictException si el DNI ya pertenece a otro usuario', async () => {
-      prismaMock.usuario.findFirst.mockResolvedValueOnce({
+      prismaMock.persona.findFirst.mockResolvedValueOnce({
         id: 2,
         dni: '99999999',
       });
@@ -382,9 +408,9 @@ describe('UsuariosService', () => {
     it('registra la acción correspondiente para crear, editar y deshabilitar', async () => {
       prismaMock.usuario.findFirst.mockResolvedValue(null);
       prismaMock.rol.findMany.mockResolvedValue([{ id: 2, nombre: 'ADMIN' }]);
-      prismaMock.usuario.create.mockImplementation(async ({ data }) => ({
+      prismaMock.usuario.create.mockImplementation(async ({ data }: any) => ({
         id: 15,
-        dni: data.dni,
+        persona: { dni: '40123456' },
         email: data.email,
         nombre: data.nombre,
         apellido: data.apellido,

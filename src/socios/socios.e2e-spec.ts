@@ -16,14 +16,25 @@ describe('SociosController (e2e)', () => {
   let app: INestApplication;
   let httpServer: Parameters<typeof request>[0];
 
-  const prismaMock = {
+  const prismaMock: any = {
     persona: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
     },
-    $transaction: jest.fn(),
+    categoriaSocio: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+    },
+    membresia: {
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
+    $transaction: jest.fn((arg: any) => (typeof arg === 'function' ? arg(prismaMock) : arg)),
   };
 
   const auditoriaMock = { registrar: jest.fn() };
@@ -63,6 +74,11 @@ describe('SociosController (e2e)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    prismaMock.$transaction.mockImplementation((arg: any) =>
+      typeof arg === 'function' ? arg(prismaMock) : arg,
+    );
+    prismaMock.categoriaSocio.findUnique.mockResolvedValue({ id: 1, nombre: 'Mayores' });
+    prismaMock.categoriaSocio.findFirst.mockResolvedValue({ id: 1, nombre: 'Mayores' });
   });
 
   describe('TC-023: persistencia del socio vía API', () => {
@@ -80,11 +96,23 @@ describe('SociosController (e2e)', () => {
         id: 55,
         ...nuevoSocio,
         fechaNacimiento: new Date(nuevoSocio.fechaNacimiento),
-        activo: true,
-        categoria: null,
+        creadoEn: new Date(),
+        actualizadoEn: new Date(),
+        membresias: [
+          {
+            id: 1,
+            categoriaId: 1,
+            categoria: { id: 1, nombre: 'Mayores' },
+            activo: true,
+            fechaAlta: new Date(),
+            fechaBaja: null,
+          },
+        ],
+        usuario: null,
       };
 
       prismaMock.persona.findUnique.mockResolvedValue(null);
+      prismaMock.persona.findFirst.mockResolvedValue(null);
       prismaMock.persona.create.mockResolvedValue(socioPersistido);
 
       const postResponse = await request(httpServer).post('/socios').send(nuevoSocio).expect(201);
@@ -93,7 +121,8 @@ describe('SociosController (e2e)', () => {
         expect.objectContaining({ id: 55, dni: nuevoSocio.dni, nombre: nuevoSocio.nombre }),
       );
       expect(auditoriaMock.registrar).toHaveBeenCalledWith(
-        expect.objectContaining({ accion: 'CREAR', entidad: 'Persona', responsableId: 99 }),
+        expect.objectContaining({ accion: 'CREAR', responsableId: 99 }),
+        expect.anything(),
       );
 
       prismaMock.$transaction.mockResolvedValue([[socioPersistido], 1]);
@@ -111,7 +140,11 @@ describe('SociosController (e2e)', () => {
 
   describe('TC-020: DNI duplicado vía API', () => {
     it('POST /socios devuelve 409 y no llama a auditoría cuando el DNI ya existe', async () => {
-      prismaMock.persona.findUnique.mockResolvedValue({ id: 1, dni: '30111222' });
+      prismaMock.persona.findUnique.mockResolvedValue({
+        id: 1,
+        dni: '30111222',
+        membresias: [{ id: 1, activo: true }],
+      });
 
       await request(httpServer)
         .post('/socios')

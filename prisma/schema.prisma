@@ -63,7 +63,6 @@ model Rol {
 /// autogestiona como socio (US-09) queda vinculado a su ficha de Persona.
 model Usuario {
   id                 Int                 @id @default(autoincrement())
-  dni                String?             @unique
   email              String              @unique
   passwordHash       String
   nombre             String
@@ -72,9 +71,10 @@ model Usuario {
   ultimoLogin        DateTime?
   creadoEn           DateTime            @default(now())
   actualizadoEn      DateTime            @updatedAt
+  personaId          Int                 @unique
+  persona            Persona             @relation(fields: [personaId], references: [id], onDelete: Cascade)
   roles              UsuarioRol[]
   registrosAuditoria RegistroAuditoria[] @relation("usuarioResponsable")
-  persona            Persona?
 
   @@map("usuarios")
 }
@@ -97,7 +97,7 @@ model CategoriaSocio {
   id                             Int                                @id @default(autoincrement())
   nombre                         String                             @unique
   descripcion                    String?
-  personas                       Persona[]
+  membresias                     Membresia[]
   configuracionesCuotaDeportiva  ConfiguracionCuotaDeportiva[]
 
   @@map("categorias_socio")
@@ -140,28 +140,42 @@ model ConfiguracionCuotaDeportiva {
   @@map("configuraciones_cuota_deportiva")
 }
 
-/// Persona gestionada por la organización. En el Diagrama de Clases es la
-/// entidad base; en esta versión se usa para representar socios (US-12 a US-15).
-/// En sprints futuros se vincula con Documentacion, CuotaSocio e Inscripcion.
-/// La relación opcional 1:1 con Usuario (US-09: "Registrarme como socio")
-/// permite autogestionar el alta: el usuario logueado crea su propia ficha.
+/// Membresía: un período como socio. Una persona puede tener varias
+/// membresías históricas (personaId sin @unique). Como regla de negocio se
+/// valida en el backend un máximo de una membresía activa por Persona.
+model Membresia {
+  id          Int            @id @default(autoincrement())
+  personaId   Int
+  persona     Persona        @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  categoriaId Int
+  categoria   CategoriaSocio @relation(fields: [categoriaId], references: [id])
+  fechaAlta   DateTime       @default(now())
+  fechaBaja   DateTime?
+  activo      Boolean        @default(true)
+  creadoEn    DateTime       @default(now())
+  actualizadoEn DateTime     @updatedAt
+
+  @@index([personaId])
+  @@index([categoriaId])
+  @@map("membresias")
+}
+
+/// Persona gestionada por la organización. Identidad física: raíz del dominio.
+/// Existe con o sin Usuario, con o sin Membresia, con o sin Inscripcion.
 model Persona {
-  id              Int             @id @default(autoincrement())
+  id              Int           @id @default(autoincrement())
   nombre          String
   apellido        String
-  dni             String          @unique
+  dni             String?       @unique
   fechaNacimiento DateTime?
-  email           String?
+  email           String?       @unique
   telefono        String?
-  activo          Boolean         @default(true)
-  categoriaId     Int?
-  categoria       CategoriaSocio? @relation(fields: [categoriaId], references: [id])
-  usuarioId       Int?            @unique
-  usuario         Usuario?        @relation(fields: [usuarioId], references: [id])
-  fechaAlta       DateTime        @default(now())
+  creadoEn        DateTime      @default(now())
+  actualizadoEn   DateTime      @updatedAt
+
+  usuario         Usuario?
+  membresias      Membresia[]
   inscripciones   Inscripcion[]
-  creadoEn        DateTime        @default(now())
-  actualizadoEn   DateTime        @updatedAt
 
   @@index([apellido, nombre])
   @@map("personas")
