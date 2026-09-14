@@ -14,6 +14,7 @@ import { DisciplinasModule } from './disciplinas/disciplinas.module';
 import { CuotasModule } from './cuotas/cuotas.module';
 import { PersonasModule } from './personas/personas.module';
 import { InscripcionModule } from './inscripcion/inscripcion.module';
+import { DocumentacionModule } from './documentacion/documentacion.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { InscripcionModule } from './inscripcion/inscripcion.module';
     CuotasModule,
     PersonasModule,
     InscripcionModule,
+    DocumentacionModule,
   ],
   controllers: [AppController],
 })
