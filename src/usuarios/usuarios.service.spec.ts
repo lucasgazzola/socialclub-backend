@@ -338,7 +338,7 @@ describe('UsuariosService', () => {
           }),
         }),
       );
-      expect(resultado.roles).toEqual([{ rol: { id: 2, nombre: 'ADMIN' } }]);
+      expect(resultado!.roles).toEqual([{ rol: { id: 2, nombre: 'ADMIN' } }]);
       expect(auditoriaMock.registrar).toHaveBeenCalledWith(
         expect.objectContaining({ accion: 'EDITAR', idEntidad: 1, responsableId: 99 }),
       );
@@ -371,7 +371,7 @@ describe('UsuariosService', () => {
     it('pone el usuario en inactivo y audita la baja', async () => {
       const resultado = await service.deactivate(1, 99);
 
-      expect(resultado.activo).toBe(false);
+      expect(resultado!.activo).toBe(false);
       expect(prismaMock.usuario.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 1 },

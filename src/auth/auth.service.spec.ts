@@ -5,7 +5,6 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { AuthService } from './auth.service';
-import { describe } from 'node:test';
 
 /**
  * Tests unitarios del AuthService con dependencias mockeadas (mismo patrón que
