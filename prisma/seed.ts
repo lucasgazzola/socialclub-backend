@@ -41,11 +41,12 @@ async function main() {
   });
 
   // ── Categorías de socio (upsert: idempotente) ──────────────────────────────
+  // US16: 3 categorías canónicas para cuota social (Cuota Juvenil / General / Senior)
   const categoriasMap = new Map<string, { id: number; nombre: string }>();
   const categorias = [
-    { nombre: 'Senior', descripcion: 'Socios de la categoría senior' },
-    { nombre: 'Mayores', descripcion: 'Socios de la categoría mayores' },
-    { nombre: 'Infantil', descripcion: 'Socios de la categoría infantil' },
+    { nombre: 'Cuota Juvenil', descripcion: 'Cuota Juvenil' },
+    { nombre: 'Cuota General', descripcion: 'Cuota General' },
+    { nombre: 'Cuota Senior', descripcion: 'Cuota Senior' },
   ];
   for (const categoria of categorias) {
     const cat = await prisma.categoriaSocio.upsert({
@@ -54,6 +55,33 @@ async function main() {
       create: categoria,
     });
     categoriasMap.set(cat.nombre, cat);
+  }
+
+  // ── Migración legacy (solo para BDs previas a US16): 3 categorías antiguas → 3 nuevas
+  // Senior/Mayores/Infantil eran las únicas 3 en prod. Tras US16 quedan Cuota Juvenil/General/Senior.
+  const legacyMap: Record<string, string> = {
+    Senior: 'Cuota General',
+    Mayores: 'Cuota Senior',
+    Infantil: 'Cuota Juvenil',
+  };
+  for (const [legacy, nuevo] of Object.entries(legacyMap)) {
+    const legacyCat = await prisma.categoriaSocio.findUnique({ where: { nombre: legacy } });
+    if (!legacyCat) continue;
+    const nuevoCat = categoriasMap.get(nuevo);
+    if (!nuevoCat || legacyCat.id === nuevoCat.id) continue;
+    await prisma.membresia.updateMany({ where: { categoriaId: legacyCat.id }, data: { categoriaId: nuevoCat.id } });
+    await prisma.configuracionCuotaDeportiva.updateMany({
+      where: { categoriaId: legacyCat.id },
+      data: { categoriaId: nuevoCat.id },
+    });
+    try {
+      await (prisma as any).configuracionCuotaSocial?.updateMany?.({
+        where: { categoriaId: legacyCat.id },
+        data: { categoriaId: nuevoCat.id },
+      });
+    } catch {}
+    await prisma.categoriaSocio.delete({ where: { id: legacyCat.id } });
+    console.log(`  Migrada categoría legacy '${legacy}' -> '${nuevo}'`);
   }
 
   // ── Disciplinas deportivas (upsert: idempotente) ───────────────────────────
@@ -118,7 +146,7 @@ async function main() {
         telefono: '3514445566',
         membresias: {
           create: {
-            categoriaId: categoriasMap.get('Mayores')!.id,
+            categoriaId: categoriasMap.get('Cuota Senior')!.id,
             activo: true,
             fechaAlta: new Date('2025-01-10'),
           },
@@ -139,7 +167,7 @@ async function main() {
         email: emailLucia,
         membresias: {
           create: {
-            categoriaId: categoriasMap.get('Senior')!.id,
+            categoriaId: categoriasMap.get('Cuota General')!.id,
             activo: true,
             fechaAlta: new Date('2025-03-01'),
           },
@@ -172,7 +200,7 @@ async function main() {
         email: emailMartin,
         membresias: {
           create: {
-            categoriaId: categoriasMap.get('Mayores')!.id,
+            categoriaId: categoriasMap.get('Cuota Senior')!.id,
             activo: true,
             fechaAlta: new Date('2024-06-15'),
           },
@@ -225,13 +253,13 @@ async function main() {
         membresias: {
           create: [
             {
-              categoriaId: categoriasMap.get('Infantil')!.id,
+              categoriaId: categoriasMap.get('Cuota Juvenil')!.id,
               activo: false,
               fechaAlta: new Date('2023-01-01'),
               fechaBaja: new Date('2024-01-01'),
             },
             {
-              categoriaId: categoriasMap.get('Mayores')!.id,
+              categoriaId: categoriasMap.get('Cuota Senior')!.id,
               activo: true,
               fechaAlta: new Date('2025-01-01'),
               fechaBaja: null,
