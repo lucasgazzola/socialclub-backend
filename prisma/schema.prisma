@@ -197,6 +197,7 @@ model Persona {
   usuario         Usuario?
   membresias      Membresia[]
   inscripciones   Inscripcion[]
+  documentaciones Documentacion[]
 
   @@index([apellido, nombre])
   @@map("personas")
@@ -288,4 +289,27 @@ model Inscripcion {
   @@unique([personaId, disciplinaId])
   @@index([disciplinaId])
   @@map("inscripciones")
+}
+
+/// Documentación obligatoria de un participante (US-24). Habilita la
+/// participación en la actividad correspondiente. Cada documento requiere tipo,
+/// fecha de vencimiento e integrante (Persona) asociado. La regla "la fecha de
+/// vencimiento no puede ser anterior a hoy" se valida en el backend al cargar.
+model Documentacion {
+  id               Int      @id @default(autoincrement())
+  tipo             String
+  fechaVencimiento DateTime
+  personaId        Int
+  persona          Persona  @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  // Archivo adjunto opcional (PDF/imagen). El binario se guarda en el filesystem
+  // del servidor (ruta configurable); en la BD solo la referencia.
+  archivoNombre    String?  // nombre original subido por el usuario
+  archivoRuta      String?  // nombre del archivo almacenado (relativo al dir de storage)
+  mimeType         String?
+  tamano           Int?     // en bytes
+  creadoEn         DateTime @default(now())
+  actualizadoEn    DateTime @updatedAt
+
+  @@index([personaId])
+  @@map("documentaciones")
 }

@@ -43,3 +43,6 @@ docs/documentacion/
 jest-results.json
 vitest-results.json
 registro-ejecucion*.csv
+
+# Archivos subidos (documentación) — no versionar los binarios
+storage/
