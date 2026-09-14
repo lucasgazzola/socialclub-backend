@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import { IsDateString, IsInt, IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 /**
@@ -19,6 +20,7 @@ export class CreateDocumentacionDto {
   fechaVencimiento: string;
 
   @ApiProperty({ example: 1, description: 'ID del integrante (Persona) asociado' })
+  @Type(() => Number) // en multipart el campo llega como string
   @IsInt()
   @IsNotEmpty({ message: 'Debe indicar el integrante asociado.' })
   personaId: number;

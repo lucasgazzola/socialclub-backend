@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { CreateDocumentacionDto } from './dto/create-documentacion.dto';
+import { getStorageDir, type ArchivoSubido } from './storage.config';
 
 @Injectable()
 export class DocumentacionService {
@@ -17,7 +20,7 @@ export class DocumentacionService {
    * - La fecha de vencimiento es obligatoria (validada en el DTO).
    * - La fecha de vencimiento no puede ser anterior a la fecha actual.
    */
-  async create(dto: CreateDocumentacionDto, responsableId: number) {
+  async create(dto: CreateDocumentacionDto, responsableId: number, archivo?: ArchivoSubido) {
     const persona = await this.prisma.persona.findUnique({ where: { id: dto.personaId } });
     if (!persona) {
       throw new NotFoundException('Participante no encontrado');
@@ -48,6 +51,11 @@ export class DocumentacionService {
         tipo: dto.tipo.trim(),
         fechaVencimiento,
         personaId: dto.personaId,
+        // Archivo opcional: en la BD solo la referencia; el binario vive en disco.
+        archivoNombre: archivo?.originalname ?? null,
+        archivoRuta: archivo?.filename ?? null,
+        mimeType: archivo?.mimetype ?? null,
+        tamano: archivo?.size ?? null,
       },
     });
 
@@ -73,5 +81,22 @@ export class DocumentacionService {
       where: { personaId },
       orderBy: { fechaVencimiento: 'asc' },
     });
+  }
+
+  /** Devuelve la ruta absoluta del archivo adjunto para descargarlo. */
+  async obtenerArchivo(id: number) {
+    const doc = await this.prisma.documentacion.findUnique({ where: { id } });
+    if (!doc || !doc.archivoRuta) {
+      throw new NotFoundException('El documento no tiene un archivo adjunto');
+    }
+    const rutaAbsoluta = join(getStorageDir(), doc.archivoRuta);
+    if (!existsSync(rutaAbsoluta)) {
+      throw new NotFoundException('El archivo no se encuentra en el servidor');
+    }
+    return {
+      rutaAbsoluta,
+      nombre: doc.archivoNombre ?? doc.archivoRuta,
+      mimeType: doc.mimeType ?? 'application/octet-stream',
+    };
   }
 }
