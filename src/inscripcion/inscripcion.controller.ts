@@ -1,10 +1,20 @@
-import { Controller, Get, Post, Body, Param, Delete, Patch, UseGuards, ParseIntPipe, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  Patch,
+  UseGuards,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { InscripcionService } from './inscripcion.service';
 import { CreateInscripcionDto } from './dto/create-inscripcion.dto';
 import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
-import { Roles } from '@/common/decorators/roles.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -25,7 +35,9 @@ export class InscripcionController {
 
   @Patch(':id')
   @Roles('ADMIN', 'DELEGADO')
-  @ApiOperation({ summary: 'US-06 — Editar participante (datos básicos, disciplina y/o categoría)' })
+  @ApiOperation({
+    summary: 'US-06 — Editar participante (datos básicos, disciplina y/o categoría)',
+  })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateInscripcionDto,

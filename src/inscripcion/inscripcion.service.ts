@@ -4,7 +4,6 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateInscripcionDto } from './dto/create-inscripcion.dto';
@@ -13,15 +12,16 @@ import { AuditoriaService } from '../auditoria/auditoria.service';
 
 @Injectable()
 export class InscripcionService {
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
   ) {}
 
   async create(dto: CreateInscripcionDto, responsableId: number) {
-
-    const disciplina = await this.prisma.disciplina.findUnique({where: { id: dto.disciplinaId }, include: { categorias: true },});
+    const disciplina = await this.prisma.disciplina.findUnique({
+      where: { id: dto.disciplinaId },
+      include: { categorias: true },
+    });
 
     if (!disciplina) {
       throw new NotFoundException('Disciplina no encontrada');
@@ -40,7 +40,9 @@ export class InscripcionService {
     }
 
     if (dto.categoriaDisciplinaId) {
-      const categoriaValida = disciplina.categorias.some((c) => c.id === dto.categoriaDisciplinaId && c.activo,);
+      const categoriaValida = disciplina.categorias.some(
+        (c) => c.id === dto.categoriaDisciplinaId && c.activo,
+      );
       if (!categoriaValida) {
         throw new BadRequestException(
           'La categoría indicada no pertenece a esta disciplina o no está activa',
@@ -48,9 +50,8 @@ export class InscripcionService {
       }
     }
 
-    try{
+    try {
       return await this.prisma.$transaction(async (tx) => {
-
         let persona;
 
         // Modo 1: ya conocemos al participante (lo buscamos por DNI previamente).
@@ -121,26 +122,23 @@ export class InscripcionService {
           },
         });
 
-        return {persona, inscripcion,};
-
-      })
-
+        return { persona, inscripcion };
+      });
     } catch (error) {
       // Si dos requests concurrentes pasan la verificación al mismo tiempo, el
       // constraint único de la DB corta el segundo insert acá.
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
-          throw new ConflictException('Ya existe una persona registrada con ese DNI');
+        throw new ConflictException('Ya existe una persona registrada con ese DNI');
       }
       throw error;
     }
-
   }
 
   async update(id: number, dto: UpdateInscripcionDto, responsableId: number) {
     const inscripcionActual = await this.prisma.inscripcion.findUnique({
       where: { id },
-      include: { 
-        persona: true, 
+      include: {
+        persona: true,
         disciplina: { include: { categorias: true } },
         categoriaDisciplina: true,
       },
@@ -157,7 +155,7 @@ export class InscripcionService {
 
     const tieneCategorias = disciplinaDestino.categorias.length > 0;
     const disciplinaCambio = disciplinaIdDestino !== inscripcionActual.disciplinaId;
-    
+
     let categoriaIdDestino: number | null;
     if ('categoriaDisciplinaId' in dto) {
       categoriaIdDestino = dto.categoriaDisciplinaId ?? null;
@@ -166,28 +164,37 @@ export class InscripcionService {
     } else {
       categoriaIdDestino = inscripcionActual.categoriaDisciplinaId ?? null;
     }
-    
+
     if (tieneCategorias && categoriaIdDestino === null) {
       throw new BadRequestException('Debe seleccionar una categoría para esta disciplina');
     }
-    
+
     if (categoriaIdDestino) {
       const categoriaValida = disciplinaDestino.categorias.some(
-        c => c.id === categoriaIdDestino && c.activo
+        (c) => c.id === categoriaIdDestino && c.activo,
       );
       if (!categoriaValida) {
-        throw new BadRequestException('La categoría indicada no pertenece a esta disciplina o no está activa');
+        throw new BadRequestException(
+          'La categoría indicada no pertenece a esta disciplina o no está activa',
+        );
       }
     }
 
     const dniNuevo = dto.dni ?? inscripcionActual.persona.dni;
     const dniCambio = dniNuevo !== inscripcionActual.persona.dni;
-    
+
     if (dniCambio || disciplinaCambio) {
-      const personaConMismoDni = await this.prisma.persona.findUnique({ where: { dni: dniNuevo } });
+      const personaConMismoDni = dniNuevo
+        ? await this.prisma.persona.findUnique({ where: { dni: dniNuevo } })
+        : null;
       if (personaConMismoDni) {
         const yaInscripto = await this.prisma.inscripcion.findUnique({
-          where: { personaId_disciplinaId: { personaId: personaConMismoDni.id, disciplinaId: disciplinaIdDestino } },
+          where: {
+            personaId_disciplinaId: {
+              personaId: personaConMismoDni.id,
+              disciplinaId: disciplinaIdDestino,
+            },
+          },
         });
         if (yaInscripto) {
           throw new ConflictException('Ya existe un participante con ese DNI en esta disciplina');
@@ -203,7 +210,9 @@ export class InscripcionService {
             nombre: dto.nombre ?? inscripcionActual.persona.nombre,
             apellido: dto.apellido ?? inscripcionActual.persona.apellido,
             dni: dniNuevo,
-            fechaNacimiento: dto.fechaNacimiento ? new Date(dto.fechaNacimiento) : inscripcionActual.persona.fechaNacimiento,
+            fechaNacimiento: dto.fechaNacimiento
+              ? new Date(dto.fechaNacimiento)
+              : inscripcionActual.persona.fechaNacimiento,
             email: dto.email ?? inscripcionActual.persona.email,
             telefono: dto.telefono ?? inscripcionActual.persona.telefono,
           },
@@ -220,7 +229,9 @@ export class InscripcionService {
 
         let categoriaNuevaNombre = 'sin categoría';
         if (categoriaIdDestino) {
-          const cat = await tx.categoriaDisciplina.findUnique({ where: { id: categoriaIdDestino } });
+          const cat = await tx.categoriaDisciplina.findUnique({
+            where: { id: categoriaIdDestino },
+          });
           if (cat) categoriaNuevaNombre = cat.nombre;
         }
 

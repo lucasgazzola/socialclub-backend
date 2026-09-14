@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
@@ -22,24 +23,47 @@ export class AuthService {
   async register(dto: RegisterDto) {
     const email = dto.email.trim().toLowerCase();
 
-    const existente = await this.prisma.usuario.findUnique({
+    const existenteUsuario = await this.prisma.usuario.findUnique({
       where: { email },
       select: { id: true },
     });
-    if (existente) {
+    if (existenteUsuario) {
+      throw new ConflictException('Ya existe un usuario registrado con ese email');
+    }
+
+    const existentePersona = await this.prisma.persona.findUnique({
+      where: { email },
+      include: { usuario: { select: { id: true } } },
+    });
+    if (existentePersona?.usuario) {
       throw new ConflictException('Ya existe un usuario registrado con ese email');
     }
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
 
-    const usuario = await this.prisma.usuario.create({
-      data: {
-        email,
-        passwordHash,
-        nombre: dto.nombre,
-        apellido: dto.apellido,
-      },
-      select: { id: true, email: true, nombre: true, apellido: true },
+    const usuario = await this.prisma.$transaction(async (tx) => {
+      let personaId = existentePersona?.id;
+      if (!personaId) {
+        const nuevaPersona = await tx.persona.create({
+          data: {
+            nombre: dto.nombre,
+            apellido: dto.apellido,
+            email,
+          },
+        });
+        personaId = nuevaPersona.id;
+      }
+
+      return tx.usuario.create({
+        data: {
+          email,
+          passwordHash,
+          nombre: dto.nombre,
+          apellido: dto.apellido,
+          personaId,
+        },
+        select: { id: true, email: true, nombre: true, apellido: true },
+      });
     });
 
     await this.auditoria.registrar({
@@ -116,5 +140,98 @@ export class AuthService {
       idEntidad: usuarioId,
       responsableId: usuarioId,
     });
+  }
+
+  /**
+   * Obtiene el perfil actualizado del usuario autenticado (GET /auth/me).
+   * Esta consulta accede directamente a la base de datos para recuperar los roles
+   * y la información de la Persona vigentes.
+   */
+  async obtenerPerfil(usuarioId: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      include: {
+        roles: { include: { rol: true } },
+        persona: {
+          include: {
+            membresias: {
+              include: { categoria: true },
+              orderBy: { fechaAlta: 'desc' },
+            },
+          },
+        },
+      },
+    });
+
+    if (!usuario) {
+      throw new UnauthorizedException('Sesión inválida');
+    }
+
+    return {
+      id: usuario.id,
+      email: usuario.email,
+      nombre: usuario.nombre,
+      apellido: usuario.apellido,
+      roles: usuario.roles.map((ur) => ur.rol.nombre),
+      persona: this.serializarPersona(usuario.persona ?? null),
+    };
+  }
+
+  /**
+   * Re-firma el JWT del usuario con sus roles actuales - por si se hace socio-.
+   */
+  async refrescarSesion(usuarioId: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      include: { roles: { include: { rol: true } } },
+    });
+
+    if (!usuario) {
+      throw new UnauthorizedException('Sesión inválida');
+    }
+
+    const roles = usuario.roles.map((ur) => ur.rol.nombre);
+    const accessToken = this.jwtService.sign({
+      sub: usuario.id,
+      email: usuario.email,
+      roles,
+    });
+
+    return {
+      accessToken,
+      usuario: {
+        id: usuario.id,
+        email: usuario.email,
+        nombre: usuario.nombre,
+        apellido: usuario.apellido,
+        roles,
+      },
+    };
+  }
+
+  /** Normaliza la Persona vinculada al usuario para la API. */
+  private serializarPersona(
+    persona: Prisma.PersonaGetPayload<{
+      include: { membresias: { include: { categoria: true } } };
+    }> | null,
+  ) {
+    if (!persona) return null;
+    return {
+      id: persona.id,
+      nombre: persona.nombre,
+      apellido: persona.apellido,
+      dni: persona.dni,
+      email: persona.email,
+      telefono: persona.telefono,
+      fechaNacimiento: persona.fechaNacimiento,
+      membresias: persona.membresias.map((m) => ({
+        id: m.id,
+        categoriaId: m.categoriaId,
+        categoria: m.categoria,
+        fechaAlta: m.fechaAlta,
+        fechaBaja: m.fechaBaja,
+        activo: m.activo,
+      })),
+    };
   }
 }

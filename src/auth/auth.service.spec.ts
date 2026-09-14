@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { AuthService } from './auth.service';
+import { describe } from 'node:test';
 
 /**
  * Tests unitarios del AuthService con dependencias mockeadas (mismo patrón que
@@ -23,12 +24,17 @@ import { AuthService } from './auth.service';
 describe('AuthService', () => {
   let service: AuthService;
 
-  const prismaMock = {
+  const prismaMock: any = {
     usuario: {
       findUnique: jest.fn(),
       update: jest.fn(),
       create: jest.fn(),
     },
+    persona: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+    },
+    $transaction: jest.fn((cb: any) => (typeof cb === 'function' ? cb(prismaMock) : cb)),
   };
   const jwtMock = { sign: jest.fn() };
   const auditoriaMock = { registrar: jest.fn() };
@@ -53,6 +59,11 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    prismaMock.$transaction.mockImplementation((cb: any) =>
+      typeof cb === 'function' ? cb(prismaMock) : cb,
+    );
+    prismaMock.persona.findUnique.mockResolvedValue(null);
+    prismaMock.persona.create.mockResolvedValue({ id: 101, nombre: 'Test', apellido: 'User' });
     jwtMock.sign.mockReturnValue('signed-jwt');
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [
@@ -230,7 +241,7 @@ describe('AuthService', () => {
       // 1) Registro: no existe el email todavía.
       prismaMock.usuario.findUnique.mockResolvedValueOnce(null);
       let hashGuardado = '';
-      prismaMock.usuario.create.mockImplementation(async ({ data }) => {
+      prismaMock.usuario.create.mockImplementation(async ({ data }: any) => {
         hashGuardado = data.passwordHash;
         return { id: 21, email: data.email, nombre: data.nombre, apellido: data.apellido };
       });
@@ -291,6 +302,7 @@ describe('AuthService', () => {
           passwordHash: expect.any(String),
           nombre: 'Mal',
           apellido: 'Actor',
+          personaId: 101,
         },
         select: { id: true, email: true, nombre: true, apellido: true },
       });
