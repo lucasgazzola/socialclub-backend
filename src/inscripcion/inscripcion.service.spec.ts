@@ -1,4 +1,4 @@
-import { Test, TestingModule } from '@nestjs/testing';
+﻿import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service';
@@ -14,6 +14,8 @@ const mockPrisma: any = {
   persona: {
     findUnique: jest.fn(),
     update: jest.fn(),
+    findMany: jest.fn(),
+    count: jest.fn(),
   },
   inscripcion: {
     findUnique: jest.fn(),
@@ -368,85 +370,111 @@ describe('InscripcionService', () => {
     });
   });
 
-  describe('US-08 · Buscar y filtrar participantes', () => {
-    const participante = {
+  describe('US-08 - Buscar y filtrar participantes (una fila por participante)', () => {
+    const personaBase = {
+      id: 10,
+      nombre: 'Juan',
+      apellido: 'Perez',
+      dni: '12345678',
+      fechaNacimiento: new Date('1990-01-01'),
+      email: 'juan@test.com',
+      telefono: '1111111111',
+    };
+
+    const inscripcionFutbol = {
       id: 1,
       personaId: 10,
       disciplinaId: 1,
+      disciplina: { id: 1, nombre: 'Futbol' },
       categoriaDisciplinaId: 2,
-      fechaInscripcion: new Date('2026-01-10T00:00:00.000Z'),
-      activo: true,
-      persona: {
-        id: 10,
-        nombre: 'Juan',
-        apellido: 'Perez',
-        dni: '12345678',
-        email: 'juan@test.com',
-        telefono: '1111111111',
-      },
-      disciplina: { id: 1, nombre: 'Fútbol' },
       categoriaDisciplina: { id: 2, nombre: 'Sub-15' },
+      fechaInscripcion: new Date('2026-01-10'),
+      activo: true,
     };
 
-    it('TC-0801: busca por coincidencia parcial de nombre o apellido, sin distinguir mayúsculas', async () => {
-      mockPrisma.inscripcion.findMany.mockResolvedValue([participante]);
-      mockPrisma.inscripcion.count.mockResolvedValue(1);
+    const inscripcionVoley = {
+      id: 2,
+      personaId: 10,
+      disciplinaId: 2,
+      disciplina: { id: 2, nombre: 'Voley' },
+      categoriaDisciplinaId: null,
+      categoriaDisciplina: null,
+      fechaInscripcion: new Date('2026-02-10'),
+      activo: true,
+    };
+
+    const participanteDosDisciplinas = {
+      ...personaBase,
+      inscripciones: [inscripcionFutbol, inscripcionVoley],
+    };
+    it('TC-0801: busca por coincidencia parcial y agrupa por participante', async () => {
+      mockPrisma.persona.findMany.mockResolvedValue([participanteDosDisciplinas]);
+      mockPrisma.persona.count.mockResolvedValue(1);
 
       const result = await service.findAll({ busqueda: 'PER', pagina: 1, porPagina: 10 });
 
-      const where = mockPrisma.inscripcion.findMany.mock.calls[0][0].where;
-      expect(where.AND[0].persona.OR).toEqual(
+      const where = mockPrisma.persona.findMany.mock.calls[0][0].where;
+      expect(where.AND[0]).toEqual({ inscripciones: { some: {} } });
+      expect(where.AND[1].OR).toEqual(
         expect.arrayContaining([
           { nombre: { contains: 'PER', mode: 'insensitive' } },
           { apellido: { contains: 'PER', mode: 'insensitive' } },
         ]),
       );
-      expect(result.items[0]).toMatchObject({
-        persona: { nombre: 'Juan', apellido: 'Perez', dni: '12345678' },
-        disciplina: { id: 1, nombre: 'Fútbol' },
-        estado: 'INSCRIPTO',
-      });
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].personaId).toBe(10);
+      expect(result.items[0].disciplinas).toHaveLength(2);
+      expect(result.items[0].cantidadDisciplinas).toBe(2);
+      expect(result.total).toBe(1);
     });
 
     it('TC-0802: valida la coincidencia exacta por DNI', async () => {
-      mockPrisma.inscripcion.findMany.mockResolvedValue([participante]);
-      mockPrisma.inscripcion.count.mockResolvedValue(1);
+      mockPrisma.persona.findMany.mockResolvedValue([participanteDosDisciplinas]);
+      mockPrisma.persona.count.mockResolvedValue(1);
 
       await service.findAll({ busqueda: '12345678', pagina: 1, porPagina: 10 });
 
-      const where = mockPrisma.inscripcion.findMany.mock.calls[0][0].where;
-      expect(where.AND[0].persona.OR).toEqual(
-        expect.arrayContaining([{ dni: { equals: '12345678' } }]),
-      );
+      const where = mockPrisma.persona.findMany.mock.calls[0][0].where;
+      expect(where.AND[1].OR).toEqual(expect.arrayContaining([{ dni: { equals: '12345678' } }]));
     });
 
-    it('TC-0803: filtra por disciplina', async () => {
-      mockPrisma.inscripcion.findMany.mockResolvedValue([]);
-      mockPrisma.inscripcion.count.mockResolvedValue(0);
+    it('TC-0803: filtra por disciplina y muestra todas las del participante', async () => {
+      mockPrisma.persona.findMany.mockResolvedValue([participanteDosDisciplinas]);
+      mockPrisma.persona.count.mockResolvedValue(1);
 
-      await service.findAll({ disciplinaId: 3, pagina: 1, porPagina: 10 });
+      const result = await service.findAll({ disciplinaId: 3, pagina: 1, porPagina: 10 });
 
-      const where = mockPrisma.inscripcion.findMany.mock.calls[0][0].where;
-      expect(where.AND).toEqual([{ disciplinaId: 3 }]);
+      const where = mockPrisma.persona.findMany.mock.calls[0][0].where;
+      expect(where.AND).toEqual(
+        expect.arrayContaining([{ inscripciones: { some: { disciplinaId: 3 } } }]),
+      );
+      expect(result.items[0].disciplinas).toHaveLength(2);
     });
 
     it('TC-0804: filtra por estado INSCRIPTO', async () => {
-      mockPrisma.inscripcion.findMany.mockResolvedValue([participante]);
-      mockPrisma.inscripcion.count.mockResolvedValue(1);
+      mockPrisma.persona.findMany.mockResolvedValue([participanteDosDisciplinas]);
+      mockPrisma.persona.count.mockResolvedValue(1);
 
-      await service.findAll({
+      const result = await service.findAll({
         estado: EstadoInscripcionFiltro.INSCRIPTO,
         pagina: 1,
         porPagina: 10,
       });
 
-      const where = mockPrisma.inscripcion.findMany.mock.calls[0][0].where;
-      expect(where.AND).toEqual([{ activo: true }]);
+      const where = mockPrisma.persona.findMany.mock.calls[0][0].where;
+      expect(where.AND).toEqual(
+        expect.arrayContaining([{ inscripciones: { some: { activo: true } } }]),
+      );
+      expect(result.items[0].estado).toBe('INSCRIPTO');
     });
 
-    it('TC-0805: filtra por estado BAJA y expone el estado legible', async () => {
-      mockPrisma.inscripcion.findMany.mockResolvedValue([{ ...participante, activo: false }]);
-      mockPrisma.inscripcion.count.mockResolvedValue(1);
+    it('TC-0805: filtra por estado BAJA y expone el estado agregado', async () => {
+      const participanteBaja = {
+        ...personaBase,
+        inscripciones: [{ ...inscripcionFutbol, activo: false }],
+      };
+      mockPrisma.persona.findMany.mockResolvedValue([participanteBaja]);
+      mockPrisma.persona.count.mockResolvedValue(1);
 
       const result = await service.findAll({
         estado: EstadoInscripcionFiltro.BAJA,
@@ -454,14 +482,16 @@ describe('InscripcionService', () => {
         porPagina: 10,
       });
 
-      const where = mockPrisma.inscripcion.findMany.mock.calls[0][0].where;
-      expect(where.AND).toEqual([{ activo: false }]);
+      const where = mockPrisma.persona.findMany.mock.calls[0][0].where;
+      expect(where.AND).toEqual(
+        expect.arrayContaining([{ inscripciones: { none: { activo: true } } }]),
+      );
       expect(result.items[0].estado).toBe('BAJA');
     });
 
-    it('TC-0806: combina búsqueda, disciplina y estado (AND)', async () => {
-      mockPrisma.inscripcion.findMany.mockResolvedValue([]);
-      mockPrisma.inscripcion.count.mockResolvedValue(0);
+    it('TC-0806: combina busqueda, disciplina y estado (AND)', async () => {
+      mockPrisma.persona.findMany.mockResolvedValue([]);
+      mockPrisma.persona.count.mockResolvedValue(0);
 
       await service.findAll({
         busqueda: 'perez',
@@ -471,29 +501,34 @@ describe('InscripcionService', () => {
         porPagina: 10,
       });
 
-      const where = mockPrisma.inscripcion.findMany.mock.calls[0][0].where;
-      expect(where.AND).toHaveLength(3);
-      expect(where.AND).toEqual(expect.arrayContaining([{ disciplinaId: 1 }, { activo: true }]));
-      expect(where.AND[0].persona.OR).toBeDefined();
+      const where = mockPrisma.persona.findMany.mock.calls[0][0].where;
+      expect(where.AND).toHaveLength(4);
+      expect(where.AND[1].OR).toBeDefined();
+      expect(where.AND).toEqual(
+        expect.arrayContaining([
+          { inscripciones: { some: { disciplinaId: 1 } } },
+          { inscripciones: { some: { activo: true } } },
+        ]),
+      );
     });
 
-    it('TC-0807: sin coincidencias devuelve una lista vacía (el frontend muestra el mensaje)', async () => {
-      mockPrisma.inscripcion.findMany.mockResolvedValue([]);
-      mockPrisma.inscripcion.count.mockResolvedValue(0);
+    it('TC-0807: sin coincidencias devuelve una lista vacia', async () => {
+      mockPrisma.persona.findMany.mockResolvedValue([]);
+      mockPrisma.persona.count.mockResolvedValue(0);
 
       const result = await service.findAll({ busqueda: 'zzz', pagina: 1, porPagina: 10 });
 
       expect(result).toEqual({ items: [], total: 0, pagina: 1, porPagina: 10 });
     });
 
-    it('TC-0808: sin filtros lista paginado y respeta skip/take', async () => {
-      mockPrisma.inscripcion.findMany.mockResolvedValue([participante]);
-      mockPrisma.inscripcion.count.mockResolvedValue(15);
+    it('TC-0808: sin filtros lista personas paginado y respeta skip/take', async () => {
+      mockPrisma.persona.findMany.mockResolvedValue([participanteDosDisciplinas]);
+      mockPrisma.persona.count.mockResolvedValue(15);
 
       const result = await service.findAll({ pagina: 2, porPagina: 5 });
 
-      const args = mockPrisma.inscripcion.findMany.mock.calls[0][0];
-      expect(args.where).toEqual({});
+      const args = mockPrisma.persona.findMany.mock.calls[0][0];
+      expect(args.where).toEqual({ AND: [{ inscripciones: { some: {} } }] });
       expect(args.skip).toBe(5);
       expect(args.take).toBe(5);
       expect(result.total).toBe(15);
