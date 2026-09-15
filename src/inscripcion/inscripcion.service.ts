@@ -4,10 +4,15 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateInscripcionDto } from './dto/create-inscripcion.dto';
 import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
+import {
+  EstadoInscripcionFiltro,
+  FindParticipantesQueryDto,
+} from './dto/find-participantes-query.dto';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 
 @Injectable()
@@ -255,15 +260,82 @@ export class InscripcionService {
     }
   }
 
-  async findAll() {
-    return this.prisma.inscripcion.findMany({
-      include: {
-        persona: true,
-        disciplina: true,
-        categoriaDisciplina: true,
-      },
-      orderBy: { fechaInscripcion: 'desc' },
-    });
+  /** Formatea una Inscripcion (con Persona y Disciplina anidadas) al objeto que expone el listado de participantes (US-08). */
+  private aParticipanteDto(inscripcion: any) {
+    return {
+      id: inscripcion.id,
+      personaId: inscripcion.personaId,
+      persona: inscripcion.persona,
+      disciplinaId: inscripcion.disciplinaId,
+      disciplina: inscripcion.disciplina,
+      categoriaDisciplinaId: inscripcion.categoriaDisciplinaId ?? null,
+      categoriaDisciplina: inscripcion.categoriaDisciplina ?? null,
+      fechaInscripcion: inscripcion.fechaInscripcion,
+      activo: inscripcion.activo,
+      estado: inscripcion.activo ? 'INSCRIPTO' : 'BAJA',
+    };
+  }
+
+  /**
+   * US-08: Buscar y filtrar participantes.
+   * - Búsqueda por nombre, apellido o DNI (coincidencia exacta o parcial, sin distinguir mayúsculas).
+   * - Filtro por disciplina deportiva.
+   * - Filtro por estado de la inscripción (INSCRIPTO: activo, BAJA: inactivo).
+   * - Los filtros se combinan entre sí (AND) y la paginación se resuelve en el backend.
+   * Cada fila representa la participación de una persona en una disciplina.
+   */
+  async findAll(query: FindParticipantesQueryDto = { pagina: 1, porPagina: 10 }) {
+    const { busqueda, disciplinaId, estado, pagina, porPagina } = query;
+
+    const filtros: Prisma.InscripcionWhereInput[] = [];
+
+    if (busqueda && busqueda.trim()) {
+      const termino = busqueda.trim();
+      filtros.push({
+        persona: {
+          OR: [
+            { nombre: { contains: termino, mode: 'insensitive' } },
+            { apellido: { contains: termino, mode: 'insensitive' } },
+            { dni: { contains: termino, mode: 'insensitive' } },
+            { dni: { equals: termino } },
+          ],
+        },
+      });
+    }
+
+    if (disciplinaId) {
+      filtros.push({ disciplinaId });
+    }
+
+    if (estado === EstadoInscripcionFiltro.INSCRIPTO) {
+      filtros.push({ activo: true });
+    } else if (estado === EstadoInscripcionFiltro.BAJA) {
+      filtros.push({ activo: false });
+    }
+
+    const where: Prisma.InscripcionWhereInput = filtros.length > 0 ? { AND: filtros } : {};
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.inscripcion.findMany({
+        where,
+        include: {
+          persona: true,
+          disciplina: true,
+          categoriaDisciplina: true,
+        },
+        orderBy: [{ persona: { apellido: 'asc' } }, { persona: { nombre: 'asc' } }],
+        skip: (pagina - 1) * porPagina,
+        take: porPagina,
+      }),
+      this.prisma.inscripcion.count({ where }),
+    ]);
+
+    return {
+      items: items.map((i) => this.aParticipanteDto(i)),
+      total,
+      pagina,
+      porPagina,
+    };
   }
 
   async findByPersonaId(personaId: number) {
