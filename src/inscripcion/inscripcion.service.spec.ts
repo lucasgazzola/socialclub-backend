@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { InscripcionService } from './inscripcion.service';
 import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
+import { EstadoInscripcionFiltro } from './dto/find-participantes-query.dto';
 
 const mockPrisma: any = {
   disciplina: {
@@ -18,6 +19,7 @@ const mockPrisma: any = {
     findUnique: jest.fn(),
     update: jest.fn(),
     findMany: jest.fn(),
+    count: jest.fn(),
     delete: jest.fn(),
   },
   categoriaDisciplina: {
@@ -26,7 +28,9 @@ const mockPrisma: any = {
   registroAuditoria: {
     create: jest.fn(),
   },
-  $transaction: jest.fn(async (fn: any) => fn(mockPrisma)),
+  $transaction: jest.fn(async (arg: any) =>
+    typeof arg === 'function' ? arg(mockPrisma) : Promise.all(arg),
+  ),
 };
 
 const mockAuditoria = {
@@ -99,11 +103,17 @@ describe('InscripcionService', () => {
       });
       mockPrisma.inscripcion.update.mockResolvedValue({
         ...inscripcionExistente,
-        persona: { ...inscripcionExistente.persona, nombre: 'Juan Carlos', apellido: 'Perez Gomez' },
+        persona: {
+          ...inscripcionExistente.persona,
+          nombre: 'Juan Carlos',
+          apellido: 'Perez Gomez',
+        },
         disciplina: inscripcionExistente.disciplina,
         categoriaDisciplina: inscripcionExistente.categoriaDisciplina,
       });
-      mockPrisma.categoriaDisciplina.findUnique.mockResolvedValue(inscripcionExistente.categoriaDisciplina);
+      mockPrisma.categoriaDisciplina.findUnique.mockResolvedValue(
+        inscripcionExistente.categoriaDisciplina,
+      );
 
       const result = await service.update(1, dtoBasico, 99);
 
@@ -132,7 +142,9 @@ describe('InscripcionService', () => {
         disciplina: inscripcionExistente.disciplina,
         categoriaDisciplina: inscripcionExistente.categoriaDisciplina,
       });
-      mockPrisma.categoriaDisciplina.findUnique.mockResolvedValue(inscripcionExistente.categoriaDisciplina);
+      mockPrisma.categoriaDisciplina.findUnique.mockResolvedValue(
+        inscripcionExistente.categoriaDisciplina,
+      );
 
       const result = await service.update(1, { dni: '87654321' }, 99);
 
@@ -144,7 +156,9 @@ describe('InscripcionService', () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
       mockPrisma.disciplina.findUnique.mockResolvedValue(inscripcionExistente.disciplina);
       mockPrisma.persona.findUnique.mockResolvedValue({ id: 999, dni: '87654321' });
-      mockPrisma.inscripcion.findUnique.mockResolvedValueOnce(inscripcionExistente).mockResolvedValueOnce({ id: 999 });
+      mockPrisma.inscripcion.findUnique
+        .mockResolvedValueOnce(inscripcionExistente)
+        .mockResolvedValueOnce({ id: 999 });
 
       await expect(service.update(1, { dni: '87654321' }, 99)).rejects.toThrow(ConflictException);
     });
@@ -164,7 +178,9 @@ describe('InscripcionService', () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionSinCategoria);
       mockPrisma.disciplina.findUnique.mockResolvedValue(nuevaDisciplina);
       mockPrisma.persona.findUnique.mockResolvedValue(null);
-      mockPrisma.inscripcion.findUnique.mockResolvedValueOnce(inscripcionSinCategoria).mockResolvedValueOnce(null);
+      mockPrisma.inscripcion.findUnique
+        .mockResolvedValueOnce(inscripcionSinCategoria)
+        .mockResolvedValueOnce(null);
       mockPrisma.persona.update.mockResolvedValue(inscripcionExistente.persona);
       mockPrisma.inscripcion.update.mockResolvedValue({
         ...inscripcionSinCategoria,
@@ -190,7 +206,12 @@ describe('InscripcionService', () => {
 
     it('should throw BadRequestException if new discipline is inactive', async () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
-      mockPrisma.disciplina.findUnique.mockResolvedValue({ id: 2, nombre: 'Vóley', activo: false, categorias: [] });
+      mockPrisma.disciplina.findUnique.mockResolvedValue({
+        id: 2,
+        nombre: 'Vóley',
+        activo: false,
+        categorias: [],
+      });
 
       await expect(service.update(1, { disciplinaId: 2 }, 99)).rejects.toThrow(BadRequestException);
     });
@@ -205,7 +226,9 @@ describe('InscripcionService', () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
       mockPrisma.disciplina.findUnique.mockResolvedValue(nuevaDisciplina);
       mockPrisma.persona.findUnique.mockResolvedValue(null);
-      mockPrisma.inscripcion.findUnique.mockResolvedValueOnce(inscripcionExistente).mockResolvedValueOnce(null);
+      mockPrisma.inscripcion.findUnique
+        .mockResolvedValueOnce(inscripcionExistente)
+        .mockResolvedValueOnce(null);
       mockPrisma.persona.update.mockResolvedValue(inscripcionExistente.persona);
       mockPrisma.inscripcion.update.mockResolvedValue({
         ...inscripcionExistente,
@@ -214,7 +237,11 @@ describe('InscripcionService', () => {
         disciplina: nuevaDisciplina,
         categoriaDisciplina: { id: 5, nombre: 'Sub-18', activo: true },
       });
-      mockPrisma.categoriaDisciplina.findUnique.mockResolvedValue({ id: 5, nombre: 'Sub-18', activo: true });
+      mockPrisma.categoriaDisciplina.findUnique.mockResolvedValue({
+        id: 5,
+        nombre: 'Sub-18',
+        activo: true,
+      });
 
       const result = await service.update(1, { disciplinaId: 2, categoriaDisciplinaId: 5 }, 99);
 
@@ -251,7 +278,9 @@ describe('InscripcionService', () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
       mockPrisma.disciplina.findUnique.mockResolvedValue(nuevaDisciplina);
 
-      await expect(service.update(1, { disciplinaId: 2, categoriaDisciplinaId: 999 }, 99)).rejects.toThrow(BadRequestException);
+      await expect(
+        service.update(1, { disciplinaId: 2, categoriaDisciplinaId: 999 }, 99),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException if category is inactive', async () => {
@@ -264,7 +293,9 @@ describe('InscripcionService', () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
       mockPrisma.disciplina.findUnique.mockResolvedValue(nuevaDisciplina);
 
-      await expect(service.update(1, { disciplinaId: 2, categoriaDisciplinaId: 5 }, 99)).rejects.toThrow(BadRequestException);
+      await expect(
+        service.update(1, { disciplinaId: 2, categoriaDisciplinaId: 5 }, 99),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should change category within same discipline', async () => {
@@ -277,7 +308,11 @@ describe('InscripcionService', () => {
         disciplina: inscripcionExistente.disciplina,
         categoriaDisciplina: { id: 3, nombre: 'Primera', activo: true },
       });
-      mockPrisma.categoriaDisciplina.findUnique.mockResolvedValue({ id: 3, nombre: 'Primera', activo: true });
+      mockPrisma.categoriaDisciplina.findUnique.mockResolvedValue({
+        id: 3,
+        nombre: 'Primera',
+        activo: true,
+      });
 
       const result = await service.update(1, { categoriaDisciplinaId: 3 }, 99);
 
@@ -323,10 +358,147 @@ describe('InscripcionService', () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
       mockPrisma.disciplina.findUnique.mockResolvedValue(inscripcionExistente.disciplina);
       mockPrisma.persona.findUnique.mockResolvedValue(null);
-      const error = new PrismaClientKnownRequestError('Unique constraint', { code: 'P2002', clientVersion: '1.0' });
+      const error = new PrismaClientKnownRequestError('Unique constraint', {
+        code: 'P2002',
+        clientVersion: '1.0',
+      });
       mockPrisma.$transaction.mockRejectedValueOnce(error);
 
       await expect(service.update(1, { dni: '87654321' }, 99)).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('US-08 · Buscar y filtrar participantes', () => {
+    const participante = {
+      id: 1,
+      personaId: 10,
+      disciplinaId: 1,
+      categoriaDisciplinaId: 2,
+      fechaInscripcion: new Date('2026-01-10T00:00:00.000Z'),
+      activo: true,
+      persona: {
+        id: 10,
+        nombre: 'Juan',
+        apellido: 'Perez',
+        dni: '12345678',
+        email: 'juan@test.com',
+        telefono: '1111111111',
+      },
+      disciplina: { id: 1, nombre: 'Fútbol' },
+      categoriaDisciplina: { id: 2, nombre: 'Sub-15' },
+    };
+
+    it('TC-0801: busca por coincidencia parcial de nombre o apellido, sin distinguir mayúsculas', async () => {
+      mockPrisma.inscripcion.findMany.mockResolvedValue([participante]);
+      mockPrisma.inscripcion.count.mockResolvedValue(1);
+
+      const result = await service.findAll({ busqueda: 'PER', pagina: 1, porPagina: 10 });
+
+      const where = mockPrisma.inscripcion.findMany.mock.calls[0][0].where;
+      expect(where.AND[0].persona.OR).toEqual(
+        expect.arrayContaining([
+          { nombre: { contains: 'PER', mode: 'insensitive' } },
+          { apellido: { contains: 'PER', mode: 'insensitive' } },
+        ]),
+      );
+      expect(result.items[0]).toMatchObject({
+        persona: { nombre: 'Juan', apellido: 'Perez', dni: '12345678' },
+        disciplina: { id: 1, nombre: 'Fútbol' },
+        estado: 'INSCRIPTO',
+      });
+    });
+
+    it('TC-0802: valida la coincidencia exacta por DNI', async () => {
+      mockPrisma.inscripcion.findMany.mockResolvedValue([participante]);
+      mockPrisma.inscripcion.count.mockResolvedValue(1);
+
+      await service.findAll({ busqueda: '12345678', pagina: 1, porPagina: 10 });
+
+      const where = mockPrisma.inscripcion.findMany.mock.calls[0][0].where;
+      expect(where.AND[0].persona.OR).toEqual(
+        expect.arrayContaining([{ dni: { equals: '12345678' } }]),
+      );
+    });
+
+    it('TC-0803: filtra por disciplina', async () => {
+      mockPrisma.inscripcion.findMany.mockResolvedValue([]);
+      mockPrisma.inscripcion.count.mockResolvedValue(0);
+
+      await service.findAll({ disciplinaId: 3, pagina: 1, porPagina: 10 });
+
+      const where = mockPrisma.inscripcion.findMany.mock.calls[0][0].where;
+      expect(where.AND).toEqual([{ disciplinaId: 3 }]);
+    });
+
+    it('TC-0804: filtra por estado INSCRIPTO', async () => {
+      mockPrisma.inscripcion.findMany.mockResolvedValue([participante]);
+      mockPrisma.inscripcion.count.mockResolvedValue(1);
+
+      await service.findAll({
+        estado: EstadoInscripcionFiltro.INSCRIPTO,
+        pagina: 1,
+        porPagina: 10,
+      });
+
+      const where = mockPrisma.inscripcion.findMany.mock.calls[0][0].where;
+      expect(where.AND).toEqual([{ activo: true }]);
+    });
+
+    it('TC-0805: filtra por estado BAJA y expone el estado legible', async () => {
+      mockPrisma.inscripcion.findMany.mockResolvedValue([{ ...participante, activo: false }]);
+      mockPrisma.inscripcion.count.mockResolvedValue(1);
+
+      const result = await service.findAll({
+        estado: EstadoInscripcionFiltro.BAJA,
+        pagina: 1,
+        porPagina: 10,
+      });
+
+      const where = mockPrisma.inscripcion.findMany.mock.calls[0][0].where;
+      expect(where.AND).toEqual([{ activo: false }]);
+      expect(result.items[0].estado).toBe('BAJA');
+    });
+
+    it('TC-0806: combina búsqueda, disciplina y estado (AND)', async () => {
+      mockPrisma.inscripcion.findMany.mockResolvedValue([]);
+      mockPrisma.inscripcion.count.mockResolvedValue(0);
+
+      await service.findAll({
+        busqueda: 'perez',
+        disciplinaId: 1,
+        estado: EstadoInscripcionFiltro.INSCRIPTO,
+        pagina: 1,
+        porPagina: 10,
+      });
+
+      const where = mockPrisma.inscripcion.findMany.mock.calls[0][0].where;
+      expect(where.AND).toHaveLength(3);
+      expect(where.AND).toEqual(expect.arrayContaining([{ disciplinaId: 1 }, { activo: true }]));
+      expect(where.AND[0].persona.OR).toBeDefined();
+    });
+
+    it('TC-0807: sin coincidencias devuelve una lista vacía (el frontend muestra el mensaje)', async () => {
+      mockPrisma.inscripcion.findMany.mockResolvedValue([]);
+      mockPrisma.inscripcion.count.mockResolvedValue(0);
+
+      const result = await service.findAll({ busqueda: 'zzz', pagina: 1, porPagina: 10 });
+
+      expect(result).toEqual({ items: [], total: 0, pagina: 1, porPagina: 10 });
+    });
+
+    it('TC-0808: sin filtros lista paginado y respeta skip/take', async () => {
+      mockPrisma.inscripcion.findMany.mockResolvedValue([participante]);
+      mockPrisma.inscripcion.count.mockResolvedValue(15);
+
+      const result = await service.findAll({ pagina: 2, porPagina: 5 });
+
+      const args = mockPrisma.inscripcion.findMany.mock.calls[0][0];
+      expect(args.where).toEqual({});
+      expect(args.skip).toBe(5);
+      expect(args.take).toBe(5);
+      expect(result.total).toBe(15);
+      expect(result.pagina).toBe(2);
+      expect(result.porPagina).toBe(5);
     });
   });
 });
