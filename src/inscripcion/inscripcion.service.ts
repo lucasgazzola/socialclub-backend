@@ -15,6 +15,23 @@ import {
 } from './dto/find-participantes-query.dto';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 
+type InscConRelaciones = Pick<
+  Prisma.InscripcionGetPayload<{
+    include: { persona: true; disciplina: true; categoriaDisciplina: true };
+  }>,
+  | 'id'
+  | 'disciplinaId'
+  | 'disciplina'
+  | 'categoriaDisciplinaId'
+  | 'categoriaDisciplina'
+  | 'fechaInscripcion'
+  | 'activo'
+>;
+
+type PersonaConInscripciones = Prisma.PersonaGetPayload<{
+  include: { inscripciones: { include: { disciplina: true; categoriaDisciplina: true } } };
+}>;
+
 @Injectable()
 export class InscripcionService {
   constructor(
@@ -260,12 +277,18 @@ export class InscripcionService {
     }
   }
 
-  /** Formatea una Inscripcion (con Persona y Disciplina anidadas) al objeto que expone el listado de participantes (US-08). */
-  private aParticipanteDto(inscripcion: any) {
+  /**
+   * Convierte una inscripción (con sus relaciones cargadas) al item
+   * individual que consume el detalle por participante.
+   */
+
+  /**
+   * Convierte una inscripción (con sus relaciones cargadas) al item
+   * individual que consume el detalle por participante.
+   */
+  private aDisciplinaInscripta(inscripcion: InscConRelaciones) {
     return {
-      id: inscripcion.id,
-      personaId: inscripcion.personaId,
-      persona: inscripcion.persona,
+      inscripcionId: inscripcion.id,
       disciplinaId: inscripcion.disciplinaId,
       disciplina: inscripcion.disciplina,
       categoriaDisciplinaId: inscripcion.categoriaDisciplinaId ?? null,
@@ -277,61 +300,86 @@ export class InscripcionService {
   }
 
   /**
+   * Convierte una persona (con sus inscripciones cargadas) a la fila del
+   * listado de participantes (US-08): una fila por participante con todas
+   * sus disciplinas. El estado agregado es INSCRIPTO si tiene al menos una
+   * inscripción activa, BAJA en caso contrario.
+   */
+  private aParticipanteAgrupado(persona: PersonaConInscripciones) {
+    const disciplinas = [...persona.inscripciones]
+      .sort((a, b) => a.disciplina.nombre.localeCompare(b.disciplina.nombre, 'es'))
+      .map((i) => this.aDisciplinaInscripta(i));
+    return {
+      personaId: persona.id,
+      persona,
+      disciplinas,
+      cantidadDisciplinas: disciplinas.length,
+      estado: disciplinas.some((d) => d.activo) ? 'INSCRIPTO' : 'BAJA',
+    };
+  }
+
+  /**
    * US-08: Buscar y filtrar participantes.
    * - Búsqueda por nombre, apellido o DNI (coincidencia exacta o parcial, sin distinguir mayúsculas).
-   * - Filtro por disciplina deportiva.
-   * - Filtro por estado de la inscripción (INSCRIPTO: activo, BAJA: inactivo).
+   * - Filtro por disciplina deportiva (participantes con al menos una inscripción en esa disciplina).
+   * - Filtro por estado agregado del participante (INSCRIPTO: al menos una inscripción
+   *   activa, BAJA: ninguna activa).
    * - Los filtros se combinan entre sí (AND) y la paginación se resuelve en el backend.
-   * Cada fila representa la participación de una persona en una disciplina.
+   * Cada fila representa a un participante con todas sus disciplinas.
    */
   async findAll(query: FindParticipantesQueryDto = { pagina: 1, porPagina: 10 }) {
     const { busqueda, disciplinaId, estado, pagina, porPagina } = query;
 
-    const filtros: Prisma.InscripcionWhereInput[] = [];
+    const filtros: Prisma.PersonaWhereInput[] = [
+      // Solo personas que participan en al menos una disciplina.
+      { inscripciones: { some: {} } },
+    ];
 
     if (busqueda && busqueda.trim()) {
       const termino = busqueda.trim();
       filtros.push({
-        persona: {
-          OR: [
-            { nombre: { contains: termino, mode: 'insensitive' } },
-            { apellido: { contains: termino, mode: 'insensitive' } },
-            { dni: { contains: termino, mode: 'insensitive' } },
-            { dni: { equals: termino } },
-          ],
-        },
+        OR: [
+          { nombre: { contains: termino, mode: 'insensitive' } },
+          { apellido: { contains: termino, mode: 'insensitive' } },
+          { dni: { contains: termino, mode: 'insensitive' } },
+          { dni: { equals: termino } },
+        ],
       });
     }
 
     if (disciplinaId) {
-      filtros.push({ disciplinaId });
+      filtros.push({ inscripciones: { some: { disciplinaId } } });
     }
 
     if (estado === EstadoInscripcionFiltro.INSCRIPTO) {
-      filtros.push({ activo: true });
+      filtros.push({ inscripciones: { some: { activo: true } } });
     } else if (estado === EstadoInscripcionFiltro.BAJA) {
-      filtros.push({ activo: false });
+      filtros.push({ inscripciones: { none: { activo: true } } });
     }
 
-    const where: Prisma.InscripcionWhereInput = filtros.length > 0 ? { AND: filtros } : {};
+    const where: Prisma.PersonaWhereInput = { AND: filtros };
 
     const [items, total] = await this.prisma.$transaction([
-      this.prisma.inscripcion.findMany({
+      this.prisma.persona.findMany({
         where,
         include: {
-          persona: true,
-          disciplina: true,
-          categoriaDisciplina: true,
+          inscripciones: {
+            include: {
+              disciplina: true,
+              categoriaDisciplina: true,
+            },
+            orderBy: { disciplina: { nombre: 'asc' } },
+          },
         },
-        orderBy: [{ persona: { apellido: 'asc' } }, { persona: { nombre: 'asc' } }],
+        orderBy: [{ apellido: 'asc' }, { nombre: 'asc' }],
         skip: (pagina - 1) * porPagina,
         take: porPagina,
       }),
-      this.prisma.inscripcion.count({ where }),
+      this.prisma.persona.count({ where }),
     ]);
 
     return {
-      items: items.map((i) => this.aParticipanteDto(i)),
+      items: items.map((p) => this.aParticipanteAgrupado(p)),
       total,
       pagina,
       porPagina,
