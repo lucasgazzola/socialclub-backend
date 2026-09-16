@@ -32,7 +32,7 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 
 | Estado | Ítems |
 |---|---|
-| ✅ Resueltas | DT-03, DT-04, DT-07, DT-13, DT-14, DT-19 |
+| ✅ Resueltas | DT-03, DT-04, DT-07, DT-13, DT-14, DT-19, DT-21 |
 | 🔴 Críticas pendientes | DT-15, DT-16 |
 | 🟠 Altas pendientes | DT-01, DT-02, DT-05 |
 | 🟡 Medias pendientes | DT-10, DT-11, DT-17, DT-18 |
@@ -44,6 +44,9 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 |---|---|---|
 | Frontend (Vitest) | 22,03 % | 22 % |
 | Backend (Jest) | 50,00 % | 41 % ← desactualizado, subir a 49 % |
+
+Los dos repos tenían además el **CI en rojo** por configuración de lint, no por
+código: ver [Extra](#extra--ci-del-frontend-en-rojo-desde-el-0709) al final.
 
 El piso ("ratchet") solo puede subir: cada PR que agrega tests lo sube, y así
 la cobertura no puede retroceder. En el backend está 9 puntos por debajo de lo
@@ -279,6 +282,37 @@ fallaba desde el PR #51, cuando se sumaron los scripts de tooling de testing.
 **Con el CI rojo no se podía validar ningún PR contra `dev`.**
 
 ---
+
+### DT-21 · Test que fallaba solo en local y de noche
+*Nuevo · backend* · **PR [#32](https://github.com/lucasgazzola/socialclub-backend/pull/32)** ·
+`fix/Config-Lint-backend` · 16/09/2026
+
+`documentacion.service.spec.ts` › «rechaza una fecha de vencimiento anterior a
+hoy» pasaba en CI y fallaba en las máquinas del equipo. El helper armaba la
+fecha con `toISOString()` —en UTC— mientras el service compara contra el **día
+local**: entre las 21:00 y las 00:00 en UTC−3, el «ayer» en UTC es el «hoy»
+local, así que el service no rechazaba nada y el test esperaba un rechazo.
+
+**CI corre en UTC, así que este tipo de bug nunca se ve ahí.** Cuando un test
+de fechas falla en local y pasa en CI, sospechar de la zona horaria antes que
+del código. Se verificó en `UTC`, `America/Argentina/Buenos_Aires`,
+`Asia/Tokyo` y `Pacific/Kiritimati`.
+
+### Extra · CI del backend en rojo
+**PR [#32](https://github.com/lucasgazzola/socialclub-backend/pull/32)** ·
+`fix/Config-Lint-backend` · 16/09/2026
+
+`npm run lint` corre sobre `{src,test}/**/*.ts` con `projectService`, que exige
+que cada archivo pertenezca a un proyecto TS, pero `tsconfig.json` excluye
+`test`, `prisma` y `**/*spec.ts`: 17 errores de «was not found by the project
+service», ninguno un problema real del código. Se agregó
+`tsconfig.eslint.json` (extiende el de build e incluye esos archivos) sin
+tocar el tsconfig de build.
+
+> **Ojo:** `npm run lint` corre con `--fix`, así que en CI los problemas de
+> formato se arreglan en el runner y nunca se reportan. Por eso el formato
+> venía derivando en silencio. Conviene separar `lint` (sin fix, para CI) de
+> `lint:fix` (local).
 
 ## Nomenclatura
 
