@@ -7,6 +7,7 @@
 //   - Usuarios administrativos con roles           → US-01, US-02, US-03 / RF02
 //   - Socios (Persona + CategoriaSocio)            → US-12 a US-15 / RF01
 //   - Eventos y Entradas con código QR             → US-XX (entradas únicas)
+//   - Eventos y Entradas con código QR             → US-XX (entradas únicas)
 //
 // El modelo está diseñado para crecer hacia el dominio completo del Diagrama de
 // Clases (Disciplina, Inscripcion, CuotaSocio, Pago, Evento, Entrada,
@@ -57,9 +58,11 @@ model Rol {
 
 /// Usuario del sistema (quien inicia sesión). Es distinto de "Persona", que
 /// representa a alguien gestionado por el club (socio, alumno, participante).
+/// Un Usuario puede tener como máximo una Persona asociada (relación 1:1,
+/// garantizada por `Persona.usuarioId` @unique). Así, el mismo Usuario que se
+/// autogestiona como socio (US-09) queda vinculado a su ficha de Persona.
 model Usuario {
   id                 Int                 @id @default(autoincrement())
-  dni                String?             @unique
   email              String              @unique
   passwordHash       String
   nombre             String
@@ -68,6 +71,8 @@ model Usuario {
   ultimoLogin        DateTime?
   creadoEn           DateTime            @default(now())
   actualizadoEn      DateTime            @updatedAt
+  personaId          Int                 @unique
+  persona            Persona             @relation(fields: [personaId], references: [id], onDelete: Cascade)
   roles              UsuarioRol[]
   registrosAuditoria RegistroAuditoria[] @relation("usuarioResponsable")
 
@@ -86,14 +91,15 @@ model UsuarioRol {
   @@map("usuarios_roles")
 }
 
-/// Categoría de socio (ej: Activo, Vitalicio, Cadete). En sprints posteriores
-/// condiciona el cálculo de cuotas (RF04).
+/// Categoría de socio. Condiciona el cálculo de cuotas (RF04).
+/// US16: determina las 3 cuotas sociales (Cuota Juvenil / General / Senior).
 model CategoriaSocio {
   id                             Int                                @id @default(autoincrement())
   nombre                         String                             @unique
   descripcion                    String?
-  personas                       Persona[]
+  membresias                     Membresia[]
   configuracionesCuotaDeportiva  ConfiguracionCuotaDeportiva[]
+  configuracionesCuotaSocial     ConfiguracionCuotaSocial[]
 
   @@map("categorias_socio")
 }
@@ -108,6 +114,8 @@ model Disciplina {
   creadoEn                       DateTime                           @default(now())
   actualizadoEn                  DateTime                           @updatedAt
   configuracionesCuotaDeportiva  ConfiguracionCuotaDeportiva[]
+  categorias    CategoriaDisciplina[]
+  inscripciones Inscripcion[]
 
   @@map("disciplinas")
 }
@@ -133,24 +141,73 @@ model ConfiguracionCuotaDeportiva {
   @@map("configuraciones_cuota_deportiva")
 }
 
-/// Persona gestionada por la organización. En el Diagrama de Clases es la
-/// entidad base; en esta versión se usa para representar socios (US-12 a US-15).
-/// En sprints futuros se vincula con Documentacion, CuotaSocio e Inscripcion.
+/// Configuración del monto mensual de la cuota social por categoría de socio.
+/// US16: el administrador configura el monto mensual que deben abonar los socios.
+/// Tres cuotas canónicas: Cuota Juvenil / General / Senior.
+/// Los cambios aplican a partir del período siguiente (YYYY-MM), no se permite
+/// guardar montos <= 0. Histórico por período.
+model ConfiguracionCuotaSocial {
+  id               Int            @id @default(autoincrement())
+  categoriaId      Int
+  periodoAplicacion String        // "YYYY-MM"
+  monto            Decimal        @db.Decimal(12, 2)
+  activo           Boolean        @default(true)
+  creadoEn         DateTime       @default(now())
+  actualizadoEn    DateTime       @updatedAt
+  categoria        CategoriaSocio @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+
+  @@unique([categoriaId, periodoAplicacion])
+  @@index([periodoAplicacion])
+  @@map("configuraciones_cuota_social")
+}
+
+/// Membresía: un período como socio. Una persona puede tener varias
+/// membresías históricas (personaId sin @unique). Como regla de negocio se
+/// valida en el backend un máximo de una membresía activa por Persona.
+model Membresia {
+  id          Int            @id @default(autoincrement())
+  personaId   Int
+  persona     Persona        @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  categoriaId Int
+  categoria   CategoriaSocio @relation(fields: [categoriaId], references: [id])
+  fechaAlta   DateTime       @default(now())
+  fechaBaja   DateTime?
+  activo      Boolean        @default(true)
+  creadoEn    DateTime       @default(now())
+  actualizadoEn DateTime     @updatedAt
+
+  @@index([personaId])
+  @@index([categoriaId])
+  @@map("membresias")
+}
+
+/// Persona gestionada por la organización. Identidad física: raíz del dominio.
+/// Existe con o sin Usuario, con o sin Membresia, con o sin Inscripcion.
+/// Persona gestionada por la organización. Identidad física: raíz del dominio.
+/// Existe con o sin Usuario, con o sin Membresia, con o sin Inscripcion.
+/// US-07: `activo` es el estado propio del participante (Inactivo = dado de baja
+/// por el delegado). No se confunde con la vigencia de cada inscripción
+/// (`Inscripcion.activo`, que expone US-08 como INSCRIPTO/BAJA): un participante
+/// inactivo está bloqueado y no puede ser inscripto en ninguna disciplina.
 model Persona {
-  id              Int             @id @default(autoincrement())
+  id              Int           @id @default(autoincrement())
   nombre          String
   apellido        String
-  dni             String          @unique
+  dni             String?       @unique
   fechaNacimiento DateTime?
-  email           String?
+  email           String?       @unique
   telefono        String?
-  activo          Boolean         @default(true)
-  categoriaId     Int?
-  categoria       CategoriaSocio? @relation(fields: [categoriaId], references: [id])
-  creadoEn        DateTime        @default(now())
-  actualizadoEn   DateTime        @updatedAt
+  activo          Boolean       @default(true)
+  creadoEn        DateTime      @default(now())
+  actualizadoEn   DateTime      @updatedAt
+
+  usuario         Usuario?
+  membresias      Membresia[]
+  inscripciones   Inscripcion[]
+  documentaciones Documentacion[]
 
   @@index([apellido, nombre])
+  @@index([activo])
   @@map("personas")
 }
 
@@ -200,4 +257,67 @@ model RegistroAuditoria {
   @@index([entidad, idEntidad])
   @@index([fechaHora])
   @@map("registros_auditoria")
+}
+
+
+/// Categoría dentro de una disciplina (ej: "Sub-15", "Primera", "Adultos").
+model CategoriaDisciplina {
+  id           Int      @id @default(autoincrement())
+  nombre       String
+  disciplinaId Int
+  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id])
+  activo       Boolean  @default(true)
+  creadoEn     DateTime @default(now())
+
+  inscripciones Inscripcion[]
+
+  @@unique([disciplinaId, nombre])
+  @@unique([id, disciplinaId])
+  @@map("categorias_disciplina")
+}
+
+/// Una persona puede inscribirse en varias disciplinas a la vez, 
+/// y cada inscripción se asocia como máximo
+/// a una única CategoriaDisciplina.
+model Inscripcion {
+  id                    Int                  @id @default(autoincrement())
+  personaId             Int
+  persona               Persona              @relation(fields: [personaId], references: [id])
+  disciplinaId          Int
+  disciplina            Disciplina           @relation(fields: [disciplinaId], references: [id])
+  categoriaDisciplinaId Int?
+  categoriaDisciplina   CategoriaDisciplina? @relation(fields: [categoriaDisciplinaId], references: [id])
+
+  fechaInscripcion DateTime @default(now())
+  activo           Boolean  @default(true)
+  creadoEn         DateTime @default(now())
+  actualizadoEn    DateTime @updatedAt
+
+
+  @@unique([personaId, disciplinaId])
+  @@index([disciplinaId])
+  @@map("inscripciones")
+}
+
+/// Documentación obligatoria de un participante (US-24). Habilita la
+/// participación en la actividad correspondiente. Cada documento requiere tipo,
+/// fecha de vencimiento e integrante (Persona) asociado. La regla "la fecha de
+/// vencimiento no puede ser anterior a hoy" se valida en el backend al cargar.
+model Documentacion {
+  id               Int      @id @default(autoincrement())
+  tipo             String
+  fechaVencimiento DateTime
+  personaId        Int
+  persona          Persona  @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  // Archivo adjunto opcional (PDF/imagen). El binario se guarda en el filesystem
+  // del servidor (ruta configurable); en la BD solo la referencia.
+  archivoNombre    String?  // nombre original subido por el usuario
+  archivoRuta      String?  // nombre del archivo almacenado (relativo al dir de storage)
+  mimeType         String?
+  tamano           Int?     // en bytes
+  creadoEn         DateTime @default(now())
+  actualizadoEn    DateTime @updatedAt
+
+  @@index([personaId])
+  @@map("documentaciones")
 }

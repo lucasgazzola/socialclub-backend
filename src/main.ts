@@ -47,7 +47,8 @@ async function bootstrap() {
   // independientemente de NODE_ENV: el entorno test corre con NODE_ENV=production
   // (por la cookie `Secure` cross-site) pero igual expone Swagger con SWAGGER_ENABLED=true.
   const swaggerEnabled =
-    (config.get<string>('SWAGGER_ENABLED') ?? (nodeEnv !== 'production' ? 'true' : 'false')) === 'true';
+    (config.get<string>('SWAGGER_ENABLED') ?? (nodeEnv !== 'production' ? 'true' : 'false')) ===
+    'true';
   if (swaggerEnabled) {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('SocialClub API')
