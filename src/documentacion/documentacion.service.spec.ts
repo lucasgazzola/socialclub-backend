@@ -18,10 +18,15 @@ describe('US-24 · DocumentacionService', () => {
   };
   const auditoriaMock = { registrar: jest.fn() };
 
+  // La fecha se arma en hora LOCAL, no con toISOString(): el service compara
+  // contra el día local, así que entre las 21:00 y las 00:00 en UTC-3 el "ayer"
+  // en UTC es el "hoy" local y el caso de fecha vencida dejaba de fallar.
   const diasDesdeHoy = (dias: number) => {
     const d = new Date();
     d.setDate(d.getDate() + dias);
-    return d.toISOString().slice(0, 10); // YYYY-MM-DD
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const dia = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${mes}-${dia}`; // YYYY-MM-DD
   };
 
   beforeEach(async () => {
