@@ -38,7 +38,11 @@ describe('US-24 · DocumentacionService', () => {
 
   it('carga el documento con fecha futura y audita CREAR', async () => {
     prismaMock.persona.findUnique.mockResolvedValue({ id: 1, nombre: 'Juan' });
-    prismaMock.documentacion.create.mockResolvedValue({ id: 10, tipo: 'Apto físico', personaId: 1 });
+    prismaMock.documentacion.create.mockResolvedValue({
+      id: 10,
+      tipo: 'Apto físico',
+      personaId: 1,
+    });
 
     const res = await service.create(
       { tipo: 'Apto físico', fechaVencimiento: diasDesdeHoy(30), personaId: 1 },
