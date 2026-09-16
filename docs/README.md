@@ -29,6 +29,15 @@ Para máxima precisión, dejá acá tus documentos reales (plantillas + ejemplos
 - [ ] `gestion-comunicaciones.md`
 - [ ] `backlog.md` (o `.csv`) — US por sprint, Story Points y asignación por integrante. *Lo consume:* métricas.
 
+## Documentos vivos de este directorio
+
+Estos no son exports: se mantienen acá, en markdown, y se actualizan con cada cambio.
+
+- **`DEUDA-TECNICA.md`** — registro de la deuda técnica de los dos repos: qué hay,
+  en qué orden atacarla, qué se resolvió y con qué PR. Al cerrar un ítem hay que
+  moverlo a la sección «Deuda resuelta» (es parte de la Definition of Done).
+- **`GUIA-IA-EQUIPO.md`** — cómo usar los skills del equipo.
+
 ## Cómo lo usa la IA
 - El `CLAUDE.md` de cada repo apunta acá.
 - Los skills (`.claude/skills/`) leen estos archivos para generar salidas **con el formato exacto del equipo** (mismos IDs, columnas, secciones), en vez de inventar uno.
