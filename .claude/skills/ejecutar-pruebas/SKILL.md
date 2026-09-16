@@ -40,3 +40,30 @@ node scripts/registro-ejecucion.mjs vitest-results.json --sprint="Sprint 3" --ej
 ## Reglas
 - La evidencia refleja la corrida real: no editar resultados a mano.
 - Si un test falla, el CSV lo marca `Fallido` con el log; se arregla el código o el test, no el CSV.
+
+
+## Formato real de la hoja «Ejecución de Pruebas» (verificado contra el .xlsx)
+
+Encabezados en la **fila 2**, 10 columnas en este orden:
+
+`ID Ejecución` · `Sprint` · `Fecha` · `ID Caso` · `US asociada` · `Ejecutor` ·
+`Resultado` · `Evidencia` · `Defecto asociado` · `Observaciones`
+
+- **ID Ejecución**: `EJ-NN` correlativo (dos dígitos), siguiendo desde el último de la hoja.
+- **Sprint**: número con decimal (`3.0`).
+- **Fecha**: `dd/mm/aaaa` (Excel la convierte al pegarla).
+- **Resultado**: `Aprobado` | `Fallido` | `Bloqueado`.
+- **Evidencia**: salida real de la corrida. Para Jest/Vitest, el resumen
+  (`Test Suites: ... / Tests: ...`); para casos funcionales, el método, la ruta,
+  el código HTTP y el mensaje devuelto.
+- **Observaciones**: acá va el **alcance real** de la verificación. Si un caso
+  quedó cubierto solo en parte (p. ej. a nivel de servicio pero no de base de
+  datos), decirlo acá en lugar de marcarlo Aprobado sin más.
+
+Salida: CSV con `QUOTE_ALL` y BOM en `docs/exportables/ejecucion-<US>.csv`,
+para copiar y pegar. No generar `.xlsx`.
+
+## Casos que ya estaban en la planilla
+Si los tests cubren casos ya cargados (que hasta ahora no tenían ejecución
+registrada), **también corresponde registrarles su EJ**. No inventar un caso
+nuevo para algo que ya está documentado.

@@ -32,10 +32,10 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 
 | Estado | Ítems |
 |---|---|
+| 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15--🔴-riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés--🟠-costo-creciente) |
 | ✅ Resueltas | DT-03, DT-04, DT-07, DT-13, DT-14, DT-16, DT-19, DT-21 |
-| 🔴 Críticas pendientes | DT-15 |
-| 🟠 Altas pendientes | DT-01, DT-02, DT-05 |
-| 🟡 Medias pendientes | DT-10, DT-11, DT-17, DT-18 |
+| 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05 |
+| 🟡 Medias pendientes | DT-10, DT-11, DT-17, DT-18, DT-22, DT-23, DT-24, DT-25, DT-26 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-20 |
 
 **Cobertura de tests** (medida el 16/09/2026, objetivo DoD **70 %**):
@@ -43,48 +43,97 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Repo | Statements | Piso configurado |
 |---|---|---|
 | Frontend (Vitest) | 22,03 % | 22 % |
-| Backend (Jest) | 50,20 % | 50 % |
+| Backend (Jest) | **60,82 %** | 58 % |
 
 Los dos repos tenían además el **CI en rojo** por configuración de lint, no por
 código: ver [Extra](#extra--ci-del-frontend-en-rojo-desde-el-0709) al final.
 
 El piso ("ratchet") solo puede subir: cada PR que agrega tests lo sube, y así
-la cobertura no puede retroceder. En los dos repos está pegado al valor real,
-así que cualquier retroceso corta el CI.
+la cobertura no puede retroceder. **Se deja ~3 puntos de margen sobre el valor
+real a propósito**: con el piso pegado al número exacto, el CI del equipo se
+cortó por 0,15 puntos por un PR que no había hecho nada mal (ver DT-23), y eso
+solo genera la tentación de bajar el umbral a mano.
+
+---
+
+## Decisiones pendientes del equipo
+
+Esto **no es trabajo pendiente: son decisiones**. Están acá porque ya las
+conocemos y el costo de no decidir crece con el tiempo. No se pueden atacar
+como deuda técnica hasta que el equipo elija un camino.
+
+### Persistencia de los adjuntos en Azure (DT-15) · 🔴 riesgo activo
+
+La documentación obligatoria (US-24) guarda el binario en el filesystem del
+contenedor (`DOCS_STORAGE_DIR=storage/documentacion`). En Azure Container Apps
+ese filesystem es **efímero**: cada revisión, reinicio o escalado borra los
+archivos y la base queda con referencias a rutas que ya no existen.
+**Ya está desplegado así**, así que el riesgo corre desde hoy.
+
+| Opción | A favor | En contra |
+|---|---|---|
+| **Azure Blob Storage** | No ata el despliegue a un volumen; escala y se respalda solo | Hay que escribir el adaptador y sumar el SDK |
+| **Azure File Share montado** | El código actual queda casi intacto | Acopla la infra al Container App; hay que gestionar el montaje en cada entorno |
+
+- **Evidencia:** `src/documentacion/storage.config.ts:17` · `.github/workflows/cd-main.yml` (no monta ningún volumen)
+- **Además hay que decidir** qué hacer con los registros que ya apuntan a rutas inexistentes en el entorno de pruebas.
+- **Bloquea:** DT-09 (imágenes en eventos). Si se hace antes, repite el mismo bug.
+- **Rama sugerida una vez decidido:** `issue/TASK-13-DT-15-Persistencia-adjuntos-azure`
+
+### Estandarización del código a inglés · 🟠 costo creciente
+
+La rama `refactor/standardize-english` existe en los **dos remotos** y toca
+identificadores en todo el código (variables, tablas, endpoints, seeds). Hoy
+el estándar vigente es **español**, y así lo dice el `CLAUDE.md` de los dos
+repos.
+
+El problema es que **cada rama que se mergea a `dev` le suma conflictos**. No
+decidir tiene un costo que sube solo.
+
+| Opción | A favor | En contra |
+|---|---|---|
+| **Descartarla** | Cierra el tema; el español queda como estándar definitivo | Se pierde el trabajo ya hecho en esa rama |
+| **Rebasear y mergear pronto** | Aprovecha el trabajo y corta la sangría de conflictos | Es un cambio enorme en un solo PR, difícil de revisar y de testear |
+| **Congelarla con fecha** | Permite terminar el sprint sin ruido | Los conflictos siguen creciendo hasta esa fecha |
+
+> **Ojo con el alcance:** la estandarización es de **código** (identificadores,
+> tablas, endpoints). Los textos de usuario y los datos de dominio
+> (categorías, disciplinas, mensajes de error) van en español igual.
 
 ---
 
 ## Deuda pendiente
 
-### 🔴 Críticas
-
-#### DT-15 · Los adjuntos de documentación se pierden en cada despliegue
-*Nuevo · backend + infra · 3 SP*
-
-La documentación obligatoria (US-24) guarda el binario en el filesystem del
-contenedor (`DOCS_STORAGE_DIR=storage/documentacion`). En Azure Container Apps
-ese filesystem es **efímero**: cada revisión, reinicio o escalado borra los
-archivos y la base queda con referencias a rutas que ya no existen. Ya está
-desplegado así.
-
-- **Evidencia:** `src/documentacion/storage.config.ts:17` · `.github/workflows/cd-main.yml` (no monta ningún volumen)
-- **Arreglo:** mover el almacenamiento a Azure Blob Storage, o montar un Azure File Share en el Container App. Conservar `DOCS_STORAGE_DIR` como modo local. Decidir qué hacer con los registros que ya apuntan a rutas inexistentes.
-- **Bloquea:** DT-09 (si se hace antes, repite el mismo bug).
-- **Rama sugerida:** `issue/TASK-13-DT-15-Persistencia-adjuntos-azure`
-
 ### 🟠 Altas
 
-#### DT-02 · Cobertura de testing backend
-*backend · 5 SP*
+#### DT-02 · Faltan los casos de prueba de las historias ya implementadas (backend)
+*backend · en curso*
 
-50 % contra el 70 % que pide la DoD. El camino más rentable, en orden: los 8
-controllers están en **0 %** y son triviales de testear (~12 puntos),
-`personas` y `categorias` están enteros en 0 %, y `auditoria.service` está en
-19 % siendo el corazón de RNF03. Primer paso, en el mismo commit: subir
-`coverageThreshold` de 41 a 49 para fijar lo ya logrado.
+Esto **no es «falta cobertura»**: de las **22 US implementadas en el backend,
+solo 5 tienen casos cargados** en la planilla (US-07, US-08, US-38, US-39,
+US-40). Las otras se mergearon sin documentar un solo caso, y la cobertura baja
+es la consecuencia, no la causa.
 
-- **Herramientas:** `/casos-prueba` → `/casos-a-tests` → `/ejecutar-pruebas`
-- **Rama sugerida:** `issue/TASK-14-DT-02-Cobertura-controllers-y-auditoria`
+Por eso se ataca **por historia y no por módulo**: se generan los casos con
+`/casos-prueba`, se automatizan con `/casos-a-tests` y la cobertura sube como
+efecto. Así los tests cubren requisitos y quedan trazables US → TC → test, que
+es lo que pide la DoD y lo que se entrega.
+
+| US implementada | Módulo | Cobertura | Casos |
+|---|---|---|---|
+| ~~US-16 Configurar cuota social~~ | `cuota-social` | **90 %** | ✅ 10 casos |
+| ~~US-32 Registrar logs de operaciones~~ | `auditoria` | **92 %** | ✅ 9 casos |
+| US-24 Documentación obligatoria | `documentacion` | 41 % | pendiente |
+| US-30 / US-31 Entradas y QR | `entradas` | 50 % | pendiente |
+| US-29 Crear evento | `eventos` | 51 % | pendiente |
+| US-09/11/12/13/14/15 Socios | `socios` | 54 % | pendiente |
+| US-20 Configurar cuotas deportivas | `cuotas` | 56 % | pendiente |
+| US-01 / US-02 / US-03 Usuarios | `usuarios` | 61 % | pendiente |
+| US-05 / US-06 Participantes | `inscripcion` | 75 % | pendiente |
+| — | `categorias` | 0 % | sin US asociada |
+
+- **Orden sugerido para lo que queda:** US-01/02/03 (permisos), US-20, US-29/30/31, US-24, socios.
+- **Rama sugerida:** `issue/TASK-<n>-DT-02-Casos-<US>`
 
 #### DT-01 · Cobertura de testing frontend
 *frontend · 8 SP*
@@ -130,16 +179,114 @@ acción. El backend acepta además `entidad`, `responsableId`, `fechaDesde` y
 - **Arreglo:** sumar esos filtros, selector de tamaño de página y encabezado fijo con scroll dentro de la tabla.
 - **Rama sugerida:** `issue/TASK-18-DT-10-Filtros-de-auditoria`
 
-#### DT-18 · IDs de casos de prueba colisionados
-*Nuevo · documentación · 1 SP*
+#### DT-18 · La numeración de casos de prueba está quebrada
+*Nuevo · documentación · 2 SP*
 
-Los specs del frontend de usuarios referencian TC-006 a TC-012, pero en
-`docs/exportables/casos-prueba.csv` los IDs TC-009 y TC-010 corresponden a
-US-40 (cerrar sesión). Hoy la trazabilidad test ↔ planilla apunta a filas
-equivocadas, y cada export con `/exportar-casos` agranda el problema.
+**Corrección:** la primera versión de este ítem decía que los specs del
+frontend apuntaban a filas equivocadas. Eso estaba **mal**: se había comparado
+contra `docs/exportables/casos-prueba.csv`, que es un export viejo. Contra la
+planilla real (`.xlsx`) las etiquetas del frontend son correctas. El problema
+es otro, y es peor:
 
-- **Arreglo:** definir un rango de IDs por US (o un prefijo por repo) y renumerar la planilla junto con las etiquetas de los specs. Hacerlo **antes** de las ramas de cobertura.
-- **Rama sugerida:** `issue/TASK-19-DT-18-Reconciliar-ids-casos-de-prueba`
+1. **La planilla tiene IDs duplicados.** `TC-006` a `TC-012` existen dos veces
+   cada uno: una para US-02, otra para US-03 / US-05. Distintas personas
+   numeraron su bloque arrancando de `TC-001`. Son **90 filas con solo 83 IDs
+   únicos**, así que 14 filas son ambiguas y no se puede referenciar un caso
+   por su ID sin decir también de qué US es.
+2. **`docs/exportables/casos-prueba.csv` es una tercera numeración.** Tiene 38
+   filas con IDs que en la planilla corresponden a otras US, e incluye casos de
+   US-08 que **nunca llegaron al `.xlsx`**. Cualquier script que calcule el
+   próximo ID desde ese CSV va a pisar IDs existentes.
+
+- **Evidencia:** hoja «Casos de Prueba» del `.xlsx` (90 filas, máximo `TC-083`) vs `docs/exportables/casos-prueba.csv` (38 filas).
+- **Arreglo:** renumerar la planilla de forma única (o pasar a un prefijo por US, tipo `TC-US16-01`), y regenerar o borrar el CSV del repo para que no quede una fuente paralela. Los skills ya apuntan al `.xlsx` como fuente de verdad.
+- **Rama sugerida:** `issue/TASK-<n>-DT-18-Renumerar-casos-de-prueba`
+
+#### DT-24 · La planilla documenta generación de cuotas que no existe
+*Nuevo · producto + documentación · a definir*
+
+Cuatro casos de US-05 (`TC-010` a `TC-013`) esperan que al inscribir un
+participante **«se generan automáticamente las cuotas correspondientes»**. Eso
+no está implementado ni modelado:
+
+- El dominio solo tiene `ConfiguracionCuotaDeportiva` y `ConfiguracionCuotaSocial`, que son **el monto configurado**, no cuotas emitidas. No existe ninguna entidad de cuota generada ni deuda por socio.
+- `inscripcion.service.ts` no toca cuotas en ningún momento; el propio código lo admite en un comentario (`inscripcion.service.ts:399`: «generación de cuotas asociadas (que hoy no existe en el dominio…)»).
+
+O sea: esos cuatro casos **no pueden ejecutarse como están escritos**. Hay que
+decidir si se implementa la generación (es producto nuevo, se vincula con
+DT-06) o si se corrigen los casos para que describan lo que el sistema hace.
+
+- **Detectado al contrastar la planilla contra el código.**
+
+#### DT-25 · La auditoría append-only no está garantizada por la base
+*Nuevo · backend · 2 SP*
+
+`TC-017` (US-07) y `TC-067` (US-32) esperan que un UPDATE o DELETE sobre
+`registros_auditoria` sea **«rechazado a nivel de servicio/base de datos (tabla
+append-only)»**. La mitad del servicio ahora está cubierta y es cierta
+(`AuditoriaService` solo expone `registrar`, `listarPorEntidad` y
+`listarTodos`, y hay un test que falla si alguien agrega otro método de
+escritura). **La mitad de la base de datos no:** no hay trigger, ni `REVOKE`,
+ni regla en ninguna migración. Nada impide que otro código —o alguien con la
+credencial— haga `UPDATE` o `DELETE`.
+
+- **Evidencia:** ninguna migración contiene `TRIGGER`, `REVOKE`, `GRANT` ni `RULE`; el único respaldo es el comentario del `schema.prisma`.
+- **Arreglo:** o se agrega la restricción real en la base (trigger que rechace UPDATE/DELETE, o un rol de aplicación sin esos permisos sobre la tabla), o se corrige el texto de los dos casos para que describan solo la garantía a nivel de servicio.
+- **RNF03 / RF12 dependen de esto**, así que conviene no dejarlo como comentario.
+
+#### DT-22 · La rotación mensual de la cuota social no tiene quién la dispare
+*Nuevo · backend · 2 SP*
+
+`CuotaSocialService.sincronizarVigentes` dice en su comentario «se ejecuta el
+día 1 de cada mes», pero **nada lo ejecuta**: no hay `@nestjs/schedule`, ni
+cron, ni disparador externo documentado. El único camino es que alguien llame a
+mano a `POST /cuota-social/sincronizar`.
+
+Consecuencia: el flag `activo` de las configuraciones queda desfasado de la
+vigencia por fecha hasta que alguien se acuerde. Las consultas por fecha
+(`getVigente`) sí funcionan bien, así que el impacto está acotado a lo que
+dependa del flag.
+
+- **Evidencia:** `src/cuota-social/cuota-social.service.ts:205`
+- **Arreglo:** sumar `@nestjs/schedule` con un cron mensual, o un job externo que llame al endpoint. Ojo con las réplicas: si el Container App escala, el cron corre en todas.
+- **Detectado al escribir los casos de US-16.**
+
+#### DT-23 · El ratchet de cobertura corta el CI por décimas
+*Nuevo · tooling · resuelto por ahora, dejar anotado*
+
+Al cerrar DT-16 el piso de ramas quedó en 58 % y un PR del equipo (US-07) lo
+dejó en 57,85 %: **el CI de `dev` quedó en rojo por 0,15 puntos** sin que nadie
+hiciera nada mal. Se resolvió dejando ~3 puntos de margen, pero conviene
+revisarlo si vuelve a pasar. La alternativa de fondo es exigir tests por PR
+(regla de equipo) en lugar de apretar el número global.
+
+#### DT-26 · La documentación de la API no declara respuestas
+*Nuevo · backend · 3 SP*
+
+Swagger está bien montado y al día en lo estructural: **56 de 56 operaciones
+tienen `summary`** (la única excepción es `GET /health`), los 14 tags están
+completos y los 22 DTO de request generan su schema. El problema está del lado
+de las respuestas:
+
+- **Ninguna de las 56 operaciones declara un solo código de error.** El spec
+  solo trae el `200`/`201` que Nest infiere, así que en la UI no figura que
+  `POST /cuota-social` puede responder 400 por período inválido, 403 sin rol
+  ADMIN o 404 si la categoría no existe. Toda esa información existe y está
+  verificada (son los casos `TC-084` a `TC-100`), pero no llega al contrato.
+- **Ninguna declara el tipo de su respuesta** (`0 de 56` tienen `content`), así
+  que el spec no dice qué forma tiene lo que devuelve. Las descripciones
+  también están vacías (`"description": ""`).
+
+Consecuencia práctica: el frontend no puede generar tipos ni clientes desde el
+spec, y quien consume la API tiene que leer el código para saber qué esperar.
+Para un proyecto donde Swagger es el entregable de documentación técnica, el
+contrato queda a medias.
+
+- **Evidencia:** `GET /api/v1/docs-json` — todas las operaciones con `responses: {"20x": {"description": ""}}`.
+- **Arreglo:** `@ApiResponse` (o los atajos `@ApiOkResponse`, `@ApiBadRequestResponse`, `@ApiForbiddenResponse`, `@ApiNotFoundResponse`) por operación, y DTOs de respuesta para los tipos de retorno. Conviene hacerlo **módulo por módulo, apoyándose en los casos de prueba ya documentados**: los códigos y mensajes reales ya están relevados ahí, así que no hay que investigarlos de nuevo.
+- **Empezar por** `auth`, `usuarios` e `inscripcion`, que son los que el frontend consume más y los que tienen reglas de permisos.
+- **Detectado al revisar Swagger sobre la instancia local.**
+- **Rama sugerida:** `issue/TASK-<n>-DT-26-Documentar-respuestas-api`
 
 #### DT-17 · Código muerto: `EditarInscripcionPage`
 *Nuevo · frontend · incluido en DT-11*
@@ -342,6 +489,35 @@ tocar el tsconfig de build.
 > formato se arreglan en el runner y nunca se reportan. Por eso el formato
 > venía derivando en silencio. Conviene separar `lint` (sin fix, para CI) de
 > `lint:fix` (local).
+
+
+## Trazabilidad de casos de prueba
+
+La fuente de verdad es la planilla
+`docs/documentacion/desarrollo-del-producto/01 ... Plan de testing del producto ... .xlsx`
+(hojas *Casos de Prueba*, *Ejecución de Pruebas*, *Defectos*, *Conformidad PO*,
+*Resumen*). El directorio `docs/exportables/` solo guarda **archivos para copiar
+y pegar** en esas hojas; no reemplaza a la planilla.
+
+Estado al 16/09/2026, contrastado contra el código:
+
+| | Cantidad |
+|---|---|
+| Casos cargados en la planilla | 90 filas (83 IDs únicos — ver DT-18) |
+| US con casos documentados | 16 |
+| US implementadas en el backend | 22 (+ US-16, que no estaba etiquetada) |
+| **US implementadas sin ningún caso** | **US-06, US-08, US-09, US-11, US-24, US-31** |
+| Casos nuevos listos para cargar | 17 (`TC-084` a `TC-100`, US-16 y US-32) |
+| Ejecuciones nuevas listas para cargar | 19 (`EJ-28` a `EJ-46`) |
+
+Archivos para pegar:
+
+- `docs/exportables/casos-prueba-US16-US32.csv` → hoja **Casos de Prueba**
+- `docs/exportables/ejecucion-US16-US32.csv` → hoja **Ejecución de Pruebas**
+
+Ambos son CSV con todas las celdas entre comillas y BOM, porque los `Pasos`
+llevan saltos de línea dentro de la celda: en TSV, Excel los toma como filas
+nuevas y rompe la planilla.
 
 ## Nomenclatura
 

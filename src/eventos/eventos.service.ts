@@ -33,9 +33,7 @@ export class EventosService {
             }
           : {}),
         // Filtro de disponibilidad: solo eventos con cupo > 0
-        ...(soloDisponibles === 'true'
-          ? { entradasDisponibles: { gt: 0 } }
-          : {}),
+        ...(soloDisponibles === 'true' ? { entradasDisponibles: { gt: 0 } } : {}),
       },
       orderBy: ordenar === 'reciente' ? { creadoEn: 'desc' } : { nombre: 'asc' },
       include: {
@@ -44,11 +42,12 @@ export class EventosService {
     });
 
     // `_count.entradas` se expone como `entradasVendidas` para la pantalla.
-    return items.map(({ _count, ...evento }: { _count: { entradas: number }; [key: string]: unknown }) => ({
-      ...evento,
-      entradasVendidas: _count.entradas,
-    }));
-
+    return items.map(
+      ({ _count, ...evento }: { _count: { entradas: number }; [key: string]: unknown }) => ({
+        ...evento,
+        entradasVendidas: _count.entradas,
+      }),
+    );
   }
 
   async findOne(id: number) {

@@ -25,7 +25,9 @@ export class EventosController {
 
   @Get()
   @Roles('ADMIN', 'COLABORADOR')
-  @ApiOperation({ summary: 'Listar eventos con filtros opcionales (?search=, ?soloDisponibles=, ?ordenar=)' })
+  @ApiOperation({
+    summary: 'Listar eventos con filtros opcionales (?search=, ?soloDisponibles=, ?ordenar=)',
+  })
   findAll(@Query() filtros: FiltrarEventosDto) {
     return this.eventosService.findAll(filtros);
   }

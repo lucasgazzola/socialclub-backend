@@ -33,6 +33,19 @@ node scripts/exportar-casos.mjs --casos=casos-US-XX.tsv --csv="<ruta>" --dry-run
 - No duplicar casos ya existentes para esa US (revisar la planilla antes).
 - Los `TC-XXX` los asigna el script; no ponerlos a mano.
 
+## ⚠️ La fuente de verdad es el .xlsx, no el CSV
+
+`docs/exportables/casos-prueba.csv` quedó **desactualizado y con otra
+numeración** que la planilla real (ver DT-18 en `docs/DEUDA-TECNICA.md`).
+Antes de asignar IDs, leer el último `TC-XXX` de la hoja **Casos de Prueba**
+del `.xlsx`, y tener en cuenta que **hay IDs duplicados** (`TC-006` a `TC-012`
+aparecen en US-02, US-03 y US-05): calcular el **máximo real**, no el último
+por orden de fila.
+
+El formato de salida son **10 columnas** (incluye `Ejecutor`) y los `Pasos`
+llevan saltos de línea reales, así que el intercambio va en **CSV con quoting**,
+no en TSV.
+
 ## Nota sobre .xlsx nativo
 Hoy se exporta a **CSV** (cero dependencias; Excel lo abre e importa). Si el equipo
 necesita escribir directo en el `.xlsx` con formato, se puede sumar un script Node
