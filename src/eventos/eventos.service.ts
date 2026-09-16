@@ -2,12 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { CrearEventoDto } from './dto/crear-evento.dto';
+import { FiltrarEventosDto } from './dto/filtrar-eventos.dto';
 
 /**
  * Servicio del modulo Eventos.
  *
- * Por ahora expone la lectura de eventos (listar y obtener por id). La creacion
- * de eventos no esta implementada.
+ * Expone la lectura de eventos con filtros opcionales por texto (search),
+ * disponibilidad y orden. La lógica de filtrado se delega a Prisma para
+ * que el front no necesite implementarla.
  */
 @Injectable()
 export class EventosService {
@@ -16,19 +18,37 @@ export class EventosService {
     private readonly auditoria: AuditoriaService,
   ) {}
 
-  async findAll() {
+  async findAll(filtros?: FiltrarEventosDto) {
+    const { search, soloDisponibles, ordenar } = filtros ?? {};
+
     const items = await this.prisma.evento.findMany({
-      orderBy: { nombre: 'asc' },
+      where: {
+        // Búsqueda case-insensitive en nombre O descripción
+        ...(search
+          ? {
+              OR: [
+                { nombre: { contains: search, mode: 'insensitive' } },
+                { descripcion: { contains: search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+        // Filtro de disponibilidad: solo eventos con cupo > 0
+        ...(soloDisponibles === 'true'
+          ? { entradasDisponibles: { gt: 0 } }
+          : {}),
+      },
+      orderBy: ordenar === 'reciente' ? { creadoEn: 'desc' } : { nombre: 'asc' },
       include: {
         _count: { select: { entradas: true } },
       },
     });
 
     // `_count.entradas` se expone como `entradasVendidas` para la pantalla.
-    return items.map(({ _count, ...evento }) => ({
+    return items.map(({ _count, ...evento }: { _count: { entradas: number }; [key: string]: unknown }) => ({
       ...evento,
       entradasVendidas: _count.entradas,
     }));
+
   }
 
   async findOne(id: number) {
