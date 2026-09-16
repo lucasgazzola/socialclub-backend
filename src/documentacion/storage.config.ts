@@ -34,7 +34,11 @@ export const documentacionStorage = {
     },
   }),
   limits: { fileSize: MAX_MB * 1024 * 1024 },
-  fileFilter: (_req: unknown, file: { mimetype: string }, cb: (e: Error | null, ok: boolean) => void) => {
+  fileFilter: (
+    _req: unknown,
+    file: { mimetype: string },
+    cb: (e: Error | null, ok: boolean) => void,
+  ) => {
     if (TIPOS_PERMITIDOS.includes(file.mimetype)) return cb(null, true);
     cb(new BadRequestException('Tipo de archivo no permitido (solo PDF o imagen).'), false);
   },

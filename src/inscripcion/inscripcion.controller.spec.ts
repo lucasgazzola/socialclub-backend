@@ -34,7 +34,10 @@ describe('InscripcionController', () => {
 
     it('should call service.update with correct params', async () => {
       const dto: UpdateInscripcionDto = { nombre: 'Nuevo Nombre' };
-      const expectedResult = { persona: { id: 10, nombre: 'Nuevo Nombre' }, inscripcion: { id: 1 } };
+      const expectedResult = {
+        persona: { id: 10, nombre: 'Nuevo Nombre' },
+        inscripcion: { id: 1 },
+      };
       mockInscripcionService.update.mockResolvedValue(expectedResult);
 
       const result = await controller.update(1, dto, mockUser);
@@ -44,21 +47,33 @@ describe('InscripcionController', () => {
     });
 
     it('should propagate NotFoundException from service', async () => {
-      mockInscripcionService.update.mockRejectedValue(new NotFoundException('Inscripción no encontrada'));
+      mockInscripcionService.update.mockRejectedValue(
+        new NotFoundException('Inscripción no encontrada'),
+      );
 
-      await expect(controller.update(999, { nombre: 'X' }, mockUser)).rejects.toThrow(NotFoundException);
+      await expect(controller.update(999, { nombre: 'X' }, mockUser)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should propagate ConflictException from service', async () => {
-      mockInscripcionService.update.mockRejectedValue(new ConflictException('Ya existe un participante con ese DNI en esta disciplina'));
+      mockInscripcionService.update.mockRejectedValue(
+        new ConflictException('Ya existe un participante con ese DNI en esta disciplina'),
+      );
 
-      await expect(controller.update(1, { dni: '12345678' }, mockUser)).rejects.toThrow(ConflictException);
+      await expect(controller.update(1, { dni: '12345678' }, mockUser)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should propagate BadRequestException from service', async () => {
-      mockInscripcionService.update.mockRejectedValue(new BadRequestException('Disciplina inactiva'));
+      mockInscripcionService.update.mockRejectedValue(
+        new BadRequestException('Disciplina inactiva'),
+      );
 
-      await expect(controller.update(1, { disciplinaId: 2 }, mockUser)).rejects.toThrow(BadRequestException);
+      await expect(controller.update(1, { disciplinaId: 2 }, mockUser)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

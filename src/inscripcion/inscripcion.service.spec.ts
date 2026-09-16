@@ -99,11 +99,17 @@ describe('InscripcionService', () => {
       });
       mockPrisma.inscripcion.update.mockResolvedValue({
         ...inscripcionExistente,
-        persona: { ...inscripcionExistente.persona, nombre: 'Juan Carlos', apellido: 'Perez Gomez' },
+        persona: {
+          ...inscripcionExistente.persona,
+          nombre: 'Juan Carlos',
+          apellido: 'Perez Gomez',
+        },
         disciplina: inscripcionExistente.disciplina,
         categoriaDisciplina: inscripcionExistente.categoriaDisciplina,
       });
-      mockPrisma.categoriaDisciplina.findUnique.mockResolvedValue(inscripcionExistente.categoriaDisciplina);
+      mockPrisma.categoriaDisciplina.findUnique.mockResolvedValue(
+        inscripcionExistente.categoriaDisciplina,
+      );
 
       const result = await service.update(1, dtoBasico, 99);
 
@@ -132,7 +138,9 @@ describe('InscripcionService', () => {
         disciplina: inscripcionExistente.disciplina,
         categoriaDisciplina: inscripcionExistente.categoriaDisciplina,
       });
-      mockPrisma.categoriaDisciplina.findUnique.mockResolvedValue(inscripcionExistente.categoriaDisciplina);
+      mockPrisma.categoriaDisciplina.findUnique.mockResolvedValue(
+        inscripcionExistente.categoriaDisciplina,
+      );
 
       const result = await service.update(1, { dni: '87654321' }, 99);
 
@@ -144,7 +152,9 @@ describe('InscripcionService', () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
       mockPrisma.disciplina.findUnique.mockResolvedValue(inscripcionExistente.disciplina);
       mockPrisma.persona.findUnique.mockResolvedValue({ id: 999, dni: '87654321' });
-      mockPrisma.inscripcion.findUnique.mockResolvedValueOnce(inscripcionExistente).mockResolvedValueOnce({ id: 999 });
+      mockPrisma.inscripcion.findUnique
+        .mockResolvedValueOnce(inscripcionExistente)
+        .mockResolvedValueOnce({ id: 999 });
 
       await expect(service.update(1, { dni: '87654321' }, 99)).rejects.toThrow(ConflictException);
     });
@@ -164,7 +174,9 @@ describe('InscripcionService', () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionSinCategoria);
       mockPrisma.disciplina.findUnique.mockResolvedValue(nuevaDisciplina);
       mockPrisma.persona.findUnique.mockResolvedValue(null);
-      mockPrisma.inscripcion.findUnique.mockResolvedValueOnce(inscripcionSinCategoria).mockResolvedValueOnce(null);
+      mockPrisma.inscripcion.findUnique
+        .mockResolvedValueOnce(inscripcionSinCategoria)
+        .mockResolvedValueOnce(null);
       mockPrisma.persona.update.mockResolvedValue(inscripcionExistente.persona);
       mockPrisma.inscripcion.update.mockResolvedValue({
         ...inscripcionSinCategoria,
@@ -190,7 +202,12 @@ describe('InscripcionService', () => {
 
     it('should throw BadRequestException if new discipline is inactive', async () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
-      mockPrisma.disciplina.findUnique.mockResolvedValue({ id: 2, nombre: 'Vóley', activo: false, categorias: [] });
+      mockPrisma.disciplina.findUnique.mockResolvedValue({
+        id: 2,
+        nombre: 'Vóley',
+        activo: false,
+        categorias: [],
+      });
 
       await expect(service.update(1, { disciplinaId: 2 }, 99)).rejects.toThrow(BadRequestException);
     });
@@ -205,7 +222,9 @@ describe('InscripcionService', () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
       mockPrisma.disciplina.findUnique.mockResolvedValue(nuevaDisciplina);
       mockPrisma.persona.findUnique.mockResolvedValue(null);
-      mockPrisma.inscripcion.findUnique.mockResolvedValueOnce(inscripcionExistente).mockResolvedValueOnce(null);
+      mockPrisma.inscripcion.findUnique
+        .mockResolvedValueOnce(inscripcionExistente)
+        .mockResolvedValueOnce(null);
       mockPrisma.persona.update.mockResolvedValue(inscripcionExistente.persona);
       mockPrisma.inscripcion.update.mockResolvedValue({
         ...inscripcionExistente,
@@ -214,7 +233,11 @@ describe('InscripcionService', () => {
         disciplina: nuevaDisciplina,
         categoriaDisciplina: { id: 5, nombre: 'Sub-18', activo: true },
       });
-      mockPrisma.categoriaDisciplina.findUnique.mockResolvedValue({ id: 5, nombre: 'Sub-18', activo: true });
+      mockPrisma.categoriaDisciplina.findUnique.mockResolvedValue({
+        id: 5,
+        nombre: 'Sub-18',
+        activo: true,
+      });
 
       const result = await service.update(1, { disciplinaId: 2, categoriaDisciplinaId: 5 }, 99);
 
@@ -251,7 +274,9 @@ describe('InscripcionService', () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
       mockPrisma.disciplina.findUnique.mockResolvedValue(nuevaDisciplina);
 
-      await expect(service.update(1, { disciplinaId: 2, categoriaDisciplinaId: 999 }, 99)).rejects.toThrow(BadRequestException);
+      await expect(
+        service.update(1, { disciplinaId: 2, categoriaDisciplinaId: 999 }, 99),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException if category is inactive', async () => {
@@ -264,7 +289,9 @@ describe('InscripcionService', () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
       mockPrisma.disciplina.findUnique.mockResolvedValue(nuevaDisciplina);
 
-      await expect(service.update(1, { disciplinaId: 2, categoriaDisciplinaId: 5 }, 99)).rejects.toThrow(BadRequestException);
+      await expect(
+        service.update(1, { disciplinaId: 2, categoriaDisciplinaId: 5 }, 99),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should change category within same discipline', async () => {
@@ -277,7 +304,11 @@ describe('InscripcionService', () => {
         disciplina: inscripcionExistente.disciplina,
         categoriaDisciplina: { id: 3, nombre: 'Primera', activo: true },
       });
-      mockPrisma.categoriaDisciplina.findUnique.mockResolvedValue({ id: 3, nombre: 'Primera', activo: true });
+      mockPrisma.categoriaDisciplina.findUnique.mockResolvedValue({
+        id: 3,
+        nombre: 'Primera',
+        activo: true,
+      });
 
       const result = await service.update(1, { categoriaDisciplinaId: 3 }, 99);
 
@@ -323,7 +354,10 @@ describe('InscripcionService', () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
       mockPrisma.disciplina.findUnique.mockResolvedValue(inscripcionExistente.disciplina);
       mockPrisma.persona.findUnique.mockResolvedValue(null);
-      const error = new PrismaClientKnownRequestError('Unique constraint', { code: 'P2002', clientVersion: '1.0' });
+      const error = new PrismaClientKnownRequestError('Unique constraint', {
+        code: 'P2002',
+        clientVersion: '1.0',
+      });
       mockPrisma.$transaction.mockRejectedValueOnce(error);
 
       await expect(service.update(1, { dni: '87654321' }, 99)).rejects.toThrow(ConflictException);

@@ -49,7 +49,9 @@ describe('DisciplinasService', () => {
     it('rechaza crear una disciplina con nombre duplicado', async () => {
       prismaMock.disciplina.findUnique.mockResolvedValue({ id: 1, nombre: 'Vóley' });
 
-      await expect(service.create({ nombre: 'Vóley' }, 5)).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.create({ nombre: 'Vóley' }, 5)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
       expect(prismaMock.disciplina.create).not.toHaveBeenCalled();
     });
   });
