@@ -32,8 +32,8 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 
 | Estado | Ítems |
 |---|---|
-| ✅ Resueltas | DT-03, DT-04, DT-07, DT-13, DT-14, DT-19, DT-21 |
-| 🔴 Críticas pendientes | DT-15, DT-16 |
+| ✅ Resueltas | DT-03, DT-04, DT-07, DT-13, DT-14, DT-16, DT-19, DT-21 |
+| 🔴 Críticas pendientes | DT-15 |
 | 🟠 Altas pendientes | DT-01, DT-02, DT-05 |
 | 🟡 Medias pendientes | DT-10, DT-11, DT-17, DT-18 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-20 |
@@ -43,33 +43,20 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Repo | Statements | Piso configurado |
 |---|---|---|
 | Frontend (Vitest) | 22,03 % | 22 % |
-| Backend (Jest) | 50,00 % | 41 % ← desactualizado, subir a 49 % |
+| Backend (Jest) | 50,20 % | 50 % |
 
 Los dos repos tenían además el **CI en rojo** por configuración de lint, no por
 código: ver [Extra](#extra--ci-del-frontend-en-rojo-desde-el-0709) al final.
 
 El piso ("ratchet") solo puede subir: cada PR que agrega tests lo sube, y así
-la cobertura no puede retroceder. En el backend está 9 puntos por debajo de lo
-ya logrado, así que hoy no protege nada.
+la cobertura no puede retroceder. En los dos repos está pegado al valor real,
+así que cualquier retroceso corta el CI.
 
 ---
 
 ## Deuda pendiente
 
 ### 🔴 Críticas
-
-#### DT-16 · Endpoints de inscripción sin control de rol
-*Nuevo · backend · 1 SP*
-
-`InscripcionController` no declara `@Roles` a nivel de clase, y `GET /inscripcion`,
-`GET /inscripcion/:id` y `DELETE /inscripcion/:id` tampoco. `RolesGuard` devuelve
-`true` cuando no hay roles requeridos, así que **cualquier usuario autenticado —
-incluido un SOCIO — puede listar a todos los participantes con su DNI y borrar
-inscripciones**. El `DELETE` además no registra nada en auditoría.
-
-- **Evidencia:** `src/inscripcion/inscripcion.controller.ts:49,61,66` · `src/common/guards/roles.guard.ts:23`
-- **Arreglo:** `@Roles('ADMIN', 'DELEGADO')` a nivel de clase, dos tests de guard (403 para SOCIO, 200 para DELEGADO) y auditar la baja.
-- **Rama sugerida:** `issue/TASK-12-DT-16-Proteger-endpoints-inscripcion`
 
 #### DT-15 · Los adjuntos de documentación se pierden en cada despliegue
 *Nuevo · backend + infra · 3 SP*
@@ -203,6 +190,37 @@ existen en el dominio.** Estimarlas en refinamiento y sacarlas de esta tabla.
 ---
 
 ## Deuda resuelta
+
+### DT-16 · Endpoints de inscripción sin control de rol
+**PR [#33](https://github.com/lucasgazzola/socialclub-backend/pull/33)** ·
+`issue/TASK-12-DT-16-Proteger-endpoints-inscripcion` · 16/09/2026
+
+`GET /inscripcion`, `GET /inscripcion/:id` y `DELETE /inscripcion/:id` no
+declaraban `@Roles`, y `RolesGuard` devuelve `true` cuando no hay roles
+requeridos: **cualquier usuario autenticado —incluido un SOCIO— podía listar a
+todos los participantes con su DNI y borrar inscripciones**. El `DELETE`
+además hacía un borrado físico sin registrar nada, así que una inscripción
+podía desaparecer sin dejar rastro de quién la borró.
+
+- **Los roles se declaran a nivel de clase**, no por handler. Así el próximo endpoint nace protegido: hay que optar explícitamente por ampliarlo. Es exactamente el modo en que falló — la ausencia del decorador no cerraba la puerta, la abría.
+- **La baja pasó a ser lógica y auditada** (`accion: 'BAJA'`), dentro de una transacción y vía `AuditoriaService.registrar(params, tx)`, que ya aceptaba el cliente transaccional para garantizar atomicidad (RNF07).
+- `findAll` y `findByPersonaId` devuelven solo inscripciones vigentes. `personas.findByDni` **ya filtraba** `activo: true` con el comentario «inscripciones vigentes», así que la baja lógica ya estaba diseñada: lo único que nunca se implementó fue el `remove()`. **No hizo falta migración**, `Inscripcion.activo` ya existía en el schema.
+- `ParseIntPipe` en los dos handlers que usaban `+id` (un `/inscripcion/abc` daba `NaN` y terminaba en un 500 de Prisma en lugar de un 400), y los `@ApiOperation` que faltaban en tres endpoints.
+
+**El `@@unique([personaId, disciplinaId])` obliga a resolver dos casos**, porque
+con baja lógica la fila sobrevive:
+
+1. **Re-inscripción.** `create` habría respondido «ya existe un participante con ese DNI inscripto en esta disciplina» para siempre. Ahora, si la fila está dada de baja, la reactiva y audita `REACTIVAR` — igual que `usuarios.create` reutiliza una `Persona` existente.
+2. **Cambio de disciplina.** Si el participante ya tuvo una inscripción dada de baja en la disciplina destino, no se le puede mover el `disciplinaId` encima. Se decidió **reactivar la fila del destino y dar de baja la actual**: con el unique, cada fila representa «el estado de inscripción de esta persona en esta disciplina», no un período, así que no se borra nada y queda todo auditado. **Efecto a tener en cuenta: la inscripción resultante cambia de id**, así que el frontend tiene que refrescar y no asumir el mismo id después de un traslado.
+
+De paso se quitó una consulta duplicada: la verificación del DNI y la del
+destino consultaban lo mismo cuando el DNI no cambiaba.
+
+**Tests:** 97 → **134**. El spec `inscripcion.roles.spec.ts` ejerce el guard
+real contra los handlers reales, así que falla si alguien agrega un handler sin
+roles o quita el `@Roles` de la clase — se verificó comentando el decorador
+(13 casos en rojo). El módulo pasó de ~58 % a **84 %** de cobertura, y el piso
+global de Jest subió de 41 % a 50 %.
 
 ### DT-03 · Pantalla de usuarios a grilla, con la fila modificada arriba
 **PR [#60](https://github.com/lucasgazzola/socialclub-frontend/pull/60)** ·
