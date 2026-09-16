@@ -67,7 +67,7 @@ describe('SociosService', () => {
     service = moduleRef.get(SociosService);
   });
 
-  describe('TC-019: Registrar un nuevo socio con datos válidos (carga administrativa)', () => {
+  describe('TC-026: Registrar un nuevo socio con datos válidos (carga administrativa)', () => {
     it('crea el socio (Persona + Membresía), lo persiste y deja constancia en auditoría', async () => {
       const dto = {
         nombre: 'Lucas',
@@ -159,7 +159,7 @@ describe('SociosService', () => {
     });
   });
 
-  describe('TC-020: Validaciones de duplicados en alta de socio', () => {
+  describe('TC-027: Validaciones de duplicados en alta de socio', () => {
     it('rechaza el alta administrativa si la persona con ese DNI ya tiene una membresía activa', async () => {
       prismaMock.persona.findUnique.mockResolvedValue({
         id: 1,

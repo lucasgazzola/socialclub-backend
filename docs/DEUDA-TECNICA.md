@@ -33,9 +33,9 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15--🔴-riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés--🟠-costo-creciente) |
-| ✅ Resueltas | DT-03, DT-04, DT-07, DT-13, DT-14, DT-16, DT-19, DT-21 |
+| ✅ Resueltas | DT-03, DT-04, DT-07, DT-13, DT-14, DT-16, DT-18, DT-19, DT-21 |
 | 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05 |
-| 🟡 Medias pendientes | DT-10, DT-11, DT-17, DT-18, DT-22, DT-23, DT-24, DT-25, DT-26 |
+| 🟡 Medias pendientes | DT-10, DT-11, DT-17, DT-22, DT-23, DT-24, DT-25, DT-26 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-20 |
 
 **Cobertura de tests** (medida el 16/09/2026, objetivo DoD **70 %**):
@@ -144,7 +144,7 @@ rama por dominio sin tests (`auditoria`, `entradas`, `documentacion`,
 ninguna rama de deuda técnica se mergea sin sus propios tests**; así DT-01
 avanza sola con el resto del trabajo.
 
-- **Rama sugerida:** `issue/TASK-15-DT-01-Cobertura-frontend-<feature>`
+- **Rama sugerida:** `issue/TASK-<n>-DT-01-Cobertura-frontend-<feature>`
 
 #### DT-05 · Falta activar/desactivar la cuota deportiva
 *frontend · 1 SP*
@@ -179,33 +179,10 @@ acción. El backend acepta además `entidad`, `responsableId`, `fechaDesde` y
 - **Arreglo:** sumar esos filtros, selector de tamaño de página y encabezado fijo con scroll dentro de la tabla.
 - **Rama sugerida:** `issue/TASK-18-DT-10-Filtros-de-auditoria`
 
-#### DT-18 · La numeración de casos de prueba está quebrada
-*Nuevo · documentación · 2 SP*
-
-**Corrección:** la primera versión de este ítem decía que los specs del
-frontend apuntaban a filas equivocadas. Eso estaba **mal**: se había comparado
-contra `docs/exportables/casos-prueba.csv`, que es un export viejo. Contra la
-planilla real (`.xlsx`) las etiquetas del frontend son correctas. El problema
-es otro, y es peor:
-
-1. **La planilla tiene IDs duplicados.** `TC-006` a `TC-012` existen dos veces
-   cada uno: una para US-02, otra para US-03 / US-05. Distintas personas
-   numeraron su bloque arrancando de `TC-001`. Son **90 filas con solo 83 IDs
-   únicos**, así que 14 filas son ambiguas y no se puede referenciar un caso
-   por su ID sin decir también de qué US es.
-2. **`docs/exportables/casos-prueba.csv` es una tercera numeración.** Tiene 38
-   filas con IDs que en la planilla corresponden a otras US, e incluye casos de
-   US-08 que **nunca llegaron al `.xlsx`**. Cualquier script que calcule el
-   próximo ID desde ese CSV va a pisar IDs existentes.
-
-- **Evidencia:** hoja «Casos de Prueba» del `.xlsx` (90 filas, máximo `TC-083`) vs `docs/exportables/casos-prueba.csv` (38 filas).
-- **Arreglo:** renumerar la planilla de forma única (o pasar a un prefijo por US, tipo `TC-US16-01`), y regenerar o borrar el CSV del repo para que no quede una fuente paralela. Los skills ya apuntan al `.xlsx` como fuente de verdad.
-- **Rama sugerida:** `issue/TASK-<n>-DT-18-Renumerar-casos-de-prueba`
-
 #### DT-24 · La planilla documenta generación de cuotas que no existe
 *Nuevo · producto + documentación · a definir*
 
-Cuatro casos de US-05 (`TC-010` a `TC-013`) esperan que al inscribir un
+Cuatro casos de US-05 (`TC-017` a `TC-020`) esperan que al inscribir un
 participante **«se generan automáticamente las cuotas correspondientes»**. Eso
 no está implementado ni modelado:
 
@@ -221,7 +198,7 @@ DT-06) o si se corrigen los casos para que describan lo que el sistema hace.
 #### DT-25 · La auditoría append-only no está garantizada por la base
 *Nuevo · backend · 2 SP*
 
-`TC-017` (US-07) y `TC-067` (US-32) esperan que un UPDATE o DELETE sobre
+`TC-024` (US-07) y `TC-074` (US-32) esperan que un UPDATE o DELETE sobre
 `registros_auditoria` sea **«rechazado a nivel de servicio/base de datos (tabla
 append-only)»**. La mitad del servicio ahora está cubierta y es cierta
 (`AuditoriaService` solo expone `registrar`, `listarPorEntidad` y
@@ -272,7 +249,7 @@ de las respuestas:
   solo trae el `200`/`201` que Nest infiere, así que en la UI no figura que
   `POST /cuota-social` puede responder 400 por período inválido, 403 sin rol
   ADMIN o 404 si la categoría no existe. Toda esa información existe y está
-  verificada (son los casos `TC-084` a `TC-100`), pero no llega al contrato.
+  verificada (son los casos `TC-091` a `TC-107`), pero no llega al contrato.
 - **Ninguna declara el tipo de su respuesta** (`0 de 56` tienen `content`), así
   que el spec no dice qué forma tiene lo que devuelve. Las descripciones
   también están vacías (`"description": ""`).
@@ -348,6 +325,37 @@ tendrá que filtrar el generador cuando exista.
 ---
 
 ## Deuda resuelta
+
+### DT-18 · Numeración única y secuencial de los casos de prueba
+**PR [#39](https://github.com/lucasgazzola/socialclub-backend/pull/39)** ·
+**PR frontend [#68](https://github.com/lucasgazzola/socialclub-frontend/pull/68)** ·
+`issue/TASK-15-DT-18-Renumerar-casos-de-prueba` · 16/09/2026
+
+La planilla tenía **90 filas con 83 IDs**: `TC-006` a `TC-012` existían dos
+veces (US-02 y US-03 / US-05), porque cada quien numeró su bloque arrancando
+de `TC-001`. Encima, `docs/exportables/casos-prueba.csv` era una tercera
+numeración, así que cualquier script que tomara el próximo ID de ahí pisaba
+filas existentes.
+
+El equipo adoptó **secuencial único + `/exportar-casos` como único asignador**
+(se descartó el prefijo `TC-US02-01` para no romper el formato `TC-XXX` de la
+cátedra). En el orden de la planilla:
+
+| US | Antes | Ahora |
+|---|---|---|
+| US-01, US-02 | `TC-001`..`TC-012` | sin cambios |
+| US-03 | `TC-006`..`TC-009` | `TC-013`..`TC-016` |
+| US-05 | `TC-010`..`TC-013` | `TC-017`..`TC-020` |
+| … | cada bloque posterior se desplazó | hasta `TC-090` |
+
+- Planilla local (`.xlsx`, gitignored): 90 IDs únicos, `TC-001` a `TC-090`. Las 27 ejecuciones ya cargadas se remapearon con la US que declaraban, así que las 7 que apuntaban a un ID ambiguo (todas US-02) no cambiaron.
+- `docs/exportables/casos-prueba.csv` pasó a ser el dump de esa planilla, no una fuente paralela. El mapa viejo→nuevo está en `docs/exportables/mapeo-DT-18.csv`.
+- Los 17 casos de US-16/US-32 que estaban listos para pegar (`TC-084`..`TC-100`) pasaron a `TC-091`..`TC-107` para no chocar con los IDs nuevos de US-38/39/40.
+- Los specs que etiquetaban `TC-xxx` se remapearon **por US** (auth/US-38, socios/US-12). Los de usuarios (US-02) no se tocaron: esos IDs no cambian. Los `TC-0701` / `TC-0801` de inscripción son otro esquema y se dejaron.
+- `scripts/exportar-casos.mjs` + `scripts/ids-planilla.py` leen el máximo del `.xlsx` y de `docs/exportables/*.csv`, y se niegan a asignar si vuelven a aparecer duplicados. El próximo ID libre es **`TC-108`**.
+
+Hay que **pegar** `docs/exportables/casos-prueba.csv` (o aplicar el mapa) en la
+copia de Drive de la planilla: el `.xlsx` del repo es local.
 
 ### DT-16 · Endpoints de inscripción sin control de rol
 **PR [#33](https://github.com/lucasgazzola/socialclub-backend/pull/33)** ·
@@ -499,25 +507,30 @@ La fuente de verdad es la planilla
 *Resumen*). El directorio `docs/exportables/` solo guarda **archivos para copiar
 y pegar** en esas hojas; no reemplaza a la planilla.
 
-Estado al 16/09/2026, contrastado contra el código:
+Estado al 16/09/2026, contrastado contra el código (IDs **después de DT-18**):
 
 | | Cantidad |
 |---|---|
-| Casos cargados en la planilla | 90 filas (83 IDs únicos — ver DT-18) |
+| Casos cargados en la planilla | 90 filas / **90 IDs únicos** (`TC-001` a `TC-090`) |
 | US con casos documentados | 16 |
 | US implementadas en el backend | 22 (+ US-16, que no estaba etiquetada) |
 | **US implementadas sin ningún caso** | **US-06, US-08, US-09, US-11, US-24, US-31** |
-| Casos nuevos listos para cargar | 17 (`TC-084` a `TC-100`, US-16 y US-32) |
+| Casos nuevos listos para cargar | 17 (`TC-091` a `TC-107`, US-16 y US-32) |
 | Ejecuciones nuevas listas para cargar | 19 (`EJ-28` a `EJ-46`) |
 
 Archivos para pegar:
 
-- `docs/exportables/casos-prueba-US16-US32.csv` → hoja **Casos de Prueba**
+- `docs/exportables/casos-prueba.csv` → hoja **Casos de Prueba** (dump completo, ya renumerado)
+- `docs/exportables/mapeo-DT-18.csv` → referencia viejo → nuevo
+- `docs/exportables/ejecucion-planilla.csv` → hoja **Ejecución de Pruebas** (las 27 filas ya cargadas, remapeadas)
+- `docs/exportables/casos-prueba-US16-US32.csv` → hoja **Casos de Prueba** (pegar **después** del dump; `TC-091` a `TC-107`)
 - `docs/exportables/ejecucion-US16-US32.csv` → hoja **Ejecución de Pruebas**
 
-Ambos son CSV con todas las celdas entre comillas y BOM, porque los `Pasos`
+Los CSV van con todas las celdas entre comillas y BOM, porque los `Pasos`
 llevan saltos de línea dentro de la celda: en TSV, Excel los toma como filas
-nuevas y rompe la planilla.
+nuevas y rompe la planilla. `ejecucion-planilla.csv` es un snapshot de las 27
+filas ya cargadas: las fechas salen como serial de Excel, así que para esas
+filas alcanza con el `.xlsx` local (ya remapeado) o con el mapa.
 
 ## Nomenclatura
 

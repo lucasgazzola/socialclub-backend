@@ -33,14 +33,17 @@ node scripts/exportar-casos.mjs --casos=casos-US-XX.tsv --csv="<ruta>" --dry-run
 - No duplicar casos ya existentes para esa US (revisar la planilla antes).
 - Los `TC-XXX` los asigna el script; no ponerlos a mano.
 
-## ⚠️ La fuente de verdad es el .xlsx, no el CSV
+## ⚠️ Los IDs los asigna solo este script
 
-`docs/exportables/casos-prueba.csv` quedó **desactualizado y con otra
-numeración** que la planilla real (ver DT-18 en `docs/DEUDA-TECNICA.md`).
-Antes de asignar IDs, leer el último `TC-XXX` de la hoja **Casos de Prueba**
-del `.xlsx`, y tener en cuenta que **hay IDs duplicados** (`TC-006` a `TC-012`
-aparecen en US-02, US-03 y US-05): calcular el **máximo real**, no el último
-por orden de fila.
+No numerar a mano ni calcular el próximo `TC-XXX` mirando una sola fila. El
+script lee el máximo de:
+
+1. la hoja **Casos de Prueba** del `.xlsx` (`scripts/ids-planilla.py`);
+2. todos los CSV de `docs/exportables/` (incluye los pendientes de pegar).
+
+Si la planilla tiene IDs duplicados, el script **se niega a asignar**. Desde
+DT-18 los IDs son secuenciales y únicos (`TC-001` a `TC-090` en la planilla;
+`TC-091` a `TC-107` listos para cargar).
 
 El formato de salida son **10 columnas** (incluye `Ejecutor`) y los `Pasos`
 llevan saltos de línea reales, así que el intercambio va en **CSV con quoting**,
