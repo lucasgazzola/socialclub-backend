@@ -14,9 +14,9 @@ import { FiltrarEventosDto } from './dto/filtrar-eventos.dto';
 @Injectable()
 export class EventosService {
   constructor(
-  private readonly prisma: PrismaService,
-  private readonly auditoria: AuditoriaService,
-) {}
+    private readonly prisma: PrismaService,
+    private readonly auditoria: AuditoriaService,
+  ) {}
 
   async findAll(filtros?: FiltrarEventosDto) {
     const { search, soloDisponibles, ordenar } = filtros ?? {};
@@ -68,24 +68,21 @@ export class EventosService {
   }
 
   async create(dto: CrearEventoDto, responsableId: number) {
-  const evento = await this.prisma.evento.create({
-    data: {
-      nombre: dto.nombre,
-      descripcion: dto.descripcion,
-      entradasDisponibles: dto.entradasDisponibles,
-    },
-  });
+    const evento = await this.prisma.evento.create({
+      data: {
+        nombre: dto.nombre,
+        descripcion: dto.descripcion,
+        entradasDisponibles: dto.entradasDisponibles,
+      },
+    });
 
-  await this.auditoria.registrar({
-    accion: 'CREAR',
-    entidad: 'Evento',
-    idEntidad: evento.id,
-    responsableId,
-  });
+    await this.auditoria.registrar({
+      accion: 'CREAR',
+      entidad: 'Evento',
+      idEntidad: evento.id,
+      responsableId,
+    });
 
-  return evento;
+    return evento;
+  }
 }
-  
-}
-
-

@@ -1,10 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { SociosService } from './socios.service';
@@ -312,9 +307,9 @@ describe('SociosService', () => {
       prismaMock.usuario.findUnique.mockResolvedValue(usuarioMock);
       prismaMock.persona.findUnique.mockResolvedValue({ id: 99, dni: '40111222' }); // Pertenece a otra persona
 
-      await expect(
-        service.registrarme({ dni: '40111222', categoriaId: 1 }, 7),
-      ).rejects.toThrow('Ya existe otra persona registrada con ese DNI');
+      await expect(service.registrarme({ dni: '40111222', categoriaId: 1 }, 7)).rejects.toThrow(
+        'Ya existe otra persona registrada con ese DNI',
+      );
     });
 
     it('Membresía activa existente: rechaza nueva alta autogestionada si ya es socio activo', async () => {
@@ -391,7 +386,11 @@ describe('SociosService', () => {
 
       prismaMock.persona.findUnique.mockResolvedValue(personaMock);
       prismaMock.membresia.findFirst.mockResolvedValue({ id: 50, personaId: 35, activo: true });
-      prismaMock.membresia.update.mockResolvedValue({ id: 50, activo: false, fechaBaja: new Date() });
+      prismaMock.membresia.update.mockResolvedValue({
+        id: 50,
+        activo: false,
+        fechaBaja: new Date(),
+      });
 
       await service.deactivate(35, 99);
 

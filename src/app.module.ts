@@ -12,8 +12,10 @@ import { EventosModule } from './eventos/eventos.module';
 import { EntradasModule } from './entradas/entradas.module';
 import { DisciplinasModule } from './disciplinas/disciplinas.module';
 import { CuotasModule } from './cuotas/cuotas.module';
+import { CuotaSocialModule } from './cuota-social/cuota-social.module';
 import { PersonasModule } from './personas/personas.module';
 import { InscripcionModule } from './inscripcion/inscripcion.module';
+import { DocumentacionModule } from './documentacion/documentacion.module';
 
 @Module({
   imports: [
@@ -33,8 +35,10 @@ import { InscripcionModule } from './inscripcion/inscripcion.module';
     EntradasModule,
     DisciplinasModule,
     CuotasModule,
+    CuotaSocialModule,
     PersonasModule,
     InscripcionModule,
+    DocumentacionModule,
   ],
   controllers: [AppController],
 })

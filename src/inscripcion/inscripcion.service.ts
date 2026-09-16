@@ -4,11 +4,33 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateInscripcionDto } from './dto/create-inscripcion.dto';
 import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
+import {
+  EstadoInscripcionFiltro,
+  FindParticipantesQueryDto,
+} from './dto/find-participantes-query.dto';
 import { AuditoriaService } from '../auditoria/auditoria.service';
+
+type InscConRelaciones = Pick<
+  Prisma.InscripcionGetPayload<{
+    include: { persona: true; disciplina: true; categoriaDisciplina: true };
+  }>,
+  | 'id'
+  | 'disciplinaId'
+  | 'disciplina'
+  | 'categoriaDisciplinaId'
+  | 'categoriaDisciplina'
+  | 'fechaInscripcion'
+  | 'activo'
+>;
+
+type PersonaConInscripciones = Prisma.PersonaGetPayload<{
+  include: { inscripciones: { include: { disciplina: true; categoriaDisciplina: true } } };
+}>;
 
 @Injectable()
 export class InscripcionService {
@@ -98,10 +120,37 @@ export class InscripcionService {
           },
         });
 
-        if (inscripcionExistente) {
+        if (inscripcionExistente?.activo) {
           throw new ConflictException(
             'Ya existe un participante con ese DNI inscripto en esta disciplina',
           );
+        }
+
+        // El unique (personaId, disciplinaId) hace que la fila sobreviva a la
+        // baja lógica, así que una re-inscripción no puede insertar otra:
+        // reactiva la que ya está.
+        if (inscripcionExistente) {
+          const reactivada = await tx.inscripcion.update({
+            where: { id: inscripcionExistente.id },
+            data: {
+              activo: true,
+              fechaInscripcion: new Date(),
+              categoriaDisciplinaId: dto.categoriaDisciplinaId ?? null,
+            },
+          });
+
+          await this.auditoria.registrar(
+            {
+              accion: 'REACTIVAR',
+              entidad: 'Inscripcion',
+              idEntidad: reactivada.id,
+              detalle: `Re-inscripción de ${persona.apellido} ${persona.nombre}, ${persona.dni} en la disciplina ${disciplina.nombre}`,
+              responsableId,
+            },
+            tx,
+          );
+
+          return { persona, inscripcion: reactivada };
         }
 
         const inscripcion = await tx.inscripcion.create({
@@ -144,6 +193,11 @@ export class InscripcionService {
       },
     });
     if (!inscripcionActual) throw new NotFoundException('Inscripción no encontrada');
+    if (!inscripcionActual.activo) {
+      throw new BadRequestException(
+        'La inscripción está dada de baja: hay que reinscribir al participante antes de editarlo',
+      );
+    }
 
     const disciplinaIdDestino = dto.disciplinaId ?? inscripcionActual.disciplinaId;
     const disciplinaDestino = await this.prisma.disciplina.findUnique({
@@ -183,11 +237,36 @@ export class InscripcionService {
     const dniNuevo = dto.dni ?? inscripcionActual.persona.dni;
     const dniCambio = dniNuevo !== inscripcionActual.persona.dni;
 
-    if (dniCambio || disciplinaCambio) {
-      const personaConMismoDni = dniNuevo
-        ? await this.prisma.persona.findUnique({ where: { dni: dniNuevo } })
-        : null;
-      if (personaConMismoDni) {
+    // Con el unique (personaId, disciplinaId), si el participante ya tuvo una
+    // inscripción en la disciplina destino esa fila sigue existiendo aunque
+    // esté dada de baja, así que no se le puede mover el disciplinaId encima.
+    let inscripcionInactivaEnDestino: { id: number } | null = null;
+    if (disciplinaCambio) {
+      const existenteEnDestino = await this.prisma.inscripcion.findUnique({
+        where: {
+          personaId_disciplinaId: {
+            personaId: inscripcionActual.personaId,
+            disciplinaId: disciplinaIdDestino,
+          },
+        },
+      });
+
+      if (existenteEnDestino?.activo) {
+        throw new ConflictException('El participante ya está inscripto en la disciplina destino');
+      }
+
+      inscripcionInactivaEnDestino = existenteEnDestino ?? null;
+    }
+
+    // El DNI nuevo puede pertenecer a OTRA persona que ya esté inscripta y
+    // vigente en la disciplina destino. Si el DNI no cambia, el choque contra
+    // el unique ya lo cubre la verificación de arriba.
+    if (dniCambio && dniNuevo) {
+      const personaConMismoDni = await this.prisma.persona.findUnique({
+        where: { dni: dniNuevo },
+      });
+
+      if (personaConMismoDni && personaConMismoDni.id !== inscripcionActual.personaId) {
         const yaInscripto = await this.prisma.inscripcion.findUnique({
           where: {
             personaId_disciplinaId: {
@@ -196,7 +275,10 @@ export class InscripcionService {
             },
           },
         });
-        if (yaInscripto) {
+
+        // Solo choca contra una inscripción vigente: una dada de baja no
+        // ocupa el lugar de nadie.
+        if (yaInscripto?.activo) {
           throw new ConflictException('Ya existe un participante con ese DNI en esta disciplina');
         }
       }
@@ -218,14 +300,53 @@ export class InscripcionService {
           },
         });
 
-        const inscripcionActualizada = await tx.inscripcion.update({
-          where: { id },
-          data: {
-            disciplinaId: disciplinaIdDestino,
-            categoriaDisciplinaId: categoriaIdDestino,
-          },
-          include: { persona: true, disciplina: true, categoriaDisciplina: true },
-        });
+        // Traslado a una disciplina donde el participante ya tuvo una
+        // inscripción: se reactiva esa fila y la actual queda dada de baja. La
+        // inscripción resultante cambia de id.
+        const inscripcionActualizada = inscripcionInactivaEnDestino
+          ? await tx.inscripcion.update({
+              where: { id: inscripcionInactivaEnDestino.id },
+              data: {
+                activo: true,
+                fechaInscripcion: new Date(),
+                categoriaDisciplinaId: categoriaIdDestino,
+              },
+              include: { persona: true, disciplina: true, categoriaDisciplina: true },
+            })
+          : await tx.inscripcion.update({
+              where: { id },
+              data: {
+                disciplinaId: disciplinaIdDestino,
+                categoriaDisciplinaId: categoriaIdDestino,
+              },
+              include: { persona: true, disciplina: true, categoriaDisciplina: true },
+            });
+
+        if (inscripcionInactivaEnDestino) {
+          await tx.inscripcion.update({ where: { id }, data: { activo: false } });
+
+          await this.auditoria.registrar(
+            {
+              accion: 'BAJA',
+              entidad: 'Inscripcion',
+              idEntidad: id,
+              detalle: `Baja por traslado de ${personaActualizada.apellido} ${personaActualizada.nombre} a la disciplina ${disciplinaDestino.nombre}`,
+              responsableId,
+            },
+            tx,
+          );
+
+          await this.auditoria.registrar(
+            {
+              accion: 'REACTIVAR',
+              entidad: 'Inscripcion',
+              idEntidad: inscripcionActualizada.id,
+              detalle: `Reactivación por traslado de ${personaActualizada.apellido} ${personaActualizada.nombre} desde la disciplina ${inscripcionActual.disciplina.nombre}`,
+              responsableId,
+            },
+            tx,
+          );
+        }
 
         let categoriaNuevaNombre = 'sin categoría';
         if (categoriaIdDestino) {
@@ -239,7 +360,7 @@ export class InscripcionService {
           data: {
             accion: 'EDITAR',
             entidad: 'Inscripcion',
-            idEntidad: id,
+            idEntidad: inscripcionActualizada.id,
             detalle: `Edición de participante ${personaActualizada.apellido} ${personaActualizada.nombre}, DNI ${personaActualizada.dni} - disciplina: ${inscripcionActual.disciplina.nombre} → ${disciplinaDestino.nombre}, categoría: ${inscripcionActual.categoriaDisciplina?.nombre ?? 'sin categoría'} → ${categoriaNuevaNombre}`,
             responsableId,
           },
@@ -255,20 +376,118 @@ export class InscripcionService {
     }
   }
 
-  async findAll() {
-    return this.prisma.inscripcion.findMany({
-      include: {
-        persona: true,
-        disciplina: true,
-        categoriaDisciplina: true,
-      },
-      orderBy: { fechaInscripcion: 'desc' },
-    });
+  /**
+   * Convierte una inscripción (con sus relaciones cargadas) al item
+   * individual que consume el detalle por participante.
+   */
+
+  /**
+   * Convierte una inscripción (con sus relaciones cargadas) al item
+   * individual que consume el detalle por participante.
+   */
+  private aDisciplinaInscripta(inscripcion: InscConRelaciones) {
+    return {
+      inscripcionId: inscripcion.id,
+      disciplinaId: inscripcion.disciplinaId,
+      disciplina: inscripcion.disciplina,
+      categoriaDisciplinaId: inscripcion.categoriaDisciplinaId ?? null,
+      categoriaDisciplina: inscripcion.categoriaDisciplina ?? null,
+      fechaInscripcion: inscripcion.fechaInscripcion,
+      activo: inscripcion.activo,
+      estado: inscripcion.activo ? 'INSCRIPTO' : 'BAJA',
+    };
+  }
+
+  /**
+   * Convierte una persona (con sus inscripciones cargadas) a la fila del
+   * listado de participantes (US-08): una fila por participante con todas
+   * sus disciplinas. El estado agregado es INSCRIPTO si tiene al menos una
+   * inscripción activa, BAJA en caso contrario.
+   */
+  private aParticipanteAgrupado(persona: PersonaConInscripciones) {
+    const disciplinas = [...persona.inscripciones]
+      .sort((a, b) => a.disciplina.nombre.localeCompare(b.disciplina.nombre, 'es'))
+      .map((i) => this.aDisciplinaInscripta(i));
+    return {
+      personaId: persona.id,
+      persona,
+      disciplinas,
+      cantidadDisciplinas: disciplinas.length,
+      estado: disciplinas.some((d) => d.activo) ? 'INSCRIPTO' : 'BAJA',
+    };
+  }
+
+  /**
+   * US-08: Buscar y filtrar participantes.
+   * - Búsqueda por nombre, apellido o DNI (coincidencia exacta o parcial, sin distinguir mayúsculas).
+   * - Filtro por disciplina deportiva (participantes con al menos una inscripción en esa disciplina).
+   * - Filtro por estado agregado del participante (INSCRIPTO: al menos una inscripción
+   *   activa, BAJA: ninguna activa).
+   * - Los filtros se combinan entre sí (AND) y la paginación se resuelve en el backend.
+   * Cada fila representa a un participante con todas sus disciplinas.
+   */
+  async findAll(query: FindParticipantesQueryDto = { pagina: 1, porPagina: 10 }) {
+    const { busqueda, disciplinaId, estado, pagina, porPagina } = query;
+
+    const filtros: Prisma.PersonaWhereInput[] = [
+      // Solo personas que participan en al menos una disciplina.
+      { inscripciones: { some: {} } },
+    ];
+
+    if (busqueda && busqueda.trim()) {
+      const termino = busqueda.trim();
+      filtros.push({
+        OR: [
+          { nombre: { contains: termino, mode: 'insensitive' } },
+          { apellido: { contains: termino, mode: 'insensitive' } },
+          { dni: { contains: termino, mode: 'insensitive' } },
+          { dni: { equals: termino } },
+        ],
+      });
+    }
+
+    if (disciplinaId) {
+      filtros.push({ inscripciones: { some: { disciplinaId } } });
+    }
+
+    if (estado === EstadoInscripcionFiltro.INSCRIPTO) {
+      filtros.push({ inscripciones: { some: { activo: true } } });
+    } else if (estado === EstadoInscripcionFiltro.BAJA) {
+      filtros.push({ inscripciones: { none: { activo: true } } });
+    }
+
+    const where: Prisma.PersonaWhereInput = { AND: filtros };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.persona.findMany({
+        where,
+        include: {
+          inscripciones: {
+            include: {
+              disciplina: true,
+              categoriaDisciplina: true,
+            },
+            orderBy: { disciplina: { nombre: 'asc' } },
+          },
+        },
+        orderBy: [{ apellido: 'asc' }, { nombre: 'asc' }],
+        skip: (pagina - 1) * porPagina,
+        take: porPagina,
+      }),
+      this.prisma.persona.count({ where }),
+    ]);
+
+    return {
+      items: items.map((p) => this.aParticipanteAgrupado(p)),
+      total,
+      pagina,
+      porPagina,
+    };
   }
 
   async findByPersonaId(personaId: number) {
     return this.prisma.inscripcion.findMany({
-      where: { personaId },
+      where: { personaId, activo: true },
       include: {
         persona: true,
         disciplina: true,
@@ -293,9 +512,38 @@ export class InscripcionService {
     return inscripcion;
   }
 
-  async remove(id: number) {
+  /**
+   * DT-16: baja lógica y auditada. Antes hacía un DELETE físico sin registrar
+   * nada, así que una inscripción podía desaparecer sin dejar rastro de quién
+   * la borró. La fila se conserva porque el unique (personaId, disciplinaId)
+   * la necesita para poder reinscribir a la misma persona más adelante.
+   */
+  async remove(id: number, responsableId: number) {
     const inscripcion = await this.findOne(id);
-    await this.prisma.inscripcion.delete({ where: { id } });
-    return inscripcion;
+
+    if (!inscripcion.activo) {
+      throw new BadRequestException('La inscripción ya está dada de baja');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const dadaDeBaja = await tx.inscripcion.update({
+        where: { id },
+        data: { activo: false },
+        include: { persona: true, disciplina: true, categoriaDisciplina: true },
+      });
+
+      await this.auditoria.registrar(
+        {
+          accion: 'BAJA',
+          entidad: 'Inscripcion',
+          idEntidad: id,
+          detalle: `Baja de la inscripción de ${inscripcion.persona.apellido} ${inscripcion.persona.nombre}, DNI ${inscripcion.persona.dni} en la disciplina ${inscripcion.disciplina.nombre}`,
+          responsableId,
+        },
+        tx,
+      );
+
+      return dadaDeBaja;
+    });
   }
 }

@@ -26,7 +26,7 @@ COPY src ./src
 COPY tsconfig*.json ./
 COPY nest-cli.json ./
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh && npx prisma generate && npm run build
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && chmod +x /usr/local/bin/docker-entrypoint.sh && npx prisma generate
 ENV NODE_ENV=development
 EXPOSE 3000
 ENTRYPOINT ["docker-entrypoint.sh"]
@@ -49,7 +49,7 @@ COPY --from=build /usr/src/app/dist ./dist
 COPY --from=build /usr/src/app/prisma ./prisma
 COPY --from=build /usr/src/app/package.json ./package.json
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && chmod +x /usr/local/bin/docker-entrypoint.sh \
   && addgroup -S nodejs && adduser -S nestjs -G nodejs
 USER nestjs
 EXPOSE 3000
