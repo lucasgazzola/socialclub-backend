@@ -31,12 +31,38 @@ Para máxima precisión, dejá acá tus documentos reales (plantillas + ejemplos
 
 ## Documentos vivos de este directorio
 
-Estos no son exports: se mantienen acá, en markdown, y se actualizan con cada cambio.
+Estos no son exports: se mantienen acá, en markdown, y se actualizan con cada
+cambio. El markdown del repo es la **fuente accesible para todo el equipo** —
+está versionado, se lee en GitHub y no depende de que nadie comparta un enlace.
 
-- **`DEUDA-TECNICA.md`** — registro de la deuda técnica de los dos repos: qué hay,
-  en qué orden atacarla, qué se resolvió y con qué PR. Al cerrar un ítem hay que
-  moverlo a la sección «Deuda resuelta» (es parte de la Definition of Done).
-- **`GUIA-IA-EQUIPO.md`** — cómo usar los skills del equipo.
+| Documento | De qué trata | Versión navegable |
+|---|---|---|
+| [`DEUDA-TECNICA.md`](DEUDA-TECNICA.md) | Registro de la deuda de los dos repos: qué hay, en qué orden atacarla, qué se resolvió y con qué PR. Incluye las **decisiones pendientes del equipo**. | [ver](https://claude.ai/code/artifact/36ba0d37-622d-4197-b9ad-4f24a2c6968d) |
+| [`PLAN-TESTING.md`](PLAN-TESTING.md) | Estado medido de la pata de testing, qué se automatiza con skills, qué hace falta para E2E y la secuencia de pasos. | [ver](https://claude.ai/code/artifact/b817ba9b-ac31-44c8-9dfb-c72ac923b7a3) |
+| [`GUIA-IA-EQUIPO.md`](GUIA-IA-EQUIPO.md) | Cómo usar los skills del equipo. | — |
+
+**Al cerrar un ítem de deuda hay que moverlo a «Deuda resuelta» con su PR y
+fecha: es parte de la Definition of Done** (punto 6).
+
+> ⚠️ **Sobre las versiones navegables:** son páginas más cómodas de leer para
+> una reunión, pero **nacen privadas** — hay que compartirlas explícitamente
+> desde el menú de la página para que el resto las abra. Y no se versionan: si
+> el markdown y la página difieren, **manda el markdown de este repo**.
+
+### Exportables para la planilla
+
+`exportables/` guarda archivos **para copiar y pegar** en el `.xlsx` del plan de
+testing; no reemplaza a la planilla, que sigue siendo la fuente de verdad de los
+casos y su ejecución.
+
+| Archivo | Va a la hoja |
+|---|---|
+| `casos-prueba-US16-US32.csv` | Casos de Prueba (`TC-084` a `TC-100`) |
+| `ejecucion-US16-US32.csv` | Ejecución de Pruebas (`EJ-28` a `EJ-46`) |
+
+> `casos-prueba.csv` y `registro-ejecucion.csv` son **exports viejos con otra
+> numeración**, conservados solo como referencia histórica. No usarlos para
+> calcular el próximo ID (ver DT-18).
 
 ## Cómo lo usa la IA
 - El `CLAUDE.md` de cada repo apunta acá.
