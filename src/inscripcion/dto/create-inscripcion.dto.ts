@@ -7,7 +7,6 @@ import {
   IsDateString,
   Matches,
 } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
  * Alta de inscripción. Se usa en dos modos:

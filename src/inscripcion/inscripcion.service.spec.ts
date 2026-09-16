@@ -20,6 +20,7 @@ const mockPrisma: any = {
   inscripcion: {
     findUnique: jest.fn(),
     update: jest.fn(),
+    create: jest.fn(),
     findMany: jest.fn(),
     count: jest.fn(),
     delete: jest.fn(),
@@ -65,6 +66,7 @@ describe('InscripcionService', () => {
       personaId: 10,
       disciplinaId: 1,
       categoriaDisciplinaId: 2,
+      activo: true,
       persona: {
         id: 10,
         nombre: 'Juan',
