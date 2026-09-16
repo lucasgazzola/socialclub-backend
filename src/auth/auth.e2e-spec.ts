@@ -12,12 +12,12 @@ import { AuditoriaService } from '../auditoria/auditoria.service';
 /**
  * e2e de US-38 (registro público) contra AuthController + AuthService reales,
  * con PrismaService/JwtService/AuditoriaService/ConfigService mockeados.
- *   TC-070 -> registro válido: no setea cookie (no auto-login) y responde con
+ *   TC-077 -> registro válido: no setea cookie (no auto-login) y responde con
  *             el usuario sin roles
- *   TC-071 -> con la cuenta recién registrada, login exitoso setea la cookie
+ *   TC-078 -> con la cuenta recién registrada, login exitoso setea la cookie
  *             de sesión (US-39)
- *   TC-073 -> email duplicado -> 409
- *   TC-077 -> payload con "roles" -> 400 (rechazado por el ValidationPipe)
+ *   TC-080 -> email duplicado -> 409
+ *   TC-084 -> payload con "roles" -> 400 (rechazado por el ValidationPipe)
  */
 describe('AuthController (e2e) — US-38', () => {
   let app: INestApplication;
@@ -66,7 +66,7 @@ describe('AuthController (e2e) — US-38', () => {
     password: 'Nuevo123!',
   };
 
-  describe('TC-070: registrarse con datos válidos', () => {
+  describe('TC-077: registrarse con datos válidos', () => {
     it('POST /auth/register crea la cuenta, no setea cookie de sesión y no devuelve roles', async () => {
       const httpServer = app.getHttpServer() as Server;
       prismaMock.usuario.findUnique.mockResolvedValue(null);
@@ -96,7 +96,7 @@ describe('AuthController (e2e) — US-38', () => {
     });
   });
 
-  describe('TC-071: iniciar sesión con la cuenta recién registrada', () => {
+  describe('TC-078: iniciar sesión con la cuenta recién registrada', () => {
     it('tras registrarse, el login con las mismas credenciales setea la cookie access_token', async () => {
       const httpServer = app.getHttpServer() as Server;
       prismaMock.usuario.findUnique.mockResolvedValueOnce(null); // chequeo de duplicado en register
@@ -133,7 +133,7 @@ describe('AuthController (e2e) — US-38', () => {
     });
   });
 
-  describe('TC-073: email ya existente', () => {
+  describe('TC-080: email ya existente', () => {
     it('POST /auth/register devuelve 409 y no crea la cuenta', async () => {
       const httpServer = app.getHttpServer() as Server;
       prismaMock.usuario.findUnique.mockResolvedValue({ id: 1 });
@@ -144,7 +144,7 @@ describe('AuthController (e2e) — US-38', () => {
     });
   });
 
-  describe('TC-077: impedir auto-asignación de rol', () => {
+  describe('TC-084: impedir auto-asignación de rol', () => {
     it('POST /auth/register con "roles" en el body es rechazado con 400 y no crea el usuario', async () => {
       const httpServer = app.getHttpServer() as Server;
       prismaMock.usuario.findUnique.mockResolvedValue(null);

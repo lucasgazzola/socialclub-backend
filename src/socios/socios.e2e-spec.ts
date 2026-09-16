@@ -81,7 +81,7 @@ describe('SociosController (e2e)', () => {
     prismaMock.categoriaSocio.findFirst.mockResolvedValue({ id: 1, nombre: 'Mayores' });
   });
 
-  describe('TC-023: persistencia del socio vía API', () => {
+  describe('TC-030: persistencia del socio vía API', () => {
     it('POST /socios crea el socio y luego GET /socios lo devuelve con los mismos datos', async () => {
       const nuevoSocio = {
         nombre: 'Carla',
@@ -138,7 +138,7 @@ describe('SociosController (e2e)', () => {
     });
   });
 
-  describe('TC-020: DNI duplicado vía API', () => {
+  describe('TC-027: DNI duplicado vía API', () => {
     it('POST /socios devuelve 409 y no llama a auditoría cuando el DNI ya existe', async () => {
       prismaMock.persona.findUnique.mockResolvedValue({
         id: 1,

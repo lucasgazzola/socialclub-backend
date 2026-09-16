@@ -49,19 +49,17 @@ Se copia y se pega en la hoja **Casos de Prueba** a partir de la primera fila
 libre. No hace falta generar `.xlsx`.
 
 ## De dónde sale el próximo `ID Caso`
-**La fuente de verdad es el `.xlsx`**, no el CSV de `docs/exportables/`:
+**No numerar a mano.** Los `TC-XXX` los asigna únicamente `/exportar-casos`
+(`scripts/exportar-casos.mjs`), que lee el máximo de la planilla `.xlsx` y de
+`docs/exportables/*.csv`.
 
 - Planilla: `docs/documentacion/desarrollo-del-producto/01 ... Plan de testing del producto ... .xlsx`
-- `docs/exportables/casos-prueba.csv` es un **export viejo y parcial, con otra
-  numeración**. No usarlo para calcular el próximo ID (ver DT-18).
+- Dump versionado: `docs/exportables/casos-prueba.csv` (90 IDs únicos, `TC-001` a `TC-090`, alineado con el `.xlsx` desde DT-18).
+- Pendientes de pegar en la planilla: `docs/exportables/casos-prueba-US16-US32.csv` (`TC-091` a `TC-107`). El próximo ID libre, con esos archivos en el repo, es **`TC-108`**.
 
-Leer el último `TC-XXX` de la hoja y seguir desde ahí. El `.xlsx` es un ZIP de
-XML y se puede leer con la librería estándar de Python (`zipfile` +
-`xml.etree`), sin instalar nada.
-
-> **Cuidado — la planilla tiene IDs duplicados** (`TC-006` a `TC-012` existen
-> para US-02, US-03 y US-05). El último ID por orden no es necesariamente el
-> máximo: calcular el máximo real antes de asignar.
+El `.xlsx` es un ZIP de XML y se puede leer con `python3 scripts/ids-planilla.py`
+(sin instalar nada). Si ese script reporta duplicados, **no asignar IDs nuevos**
+hasta resolverlo.
 
 ## Qué cubrir (marco, adaptar a la US)
 - **Camino feliz** (Funcional/Aceptación, Prioridad Alta).

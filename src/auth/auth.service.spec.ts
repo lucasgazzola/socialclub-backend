@@ -11,12 +11,12 @@ import { AuthService } from './auth.service';
  * SociosService). Cubren US-38 (registro público) y US-39/US-40 (login/logout).
  *
  * Mapeo con la matriz de casos:
- *   TC-071 -> describe('login luego de register (US-38 + US-39)')
- *   TC-072 -> 'el usuario auto-registrado no recibe roles'
- *   TC-073 -> 'rechaza el registro si el email ya está en uso'
- *   TC-077 -> describe('TC-077: no auto-asignación de rol')
+ *   TC-078 -> describe('login luego de register (US-38 + US-39)')
+ *   TC-079 -> 'el usuario auto-registrado no recibe roles'
+ *   TC-080 -> 'rechaza el registro si el email ya está en uso'
+ *   TC-084 -> describe('TC-084: no auto-asignación de rol')
  *
- * TC-070, TC-074, TC-075, TC-076 son de UI/validación de formulario y no
+ * TC-077, TC-081, TC-082, TC-083 son de UI/validación de formulario y no
  * corresponden a este archivo (ver RegisterForm.test.tsx del lado del front,
  * pendiente hasta contar con components/RegisterForm.tsx).
  */
@@ -198,7 +198,7 @@ describe('AuthService', () => {
       );
     });
 
-    it('TC-073: rechaza el registro si el email ya está en uso (409)', async () => {
+    it('TC-080: rechaza el registro si el email ya está en uso (409)', async () => {
       prismaMock.usuario.findUnique.mockResolvedValue({ id: 1 });
 
       await expect(service.register(dto)).rejects.toBeInstanceOf(ConflictException);
@@ -206,7 +206,7 @@ describe('AuthService', () => {
       expect(prismaMock.usuario.create).not.toHaveBeenCalled();
     });
 
-    it('TC-072: el usuario auto-registrado no recibe ningún rol', async () => {
+    it('TC-079: el usuario auto-registrado no recibe ningún rol', async () => {
       prismaMock.usuario.findUnique.mockResolvedValue(null);
       prismaMock.usuario.create.mockResolvedValue({
         id: 13,
@@ -227,8 +227,8 @@ describe('AuthService', () => {
     });
   });
 
-  // ── TC-071: login luego de register (integración US-38 + US-39) ───────────
-  describe('TC-071: iniciar sesión con la cuenta recién registrada', () => {
+  // ── TC-078: login luego de register (integración US-38 + US-39) ───────────
+  describe('TC-078: iniciar sesión con la cuenta recién registrada', () => {
     it('el usuario puede loguearse inmediatamente después de registrarse, con sus propias credenciales', async () => {
       const dto = {
         email: 'ana@test.com',
@@ -249,7 +249,7 @@ describe('AuthService', () => {
       expect(usuarioRegistrado.roles).toEqual([]);
 
       // 2) Login: ahora sí "existe" en la base, con el hash recién generado y
-      // sin roles (coherente con TC-072).
+      // sin roles (coherente con TC-079).
       prismaMock.usuario.findUnique.mockResolvedValueOnce({
         id: 21,
         email: 'ana@test.com',
@@ -270,8 +270,8 @@ describe('AuthService', () => {
     });
   });
 
-  // TC-077: impedir auto-asignación de rol
-  describe('TC-077: impedir auto-asignación de rol (escalada de privilegios)', () => {
+  // TC-084: impedir auto-asignación de rol
+  describe('TC-084: impedir auto-asignación de rol (escalada de privilegios)', () => {
     it('ignora por completo cualquier campo "roles" recibido en el DTO de registro', async () => {
       prismaMock.usuario.findUnique.mockResolvedValue(null);
       prismaMock.usuario.create.mockResolvedValue({
