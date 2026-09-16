@@ -35,7 +35,7 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15--🔴-riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés--🟠-costo-creciente) |
 | ✅ Resueltas | DT-03, DT-04, DT-07, DT-13, DT-14, DT-16, DT-19, DT-21 |
 | 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05 |
-| 🟡 Medias pendientes | DT-10, DT-11, DT-17, DT-18, DT-22, DT-23 |
+| 🟡 Medias pendientes | DT-10, DT-11, DT-17, DT-18, DT-22, DT-23, DT-24, DT-25 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-20 |
 
 **Cobertura de tests** (medida el 16/09/2026, objetivo DoD **70 %**):
@@ -179,17 +179,60 @@ acción. El backend acepta además `entidad`, `responsableId`, `fechaDesde` y
 - **Arreglo:** sumar esos filtros, selector de tamaño de página y encabezado fijo con scroll dentro de la tabla.
 - **Rama sugerida:** `issue/TASK-18-DT-10-Filtros-de-auditoria`
 
-#### DT-18 · IDs de casos de prueba colisionados
-*Nuevo · documentación · 1 SP*
+#### DT-18 · La numeración de casos de prueba está quebrada
+*Nuevo · documentación · 2 SP*
 
-Los specs del frontend de usuarios referencian TC-006 a TC-012, pero en
-`docs/exportables/casos-prueba.csv` los IDs TC-009 y TC-010 corresponden a
-US-40 (cerrar sesión). Hoy la trazabilidad test ↔ planilla apunta a filas
-equivocadas, y cada export con `/exportar-casos` agranda el problema.
+**Corrección:** la primera versión de este ítem decía que los specs del
+frontend apuntaban a filas equivocadas. Eso estaba **mal**: se había comparado
+contra `docs/exportables/casos-prueba.csv`, que es un export viejo. Contra la
+planilla real (`.xlsx`) las etiquetas del frontend son correctas. El problema
+es otro, y es peor:
 
-- **Arreglo:** definir un rango de IDs por US (o un prefijo por repo) y renumerar la planilla junto con las etiquetas de los specs.
-- **Ya hay 19 casos esperando** en `docs/exportables/casos-por-cargar.tsv` (US-16 y US-32), generados sin ID a propósito: se cargan a la planilla cuando la numeración esté saneada. Cada US que se documente antes de DT-18 agranda esa cola.
-- **Rama sugerida:** `issue/TASK-19-DT-18-Reconciliar-ids-casos-de-prueba`
+1. **La planilla tiene IDs duplicados.** `TC-006` a `TC-012` existen dos veces
+   cada uno: una para US-02, otra para US-03 / US-05. Distintas personas
+   numeraron su bloque arrancando de `TC-001`. Son **90 filas con solo 83 IDs
+   únicos**, así que 14 filas son ambiguas y no se puede referenciar un caso
+   por su ID sin decir también de qué US es.
+2. **`docs/exportables/casos-prueba.csv` es una tercera numeración.** Tiene 38
+   filas con IDs que en la planilla corresponden a otras US, e incluye casos de
+   US-08 que **nunca llegaron al `.xlsx`**. Cualquier script que calcule el
+   próximo ID desde ese CSV va a pisar IDs existentes.
+
+- **Evidencia:** hoja «Casos de Prueba» del `.xlsx` (90 filas, máximo `TC-083`) vs `docs/exportables/casos-prueba.csv` (38 filas).
+- **Arreglo:** renumerar la planilla de forma única (o pasar a un prefijo por US, tipo `TC-US16-01`), y regenerar o borrar el CSV del repo para que no quede una fuente paralela. Los skills ya apuntan al `.xlsx` como fuente de verdad.
+- **Rama sugerida:** `issue/TASK-<n>-DT-18-Renumerar-casos-de-prueba`
+
+#### DT-24 · La planilla documenta generación de cuotas que no existe
+*Nuevo · producto + documentación · a definir*
+
+Cuatro casos de US-05 (`TC-010` a `TC-013`) esperan que al inscribir un
+participante **«se generan automáticamente las cuotas correspondientes»**. Eso
+no está implementado ni modelado:
+
+- El dominio solo tiene `ConfiguracionCuotaDeportiva` y `ConfiguracionCuotaSocial`, que son **el monto configurado**, no cuotas emitidas. No existe ninguna entidad de cuota generada ni deuda por socio.
+- `inscripcion.service.ts` no toca cuotas en ningún momento; el propio código lo admite en un comentario (`inscripcion.service.ts:399`: «generación de cuotas asociadas (que hoy no existe en el dominio…)»).
+
+O sea: esos cuatro casos **no pueden ejecutarse como están escritos**. Hay que
+decidir si se implementa la generación (es producto nuevo, se vincula con
+DT-06) o si se corrigen los casos para que describan lo que el sistema hace.
+
+- **Detectado al contrastar la planilla contra el código.**
+
+#### DT-25 · La auditoría append-only no está garantizada por la base
+*Nuevo · backend · 2 SP*
+
+`TC-017` (US-07) y `TC-067` (US-32) esperan que un UPDATE o DELETE sobre
+`registros_auditoria` sea **«rechazado a nivel de servicio/base de datos (tabla
+append-only)»**. La mitad del servicio ahora está cubierta y es cierta
+(`AuditoriaService` solo expone `registrar`, `listarPorEntidad` y
+`listarTodos`, y hay un test que falla si alguien agrega otro método de
+escritura). **La mitad de la base de datos no:** no hay trigger, ni `REVOKE`,
+ni regla en ninguna migración. Nada impide que otro código —o alguien con la
+credencial— haga `UPDATE` o `DELETE`.
+
+- **Evidencia:** ninguna migración contiene `TRIGGER`, `REVOKE`, `GRANT` ni `RULE`; el único respaldo es el comentario del `schema.prisma`.
+- **Arreglo:** o se agrega la restricción real en la base (trigger que rechace UPDATE/DELETE, o un rol de aplicación sin esos permisos sobre la tabla), o se corrige el texto de los dos casos para que describan solo la garantía a nivel de servicio.
+- **RNF03 / RF12 dependen de esto**, así que conviene no dejarlo como comentario.
 
 #### DT-22 · La rotación mensual de la cuota social no tiene quién la dispare
 *Nuevo · backend · 2 SP*
@@ -418,6 +461,35 @@ tocar el tsconfig de build.
 > formato se arreglan en el runner y nunca se reportan. Por eso el formato
 > venía derivando en silencio. Conviene separar `lint` (sin fix, para CI) de
 > `lint:fix` (local).
+
+
+## Trazabilidad de casos de prueba
+
+La fuente de verdad es la planilla
+`docs/documentacion/desarrollo-del-producto/01 ... Plan de testing del producto ... .xlsx`
+(hojas *Casos de Prueba*, *Ejecución de Pruebas*, *Defectos*, *Conformidad PO*,
+*Resumen*). El directorio `docs/exportables/` solo guarda **archivos para copiar
+y pegar** en esas hojas; no reemplaza a la planilla.
+
+Estado al 16/09/2026, contrastado contra el código:
+
+| | Cantidad |
+|---|---|
+| Casos cargados en la planilla | 90 filas (83 IDs únicos — ver DT-18) |
+| US con casos documentados | 16 |
+| US implementadas en el backend | 22 (+ US-16, que no estaba etiquetada) |
+| **US implementadas sin ningún caso** | **US-06, US-08, US-09, US-11, US-24, US-31** |
+| Casos nuevos listos para cargar | 17 (`TC-084` a `TC-100`, US-16 y US-32) |
+| Ejecuciones nuevas listas para cargar | 19 (`EJ-28` a `EJ-46`) |
+
+Archivos para pegar:
+
+- `docs/exportables/casos-prueba-US16-US32.csv` → hoja **Casos de Prueba**
+- `docs/exportables/ejecucion-US16-US32.csv` → hoja **Ejecución de Pruebas**
+
+Ambos son CSV con todas las celdas entre comillas y BOM, porque los `Pasos`
+llevan saltos de línea dentro de la celda: en TSV, Excel los toma como filas
+nuevas y rompe la planilla.
 
 ## Nomenclatura
 

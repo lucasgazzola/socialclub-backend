@@ -23,23 +23,45 @@ pedírselos o leerlos del issue de GitHub de esa US. Confirmar en qué repo vive
 funcionalidad (back/front) para revisar el código real.
 
 ## Columnas de salida (EXACTAS, en este orden)
-`ID Caso` · `US asociada` · `Objetivo` · `Precondición` · `Datos de entrada` · `Pasos` · `Resultado Esperado` · `Prioridad` · `Tipo`
+`ID Caso` · `US asociada` · `Objetivo` · `Precondición` · `Datos de entrada` · `Pasos` · `Resultado Esperado` · `Prioridad` · `Tipo` · `Ejecutor`
+
+> Verificado contra la planilla real (hoja **Casos de Prueba**, encabezados en la
+> fila 2). Son **10 columnas**: no olvidar `Ejecutor`.
 
 - **Prioridad**: `Alta` | `Media` | `Baja`.
-- **Tipo** (solo estos valores): `Unitaria` | `Integral` | `Funcional` | `Regresión` | `Aceptación` | `No funcional`.
-- **Pasos**: numerados `1. ... 2. ...`. Para pegar en una sola celda, unir los pasos con ` / ` (una línea por caso).
+- **Tipo** — solo estos cuatro valores, que son los que usa la planilla:
+  `Unitario` | `Funcional` | `Integración` | `No funcional`.
+  (Ojo: **no** existen "Unitaria", "Integral", "Regresión" ni "Aceptación".)
+- **Pasos**: numerados y separados por **salto de línea real** dentro de la
+  celda (`1. Abrir formulario\n2. Completar datos\n3. Guardar`), como están
+  cargados hoy. No unirlos con ` / `.
+- **Ejecutor**: nombre del integrante, formato `Apellido Nombre`
+  (p. ej. `Gazzola Lucas`).
 
 ## Formato de entrega (por defecto)
-Bloque **TSV** (separado por tabs) **sin la columna `ID Caso`** (la planilla la
-autonumera / se completa correlativa `TC-XXX` al pegar), con la fila de encabezados
-y una fila por caso. Los pasos en una sola línea con ` / `. Ejemplo de encabezado:
+Un archivo **CSV con todas las celdas entre comillas** (`QUOTE_ALL`) y BOM
+(`utf-8-sig`), en `docs/exportables/casos-prueba-<US>.csv`, con las 10 columnas
+y una fila por caso. **CSV y no TSV**: los `Pasos` llevan saltos de línea dentro
+de la celda, y al pegar un TSV multilínea Excel los interpreta como filas
+nuevas y rompe la planilla.
 
-```
-US asociada	Objetivo	Precondición	Datos de entrada	Pasos	Resultado Esperado	Prioridad	Tipo
-```
+Se copia y se pega en la hoja **Casos de Prueba** a partir de la primera fila
+libre. No hace falta generar `.xlsx`.
 
-Si el usuario prefiere, ofrecer también: (a) con `ID Caso` correlativo, o (b)
-apendear directamente al CSV `docs/.../Casos de Prueba.csv` respetando el quoting.
+## De dónde sale el próximo `ID Caso`
+**La fuente de verdad es el `.xlsx`**, no el CSV de `docs/exportables/`:
+
+- Planilla: `docs/documentacion/desarrollo-del-producto/01 ... Plan de testing del producto ... .xlsx`
+- `docs/exportables/casos-prueba.csv` es un **export viejo y parcial, con otra
+  numeración**. No usarlo para calcular el próximo ID (ver DT-18).
+
+Leer el último `TC-XXX` de la hoja y seguir desde ahí. El `.xlsx` es un ZIP de
+XML y se puede leer con la librería estándar de Python (`zipfile` +
+`xml.etree`), sin instalar nada.
+
+> **Cuidado — la planilla tiene IDs duplicados** (`TC-006` a `TC-012` existen
+> para US-02, US-03 y US-05). El último ID por orden no es necesariamente el
+> máximo: calcular el máximo real antes de asignar.
 
 ## Qué cubrir (marco, adaptar a la US)
 - **Camino feliz** (Funcional/Aceptación, Prioridad Alta).
