@@ -31,56 +31,248 @@ async function main() {
     },
   });
 
+  const rolSocio = await prisma.rol.upsert({
+    where: { nombre: 'SOCIO' },
+    update: {},
+    create: {
+      nombre: 'SOCIO',
+      descripcion: 'Socio del club con membresía autogestionada (US-09)',
+    },
+  });
+
   // ── Categorías de socio (upsert: idempotente) ──────────────────────────────
+  // US16: 3 categorías canónicas para cuota social (Cuota Juvenil / General / Senior)
+  const categoriasMap = new Map<string, { id: number; nombre: string }>();
   const categorias = [
-    { nombre: 'Senior', descripcion: 'Socios de la categoría senior' },
-    { nombre: 'Mayores', descripcion: 'Socios de la categoría mayores' },
-    { nombre: 'Infantil', descripcion: 'Socios de la categoría infantil' },
+    { nombre: 'Cuota Juvenil', descripcion: 'Cuota Juvenil' },
+    { nombre: 'Cuota General', descripcion: 'Cuota General' },
+    { nombre: 'Cuota Senior', descripcion: 'Cuota Senior' },
   ];
   for (const categoria of categorias) {
-    await prisma.categoriaSocio.upsert({
+    const cat = await prisma.categoriaSocio.upsert({
       where: { nombre: categoria.nombre },
       update: {},
       create: categoria,
     });
+    categoriasMap.set(cat.nombre, cat);
+  }
+
+  // ── Migración legacy (solo para BDs previas a US16): 3 categorías antiguas → 3 nuevas
+  // Senior/Mayores/Infantil eran las únicas 3 en prod. Tras US16 quedan Cuota Juvenil/General/Senior.
+  const legacyMap: Record<string, string> = {
+    Senior: 'Cuota General',
+    Mayores: 'Cuota Senior',
+    Infantil: 'Cuota Juvenil',
+  };
+  for (const [legacy, nuevo] of Object.entries(legacyMap)) {
+    const legacyCat = await prisma.categoriaSocio.findUnique({ where: { nombre: legacy } });
+    if (!legacyCat) continue;
+    const nuevoCat = categoriasMap.get(nuevo);
+    if (!nuevoCat || legacyCat.id === nuevoCat.id) continue;
+    await prisma.membresia.updateMany({ where: { categoriaId: legacyCat.id }, data: { categoriaId: nuevoCat.id } });
+    await prisma.configuracionCuotaDeportiva.updateMany({
+      where: { categoriaId: legacyCat.id },
+      data: { categoriaId: nuevoCat.id },
+    });
+    try {
+      await (prisma as any).configuracionCuotaSocial?.updateMany?.({
+        where: { categoriaId: legacyCat.id },
+        data: { categoriaId: nuevoCat.id },
+      });
+    } catch {}
+    await prisma.categoriaSocio.delete({ where: { id: legacyCat.id } });
+    console.log(`  Migrada categoría legacy '${legacy}' -> '${nuevo}'`);
   }
 
   // ── Disciplinas deportivas (upsert: idempotente) ───────────────────────────
+  const disciplinasMap = new Map<string, { id: number; nombre: string }>();
   const disciplinas = [
     { nombre: 'Fútbol Mayor' },
     { nombre: 'Fútbol Femenino' },
     { nombre: 'Jockey Femenino' },
     { nombre: 'Natación' },
     { nombre: 'Pelota Paleta' },
+    { nombre: 'Gimnasio' },
   ];
   for (const disciplina of disciplinas) {
-    await prisma.disciplina.upsert({
+    const disc = await prisma.disciplina.upsert({
       where: { nombre: disciplina.nombre },
       update: {},
       create: disciplina,
     });
+    disciplinasMap.set(disc.nombre, disc);
   }
   console.log(`  ${disciplinas.length} disciplina(s) aseguradas.`);
 
-  const email = process.env.SEED_ADMIN_EMAIL ?? 'admin@socialclub.local';
+  const emailAdmin = process.env.SEED_ADMIN_EMAIL ?? 'admin@socialclub.local';
   const passwordPlano = process.env.SEED_ADMIN_PASSWORD ?? 'Admin123!';
   const passwordHash = await bcrypt.hash(passwordPlano, SALT_ROUNDS);
 
+  // ── Combinación 1: Administrador con DNI, sin ser socio (Usuario con rol ADMIN, sin Membresia)
+  let personaAdmin = await prisma.persona.findUnique({ where: { dni: '10000001' } });
+  if (!personaAdmin) {
+    personaAdmin = await prisma.persona.create({
+      data: {
+        nombre: 'Administrador',
+        apellido: 'Inicial',
+        dni: '10000001',
+        email: emailAdmin,
+      },
+    });
+  }
+
   const admin = await prisma.usuario.upsert({
-    where: { email },
-    update: {},
+    where: { email: emailAdmin },
+    update: { personaId: personaAdmin.id },
     create: {
-      email,
+      email: emailAdmin,
       passwordHash,
       nombre: 'Administrador',
       apellido: 'Inicial',
+      personaId: personaAdmin.id,
       roles: { create: [{ rolId: rolAdmin.id }] },
     },
   });
 
+  // ── Combinación 2: Socio sin cuenta, cargado administrativamente (Persona con DNI y Membresia activa, sin Usuario)
+  let personaSocioSinCuenta = await prisma.persona.findUnique({ where: { dni: '20000002' } });
+  if (!personaSocioSinCuenta) {
+    personaSocioSinCuenta = await prisma.persona.create({
+      data: {
+        nombre: 'Carlos',
+        apellido: 'SinCuenta',
+        dni: '20000002',
+        email: 'carlos.sincuenta@club.local',
+        telefono: '3514445566',
+        membresias: {
+          create: {
+            categoriaId: categoriasMap.get('Cuota Senior')!.id,
+            activo: true,
+            fechaAlta: new Date('2025-01-10'),
+          },
+        },
+      },
+    });
+  }
+
+  // ── Combinación 3: Usuario que se registra y luego se hace socio (mismo Persona, se le agrega Membresia)
+  const emailLucia = 'lucia.registrada@club.local';
+  let personaLucia = await prisma.persona.findUnique({ where: { dni: '30000003' } });
+  if (!personaLucia) {
+    personaLucia = await prisma.persona.create({
+      data: {
+        nombre: 'Lucía',
+        apellido: 'Registrada',
+        dni: '30000003',
+        email: emailLucia,
+        membresias: {
+          create: {
+            categoriaId: categoriasMap.get('Cuota General')!.id,
+            activo: true,
+            fechaAlta: new Date('2025-03-01'),
+          },
+        },
+      },
+    });
+  }
+  await prisma.usuario.upsert({
+    where: { email: emailLucia },
+    update: { personaId: personaLucia.id },
+    create: {
+      email: emailLucia,
+      passwordHash,
+      nombre: 'Lucía',
+      apellido: 'Registrada',
+      personaId: personaLucia.id,
+      roles: { create: [{ rolId: rolSocio.id }] },
+    },
+  });
+
+  // ── Combinación 4: Administrador que también es socio (mismo Persona, Usuario ADMIN + Membresia activa, DNI una sola vez)
+  const emailMartin = 'martin.adminsocio@socialclub.local';
+  let personaMartin = await prisma.persona.findUnique({ where: { dni: '40000004' } });
+  if (!personaMartin) {
+    personaMartin = await prisma.persona.create({
+      data: {
+        nombre: 'Martín',
+        apellido: 'AdminSocio',
+        dni: '40000004',
+        email: emailMartin,
+        membresias: {
+          create: {
+            categoriaId: categoriasMap.get('Cuota Senior')!.id,
+            activo: true,
+            fechaAlta: new Date('2024-06-15'),
+          },
+        },
+      },
+    });
+  }
+  await prisma.usuario.upsert({
+    where: { email: emailMartin },
+    update: { personaId: personaMartin.id },
+    create: {
+      email: emailMartin,
+      passwordHash,
+      nombre: 'Martín',
+      apellido: 'AdminSocio',
+      personaId: personaMartin.id,
+      roles: { create: [{ rolId: rolAdmin.id }, { rolId: rolSocio.id }] },
+    },
+  });
+
+  // ── Combinación 5: Persona sin cuenta y sin ser socia, pero con una Inscripcion (ej. gimnasio)
+  let personaGimnasio = await prisma.persona.findUnique({ where: { dni: '50000005' } });
+  if (!personaGimnasio) {
+    personaGimnasio = await prisma.persona.create({
+      data: {
+        nombre: 'Esteban',
+        apellido: 'Gimnasio',
+        dni: '50000005',
+        email: 'esteban.gim@externo.local',
+        inscripciones: {
+          create: {
+            disciplinaId: disciplinasMap.get('Gimnasio')!.id,
+            activo: true,
+            fechaInscripcion: new Date('2026-02-01'),
+          },
+        },
+      },
+    });
+  }
+
+  // ── Combinación 6: Persona con una Membresia histórica (activo=false) y otra activa
+  let personaValeria = await prisma.persona.findUnique({ where: { dni: '60000006' } });
+  if (!personaValeria) {
+    personaValeria = await prisma.persona.create({
+      data: {
+        nombre: 'Valeria',
+        apellido: 'Historica',
+        dni: '60000006',
+        email: 'valeria.historica@club.local',
+        membresias: {
+          create: [
+            {
+              categoriaId: categoriasMap.get('Cuota Juvenil')!.id,
+              activo: false,
+              fechaAlta: new Date('2023-01-01'),
+              fechaBaja: new Date('2024-01-01'),
+            },
+            {
+              categoriaId: categoriasMap.get('Cuota Senior')!.id,
+              activo: true,
+              fechaAlta: new Date('2025-01-01'),
+              fechaBaja: null,
+            },
+          ],
+        },
+      },
+    });
+  }
+
+  console.log('  Combinaciones de Persona, Usuario y Membresía sembradas exitosamente.');
+
   // ── Mock de eventos ────────────────────────────────────────────────────────
-  // Se insertan únicamente si no existe ningún evento, así la futura pantalla
-  // de "crear evento" no se ve afectada por datos de ejemplo repetidos.
   const cantidadEventos = await prisma.evento.count();
   if (cantidadEventos === 0) {
     const eventos = [
@@ -118,8 +310,6 @@ async function main() {
   }
 
   console.log('Seed completado.');
-  // La contraseña en texto plano solo se muestra fuera de producción, para no
-  // exponerla en los logs del contenedor en entornos productivos.
   if (process.env.NODE_ENV !== 'production') {
     console.log(`  Usuario admin: ${admin.email} / contraseña: ${passwordPlano}`);
     console.log('  IMPORTANTE: cambiá esta contraseña fuera del entorno local.');

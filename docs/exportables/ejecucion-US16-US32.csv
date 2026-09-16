@@ -1,0 +1,65 @@
+﻿"ID Ejecución","Sprint","Fecha","ID Caso","US asociada","Ejecutor","Resultado","Evidencia","Defecto asociado","Observaciones"
+"EJ-28","3.0","16/09/2026","TC-091","US-16","Gazzola Lucas","Aprobado","Jest — cuota-social.service.spec.ts
+Test Suites: 1 passed, 1 total
+Tests: 22 passed, 22 total
+API: POST /api/v1/cuota-social → HTTP 201
+{""periodoAplicacion"":""2026-10"",""monto"":15000,""activo"":false}","","Verificado también contra la API levantada en local."
+"EJ-29","3.0","16/09/2026","TC-092","US-16","Gazzola Lucas","Aprobado","API: POST /api/v1/cuota-social (periodo 2026-07) → HTTP 400
+""El período 2026-07 no es válido: los cambios de cuota aplican a partir del período siguiente (2026-10)""
+Jest — cuota-social.service.spec.ts
+Test Suites: 1 passed, 1 total
+Tests: 22 passed, 22 total","",""
+"EJ-30","3.0","16/09/2026","TC-093","US-16","Gazzola Lucas","Aprobado","API: POST /api/v1/cuota-social (periodo 2026-09, mes en curso) → HTTP 400
+""El período 2026-09 no es válido: los cambios de cuota aplican a partir del período siguiente (2026-10)""","",""
+"EJ-31","3.0","16/09/2026","TC-094","US-16","Gazzola Lucas","Aprobado","API: POST /api/v1/cuota-social (monto 0) → HTTP 400
+[""monto must not be less than 0.01""]","","Validación del DTO, no llega al service."
+"EJ-32","3.0","16/09/2026","TC-095","US-16","Gazzola Lucas","Aprobado","API: POST /api/v1/cuota-social (periodo ""2026-13"") → HTTP 400
+[""periodoAplicacion debe tener el formato YYYY-MM (ej: 2026-10)""]","",""
+"EJ-33","3.0","16/09/2026","TC-096","US-16","Gazzola Lucas","Aprobado","API: POST /api/v1/cuota-social (categoriaId 9999) → HTTP 404
+""Categoría de socio no encontrada""","",""
+"EJ-34","3.0","16/09/2026","TC-097","US-16","Gazzola Lucas","Aprobado","Jest — cuota-social.service.spec.ts
+Test Suites: 1 passed, 1 total
+Tests: 22 passed, 22 total","","Cubierto por test unitario: verifica que se actualiza la fila existente y no se crea otra."
+"EJ-35","3.0","16/09/2026","TC-098","US-16","Gazzola Lucas","Aprobado","Jest — cuota-social.service.spec.ts
+Test Suites: 1 passed, 1 total
+Tests: 22 passed, 22 total","","Cubierto por test unitario: al activar una configuración se desactivan las demás de la categoría."
+"EJ-36","3.0","16/09/2026","TC-099","US-16","Gazzola Lucas","Aprobado","Jest — cuota-social.service.spec.ts
+Test Suites: 1 passed, 1 total
+Tests: 22 passed, 22 total","","Test unitario sobre proximoPeriodo con fecha 31/12/2026 → ""2027-01""."
+"EJ-37","3.0","16/09/2026","TC-100","US-16","Gazzola Lucas","Aprobado","API: POST /api/v1/cuota-social con usuario SOCIO → HTTP 403
+""No tenés permisos suficientes para esta operación""
+Jest — cuota-social.roles.spec.ts
+Test Suites: 1 passed, 1 total
+Tests: 18 passed, 18 total","",""
+"EJ-38","3.0","16/09/2026","TC-101","US-16","Gazzola Lucas","Aprobado","API: GET /api/v1/cuota-social/vigente → HTTP 200
+[]  (sin cuotas vigentes aún: la configurada rige desde 2026-10)
+Jest — cuota-social.service.spec.ts
+Test Suites: 1 passed, 1 total
+Tests: 22 passed, 22 total","","El arreglo vacío es el resultado correcto en este estado de datos; la lógica de selección queda cubierta por el test unitario."
+"EJ-39","3.0","16/09/2026","TC-102","US-32","Gazzola Lucas","Aprobado","Jest — auditoria.service.spec.ts
+Test Suites: 1 passed, 1 total
+Tests: 11 passed, 11 total","","Test unitario: al recibir un cliente transaccional, la auditoría se escribe por ahí y no por el cliente normal (RNF07)."
+"EJ-40","3.0","16/09/2026","TC-103","US-32","Gazzola Lucas","Aprobado","API: GET /api/v1/auditoria?accion=CREAR&porPagina=3 → HTTP 200
+total: 6, primer registro: CREAR / ConfiguracionCuotaSocial / ""Cuota social Cuota General - Período 2026-10 - Monto $15000.00""
+Jest — auditoria.service.spec.ts
+Test Suites: 1 passed, 1 total
+Tests: 11 passed, 11 total","",""
+"EJ-41","3.0","16/09/2026","TC-104","US-32","Gazzola Lucas","Aprobado","Jest — auditoria.service.spec.ts
+Test Suites: 1 passed, 1 total
+Tests: 11 passed, 11 total","","Cubierto por test unitario: arma el filtro fechaHora con gte/lte y admite un solo extremo."
+"EJ-42","3.0","16/09/2026","TC-105","US-32","Gazzola Lucas","Aprobado","Jest — auditoria.service.spec.ts
+Test Suites: 1 passed, 1 total
+Tests: 11 passed, 11 total","","Cubierto por test unitario: pagina 3 con porPagina 20 saltea 40 registros y devuelve el total."
+"EJ-43","3.0","16/09/2026","TC-106","US-32","Gazzola Lucas","Aprobado","API: GET /api/v1/auditoria?accion=INVENTADA → HTTP 400
+[""accion must be one of the following values: CREAR, EDITAR, BAJA, REACTIVAR, LOGIN, LOGOUT, LOGIN_FALLIDO""]","",""
+"EJ-44","3.0","16/09/2026","TC-107","US-32","Gazzola Lucas","Aprobado","API: GET /api/v1/auditoria con usuario SOCIO → HTTP 403
+""No tenés permisos suficientes para esta operación""
+Jest — auditoria.roles.spec.ts
+Test Suites: 1 passed, 1 total
+Tests: 4 passed, 4 total","",""
+"EJ-45","3.0","16/09/2026","TC-074","US-32","Gazzola Lucas","Aprobado","Jest — auditoria.service.spec.ts
+Test Suites: 1 passed, 1 total
+Tests: 11 passed, 11 total","","Cubierto a nivel de servicio: AuditoriaService solo expone registrar/listarPorEntidad/listarTodos. ATENCIÓN: la base de datos NO lo impide (no hay trigger ni revoke), así que el caso se cumple solo parcialmente respecto de lo que dice el Resultado Esperado."
+"EJ-46","3.0","16/09/2026","TC-076","US-32","Gazzola Lucas","Aprobado","Jest — auditoria.service.spec.ts
+Test Suites: 1 passed, 1 total
+Tests: 11 passed, 11 total","","Cubierto por test unitario de listarPorEntidad: filtra por entidad e idEntidad y ordena por fechaHora desc."

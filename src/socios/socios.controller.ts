@@ -13,7 +13,9 @@ import {
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SociosService } from './socios.service';
 import { CreateSocioDto } from './dto/create-socio.dto';
+import { RegistrarSocioDto } from './dto/registrar-socio.dto';
 import { UpdateSocioDto } from './dto/update-socio.dto';
+import { UpdatePerfilSocioDto } from './dto/update-perfil-socio.dto';
 import { FindSociosQueryDto } from './dto/find-socios-query.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -35,6 +37,13 @@ export class SociosController {
     return this.sociosService.create(dto, user.id);
   }
 
+  // 'Registrarme como socio' es accesible para cualquier usuario autenticado
+  @Post('registrar')
+  @ApiOperation({ summary: 'US-09 — Registrarme como socio' })
+  registrarmeComoSocio(@Body() dto: RegistrarSocioDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.sociosService.registrarme(dto, user.id);
+  }
+
   @Get()
   @Roles('ADMIN', 'COLABORADOR')
   @ApiOperation({
@@ -49,6 +58,12 @@ export class SociosController {
   @ApiOperation({ summary: 'Obtener un socio por id' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.sociosService.findOne(id);
+  }
+
+  @Patch('perfil')
+  @ApiOperation({ summary: 'Editar datos personales del socio' })
+  updatePerfil(@Body() dto: UpdatePerfilSocioDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.sociosService.updatePerfil(user.id, dto);
   }
 
   @Patch(':id')
