@@ -35,6 +35,7 @@ Fuente: `docs/documentacion/gestion-del-proyecto/03 ... Ciclo de vida y enfoque 
 - **Commits atómicos**, formato `<prefijo>[scope]: <descripción>` (`feat`, `fix`, `docs`, `test`, `ci`, `chore`). Ej.: `feat[US-31]: Validar acceso mediante lectura de QR`.
 - **Nunca** agregar el trailer `Co-Authored-By: Claude` ni ninguna atribución de IA.
 - Merge a `dev` **vía Pull Request**, enlazando el PR a la tarjeta de la US en GitHub Projects.
+- **`gh pr create` siempre con `--base dev`.** En los dos repos la rama por defecto de GitHub es `main` (producción). Sin `--base`, el PR apunta a `main`, dispara CD de producción y, si la rama salía de `dev`, se lleva todo `dev` junto. Única excepción: un `hotfix/` va `--base main` y después también a `dev`. Verificar en el PR creado que **base = `dev`** antes de avisar que está listo.
 - Entornos: `test` y `main` tienen **cada uno su API + base de datos** (Azure Container Apps + Postgres Flexible); frontend en Vercel. Despliegue por CI/CD (GitHub Actions + OIDC).
 
 ## Definition of Done
@@ -65,6 +66,7 @@ npx prisma db push && npm run prisma:seed   # sincronizar esquema + seed (admin@
 
 ## Reglas para agentes de IA
 - **Seguí el flujo y la nomenclatura de arriba.** No mergees ni pushees sin que el usuario lo pida.
+- Al abrir un PR: `gh pr create --base dev ...`. Nunca asumas que el default del repo es `dev`.
 - No inventes endpoints/campos: revisá el módulo existente y el `schema.prisma` antes.
 - Preservá los mensajes en español; no traduzcas identificadores (estandarización en stand-by).
 - Verificá con `npm test` + typecheck antes de dar algo por terminado.

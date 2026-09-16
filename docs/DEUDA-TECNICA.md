@@ -545,7 +545,9 @@ Lo que ya usa el equipo, aplicado a la deuda técnica:
   Prefijos válidos: `feat`, `fix`, `docs`, `test`, `ci`, `chore`, `refactor`.
   **Sin atribución de IA ni trailers de coautoría.**
 - **Merge:** siempre por Pull Request a `dev`, aprobado por al menos otro
-  integrante y enlazado a la tarjeta de GitHub Projects.
+  integrante y enlazado a la tarjeta de GitHub Projects. Al crearlo:
+  `gh pr create --base dev` — la default de GitHub en este repo es `main`,
+  no `dev`. Un PR sin `--base` va a producción.
 
 ## Definition of Done aplicada a la deuda técnica
 
