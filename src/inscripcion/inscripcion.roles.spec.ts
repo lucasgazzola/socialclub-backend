@@ -41,6 +41,9 @@ describe('DT-16 · InscripcionController · control de acceso', () => {
     'GET /inscripcion/persona/:personaId': InscripcionController.prototype.findByPersonaId,
     'GET /inscripcion/:id': InscripcionController.prototype.findOne,
     'DELETE /inscripcion/:id': InscripcionController.prototype.remove,
+    'DELETE /inscripcion/persona/:personaId': InscripcionController.prototype.darDeBajaParticipante,
+    'PATCH /inscripcion/persona/:personaId/activar':
+      InscripcionController.prototype.activarParticipante,
   };
 
   describe.each(Object.entries(handlers))('%s', (_ruta, handler) => {
@@ -73,13 +76,36 @@ describe('DT-16 · InscripcionController · control de acceso', () => {
 
     // Un `null` acá significa que ese handler quedó abierto a cualquier
     // usuario autenticado, que es exactamente el bug de DT-16.
+    // El listado es el único handler que amplía los roles: lo usan los roles
+    // operativos (COLABORADOR y DELEGADO) para encontrar al participante
+    // —US-08 y, desde US-07, para poder darlo de baja—.
     expect(rolesPorRuta).toEqual({
       'POST /inscripcion': ['ADMIN', 'DELEGADO'],
       'PATCH /inscripcion/:id': ['ADMIN', 'DELEGADO'],
-      'GET /inscripcion': ['ADMIN', 'DELEGADO'],
+      'GET /inscripcion': ['ADMIN', 'COLABORADOR', 'DELEGADO'],
       'GET /inscripcion/persona/:personaId': ['ADMIN', 'DELEGADO'],
       'GET /inscripcion/:id': ['ADMIN', 'DELEGADO'],
       'DELETE /inscripcion/:id': ['ADMIN', 'DELEGADO'],
+      'DELETE /inscripcion/persona/:personaId': ['ADMIN', 'DELEGADO'],
+      'PATCH /inscripcion/persona/:personaId/activar': ['ADMIN', 'DELEGADO'],
     });
+  });
+
+  it('US-07: el COLABORADOR puede listar participantes pero no darlos de baja ni reactivarlos', () => {
+    expect(
+      guard.canActivate(contextoPara(InscripcionController.prototype.findAll, ['COLABORADOR'])),
+    ).toBe(true);
+
+    expect(() =>
+      guard.canActivate(
+        contextoPara(InscripcionController.prototype.darDeBajaParticipante, ['COLABORADOR']),
+      ),
+    ).toThrow(ForbiddenException);
+
+    expect(() =>
+      guard.canActivate(
+        contextoPara(InscripcionController.prototype.activarParticipante, ['COLABORADOR']),
+      ),
+    ).toThrow(ForbiddenException);
   });
 });
