@@ -62,21 +62,9 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('refresh')
-  @HttpCode(200)
-  @ApiOperation({
-    summary: 'US-09: Re-firma el JWT con los roles actuales (tras hacerse socio)',
-  })
-  async refresh(@CurrentUser() user: AuthenticatedUser, @Res({ passthrough: true }) res: Response) {
-    const { accessToken, usuario } = await this.authService.refrescarSesion(user.id);
-    res.cookie(COOKIE_NAME, accessToken, this.cookieOptions);
-    return { usuario };
-  }
-
-  @UseGuards(JwtAuthGuard)
   @Get('me')
-  @ApiOperation({ summary: 'Devuelve el usuario de la sesión actual (roles y persona)' })
+  @ApiOperation({ summary: 'Devuelve el usuario de la sesión actual' })
   me(@CurrentUser() user: AuthenticatedUser) {
-    return this.authService.obtenerPerfil(user.id);
+    return user;
   }
 }

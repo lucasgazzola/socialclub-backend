@@ -60,10 +60,4 @@ export class UsuariosController {
   deactivate(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
     return this.usuariosService.deactivate(id, user.id);
   }
-
-  @Patch(':id/activar')
-  @ApiOperation({ summary: 'US-03 (complemento) — Reactivar usuario dado de baja' })
-  activate(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
-    return this.usuariosService.activate(id, user.id);
-  }
 }

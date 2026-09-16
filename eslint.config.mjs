@@ -19,9 +19,7 @@ export default tseslint.config(
       },
       sourceType: 'commonjs',
       parserOptions: {
-        // Ver tsconfig.eslint.json: incluye los spec, test/ y prisma/, que el
-        // tsconfig de build excluye pero el lint sí recorre.
-        project: ['./tsconfig.eslint.json'],
+        projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
     },
