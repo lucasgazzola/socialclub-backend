@@ -7,7 +7,6 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
-import { ValidarEntradaDto } from './dto/validar-entrada.dto';
 
 @ApiTags('entradas')
 @ApiCookieAuth()
@@ -23,13 +22,6 @@ export class EntradasController {
   })
   crearMultiples(@Body() dto: CrearEntradasDto, @CurrentUser() user: AuthenticatedUser) {
     return this.entradasService.crearMultiples(dto, user.id);
-  }
-
-  @Post('validar')
-  @Roles('ADMIN', 'COLABORADOR')
-  @ApiOperation({ summary: 'US-31 — Validar acceso mediante lectura de QR' })
-  validarAcceso(@Body() dto: ValidarEntradaDto, @CurrentUser() user: AuthenticatedUser) {
-    return this.entradasService.validarAcceso(dto, user.id);
   }
 
   @Get('evento/:eventoId')

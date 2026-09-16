@@ -35,20 +35,7 @@ export class DisciplinasService {
     return this.prisma.disciplina.findMany({
       orderBy: { nombre: 'asc' },
       include: {
-        categorias: {
-          where: { activo: true },
-          orderBy: { nombre: 'asc' },
-          select: {
-            id: true,
-            nombre: true,
-            activo: true,
-          },
-        },
-        _count: {
-          select: {
-            configuracionesCuotaDeportiva: true,
-          },
-        },
+        _count: { select: { configuracionesCuotaDeportiva: true } },
       },
     });
   }
