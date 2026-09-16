@@ -111,6 +111,16 @@ export class InscripcionService {
           }
         }
 
+        // US-07: un participante dado de baja no puede ser inscripto en ninguna
+        // disciplina. Se compara con `=== false` (no con `!persona.activo`): los
+        // mocks y registros viejos pueden no traer el campo, y `undefined` no
+        // significa "dado de baja".
+        if (persona.activo === false) {
+          throw new BadRequestException(
+            'El participante está dado de baja: hay que reactivarlo antes de inscribirlo',
+          );
+        }
+
         const inscripcionExistente = await tx.inscripcion.findUnique({
           where: {
             personaId_disciplinaId: {
@@ -377,9 +387,129 @@ export class InscripcionService {
   }
 
   /**
-   * Convierte una inscripción (con sus relaciones cargadas) al item
-   * individual que consume el detalle por participante.
+   * US-07: Dar de baja a un participante.
+   *
+   * El participante tiene un estado propio en la base (`Persona.activo`):
+   * Inactivo = dado de baja por el delegado. No se confunde con la vigencia
+   * de cada inscripción (`Inscripcion.activo`, que US-08 expone como
+   * INSCRIPTO/BAJA): la baja del participante desactiva su estado y, en la
+   * misma transacción, da de baja —lógicamente— todas sus inscripciones
+   * vigentes. Al quedar sin ningún estado ni disciplina activos, el
+   * participante queda bloqueado en todas las que tenía y fuera de la
+   * generación de cuotas asociadas (que hoy no existe en el dominio, pero que
+   * tendrá que partir de las inscripciones vigentes).
+   *
+   * Las filas no se borran: el unique (personaId, disciplinaId) las necesita
+   * para poder reinscribir a la persona más adelante (mismo criterio que
+   * `remove` y que `usuarios.create` reutilizando una Persona existente). Y la
+   * única manera de que un participante inactivo vuelva a participar es
+   * reactivarlo explícitamente (`activarParticipante`): inscribir a alguien
+   * dado de baja se rechaza con un mensaje claro.
+   *
+   * Todo ocurre en una transacción y con auditoría (RNF07): o se desactiva el
+   * estado, se dan de baja todas las disciplinas y queda el rastro de quién lo
+   * hizo, o no cambia nada.
    */
+  async darDeBajaParticipante(personaId: number, responsableId: number) {
+    const persona = await this.prisma.persona.findUnique({ where: { id: personaId } });
+    if (!persona) {
+      throw new NotFoundException('Participante no encontrado');
+    }
+
+    // Comparación estricta: `undefined` (mocks o registros sin el campo) no es
+    // "dado de baja".
+    if (persona.activo === false) {
+      throw new BadRequestException('El participante ya está dado de baja');
+    }
+
+    const inscripcionesActivas = await this.prisma.inscripcion.findMany({
+      where: { personaId, activo: true },
+      include: { disciplina: true },
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.persona.update({ where: { id: personaId }, data: { activo: false } });
+
+      await tx.inscripcion.updateMany({
+        where: { personaId, activo: true },
+        data: { activo: false },
+      });
+
+      // Una fila de auditoría por disciplina: la trazabilidad tiene que
+      // permitir ver qué inscripción se dio de baja, no sólo que hubo una.
+      for (const inscripcion of inscripcionesActivas) {
+        await this.auditoria.registrar(
+          {
+            accion: 'BAJA',
+            entidad: 'Inscripcion',
+            idEntidad: inscripcion.id,
+            detalle: `Baja de la inscripción de ${persona.apellido} ${persona.nombre}, DNI ${persona.dni} en la disciplina ${inscripcion.disciplina.nombre}`,
+            responsableId,
+          },
+          tx,
+        );
+      }
+
+      await this.auditoria.registrar(
+        {
+          accion: 'BAJA',
+          entidad: 'Persona',
+          idEntidad: personaId,
+          detalle: `Baja del participante ${persona.apellido} ${persona.nombre}, DNI ${persona.dni}: ${inscripcionesActivas.length} disciplina(s) dada(s) de baja`,
+          responsableId,
+        },
+        tx,
+      );
+    });
+
+    return {
+      personaId,
+      activo: false,
+      disciplinasDadasDeBaja: inscripcionesActivas.length,
+      disciplinas: inscripcionesActivas.map((inscripcion) => ({
+        inscripcionId: inscripcion.id,
+        disciplinaId: inscripcion.disciplinaId,
+        disciplina: inscripcion.disciplina.nombre,
+      })),
+    };
+  }
+
+  /**
+   * US-07: Reactivar a un participante dado de baja.
+   *
+   * Es la única vía para que un participante inactivo vuelva a participar:
+   * inscribirlo mientras está dado de baja se rechaza (ver `create`). Solo
+   * cambia el estado del participante y lo audita; las disciplinas no se
+   * re-inscriben solas: cada nueva inscripción tiene su propio flujo (y su
+   * propia auditoría REACTIVAR de la fila de inscripción).
+   */
+  async activarParticipante(personaId: number, responsableId: number) {
+    const persona = await this.prisma.persona.findUnique({ where: { id: personaId } });
+    if (!persona) {
+      throw new NotFoundException('Participante no encontrado');
+    }
+
+    if (persona.activo !== false) {
+      throw new BadRequestException('El participante ya está activo');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.persona.update({ where: { id: personaId }, data: { activo: true } });
+
+      await this.auditoria.registrar(
+        {
+          accion: 'REACTIVAR',
+          entidad: 'Persona',
+          idEntidad: personaId,
+          detalle: `Reactivación del participante ${persona.apellido} ${persona.nombre}, DNI ${persona.dni}`,
+          responsableId,
+        },
+        tx,
+      );
+    });
+
+    return { personaId, activo: true };
+  }
 
   /**
    * Convierte una inscripción (con sus relaciones cargadas) al item
@@ -485,9 +615,16 @@ export class InscripcionService {
     };
   }
 
-  async findByPersonaId(personaId: number) {
+  /**
+   * Inscripciones de una persona. Por defecto devuelve solo las vigentes
+   * (incluirBajas = false). La página de edición de participante pide
+   * incluirBajas = true para poder cargar y editar a un participante dado
+   * de baja (US-07): sigue siendo participante aunque no tenga disciplinas
+   * activas.
+   */
+  async findByPersonaId(personaId: number, incluirBajas = false) {
     return this.prisma.inscripcion.findMany({
-      where: { personaId, activo: true },
+      where: incluirBajas ? { personaId } : { personaId, activo: true },
       include: {
         persona: true,
         disciplina: true,
