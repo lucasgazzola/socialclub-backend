@@ -178,14 +178,25 @@ modal y "Editar" cambia de página.
 #### DT-06 · Historias de usuario para sumar al backlog
 *gestión · 0 SP de código*
 
-No es deuda de código: son tres historias de producto nuevas.
+No es deuda de código: son historias de producto nuevas.
 
 - US-X: Darme de baja como socio.
 - US-Y: Reactivación / nueva alta de un ex-socio.
 - US-Z: Baja automática por falta de pago.
+- US-W: **Generación de cuotas** (social y deportiva) por período.
 
 **Baja automática implica un job programado y reglas de morosidad que hoy no
 existen en el dominio.** Estimarlas en refinamiento y sacarlas de esta tabla.
+
+**US-W es además una dependencia de US-07.** El criterio de aceptación «el
+sistema detiene la generación de nuevas cuotas asociadas a ese participante» no
+tiene hoy dónde implementarse: no existe ninguna entidad de cuota por persona.
+`ConfiguracionCuotaSocial` y `ConfiguracionCuotaDeportiva` son **precios**
+(monto por categoría/disciplina y período), no cuotas emitidas, y no hay ningún
+proceso de emisión (`generar*`), ni modelo `Pago`. Lo que sí dejó la baja de
+US-07 es la precondición correcta: el participante queda Inactivo
+(`Persona.activo = false`) y **sin inscripciones vigentes**, que es lo que
+tendrá que filtrar el generador cuando exista.
 
 ---
 

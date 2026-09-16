@@ -183,6 +183,12 @@ model Membresia {
 
 /// Persona gestionada por la organización. Identidad física: raíz del dominio.
 /// Existe con o sin Usuario, con o sin Membresia, con o sin Inscripcion.
+/// Persona gestionada por la organización. Identidad física: raíz del dominio.
+/// Existe con o sin Usuario, con o sin Membresia, con o sin Inscripcion.
+/// US-07: `activo` es el estado propio del participante (Inactivo = dado de baja
+/// por el delegado). No se confunde con la vigencia de cada inscripción
+/// (`Inscripcion.activo`, que expone US-08 como INSCRIPTO/BAJA): un participante
+/// inactivo está bloqueado y no puede ser inscripto en ninguna disciplina.
 model Persona {
   id              Int           @id @default(autoincrement())
   nombre          String
@@ -191,6 +197,7 @@ model Persona {
   fechaNacimiento DateTime?
   email           String?       @unique
   telefono        String?
+  activo          Boolean       @default(true)
   creadoEn        DateTime      @default(now())
   actualizadoEn   DateTime      @updatedAt
 
@@ -200,6 +207,7 @@ model Persona {
   documentaciones Documentacion[]
 
   @@index([apellido, nombre])
+  @@index([activo])
   @@map("personas")
 }
 

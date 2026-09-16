@@ -1,4 +1,4 @@
-﻿import { Test, TestingModule } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,6 +20,7 @@ const mockPrisma: any = {
   inscripcion: {
     findUnique: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
     create: jest.fn(),
     findMany: jest.fn(),
     count: jest.fn(),
@@ -160,9 +161,11 @@ describe('InscripcionService', () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
       mockPrisma.disciplina.findUnique.mockResolvedValue(inscripcionExistente.disciplina);
       mockPrisma.persona.findUnique.mockResolvedValue({ id: 999, dni: '87654321' });
+      // El choque es sólo contra una inscripción vigente: la respuesta de la
+      // segunda búsqueda tiene que traer `activo: true`.
       mockPrisma.inscripcion.findUnique
         .mockResolvedValueOnce(inscripcionExistente)
-        .mockResolvedValueOnce({ id: 999 });
+        .mockResolvedValueOnce({ id: 999, activo: true });
 
       await expect(service.update(1, { dni: '87654321' }, 99)).rejects.toThrow(ConflictException);
     });
@@ -536,6 +539,266 @@ describe('InscripcionService', () => {
       expect(result.total).toBe(15);
       expect(result.pagina).toBe(2);
       expect(result.porPagina).toBe(5);
+    });
+  });
+  describe('US-07 · Dar de baja participante (estado propio + baja en todas sus disciplinas)', () => {
+    const personaBaja = {
+      id: 10,
+      nombre: 'Juan',
+      apellido: 'Perez',
+      dni: '12345678',
+      activo: true,
+      fechaNacimiento: null,
+      email: 'juan@test.com',
+      telefono: '1111111111',
+    };
+
+    function inscripcionVigente(id: number, disciplinaId: number, nombre: string) {
+      return {
+        id,
+        personaId: 10,
+        disciplinaId,
+        disciplina: { id: disciplinaId, nombre },
+        categoriaDisciplinaId: null,
+        categoriaDisciplina: null,
+        fechaInscripcion: new Date('2026-01-10'),
+        activo: true,
+      };
+    }
+
+    /** Deja el escenario de un participante con dos disciplinas vigentes. */
+    function conDosDisciplinasVigentes() {
+      mockPrisma.persona.findUnique.mockResolvedValue(personaBaja);
+      mockPrisma.inscripcion.findMany.mockResolvedValue([
+        inscripcionVigente(1, 1, 'Fútbol'),
+        inscripcionVigente(2, 2, 'Vóley'),
+      ]);
+      mockPrisma.inscripcion.updateMany.mockResolvedValue({ count: 2 });
+    }
+
+    it('TC-0701: desactiva el estado del participante y da de baja todas sus disciplinas', async () => {
+      conDosDisciplinasVigentes();
+
+      const resultado = await service.darDeBajaParticipante(10, 99);
+
+      expect(mockPrisma.persona.update).toHaveBeenCalledWith({
+        where: { id: 10 },
+        data: { activo: false },
+      });
+      expect(mockPrisma.inscripcion.findMany).toHaveBeenCalledWith({
+        where: { personaId: 10, activo: true },
+        include: { disciplina: true },
+      });
+      expect(mockPrisma.inscripcion.updateMany).toHaveBeenCalledWith({
+        where: { personaId: 10, activo: true },
+        data: { activo: false },
+      });
+      expect(resultado).toEqual({
+        personaId: 10,
+        activo: false,
+        disciplinasDadasDeBaja: 2,
+        disciplinas: [
+          { inscripcionId: 1, disciplinaId: 1, disciplina: 'Fútbol' },
+          { inscripcionId: 2, disciplinaId: 2, disciplina: 'Vóley' },
+        ],
+      });
+    });
+
+    it('TC-0702: audita la baja de cada disciplina y la baja del participante', async () => {
+      conDosDisciplinasVigentes();
+
+      await service.darDeBajaParticipante(10, 99);
+
+      expect(mockAuditoria.registrar).toHaveBeenCalledTimes(3);
+      expect(mockAuditoria.registrar).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          accion: 'BAJA',
+          entidad: 'Inscripcion',
+          idEntidad: 1,
+          responsableId: 99,
+          detalle: expect.stringContaining('Fútbol'),
+        }),
+        mockPrisma,
+      );
+      expect(mockAuditoria.registrar).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ accion: 'BAJA', entidad: 'Inscripcion', idEntidad: 2 }),
+        mockPrisma,
+      );
+      expect(mockAuditoria.registrar).toHaveBeenNthCalledWith(
+        3,
+        expect.objectContaining({
+          accion: 'BAJA',
+          entidad: 'Persona',
+          idEntidad: 10,
+          detalle: expect.stringContaining('2 disciplina(s)'),
+        }),
+        mockPrisma,
+      );
+    });
+
+    it('TC-0703: rechaza la baja si el participante ya está dado de baja', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue({ ...personaBaja, activo: false });
+
+      await expect(service.darDeBajaParticipante(10, 99)).rejects.toThrow(
+        'El participante ya está dado de baja',
+      );
+
+      expect(mockPrisma.inscripcion.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.persona.update).not.toHaveBeenCalled();
+      expect(mockPrisma.inscripcion.updateMany).not.toHaveBeenCalled();
+      expect(mockAuditoria.registrar).not.toHaveBeenCalled();
+    });
+
+    it('TC-0704: informa que el participante no existe', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(null);
+
+      await expect(service.darDeBajaParticipante(999, 99)).rejects.toThrow(
+        'Participante no encontrado',
+      );
+      expect(mockPrisma.inscripcion.findMany).not.toHaveBeenCalled();
+    });
+
+    it('TC-0705: da de baja al participante aunque no tenga disciplinas vigentes', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(personaBaja);
+      mockPrisma.inscripcion.findMany.mockResolvedValue([]);
+
+      const resultado = await service.darDeBajaParticipante(10, 99);
+
+      expect(mockPrisma.persona.update).toHaveBeenCalledWith({
+        where: { id: 10 },
+        data: { activo: false },
+      });
+      expect(resultado).toEqual({
+        personaId: 10,
+        activo: false,
+        disciplinasDadasDeBaja: 0,
+        disciplinas: [],
+      });
+      // Con cero disciplinas solo se audita la baja del participante.
+      expect(mockAuditoria.registrar).toHaveBeenCalledTimes(1);
+      expect(mockAuditoria.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({ accion: 'BAJA', entidad: 'Persona', idEntidad: 10 }),
+        mockPrisma,
+      );
+    });
+
+    it('TC-0706: rechaza inscribir a un participante dado de baja (US-05)', async () => {
+      mockPrisma.disciplina.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Fútbol',
+        activo: true,
+        categorias: [],
+      });
+      mockPrisma.persona.findUnique.mockResolvedValue({ ...personaBaja, activo: false });
+
+      await expect(service.create({ personaId: 10, disciplinaId: 1 }, 99)).rejects.toThrow(
+        'El participante está dado de baja: hay que reactivarlo antes de inscribirlo',
+      );
+
+      expect(mockPrisma.inscripcion.create).not.toHaveBeenCalled();
+      expect(mockPrisma.inscripcion.update).not.toHaveBeenCalled();
+    });
+
+    it('TC-0707: permite editar los datos de un participante activo (regresión US-06)', async () => {
+      const inscripcion = {
+        id: 1,
+        personaId: 10,
+        disciplinaId: 1,
+        categoriaDisciplinaId: null,
+        activo: true,
+        persona: { ...personaBaja },
+        disciplina: { id: 1, nombre: 'Fútbol', activo: true, categorias: [] },
+        categoriaDisciplina: null,
+      };
+      mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcion);
+      mockPrisma.disciplina.findUnique.mockResolvedValue(inscripcion.disciplina);
+      mockPrisma.persona.update.mockResolvedValue({ ...personaBaja, nombre: 'Juancito' });
+      mockPrisma.inscripcion.update.mockResolvedValue({
+        ...inscripcion,
+        persona: { ...personaBaja, nombre: 'Juancito' },
+      });
+
+      const resultado = await service.update(1, { nombre: 'Juancito' }, 99);
+
+      expect(resultado.persona.nombre).toBe('Juancito');
+    });
+  });
+
+  describe('US-07 · Reactivar participante', () => {
+    const participanteInactivo = {
+      id: 10,
+      nombre: 'Juan',
+      apellido: 'Perez',
+      dni: '12345678',
+      activo: false,
+    };
+
+    it('TC-0708: reactiva el estado del participante y lo audita', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(participanteInactivo);
+      mockPrisma.persona.update.mockResolvedValue({ ...participanteInactivo, activo: true });
+
+      const resultado = await service.activarParticipante(10, 99);
+
+      expect(mockPrisma.persona.update).toHaveBeenCalledWith({
+        where: { id: 10 },
+        data: { activo: true },
+      });
+      expect(mockAuditoria.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'REACTIVAR',
+          entidad: 'Persona',
+          idEntidad: 10,
+          responsableId: 99,
+          detalle: expect.stringContaining('Reactivación'),
+        }),
+        mockPrisma,
+      );
+      expect(resultado).toEqual({ personaId: 10, activo: true });
+      // La reactivación no re-inscribe: no toca inscripciones.
+      expect(mockPrisma.inscripcion.update).not.toHaveBeenCalled();
+      expect(mockPrisma.inscripcion.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('TC-0709: rechaza reactivar a un participante que ya está activo', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue({ ...participanteInactivo, activo: true });
+
+      await expect(service.activarParticipante(10, 99)).rejects.toThrow(
+        'El participante ya está activo',
+      );
+      expect(mockPrisma.persona.update).not.toHaveBeenCalled();
+      expect(mockAuditoria.registrar).not.toHaveBeenCalled();
+    });
+
+    it('TC-0710: informa que el participante a reactivar no existe', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(null);
+
+      await expect(service.activarParticipante(999, 99)).rejects.toThrow(
+        'Participante no encontrado',
+      );
+    });
+  });
+
+  describe('findByPersonaId — incluir bajas (US-07)', () => {
+    it('por defecto devuelve solo inscripciones vigentes', async () => {
+      mockPrisma.inscripcion.findMany.mockResolvedValue([]);
+
+      await service.findByPersonaId(10);
+
+      expect(mockPrisma.inscripcion.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { personaId: 10, activo: true } }),
+      );
+    });
+
+    it('con incluirBajas devuelve también las dadas de baja', async () => {
+      mockPrisma.inscripcion.findMany.mockResolvedValue([]);
+
+      await service.findByPersonaId(10, true);
+
+      expect(mockPrisma.inscripcion.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { personaId: 10 } }),
+      );
     });
   });
 });

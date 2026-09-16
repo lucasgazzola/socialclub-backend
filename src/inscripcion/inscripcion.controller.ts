@@ -53,7 +53,7 @@ export class InscripcionController {
   }
 
   @Get()
-  @Roles('ADMIN', 'COLABORADOR')
+  @Roles('ADMIN', 'COLABORADOR', 'DELEGADO')
   @ApiOperation({
     summary: 'US-08 — Buscar y filtrar participantes (nombre, disciplina, estado)',
   })
@@ -62,9 +62,15 @@ export class InscripcionController {
   }
 
   @Get('persona/:personaId')
-  @ApiOperation({ summary: 'Obtener inscripciones vigentes de una persona' })
-  findByPersonaId(@Param('personaId', ParseIntPipe) personaId: number) {
-    return this.inscripcionService.findByPersonaId(personaId);
+  @ApiOperation({
+    summary:
+      'Obtener inscripciones de una persona (por defecto solo vigentes; ?incluirBajas=true las incluye todas)',
+  })
+  findByPersonaId(
+    @Param('personaId', ParseIntPipe) personaId: number,
+    @Query('incluirBajas') incluirBajas?: string,
+  ) {
+    return this.inscripcionService.findByPersonaId(personaId, incluirBajas === 'true');
   }
 
   @Get(':id')
@@ -77,5 +83,27 @@ export class InscripcionController {
   @ApiOperation({ summary: 'Dar de baja una inscripción (baja lógica, auditada)' })
   remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
     return this.inscripcionService.remove(id, user.id);
+  }
+
+  @Delete('persona/:personaId')
+  @ApiOperation({
+    summary: 'US-07 — Dar de baja a un participante (baja lógica en todas sus disciplinas)',
+  })
+  darDeBajaParticipante(
+    @Param('personaId', ParseIntPipe) personaId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.inscripcionService.darDeBajaParticipante(personaId, user.id);
+  }
+
+  @Patch('persona/:personaId/activar')
+  @ApiOperation({
+    summary: 'US-07 — Reactivar a un participante dado de baja',
+  })
+  activarParticipante(
+    @Param('personaId', ParseIntPipe) personaId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.inscripcionService.activarParticipante(personaId, user.id);
   }
 }
