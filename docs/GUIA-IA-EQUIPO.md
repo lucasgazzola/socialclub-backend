@@ -42,7 +42,7 @@ Léela una vez: son 5 minutos y te ahorra horas por sprint.
    y después `/exportar-casos` para volcarlos a la planilla.
 4. **Tests** → `/casos-a-tests` genera los tests desde esos casos.
 5. **Ejecutar + evidencia** → `/ejecutar-pruebas` corre todo y te deja el CSV de evidencia.
-6. Abrí el **Pull Request** a `dev` y enlazalo a la tarjeta de la US en GitHub Projects.
+6. Abrí el **Pull Request** a `dev` (`gh pr create --base dev ...`; la default del repo es `main`) y enlazalo a la tarjeta de la US en GitHub Projects. Confirmá que el PR muestre base `dev` antes de mergear.
 7. En el PR, el **CI corre lint + tests + cobertura** solo. Que quede en verde.
 
 > Comandos manuales por si los necesitás:
