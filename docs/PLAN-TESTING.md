@@ -25,7 +25,7 @@ estrategia de testing y su secuencia.
 | US implementadas (los dos repos) | ~24 |
 | US con casos documentados | 16 |
 | **US sin ningún caso** | **8** |
-| Casos en la planilla | 90 filas · 83 IDs únicos |
+| Casos en la planilla | 90 filas · **90 IDs únicos** (`TC-001`–`TC-090`, DT-18) |
 | Ejecuciones registradas | 46 (27 previas + 19 nuevas) |
 
 **Objetivo de la DoD: 70 % de cobertura.** Faltan ~10 puntos en el backend y
@@ -130,12 +130,12 @@ Dos decisiones que quedaron tomadas y son reversibles:
 | Paso | Qué | Esfuerzo | Estado |
 |---|---|---|---|
 | **0** | Destrabar: tests rojos, lint, branch protection | 1 SP | ✅ hecho |
-| **1** | Renumerar la planilla (DT-18) | 2 SP | prerrequisito del paso 3 |
+| **1** | Renumerar la planilla (DT-18) | 2 SP | ✅ hecho — PRs backend #39 y frontend #68 |
 | **2** | Skills `/auditar-planilla` y `/cobertura-por-us` | 3 SP | hacen que el paso 3 cueste un tercio |
 | **3** | Barrido por historia: las 8 US sin casos + los 5 features en cero | 8-13 SP | |
 | **4** | E2E con Playwright: armado + los 4 flujos | 8 SP | va al final a propósito |
 
-El paso 1 va antes del 3 porque cada historia que se documente sobre la
-numeración quebrada agranda el remapeo. El paso 4 va último porque sobre una
-base de tests unitarios que no se rompe sola los E2E agregan confianza, y sobre
-una base frágil agregan ruido.
+El paso 1 ya está hecho: los IDs son secuenciales y únicos, y `/exportar-casos`
+es el único asignador. El paso 2 es el que hace que el 3 cueste un tercio. El
+paso 4 va último porque sobre una base de tests unitarios que no se rompe sola
+los E2E agregan confianza, y sobre una base frágil agregan ruido.

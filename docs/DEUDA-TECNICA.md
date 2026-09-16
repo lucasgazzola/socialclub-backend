@@ -327,6 +327,8 @@ tendrá que filtrar el generador cuando exista.
 ## Deuda resuelta
 
 ### DT-18 · Numeración única y secuencial de los casos de prueba
+**PR [#39](https://github.com/lucasgazzola/socialclub-backend/pull/39)** ·
+**PR frontend [#68](https://github.com/lucasgazzola/socialclub-frontend/pull/68)** ·
 `issue/TASK-15-DT-18-Renumerar-casos-de-prueba` · 16/09/2026
 
 La planilla tenía **90 filas con 83 IDs**: `TC-006` a `TC-012` existían dos

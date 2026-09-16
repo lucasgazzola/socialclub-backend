@@ -57,12 +57,13 @@ casos y su ejecución.
 
 | Archivo | Va a la hoja |
 |---|---|
-| `casos-prueba-US16-US32.csv` | Casos de Prueba (`TC-084` a `TC-100`) |
+| `casos-prueba.csv` | Casos de Prueba (dump completo, `TC-001` a `TC-090`) |
+| `mapeo-DT-18.csv` | Referencia viejo → nuevo |
+| `casos-prueba-US16-US32.csv` | Casos de Prueba (`TC-091` a `TC-107`, pegar **después** del dump) |
 | `ejecucion-US16-US32.csv` | Ejecución de Pruebas (`EJ-28` a `EJ-46`) |
 
-> `casos-prueba.csv` y `registro-ejecucion.csv` son **exports viejos con otra
-> numeración**, conservados solo como referencia histórica. No usarlos para
-> calcular el próximo ID (ver DT-18).
+El próximo ID libre lo asigna `/exportar-casos` (`TC-108` con estos archivos
+en el repo). No numerar a mano.
 
 ## Cómo lo usa la IA
 - El `CLAUDE.md` de cada repo apunta acá.
