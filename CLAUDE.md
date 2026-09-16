@@ -73,4 +73,5 @@ npx prisma db push && npm run prisma:seed   # sincronizar esquema + seed (admin@
 
 ## Punteros
 - Documentación (DoD, convenciones, plantillas, PMBOK): `docs/` — ver `docs/README.md`.
+- **Deuda técnica** (estado, prioridades y plan): `docs/DEUDA-TECNICA.md`. Actualizalo al cerrar o detectar un ítem.
 - Despliegue e infraestructura: ver notas de handoff del equipo.
