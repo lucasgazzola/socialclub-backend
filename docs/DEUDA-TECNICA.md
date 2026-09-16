@@ -35,7 +35,7 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15--🔴-riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés--🟠-costo-creciente) |
 | ✅ Resueltas | DT-03, DT-04, DT-07, DT-13, DT-14, DT-16, DT-19, DT-21 |
 | 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05 |
-| 🟡 Medias pendientes | DT-10, DT-11, DT-17, DT-18, DT-22, DT-23, DT-24, DT-25 |
+| 🟡 Medias pendientes | DT-10, DT-11, DT-17, DT-18, DT-22, DT-23, DT-24, DT-25, DT-26 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-20 |
 
 **Cobertura de tests** (medida el 16/09/2026, objetivo DoD **70 %**):
@@ -259,6 +259,34 @@ dejó en 57,85 %: **el CI de `dev` quedó en rojo por 0,15 puntos** sin que nadi
 hiciera nada mal. Se resolvió dejando ~3 puntos de margen, pero conviene
 revisarlo si vuelve a pasar. La alternativa de fondo es exigir tests por PR
 (regla de equipo) en lugar de apretar el número global.
+
+#### DT-26 · La documentación de la API no declara respuestas
+*Nuevo · backend · 3 SP*
+
+Swagger está bien montado y al día en lo estructural: **56 de 56 operaciones
+tienen `summary`** (la única excepción es `GET /health`), los 14 tags están
+completos y los 22 DTO de request generan su schema. El problema está del lado
+de las respuestas:
+
+- **Ninguna de las 56 operaciones declara un solo código de error.** El spec
+  solo trae el `200`/`201` que Nest infiere, así que en la UI no figura que
+  `POST /cuota-social` puede responder 400 por período inválido, 403 sin rol
+  ADMIN o 404 si la categoría no existe. Toda esa información existe y está
+  verificada (son los casos `TC-084` a `TC-100`), pero no llega al contrato.
+- **Ninguna declara el tipo de su respuesta** (`0 de 56` tienen `content`), así
+  que el spec no dice qué forma tiene lo que devuelve. Las descripciones
+  también están vacías (`"description": ""`).
+
+Consecuencia práctica: el frontend no puede generar tipos ni clientes desde el
+spec, y quien consume la API tiene que leer el código para saber qué esperar.
+Para un proyecto donde Swagger es el entregable de documentación técnica, el
+contrato queda a medias.
+
+- **Evidencia:** `GET /api/v1/docs-json` — todas las operaciones con `responses: {"20x": {"description": ""}}`.
+- **Arreglo:** `@ApiResponse` (o los atajos `@ApiOkResponse`, `@ApiBadRequestResponse`, `@ApiForbiddenResponse`, `@ApiNotFoundResponse`) por operación, y DTOs de respuesta para los tipos de retorno. Conviene hacerlo **módulo por módulo, apoyándose en los casos de prueba ya documentados**: los códigos y mensajes reales ya están relevados ahí, así que no hay que investigarlos de nuevo.
+- **Empezar por** `auth`, `usuarios` e `inscripcion`, que son los que el frontend consume más y los que tienen reglas de permisos.
+- **Detectado al revisar Swagger sobre la instancia local.**
+- **Rama sugerida:** `issue/TASK-<n>-DT-26-Documentar-respuestas-api`
 
 #### DT-17 · Código muerto: `EditarInscripcionPage`
 *Nuevo · frontend · incluido en DT-11*
