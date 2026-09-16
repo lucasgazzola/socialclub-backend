@@ -8,10 +8,12 @@ import {
   Patch,
   UseGuards,
   ParseIntPipe,
+  Query,
 } from '@nestjs/common';
 import { InscripcionService } from './inscripcion.service';
 import { CreateInscripcionDto } from './dto/create-inscripcion.dto';
 import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
+import { FindParticipantesQueryDto } from './dto/find-participantes-query.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -51,9 +53,12 @@ export class InscripcionController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Listar las inscripciones vigentes' })
-  findAll() {
-    return this.inscripcionService.findAll();
+  @Roles('ADMIN', 'COLABORADOR')
+  @ApiOperation({
+    summary: 'US-08 — Buscar y filtrar participantes (nombre, disciplina, estado)',
+  })
+  findAll(@Query() query: FindParticipantesQueryDto) {
+    return this.inscripcionService.findAll(query);
   }
 
   @Get('persona/:personaId')

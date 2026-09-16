@@ -3,6 +3,10 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { InscripcionController } from './inscripcion.controller';
 import { InscripcionService } from './inscripcion.service';
 import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
+import {
+  EstadoInscripcionFiltro,
+  FindParticipantesQueryDto,
+} from './dto/find-participantes-query.dto';
 
 const mockInscripcionService = {
   create: jest.fn(),
@@ -74,6 +78,30 @@ describe('InscripcionController', () => {
       await expect(controller.update(1, { disciplinaId: 2 }, mockUser)).rejects.toThrow(
         BadRequestException,
       );
+    });
+  });
+
+  describe('findAll (US-08)', () => {
+    it('delega la búsqueda y los filtros en el service', async () => {
+      const query: FindParticipantesQueryDto = {
+        busqueda: 'perez',
+        disciplinaId: 1,
+        estado: EstadoInscripcionFiltro.INSCRIPTO,
+        pagina: 1,
+        porPagina: 10,
+      };
+      const expected = { items: [], total: 0, pagina: 1, porPagina: 10 };
+      mockInscripcionService.findAll.mockResolvedValue(expected);
+
+      const result = await controller.findAll(query);
+
+      expect(mockInscripcionService.findAll).toHaveBeenCalledWith(query);
+      expect(result).toEqual(expected);
+    });
+
+    it('permite el acceso al rol COLABORADOR (rol operativo del delegado)', () => {
+      const rolesPermitidos = Reflect.getMetadata('roles', InscripcionController.prototype.findAll);
+      expect(rolesPermitidos).toEqual(['ADMIN', 'COLABORADOR']);
     });
   });
 });
