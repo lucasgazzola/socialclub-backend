@@ -40,6 +40,7 @@ está versionado, se lee en GitHub y no depende de que nadie comparta un enlace.
 | [`DEUDA-TECNICA.md`](DEUDA-TECNICA.md) | Registro de la deuda de los dos repos: qué hay, en qué orden atacarla, qué se resolvió y con qué PR. Incluye las **decisiones pendientes del equipo**. | [ver](https://claude.ai/code/artifact/36ba0d37-622d-4197-b9ad-4f24a2c6968d) |
 | [`PLAN-TESTING.md`](PLAN-TESTING.md) | Estado medido de la pata de testing, qué se automatiza con skills, qué hace falta para E2E y la secuencia de pasos. | [ver](https://claude.ai/code/artifact/b817ba9b-ac31-44c8-9dfb-c72ac923b7a3) |
 | [`GUIA-IA-EQUIPO.md`](GUIA-IA-EQUIPO.md) | Cómo usar los skills del equipo. | — |
+| [`RUNBOOK-OPERACIONES.md`](RUNBOOK-OPERACIONES.md) | Comandos para operar Azure, GitHub y Vercel (promote `dev → test`, logs, reset de `socialclub_test`, CORS). Complementa [`DESPLIEGUE.md`](../DESPLIEGUE.md). | — |
 
 **Al cerrar un ítem de deuda hay que moverlo a «Deuda resuelta» con su PR y
 fecha: es parte de la Definition of Done** (punto 6).
@@ -51,16 +52,19 @@ fecha: es parte de la Definition of Done** (punto 6).
 
 ### Exportables para la planilla
 
-`exportables/` guarda archivos **para copiar y pegar** en el `.xlsx` del plan de
-testing; no reemplaza a la planilla, que sigue siendo la fuente de verdad de los
-casos y su ejecución.
+`exportables/` versiona el contenido de la planilla de Drive (`.xlsx` local
+gitignored). La planilla sigue siendo el entregable; estos archivos son el
+espejo en git y lo que se pega.
 
-| Archivo | Va a la hoja |
+| Archivo | Qué es |
 |---|---|
-| `casos-prueba.csv` | Casos de Prueba (dump completo, `TC-001` a `TC-090`) |
-| `mapeo-DT-18.csv` | Referencia viejo → nuevo |
-| `casos-prueba-US16-US32.csv` | Casos de Prueba (`TC-091` a `TC-107`, pegar **después** del dump) |
-| `ejecucion-US16-US32.csv` | Ejecución de Pruebas (`EJ-28` a `EJ-46`) |
+| `casos-prueba.csv` | Dump de **Casos de Prueba** (`TC-001` a `TC-107`), con saltos de línea reales en `Pasos`. Lo lee `/exportar-casos` para el próximo ID. |
+| `ejecucion.csv` | Dump de **Ejecución de Pruebas** (`EJ-01` a `EJ-46`). |
+| `casos-prueba-para-pegar.tsv` | El mismo dump, una fila = una fila (`Pasos` unidos con ` / `). Pegar en Drive desde **A2**. |
+| `ejecucion-para-pegar.tsv` | Idem para la hoja de ejecución. |
+| `mapeo-DT-18.csv` | Histórico: IDs viejos → nuevos (no se pega). |
+
+No pegar los CSV en Sheets: las celdas multilínea parten filas. Usar los TSV.
 
 El próximo ID libre lo asigna `/exportar-casos` (`TC-108` con estos archivos
 en el repo). No numerar a mano.

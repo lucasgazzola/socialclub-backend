@@ -1,4 +1,53 @@
 ﻿"ID Ejecución","Sprint","Fecha","ID Caso","US asociada","Ejecutor","Resultado","Evidencia","Defecto asociado","Observaciones"
+"EJ-01","2.0","31/07/2026","TC-001","US-1","Guajardo Lautaro","Aprobado","PASS  src/usuarios/usuarios.service.spec.ts (16.109 s)","",""
+"EJ-02","2.0","31/07/2026","TC-002","US-1","Guajardo Lautaro","Aprobado","","",""
+"EJ-03","2.0","31/07/2026","TC-003","US-1","Guajardo Lautaro","Aprobado","","",""
+"EJ-04","2.0","31/07/2026","TC-004","US-1","Guajardo Lautaro","Aprobado","","",""
+"EJ-05","2.0","31/07/2026","TC-005","US-1","Guajardo Lautaro","Aprobado","","",""
+"EJ-06","2.0","31/07/2026","TC-026","US-12","Guajardo Lautaro","Aprobado","BACKEND:
+Test Suites: 1 passed, 1 total
+Tests:       1 todo, 4 passed, 5 total
+Ran all test suites matching socios.e2e-spec.ts|socios.service.spec.ts.
+FRONTEND:
+Test Files  1 passed (1)
+Tests  5 passed (5)","",""
+"EJ-07","2.0","31/07/2026","TC-027","US-12","Guajardo Lautaro","Aprobado","","",""
+"EJ-08","2.0","31/07/2026","TC-028","US-12","Guajardo Lautaro","Aprobado","","",""
+"EJ-09","2.0","31/07/2026","TC-029","US-12","Guajardo Lautaro","Aprobado","","",""
+"EJ-10","2.0","31/07/2026","TC-030","US-12","Guajardo Lautaro","Aprobado","","",""
+"EJ-11","2.0","31/07/2026","TC-031","US-12","Guajardo Lautaro","Fallido","","",""
+"EJ-12","2.0","31/07/2026","TC-032","US-12","Guajardo Lautaro","Aprobado","","",""
+"EJ-13","3.0","14/08/2026","TC-077","US-38","Guajardo Lautaro","Aprobado","BACKEND:
+Test Suites: 1 passed, 1 total
+Tests:       6 passed, 6 total
+Ran all test suites matching auth.e2e-spec.ts|auth.service.spec.ts.
+FRONTEND:
+RegisterForm.test.tsx (7 tests)
+Test Files  1 passed (1)
+Tests  7 passed (7)","",""
+"EJ-14","3.0","14/08/2026","TC-078","US-38","Guajardo Lautaro","Aprobado","","",""
+"EJ-15","3.0","14/08/2026","TC-079","US-38","Guajardo Lautaro","Aprobado","","",""
+"EJ-16","3.0","14/08/2026","TC-080","US-38","Guajardo Lautaro","Aprobado","","",""
+"EJ-17","3.0","14/08/2026","TC-081","US-38","Guajardo Lautaro","Aprobado","","",""
+"EJ-18","3.0","14/08/2026","TC-082","US-38","Guajardo Lautaro","Aprobado","","",""
+"EJ-19","3.0","14/08/2026","TC-083","US-38","Guajardo Lautaro","Aprobado","","",""
+"EJ-20","3.0","14/08/2026","TC-084","US-38","Guajardo Lautaro","Aprobado","","",""
+"EJ-21","3.0","19/08/2026","TC-006","US-02","Gerbaudo Mateo","Aprobado","BACKEND:
+Test Suites: 1 passed, 1 total
+Tests:       13 passed, 13 total
+Ran all test suites matching usuarios.service.spec.ts.
+
+FRONTEND:
+UsuariosPage.spec.tsx (7 tests)
+Test Files  1 passed (1)
+Tests  7 passed (7)
+","",""
+"EJ-22","3.0","20/08/2026","TC-007","US-02","Gerbaudo Mateo","Aprobado","","",""
+"EJ-23","3.0","21/08/2026","TC-008","US-02","Gerbaudo Mateo","Aprobado","","",""
+"EJ-24","3.0","22/08/2026","TC-009","US-02","Gerbaudo Mateo","Aprobado","","",""
+"EJ-25","3.0","23/08/2026","TC-010","US-02","Gerbaudo Mateo","Aprobado","","",""
+"EJ-26","3.0","24/08/2026","TC-011","US-02","Gerbaudo Mateo","Aprobado","","",""
+"EJ-27","3.0","25/08/2026","TC-012","US-02","Gerbaudo Mateo","Aprobado","","",""
 "EJ-28","3.0","16/09/2026","TC-091","US-16","Gazzola Lucas","Aprobado","Jest — cuota-social.service.spec.ts
 Test Suites: 1 passed, 1 total
 Tests: 22 passed, 22 total

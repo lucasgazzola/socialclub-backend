@@ -354,8 +354,8 @@ cátedra). En el orden de la planilla:
 - Los specs que etiquetaban `TC-xxx` se remapearon **por US** (auth/US-38, socios/US-12). Los de usuarios (US-02) no se tocaron: esos IDs no cambian. Los `TC-0701` / `TC-0801` de inscripción son otro esquema y se dejaron.
 - `scripts/exportar-casos.mjs` + `scripts/ids-planilla.py` leen el máximo del `.xlsx` y de `docs/exportables/*.csv`, y se niegan a asignar si vuelven a aparecer duplicados. El próximo ID libre es **`TC-108`**.
 
-Hay que **pegar** `docs/exportables/casos-prueba.csv` (o aplicar el mapa) en la
-copia de Drive de la planilla: el `.xlsx` del repo es local.
+La copia de Drive se actualiza pegando `docs/exportables/casos-prueba-para-pegar.tsv`
+(no el CSV). El `.xlsx` del repo es local y gitignored.
 
 ### DT-16 · Endpoints de inscripción sin control de rol
 **PR [#33](https://github.com/lucasgazzola/socialclub-backend/pull/33)** ·
@@ -504,33 +504,26 @@ tocar el tsconfig de build.
 La fuente de verdad es la planilla
 `docs/documentacion/desarrollo-del-producto/01 ... Plan de testing del producto ... .xlsx`
 (hojas *Casos de Prueba*, *Ejecución de Pruebas*, *Defectos*, *Conformidad PO*,
-*Resumen*). El directorio `docs/exportables/` solo guarda **archivos para copiar
-y pegar** en esas hojas; no reemplaza a la planilla.
+*Resumen*). `docs/exportables/` versiona ese contenido en git; no reemplaza a la planilla.
 
 Estado al 16/09/2026, contrastado contra el código (IDs **después de DT-18**):
 
 | | Cantidad |
 |---|---|
-| Casos cargados en la planilla | 90 filas / **90 IDs únicos** (`TC-001` a `TC-090`) |
-| US con casos documentados | 16 |
+| Casos en el dump | **107 IDs únicos** (`TC-001` a `TC-107`) |
+| US con casos documentados | 18 (las 16 de la planilla original + US-16 y US-32) |
 | US implementadas en el backend | 22 (+ US-16, que no estaba etiquetada) |
 | **US implementadas sin ningún caso** | **US-06, US-08, US-09, US-11, US-24, US-31** |
-| Casos nuevos listos para cargar | 17 (`TC-091` a `TC-107`, US-16 y US-32) |
-| Ejecuciones nuevas listas para cargar | 19 (`EJ-28` a `EJ-46`) |
+| Ejecuciones en el dump | 46 (`EJ-01` a `EJ-46`) |
 
-Archivos para pegar:
+Archivos:
 
-- `docs/exportables/casos-prueba.csv` → hoja **Casos de Prueba** (dump completo, ya renumerado)
-- `docs/exportables/mapeo-DT-18.csv` → referencia viejo → nuevo
-- `docs/exportables/ejecucion-planilla.csv` → hoja **Ejecución de Pruebas** (las 27 filas ya cargadas, remapeadas)
-- `docs/exportables/casos-prueba-US16-US32.csv` → hoja **Casos de Prueba** (pegar **después** del dump; `TC-091` a `TC-107`)
-- `docs/exportables/ejecucion-US16-US32.csv` → hoja **Ejecución de Pruebas**
+- `docs/exportables/casos-prueba.csv` — dump de **Casos de Prueba** (saltos reales; lo usa `/exportar-casos`)
+- `docs/exportables/ejecucion.csv` — dump de **Ejecución de Pruebas**
+- `docs/exportables/casos-prueba-para-pegar.tsv` / `ejecucion-para-pegar.tsv` — pegar en Drive desde **A2** (`Pasos`/`Evidencia` unidos con ` / `)
+- `docs/exportables/mapeo-DT-18.csv` — histórico viejo → nuevo; no se pega
 
-Los CSV van con todas las celdas entre comillas y BOM, porque los `Pasos`
-llevan saltos de línea dentro de la celda: en TSV, Excel los toma como filas
-nuevas y rompe la planilla. `ejecucion-planilla.csv` es un snapshot de las 27
-filas ya cargadas: las fechas salen como serial de Excel, así que para esas
-filas alcanza con el `.xlsx` local (ya remapeado) o con el mapa.
+No pegar los CSV en Sheets: las celdas multilínea parten filas.
 
 ## Nomenclatura
 

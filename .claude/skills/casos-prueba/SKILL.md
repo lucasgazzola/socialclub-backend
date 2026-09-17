@@ -41,12 +41,10 @@ funcionalidad (back/front) para revisar el código real.
 ## Formato de entrega (por defecto)
 Un archivo **CSV con todas las celdas entre comillas** (`QUOTE_ALL`) y BOM
 (`utf-8-sig`), en `docs/exportables/casos-prueba-<US>.csv`, con las 10 columnas
-y una fila por caso. **CSV y no TSV**: los `Pasos` llevan saltos de línea dentro
-de la celda, y al pegar un TSV multilínea Excel los interpreta como filas
-nuevas y rompe la planilla.
-
-Se copia y se pega en la hoja **Casos de Prueba** a partir de la primera fila
-libre. No hace falta generar `.xlsx`.
+y una fila por caso. Ese CSV es el dump (saltos reales en `Pasos`). **Para
+pegar en Drive** hay un TSV aparte (`casos-prueba-para-pegar.tsv`): una fila =
+una fila, pasos unidos con ` / `. No pegar el CSV ni un TSV con saltos de
+línea dentro de la celda.
 
 ## De dónde sale el próximo `ID Caso`
 **No numerar a mano.** Los `TC-XXX` los asigna únicamente `/exportar-casos`
@@ -54,8 +52,8 @@ libre. No hace falta generar `.xlsx`.
 `docs/exportables/*.csv`.
 
 - Planilla: `docs/documentacion/desarrollo-del-producto/01 ... Plan de testing del producto ... .xlsx`
-- Dump versionado: `docs/exportables/casos-prueba.csv` (90 IDs únicos, `TC-001` a `TC-090`, alineado con el `.xlsx` desde DT-18).
-- Pendientes de pegar en la planilla: `docs/exportables/casos-prueba-US16-US32.csv` (`TC-091` a `TC-107`). El próximo ID libre, con esos archivos en el repo, es **`TC-108`**.
+- Dump versionado: `docs/exportables/casos-prueba.csv` (`TC-001` a `TC-107`). El próximo ID libre es **`TC-108`**.
+- Para pegar en Drive: `docs/exportables/casos-prueba-para-pegar.tsv` (desde A2). No pegar el CSV.
 
 El `.xlsx` es un ZIP de XML y se puede leer con `python3 scripts/ids-planilla.py`
 (sin instalar nada). Si ese script reporta duplicados, **no asignar IDs nuevos**

@@ -1,6 +1,8 @@
 # SocialClub — Infraestructura y despliegue
 
-> Documento de referencia con **todas las decisiones de infraestructura y despliegue** del proyecto SocialClub. Aplica a los dos repos (`socialclub-backend` y `socialclub-frontend`). Última actualización: 2026-08-07.
+> Documento de referencia con **todas las decisiones de infraestructura y despliegue** del proyecto SocialClub. Aplica a los dos repos (`socialclub-backend` y `socialclub-frontend`). Última actualización: 2026-09-16.
+>
+> **Operar** los entornos (comandos `az` / `gh` / `curl` / receta `dev → test`): [`docs/RUNBOOK-OPERACIONES.md`](docs/RUNBOOK-OPERACIONES.md).
 
 ---
 
@@ -149,25 +151,30 @@ El frontend se despliega por la **integración nativa Git de Vercel** (no usa Ac
 
 ## 7. Runbook (operaciones comunes)
 
+La lista completa (qué es cada comando, por qué, ejemplos, receta `dev → test` y trampas) está en **[`docs/RUNBOOK-OPERACIONES.md`](docs/RUNBOOK-OPERACIONES.md)**.
+
+Atajos:
+
 ```bash
 # Ver estado / logs de una API
 az containerapp show -g rg-socialclub -n ca-socialclub-api-test -o table
 az containerapp logs show -g rg-socialclub -n ca-socialclub-api-test --follow
 
-# Desplegar a TEST: merge/push a la rama test (CD automático)
-git push origin dev:test           # backend y front
+# Promover a TEST: PR explícito (nunca `git push origin dev:test` ni `gh pr create` sin --base)
+gh pr create --base test --head dev
+# mergear cuando CI esté verde; el push a `test` dispara CD
 
-# Desplegar a MAIN: push a main y aprobar en GitHub Actions (Review deployments)
+# Desplegar a MAIN: PR a main + aprobación en GitHub Actions (Review deployments)
 
-# Actualizar un secreto de la API (ej. CORS_ORIGIN)
+# Actualizar un env no secreto de la API (ej. CORS_ORIGIN)
 az containerapp update -g rg-socialclub -n ca-socialclub-api-test \
   --set-env-vars "CORS_ORIGIN=https://socialclub-frontend-test.vercel.app"
 
-# Rotar un secreto sensible (DATABASE_URL / JWT_SECRET): actualizar el GitHub
-# Environment secret y volver a desplegar (el CD lo re-aplica).
+# Rotar un secreto sensible (DATABASE_URL / JWT_SECRET / SEED_ADMIN_PASSWORD):
+# actualizar el GitHub Environment secret y volver a desplegar (el CD lo re-aplica).
 ```
 
-Healthcheck: `GET /api/v1/health`. Login inicial: `admin@socialclub.local` (password por entorno, definida como secret del seed).
+Healthcheck: `GET /api/v1/health`. Login inicial: `admin@socialclub.local` (password por entorno = `SEED_ADMIN_PASSWORD`, **no** la de local).
 
 ---
 
@@ -178,3 +185,6 @@ Healthcheck: `GET /api/v1/health`. Login inicial: `admin@socialclub.local` (pass
 - **Regla firewall `DevTemp-lucas`** (IP de desarrollo) puede borrarse cuando no se necesite acceso directo a la DB.
 - **Credencial de registry en las Container Apps:** ya no es imprescindible (el package ghcr es público); se puede remover.
 - El acceso a la DB desde las Container Apps usa la regla "Azure services" (0.0.0.0). Para mayor aislamiento podría usarse VNet/private endpoint (no necesario en este alcance).
+- **Migración `20260915050001` (consolidar usuario/persona) no tiene backfill.** Un `migrate deploy` sobre `socialclub_test` con datos previos a esa migración falla (`P3009`). Antes de un promote grande: vaciar `socialclub_test` y no dejar viva la revisión de imagen vieja. Detalle en el runbook §3 y §9.
+- **CD Test en verde ≠ contenedor sano.** `az containerapp update` puede devolver 0 y la revisión quedar `Unhealthy` si Prisma falla. Confirmar con logs + `GET /api/v1/health`.
+- **El CD, al actualizar una app existente, no rehabilita el ingress.** Si el FQDN queda `null`, `az containerapp ingress enable --type external --target-port 3000`.
