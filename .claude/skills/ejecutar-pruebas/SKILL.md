@@ -60,8 +60,9 @@ Encabezados en la **fila 2**, 10 columnas en este orden:
   quedó cubierto solo en parte (p. ej. a nivel de servicio pero no de base de
   datos), decirlo acá en lugar de marcarlo Aprobado sin más.
 
-Salida: CSV con `QUOTE_ALL` y BOM en `docs/exportables/ejecucion-<US>.csv`,
-para copiar y pegar. No generar `.xlsx`.
+Salida: CSV con `QUOTE_ALL` y BOM en `docs/exportables/ejecucion-<US>.csv`
+(dump con saltos reales). Para Drive, el pegable es
+`docs/exportables/ejecucion-para-pegar.tsv` (desde A2). No generar `.xlsx`.
 
 ## Casos que ya estaban en la planilla
 Si los tests cubren casos ya cargados (que hasta ahora no tenían ejecución

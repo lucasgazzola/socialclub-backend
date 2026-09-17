@@ -25,8 +25,8 @@ estrategia de testing y su secuencia.
 | US implementadas (los dos repos) | ~24 |
 | US con casos documentados | 16 |
 | **US sin ningún caso** | **8** |
-| Casos en la planilla | 90 filas · **90 IDs únicos** (`TC-001`–`TC-090`, DT-18) |
-| Ejecuciones registradas | 46 (27 previas + 19 nuevas) |
+| Casos documentados | 107 filas · **107 IDs únicos** (`TC-001`–`TC-107`) |
+| Ejecuciones registradas | 46 (`EJ-01` a `EJ-46`) |
 
 **Objetivo de la DoD: 70 % de cobertura.** Faltan ~10 puntos en el backend y
 ~38 en el frontend.
