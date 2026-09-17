@@ -16,6 +16,7 @@ import { CuotaSocialModule } from './cuota-social/cuota-social.module';
 import { PersonasModule } from './personas/personas.module';
 import { InscripcionModule } from './inscripcion/inscripcion.module';
 import { DocumentacionModule } from './documentacion/documentacion.module';
+import { PagosModule } from './pagos/pagos.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { DocumentacionModule } from './documentacion/documentacion.module';
     PersonasModule,
     InscripcionModule,
     DocumentacionModule,
+    PagosModule,
   ],
   controllers: [AppController],
 })

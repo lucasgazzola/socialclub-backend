@@ -205,6 +205,7 @@ model Persona {
   membresias      Membresia[]
   inscripciones   Inscripcion[]
   documentaciones Documentacion[]
+  pagos           Pago[]
 
   @@index([apellido, nombre])
   @@index([activo])
@@ -320,4 +321,24 @@ model Documentacion {
 
   @@index([personaId])
   @@map("documentaciones")
+}
+
+/// Pago de cuota realizado por un socio (US-10).
+/// Registra monto, fecha/hora, período cubierto ("YYYY-MM") y método de pago.
+/// La restricción @@unique([personaId, periodo]) garantiza que no sea posible
+/// registrar un pago por un período que ya figura como pagado.
+model Pago {
+  id         Int      @id @default(autoincrement())
+  personaId  Int
+  persona    Persona  @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  periodo    String   // "YYYY-MM"
+  monto      Decimal  @db.Decimal(12, 2)
+  metodoPago String   @default("MOCK_TARJETA")
+  fechaPago  DateTime @default(now())
+  creadoEn   DateTime @default(now())
+
+  @@unique([personaId, periodo])
+  @@index([personaId])
+  @@index([periodo])
+  @@map("pagos")
 }
