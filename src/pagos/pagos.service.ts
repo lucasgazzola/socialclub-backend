@@ -30,12 +30,11 @@ export class PagosService {
     return `${year}-${month}`;
   }
 
-  /** Genera lista de períodos YYYY-MM desde una fecha inicial hasta el período actual */
-  private generarPeriodosHastaHoy(fechaInicio: Date): string[] {
+  /** Genera lista de períodos YYYY-MM desde una fecha inicial hasta una fecha final (por defecto hoy) */
+  private generarPeriodosHasta(fechaInicio: Date, fechaFin: Date = new Date()): string[] {
     const periodos: string[] = [];
     const inicio = new Date(fechaInicio.getFullYear(), fechaInicio.getMonth(), 1);
-    const hoy = new Date();
-    const fin = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    const fin = new Date(fechaFin.getFullYear(), fechaFin.getMonth(), 1);
 
     const actual = new Date(inicio);
     while (actual <= fin) {
@@ -46,7 +45,7 @@ export class PagosService {
   }
 
   /**
-   * Obtiene la persona y su membresía activa asociada a un usuarioId
+   * Obtiene la persona y su membresía (activa o más reciente) asociada a un usuarioId
    */
   private async getPersonaYSocio(usuarioId: number) {
     const usuario = await this.prisma.usuario.findUnique({
@@ -55,7 +54,6 @@ export class PagosService {
         persona: {
           include: {
             membresias: {
-              where: { activo: true },
               include: { categoria: true },
               orderBy: { fechaAlta: 'desc' },
             },
@@ -72,13 +70,15 @@ export class PagosService {
     }
 
     const persona = usuario.persona;
-    const membresiaActiva = persona.membresias[0];
+    const membresiaActiva = persona.membresias.find((m) => m.activo);
+    const ultimaMembresia = persona.membresias[0];
+    const membresia = membresiaActiva ?? ultimaMembresia;
 
-    if (!membresiaActiva) {
-      throw new BadRequestException('El usuario no posee una membresía activa de socio');
+    if (!membresia) {
+      throw new BadRequestException('El usuario no posee registros de membresía de socio');
     }
 
-    return { usuario, persona, membresiaActiva };
+    return { usuario, persona, membresia, membresiaActiva };
   }
 
   /**
@@ -111,9 +111,10 @@ export class PagosService {
    * US-10 CA 1: Visualizar cuotas pendientes y estado financiero dinámico (RN05/RN06)
    */
   async getCuotasPendientes(usuarioId: number) {
-    const { persona, membresiaActiva } = await this.getPersonaYSocio(usuarioId);
+    const { persona, membresia } = await this.getPersonaYSocio(usuarioId);
 
-    const periodosTotales = this.generarPeriodosHastaHoy(membresiaActiva.fechaAlta);
+    const fechaFin = membresia.fechaBaja ?? new Date();
+    const periodosTotales = this.generarPeriodosHasta(membresia.fechaAlta, fechaFin);
     const pagosRealizados = new Set(persona.pagos.map((p) => p.periodo));
 
     const cuotasPendientes: CuotaPendienteDto[] = [];
@@ -121,11 +122,11 @@ export class PagosService {
 
     for (const periodo of periodosTotales) {
       if (!pagosRealizados.has(periodo)) {
-        const monto = await this.getMontoCuotaSocial(membresiaActiva.categoriaId, periodo);
+        const monto = await this.getMontoCuotaSocial(membresia.categoriaId, periodo);
         cuotasPendientes.push({
           periodo,
           monto,
-          categoriaNombre: membresiaActiva.categoria.nombre,
+          categoriaNombre: membresia.categoria.nombre,
         });
         totalAdeudado += monto;
       }
@@ -137,7 +138,7 @@ export class PagosService {
     return {
       personaId: persona.id,
       socioNombre: `${persona.nombre} ${persona.apellido}`,
-      categoria: membresiaActiva.categoria.nombre,
+      categoria: membresia.categoria.nombre,
       estadoFinanciero,
       cuotasPendientes,
       totalAdeudado,
@@ -148,7 +149,7 @@ export class PagosService {
    * US-10 CA 2, 3, 4, 5, 6: Registrar pago de uno o más períodos pendientes
    */
   async registrarPago(usuarioId: number, dto: RegistrarPagoDto) {
-    const { persona, membresiaActiva } = await this.getPersonaYSocio(usuarioId);
+    const { persona, membresia } = await this.getPersonaYSocio(usuarioId);
 
     // CA 5: Verificar que ninguno de los períodos requeridos ya haya sido pagado
     const pagosExistentes = await this.prisma.pago.findMany({
@@ -172,7 +173,7 @@ export class PagosService {
       const resultados = [];
 
       for (const periodo of dto.periodos) {
-        const monto = await this.getMontoCuotaSocial(membresiaActiva.categoriaId, periodo);
+        const monto = await this.getMontoCuotaSocial(membresia.categoriaId, periodo);
 
         const pago = await tx.pago.create({
           data: {

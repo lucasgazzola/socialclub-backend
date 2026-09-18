@@ -456,6 +456,49 @@ export class SociosService {
     return this.findOne(id);
   }
 
+  /** US-42: Darme de baja como socio (auto-baja del socio autenticado) */
+  async darseDeBaja(usuarioId: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      include: {
+        persona: {
+          include: {
+            membresias: { where: { activo: true } },
+          },
+        },
+      },
+    });
+
+    if (!usuario || !usuario.persona) {
+      throw new NotFoundException('No se encontró una ficha de persona asociada a este usuario');
+    }
+
+    const membresiaActiva = usuario.persona.membresias[0];
+    if (!membresiaActiva) {
+      throw new BadRequestException('El socio ya se encuentra dado de baja');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.membresia.update({
+        where: { id: membresiaActiva.id },
+        data: { activo: false, fechaBaja: new Date() },
+      });
+
+      await this.auditoria.registrar(
+        {
+          accion: 'BAJA',
+          entidad: 'Membresia',
+          idEntidad: membresiaActiva.id,
+          responsableId: usuarioId,
+          detalle: `Auto-baja de membresía solicitada por el socio: ${usuario.nombre} ${usuario.apellido}`,
+        },
+        tx,
+      );
+    });
+
+    return this.findOne(usuario.persona.id);
+  }
+
   /**
    * US-11: Editar datos personales del socio.
    * - Solo permite modificar Nombre, Apellido, Email y Teléfono.
