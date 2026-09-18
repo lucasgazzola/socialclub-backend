@@ -579,4 +579,89 @@ describe('SociosService', () => {
       expect(personaGimnasio.inscripciones[0].disciplinaId).toBe(6);
     });
   });
+
+  describe('US-42: Darme de baja como socio (auto-baja)', () => {
+    it('desactiva la membresía activa del usuario, registra la auditoría y retorna el socio actualizado', async () => {
+      const usuarioSocio = {
+        id: 7,
+        nombre: 'Carlos',
+        apellido: 'Socio',
+        email: 'carlos@club.com',
+        persona: {
+          id: 15,
+          nombre: 'Carlos',
+          apellido: 'Socio',
+          membresias: [
+            {
+              id: 105,
+              categoriaId: 1,
+              categoria: { id: 1, nombre: 'Activo' },
+              activo: true,
+              fechaAlta: new Date(),
+            },
+          ],
+        },
+      };
+
+      prismaMock.usuario.findUnique.mockResolvedValue(usuarioSocio);
+      prismaMock.membresia.update.mockResolvedValue({ id: 105, activo: false, fechaBaja: new Date() });
+      prismaMock.persona.findUnique.mockResolvedValue({
+        id: 15,
+        nombre: 'Carlos',
+        apellido: 'Socio',
+        dni: '30111222',
+        email: 'carlos@club.com',
+        telefono: '351111111',
+        creadoEn: new Date(),
+        actualizadoEn: new Date(),
+        membresias: [
+          {
+            id: 105,
+            categoriaId: 1,
+            categoria: { id: 1, nombre: 'Activo' },
+            activo: false,
+            fechaAlta: new Date(),
+            fechaBaja: new Date(),
+          },
+        ],
+      });
+
+      const resultado = await service.darseDeBaja(7);
+
+      expect(prismaMock.membresia.update).toHaveBeenCalledWith({
+        where: { id: 105 },
+        data: expect.objectContaining({ activo: false, fechaBaja: expect.any(Date) }),
+      });
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'BAJA',
+          entidad: 'Membresia',
+          idEntidad: 105,
+          responsableId: 7,
+        }),
+        prismaMock,
+      );
+      expect(resultado.activo).toBe(false);
+    });
+
+    it('arroja NotFoundException si el usuario no posee ficha de persona', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ id: 7, persona: null });
+
+      await expect(service.darseDeBaja(7)).rejects.toThrow(NotFoundException);
+    });
+
+    it('arroja BadRequestException si el usuario ya está dado de baja (sin membresía activa)', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({
+        id: 7,
+        persona: {
+          id: 15,
+          membresias: [],
+        },
+      });
+
+      await expect(service.darseDeBaja(7)).rejects.toThrow(
+        'El socio ya se encuentra dado de baja',
+      );
+    });
+  });
 });

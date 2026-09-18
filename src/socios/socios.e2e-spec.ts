@@ -34,6 +34,9 @@ describe('SociosController (e2e)', () => {
       findFirst: jest.fn(),
       update: jest.fn(),
     },
+    usuario: {
+      findUnique: jest.fn(),
+    },
     $transaction: jest.fn((arg: any) => (typeof arg === 'function' ? arg(prismaMock) : arg)),
   };
 
@@ -152,6 +155,59 @@ describe('SociosController (e2e)', () => {
         .expect(409);
 
       expect(auditoriaMock.registrar).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('US-42: POST /socios/darse-de-baja (auto-baja de socio)', () => {
+    it('desactiva la membresía del usuario autenticado y registra la auditoría', async () => {
+      const usuarioSocio = {
+        id: 99,
+        nombre: 'Admin',
+        apellido: 'Socio',
+        email: 'admin@club.com',
+        persona: {
+          id: 55,
+          nombre: 'Admin',
+          apellido: 'Socio',
+          membresias: [
+            {
+              id: 10,
+              categoriaId: 1,
+              categoria: { id: 1, nombre: 'Mayores' },
+              activo: true,
+              fechaAlta: new Date(),
+            },
+          ],
+        },
+      };
+
+      prismaMock.usuario.findUnique.mockResolvedValue(usuarioSocio);
+      prismaMock.membresia.update.mockResolvedValue({ id: 10, activo: false, fechaBaja: new Date() });
+      prismaMock.persona.findUnique.mockResolvedValue({
+        id: 55,
+        nombre: 'Admin',
+        apellido: 'Socio',
+        dni: '30111222',
+        email: 'admin@club.com',
+        membresias: [
+          {
+            id: 10,
+            categoriaId: 1,
+            categoria: { id: 1, nombre: 'Mayores' },
+            activo: false,
+            fechaAlta: new Date(),
+            fechaBaja: new Date(),
+          },
+        ],
+      });
+
+      const response = await request(httpServer).post('/socios/darse-de-baja').expect(201);
+
+      expect(response.body).toEqual(expect.objectContaining({ id: 55, activo: false }));
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({ accion: 'BAJA', entidad: 'Membresia', idEntidad: 10, responsableId: 99 }),
+        expect.anything(),
+      );
     });
   });
 

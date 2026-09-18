@@ -77,6 +77,12 @@ export class SociosController {
     return this.sociosService.update(id, dto, user.id);
   }
 
+  @Post('darse-de-baja')
+  @ApiOperation({ summary: 'US-42 — Darme de baja como socio' })
+  darseDeBaja(@CurrentUser() user: AuthenticatedUser) {
+    return this.sociosService.darseDeBaja(user.id);
+  }
+
   @Delete(':id')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'US-14 — Dar de baja socio (baja lógica)' })
