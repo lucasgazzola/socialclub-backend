@@ -5,14 +5,59 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 16/09/2026
+- **Última actualización:** 22/09/2026
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
 
 > Los IDs **DT-01 a DT-14** son los que relevó el equipo. Los **DT-15 en
 > adelante** salieron de la revisión del código del 15/09/2026 y están
-> marcados como tal.
+> marcados como tal. Los **DT-27 en adelante** salieron del análisis
+> funcional de dominio del 22/09/2026 (documentación, inscripciones, entradas
+> y cuotas) y están marcados como `Nuevo · funcional`.
+
+---
+
+## Índice
+
+- [Cómo priorizamos](#cómo-priorizamos)
+- [Estado de un vistazo](#estado-de-un-vistazo)
+- [Decisiones pendientes del equipo](#decisiones-pendientes-del-equipo)
+  - [🔴 Persistencia de los adjuntos en Azure (DT-15)](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo)
+  - [🟠 Estandarización del código a inglés](#estandarización-del-código-a-inglés---costo-creciente)
+- [Deuda pendiente](#deuda-pendiente)
+  - [🟠 Altas](#-altas)
+    - [DT-02 · Faltan los casos de prueba de las historias ya implementadas (backend)](#dt-02--faltan-los-casos-de-prueba-de-las-historias-ya-implementadas-backend)
+    - [DT-01 · Cobertura de testing frontend](#dt-01--cobertura-de-testing-frontend)
+    - [DT-05 · Falta activar/desactivar la cuota deportiva](#dt-05--falta-activardesactivar-la-cuota-deportiva)
+    - [DT-27 · Documentación por disciplina: requisitos, estados y vigencia](#dt-27--documentación-por-disciplina-requisitos-estados-y-vigencia)
+    - [DT-29 · No existe solicitud de inscripción con aprobación](#dt-29--no-existe-solicitud-de-inscripción-con-aprobación)
+    - [DT-31 · No existe compra real de entradas](#dt-31--no-existe-compra-real-de-entradas)
+    - [DT-35 · El pago implementado solo cubre la cuota social](#dt-35--el-pago-implementado-solo-cubre-la-cuota-social)
+  - [🟡 Medias](#-medias)
+    - [DT-11 · La pantalla de Inscripción no muestra a los inscriptos](#dt-11--la-pantalla-de-inscripción-no-muestra-a-los-inscriptos)
+    - [DT-10 · La pantalla de Auditoría es interminable](#dt-10--la-pantalla-de-auditoría-es-interminable)
+    - [DT-24 · La planilla documenta generación de cuotas que no existe](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe)
+    - [DT-25 · La auditoría append-only no está garantizada por la base](#dt-25--la-auditoría-append-only-no-está-garantizada-por-la-base)
+    - [DT-22 · La rotación mensual de la cuota social no tiene quién la dispare](#dt-22--la-rotación-mensual-de-la-cuota-social-no-tiene-quién-la-dispare)
+    - [DT-23 · El ratchet de cobertura corta el CI por décimas](#dt-23--el-ratchet-de-cobertura-corta-el-ci-por-décimas)
+    - [DT-26 · La documentación de la API no declara respuestas](#dt-26--la-documentación-de-la-api-no-declara-respuestas)
+    - [DT-17 · Código muerto: `EditarInscripcionPage`](#dt-17--código-muerto-editarinscripcionpage)
+    - [DT-28 · El participante no puede consultar su propia documentación](#dt-28--el-participante-no-puede-consultar-su-propia-documentación)
+    - [DT-30 · Falta un ABM de disciplina](#dt-30--falta-un-abm-de-disciplina)
+    - [DT-32 · Los eventos no tienen fecha ni horario](#dt-32--los-eventos-no-tienen-fecha-ni-horario)
+    - [DT-33 · Las entradas no pueden expirar correctamente](#dt-33--las-entradas-no-pueden-expirar-correctamente)
+    - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
+  - [⚪ Bajas](#-bajas)
+    - [DT-08 · Las entradas con QR no se pueden descargar en PDF](#dt-08--las-entradas-con-qr-no-se-pueden-descargar-en-pdf)
+    - [DT-09 · Imágenes en eventos](#dt-09--imágenes-en-eventos)
+    - [DT-20 · La edición de socio y de cuota social sigue en página aparte](#dt-20--la-edición-de-socio-y-de-cuota-social-sigue-en-página-aparte)
+    - [DT-06 · Historias de usuario para sumar al backlog](#dt-06--historias-de-usuario-para-sumar-al-backlog)
+    - [DT-36 · No hay notificaciones de vencimiento o resolución](#dt-36--no-hay-notificaciones-de-vencimiento-o-resolución)
+- [Deuda resuelta](#deuda-resuelta)
+- [Trazabilidad de casos de prueba](#trazabilidad-de-casos-de-prueba)
+- [Nomenclatura](#nomenclatura)
+- [Definition of Done aplicada a la deuda técnica](#definition-of-done-aplicada-a-la-deuda-técnica)
 
 ---
 
@@ -32,11 +77,11 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 
 | Estado | Ítems |
 |---|---|
-| 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15--🔴-riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés--🟠-costo-creciente) |
+| 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
 | ✅ Resueltas | DT-03, DT-04, DT-07, DT-13, DT-14, DT-16, DT-18, DT-19, DT-21 |
-| 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05 |
-| 🟡 Medias pendientes | DT-10, DT-11, DT-17, DT-22, DT-23, DT-24, DT-25, DT-26 |
-| ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-20 |
+| 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05, DT-27, DT-29, DT-31, DT-35 |
+| 🟡 Medias pendientes | DT-10, DT-11, DT-17, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-32, DT-33, DT-34 |
+| ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-20, DT-36 |
 
 **Cobertura de tests** (medida el 16/09/2026, objetivo DoD **70 %**):
 
@@ -157,6 +202,98 @@ solo el botón** que mande `{ activo: false }`.
 - **Evidencia:** `actualizar-cuota.dto.ts:14` · `cuotas.service.ts` (`actualizar`) · `CuotasTable.tsx`
 - **Rama sugerida:** `issue/TASK-16-DT-05-Activar-desactivar-cuota-deportiva`
 
+#### DT-27 · Documentación por disciplina: requisitos, estados y vigencia
+*Nuevo · funcional · backend + frontend*
+
+`Documentacion` solo se relaciona con `Persona`: no existe ningún vínculo con
+`Disciplina`, ni tipo de documento requerido, ni relación con la inscripción,
+ni estado. En la práctica esto junta varios problemas del mismo origen:
+
+- **No está vinculada a la disciplina ni a la inscripción.** No existe
+  `Disciplina.solicitaDocumentacion`, ni una tabla de tipos de documentación
+  requeridos por disciplina (apto físico, autorización, DNI, etc.), ni
+  validación de documentación al inscribir.
+- **No tiene estado.** Solo guarda fechas y archivo: no hay forma de saber si
+  un documento fue aprobado, rechazado o sigue pendiente. Faltan `estado`
+  (`PENDIENTE`, `APROBADA`, `RECHAZADA`, `VENCIDA`), `revisadoPor`,
+  `revisadoEn` y `motivoRechazo`, además de acciones para aprobar, rechazar
+  con motivo, marcar vencida automáticamente y reemplazar un documento
+  conservando el historial.
+- **No hay noción de vigencia ni de documento activo.** Si una persona
+  reemplaza, por ejemplo, un apto físico, el sistema conserva varias versiones
+  pero no indica cuál es la vigente para cada disciplina. Falta definir
+  documento activo, reemplazo, historial de versiones, vigencia por
+  disciplina y prioridad del documento aprobado más reciente.
+- **La inscripción no sabe qué documentación pedir.** Al inscribir (o al
+  solicitar la inscripción, ver DT-29) hay que poder especificar, según la
+  disciplina elegida, qué tipo(s) de documentación corresponde exigir, y
+  bloquear o dejar pendiente la inscripción si falta o está vencida.
+
+**Arreglo:** agregar configuración de requisitos por disciplina
+(`solicitaDocumentacion: Boolean` + tabla `RequisitoDocumentacionDisciplina`
+con los tipos requeridos), estado y trazabilidad en `Documentacion`, y la
+validación correspondiente al crear/activar una inscripción: si la disciplina
+no exige documentación se permite; si la exige, debe existir documentación
+aprobada y vigente del tipo pedido, y si falta o está vencida la inscripción
+(o la solicitud) queda pendiente o se rechaza. Depende de que exista un ABM de
+disciplina real (DT-30) para poder configurar estos requisitos.
+
+- **Detectado en el análisis funcional de dominio (22/09/2026).**
+- **Rama sugerida:** `issue/TASK-19-DT-27-Documentacion-por-disciplina`
+
+#### DT-29 · No existe solicitud de inscripción con aprobación
+*Nuevo · funcional · backend + frontend*
+
+La inscripción se crea directamente con `POST /inscripcion`, habilitado solo
+para `ADMIN` y `DELEGADO`. No existe una solicitud pendiente que el
+participante pueda iniciar y que alguien con permisos revise: hoy no hay
+forma de que un socio pida inscribirse a una disciplina, ni de aprobar o
+rechazar ese pedido antes de que la inscripción exista.
+
+**Arreglo:** crear una entidad `SolicitudInscripcion` (`personaId`,
+`disciplinaId`, `categoriaDisciplinaId`, `estado`: `PENDIENTE`, `APROBADA`,
+`RECHAZADA`, `CANCELADA`, fechas de solicitud y resolución, usuario que
+resolvió, motivo de rechazo). Flujo: el usuario solicita inscribirse → se
+valida documentación y condiciones (DT-27) → el colaborador o delegado
+aprueba o rechaza → solo al aprobar se crea o activa la `Inscripcion`.
+
+- **Detectado en el análisis funcional de dominio (22/09/2026).**
+- **Rama sugerida:** `issue/TASK-20-DT-29-Solicitud-de-inscripcion`
+
+#### DT-31 · No existe compra real de entradas
+*Nuevo · funcional · backend + frontend*
+
+`crearMultiples()` genera entradas administrativas: no registra comprador,
+usuario o persona propietaria, precio, pago, orden de compra ni estado de
+compra. El botón "Comprar entradas" hoy en realidad significa "generar
+entradas": no hay pago de por medio.
+
+**Arreglo:** crear `CompraEntrada` y `DetalleCompraEntrada`, sumar
+`Entrada.usuarioId` (o `personaId`) y un `estadoCompra` (`PENDIENTE`,
+`PAGADA`, `CANCELADA`, `REEMBOLSADA`). Flujo: el usuario elige evento y
+cantidad → se crea una compra pendiente → se procesa el pago → las entradas
+se generan solo si el pago fue aprobado → quedan asociadas al comprador.
+
+- **Detectado en el análisis funcional de dominio (22/09/2026).**
+- **Rama sugerida:** `issue/TASK-21-DT-31-Compra-real-de-entradas`
+
+#### DT-35 · El pago implementado solo cubre la cuota social
+*Nuevo · funcional · backend*
+
+`PagosService` calcula únicamente cuotas sociales. Un participante puede
+estar inscripto en una disciplina con cuota deportiva y el sistema nunca le
+genera ni le cobra esa deuda. Es la contracara de DT-24/DT-06 (que ya
+registran que la cuota deportiva no se emite): además de no generarse, hoy
+tampoco hay ningún camino de cobro para ella.
+
+**Arreglo:** unificar el concepto de obligación de pago, o crear cuotas
+separadas y cobrables para cuota social, cuota deportiva, matrícula y
+eventos.
+
+- **Relacionado:** [DT-24](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe), [DT-06](#dt-06--historias-de-usuario-para-sumar-al-backlog).
+- **Detectado en el análisis funcional de dominio (22/09/2026).**
+- **Rama sugerida:** `issue/TASK-22-DT-35-Cobro-de-cuota-deportiva`
+
 ### 🟡 Medias
 
 #### DT-11 · La pantalla de Inscripción no muestra a los inscriptos
@@ -194,6 +331,12 @@ decidir si se implementa la generación (es producto nuevo, se vincula con
 DT-06) o si se corrigen los casos para que describan lo que el sistema hace.
 
 - **Detectado al contrastar la planilla contra el código.**
+- **Confirmado además en el análisis funcional de dominio (22/09/2026):**
+  las configuraciones de precio deportivo existen, pero no se emite ninguna
+  cuota real por persona/inscripción. Ver también
+  [DT-35](#dt-35--el-pago-implementado-solo-cubre-la-cuota-social) (el pago
+  tampoco cubre esa cuota una vez que exista) y
+  [DT-06](#dt-06--historias-de-usuario-para-sumar-al-backlog).
 
 #### DT-25 · La auditoría append-only no está garantizada por la base
 *Nuevo · backend · 2 SP*
@@ -271,6 +414,82 @@ contrato queda a medias.
 El archivo existe (196 líneas) y no está importado en ningún lado — no tiene
 ruta en `AppRouter`. Al hacer DT-11: o se conecta al listado nuevo, o se borra.
 
+#### DT-28 · El participante no puede consultar su propia documentación
+*Nuevo · funcional · backend + frontend*
+
+El endpoint de documentación solo permite acceso a `ADMIN` y `DELEGADO`, y la
+pantalla de edición del participante no carga documentación. El propio socio
+no puede ver qué documentos tiene cargados, ni su estado o vencimiento.
+
+**Arreglo:** incluir documentación en el detalle del participante; permitir
+que el propio usuario consulte la documentación de su persona; permitir que
+`COLABORADOR` la consulte si va a ser responsable de revisar solicitudes
+(ver DT-27/DT-29); mostrar estado, vencimiento, tipo y archivo.
+
+- **Detectado en el análisis funcional de dominio (22/09/2026).**
+- **Rama sugerida:** `issue/TASK-23-DT-28-Consulta-documentacion-participante`
+
+#### DT-30 · Falta un ABM de disciplina
+*Nuevo · funcional · backend + frontend*
+
+No hay una gestión completa (alta, baja, modificación) de `Disciplina` desde
+la UI. Sin esto, no hay dónde configurar los requisitos de documentación por
+disciplina (DT-27) ni mantener el resto de sus datos a medida que el club
+suma o da de baja actividades.
+
+**Arreglo:** ABM de disciplina (crear, editar, activar/desactivar) que
+incluya, como parte del formulario, la configuración de
+`solicitaDocumentacion` y los tipos de documentación requeridos una vez que
+exista DT-27.
+
+- **Bloquea:** DT-27 (no se puede configurar el requisito de documentación
+  por disciplina sin poder gestionar la disciplina misma).
+- **Detectado en el análisis funcional de dominio (22/09/2026).**
+- **Rama sugerida:** `issue/TASK-24-DT-30-ABM-de-disciplina`
+
+#### DT-32 · Los eventos no tienen fecha ni horario
+*Nuevo · funcional · backend + frontend*
+
+`Evento` solo tiene nombre, descripción y cantidad de entradas. No se puede
+saber cuándo ocurre, si ya pasó, ni cuándo empieza o termina la venta de
+entradas.
+
+**Arreglo:** agregar `fechaInicio`, `fechaFin`, `inicioVenta`, `finVenta`,
+ubicación y estado del evento.
+
+- **Relacionado:** [DT-09](#dt-09--imágenes-en-eventos) (mismo módulo de eventos).
+- **Detectado en el análisis funcional de dominio (22/09/2026).**
+- **Rama sugerida:** `issue/TASK-25-DT-32-Fecha-y-horario-de-eventos`
+
+#### DT-33 · Las entradas no pueden expirar correctamente
+*Nuevo · funcional · backend*
+
+Existe el estado `EXPIRADA`, pero `Entrada` no tiene fecha de vencimiento y
+el servicio nunca las expira automáticamente.
+
+**Arreglo:** derivar el vencimiento desde el evento (DT-32) o guardar
+`fechaVencimiento` en la propia entrada; rechazar compras fuera del período
+de venta; correr un proceso que marque entradas vencidas.
+
+- **Depende de:** [DT-32](#dt-32--los-eventos-no-tienen-fecha-ni-horario).
+- **Detectado en el análisis funcional de dominio (22/09/2026).**
+- **Rama sugerida:** `issue/TASK-26-DT-33-Expiracion-de-entradas`
+
+#### DT-34 · No hay cancelación, devolución ni transferencia de entradas
+*Nuevo · funcional · backend + frontend*
+
+Una entrada solo puede estar `VALIDA`, `USADA` o `EXPIRADA`. Faltan estados
+como `CANCELADA`, `REEMBOLSADA` y `TRANSFERIDA`, lo que impide resolver
+errores de compra, devoluciones o cambios de titularidad.
+
+**Arreglo:** sumar esos estados al ciclo de vida de `Entrada` y las acciones
+para pasar por ellos, apoyándose en la compra real (DT-31) para saber a
+quién reembolsar.
+
+- **Depende de:** [DT-31](#dt-31--no-existe-compra-real-de-entradas).
+- **Detectado en el análisis funcional de dominio (22/09/2026).**
+- **Rama sugerida:** `issue/TASK-27-DT-34-Cancelacion-devolucion-transferencia-entradas`
+
 ### ⚪ Bajas
 
 #### DT-08 · Las entradas con QR no se pueden descargar en PDF
@@ -321,6 +540,18 @@ proceso de emisión (`generar*`), ni modelo `Pago`. Lo que sí dejó la baja de
 US-07 es la precondición correcta: el participante queda Inactivo
 (`Persona.activo = false`) y **sin inscripciones vigentes**, que es lo que
 tendrá que filtrar el generador cuando exista.
+
+#### DT-36 · No hay notificaciones de vencimiento o resolución
+*Nuevo · funcional · backend + frontend*
+
+El usuario no recibe avisos cuando: su documentación está por vencer; una
+solicitud (DT-29) fue aprobada o rechazada; una compra (DT-31) fue
+confirmada; o una cuota está vencida.
+
+**Arreglo:** agregar notificaciones internas y, opcionalmente, email.
+
+- **Detectado en el análisis funcional de dominio (22/09/2026).**
+- **Rama sugerida:** `issue/TASK-28-DT-36-Notificaciones`
 
 ---
 
