@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -18,6 +19,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
+import { FindDisciplinasQueryDto } from './dto/find-disciplinas-query.dto';
 
 @ApiTags('disciplinas')
 @ApiCookieAuth()
@@ -36,8 +38,8 @@ export class DisciplinasController {
   @Get()
   @Roles('ADMIN', 'COLABORADOR')
   @ApiOperation({ summary: 'Listar disciplinas deportivas' })
-  findAll() {
-    return this.disciplinasService.findAll();
+  findAll(@Query() query: FindDisciplinasQueryDto) {
+    return this.disciplinasService.findAll(query);
   }
 
   @Get(':id')
@@ -56,6 +58,13 @@ export class DisciplinasController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.disciplinasService.update(id, dto, user.id);
+  }
+
+  @Patch(':id/reactivar')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Reactivar disciplina (restaurar estado activo)' })
+  reactivate(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.disciplinasService.reactivate(id, user.id);
   }
 
   @Delete(':id')

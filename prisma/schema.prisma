@@ -24,6 +24,29 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Género al que aplica la disciplina deportiva (restricción de inscripción).
+enum GeneroDisciplina {
+  FEMENINO
+  MASCULINO
+  NO_BINARIO_NO_ESPECIFICADO
+}
+
+/// Catálogo cerrado de documentación que puede exigirse por disciplina.
+enum TipoDocumentacionDisciplina {
+  DNI
+  FICHA_INSCRIPCION
+  CERTIFICADO_MEDICO_APTITUD_FISICA
+  SEGURO_COBERTURA_MEDICA
+  AUTORIZACION_PADRES_TUTORES
+  CARNET_FEDERATIVO_LICENCIA_DEPORTIVA
+  REGLAMENTO_INTERNO_FIRMADO
+  FICHA_TECNICA_NATACION
+  FICHA_TECNICA_GIMNASIO_FITNESS
+  FICHA_TECNICA_ARTES_MARCIALES
+  FICHA_TECNICA_DEPORTES_CONTACTO
+  COMPROBANTE_PAGO_CUOTA_SOCIAL_DEPORTIVA
+}
+
 /// Acciones registradas en la auditoría. Tiparlas evita inconsistencias de
 /// strings sueltos y facilita filtrar/reportar (RF12).
 enum AccionAuditoria {
@@ -110,14 +133,41 @@ model Disciplina {
   id                             Int                                @id @default(autoincrement())
   nombre                         String                             @unique
   descripcion                    String?
+  /// Restricción de género para la inscripción. Null = sin restricción.
+  genero                         GeneroDisciplina?
+  /// Edad mínima requerida para inscribirse (años cumplidos). Null = sin mínimo.
+  edadMinima                     Int?
+  /// Edad máxima permitida para inscribirse (años cumplidos). Null = sin máximo.
+  edadMaxima                     Int?
+  /// Indica si la disciplina exige documentación para la inscripción/permanencia.
+  solicitaDocumentacion          Boolean                            @default(false)
   activo                         Boolean                            @default(true)
   creadoEn                       DateTime                           @default(now())
   actualizadoEn                  DateTime                           @updatedAt
   configuracionesCuotaDeportiva  ConfiguracionCuotaDeportiva[]
-  categorias    CategoriaDisciplina[]
-  inscripciones Inscripcion[]
+  categorias                     CategoriaDisciplina[]
+  inscripciones                  Inscripcion[]
+  requerimientosDoc              DisciplinaRequerimientoDoc[]
 
   @@map("disciplinas")
+}
+
+/// Tipos de documentación obligatoria requeridos por una disciplina para
+/// la inscripción o permanencia del socio (ej: "Apto Médico", "DNI").
+/// Relación N a 1 con Disciplina; se gestiona como delete-all + re-insert
+/// al actualizar la disciplina.
+model DisciplinaRequerimientoDoc {
+  id             Int        @id @default(autoincrement())
+  disciplinaId   Int
+  disciplina     Disciplina @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
+  tipoDocumento  TipoDocumentacionDisciplina
+  /// 0 = debe estar presentada al inscribirse; mayor a 0 = días corridos de tolerancia.
+  plazoDiasTolerancia Int    @default(0)
+  creadoEn       DateTime   @default(now())
+
+  @@index([disciplinaId])
+  @@unique([disciplinaId, tipoDocumento])
+  @@map("disciplina_requerimientos_doc")
 }
 
 /// Configuración del monto mensual de la cuota deportiva por combinación
