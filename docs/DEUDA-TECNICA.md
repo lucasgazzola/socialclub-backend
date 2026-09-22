@@ -44,7 +44,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-26 · La documentación de la API no declara respuestas](#dt-26--la-documentación-de-la-api-no-declara-respuestas)
     - [DT-17 · Código muerto: `EditarInscripcionPage`](#dt-17--código-muerto-editarinscripcionpage)
     - [DT-28 · El participante no puede consultar su propia documentación](#dt-28--el-participante-no-puede-consultar-su-propia-documentación)
-    - [DT-30 · Falta un ABM de disciplina](#dt-30--falta-un-abm-de-disciplina)
     - [DT-32 · Los eventos no tienen fecha ni horario](#dt-32--los-eventos-no-tienen-fecha-ni-horario)
     - [DT-33 · Las entradas no pueden expirar correctamente](#dt-33--las-entradas-no-pueden-expirar-correctamente)
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
@@ -78,7 +77,7 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-03, DT-04, DT-07, DT-13, DT-14, DT-16, DT-18, DT-19, DT-21 |
+| ✅ Resueltas | DT-03, DT-04, DT-07, DT-13, DT-14, DT-16, DT-18, DT-19, DT-21, DT-30 |
 | 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05, DT-27, DT-29, DT-31, DT-35 |
 | 🟡 Medias pendientes | DT-10, DT-11, DT-17, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-32, DT-33, DT-34 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-20, DT-36 |
@@ -205,14 +204,16 @@ solo el botón** que mande `{ activo: false }`.
 #### DT-27 · Documentación por disciplina: requisitos, estados y vigencia
 *Nuevo · funcional · backend + frontend*
 
-`Documentacion` solo se relaciona con `Persona`: no existe ningún vínculo con
-`Disciplina`, ni tipo de documento requerido, ni relación con la inscripción,
-ni estado. En la práctica esto junta varios problemas del mismo origen:
+La primera parte de esta deuda quedó resuelta: `Disciplina` ahora tiene
+`solicitaDocumentacion`, `plazoDiasDocumentacion` y una relación con tipos de
+documentación requeridos, administrables desde el ABM. Siguen pendientes los
+estados, la vigencia y la validación contra la inscripción. `Documentacion`
+todavía solo se relaciona con `Persona`:
 
-- **No está vinculada a la disciplina ni a la inscripción.** No existe
-  `Disciplina.solicitaDocumentacion`, ni una tabla de tipos de documentación
-  requeridos por disciplina (apto físico, autorización, DNI, etc.), ni
-  validación de documentación al inscribir.
+- **La inscripción no valida todavía la configuración.** Aunque ya existe
+  `Disciplina.solicitaDocumentacion` y la tabla de requisitos por disciplina
+  (apto físico, autorización, DNI, etc.), aún falta exigir documentación
+  aprobada y vigente al inscribir.
 - **No tiene estado.** Solo guarda fechas y archivo: no hay forma de saber si
   un documento fue aprobado, rechazado o sigue pendiente. Faltan `estado`
   (`PENDIENTE`, `APROBADA`, `RECHAZADA`, `VENCIDA`), `revisadoPor`,
@@ -229,16 +230,16 @@ ni estado. En la práctica esto junta varios problemas del mismo origen:
   disciplina elegida, qué tipo(s) de documentación corresponde exigir, y
   bloquear o dejar pendiente la inscripción si falta o está vencida.
 
-**Arreglo:** agregar configuración de requisitos por disciplina
-(`solicitaDocumentacion: Boolean` + tabla `RequisitoDocumentacionDisciplina`
-con los tipos requeridos), estado y trazabilidad en `Documentacion`, y la
+**Arreglo pendiente:** agregar estado y trazabilidad en `Documentacion`, y la
 validación correspondiente al crear/activar una inscripción: si la disciplina
 no exige documentación se permite; si la exige, debe existir documentación
 aprobada y vigente del tipo pedido, y si falta o está vencida la inscripción
 (o la solicitud) queda pendiente o se rechaza. Depende de que exista un ABM de
 disciplina real (DT-30) para poder configurar estos requisitos.
 
-- **Detectado en el análisis funcional de dominio (22/09/2026).**
+- **Configuración de requisitos resuelta en US-XX (22/09/2026).**
+- **Pendiente:** estados/vigencia de `Documentacion`, validación de inscripción
+  y job automático de baja por vencimiento del plazo.
 - **Rama sugerida:** `issue/TASK-19-DT-27-Documentacion-por-disciplina`
 
 #### DT-29 · No existe solicitud de inscripción con aprobación
@@ -429,24 +430,6 @@ que el propio usuario consulte la documentación de su persona; permitir que
 - **Detectado en el análisis funcional de dominio (22/09/2026).**
 - **Rama sugerida:** `issue/TASK-23-DT-28-Consulta-documentacion-participante`
 
-#### DT-30 · Falta un ABM de disciplina
-*Nuevo · funcional · backend + frontend*
-
-No hay una gestión completa (alta, baja, modificación) de `Disciplina` desde
-la UI. Sin esto, no hay dónde configurar los requisitos de documentación por
-disciplina (DT-27) ni mantener el resto de sus datos a medida que el club
-suma o da de baja actividades.
-
-**Arreglo:** ABM de disciplina (crear, editar, activar/desactivar) que
-incluya, como parte del formulario, la configuración de
-`solicitaDocumentacion` y los tipos de documentación requeridos una vez que
-exista DT-27.
-
-- **Bloquea:** DT-27 (no se puede configurar el requisito de documentación
-  por disciplina sin poder gestionar la disciplina misma).
-- **Detectado en el análisis funcional de dominio (22/09/2026).**
-- **Rama sugerida:** `issue/TASK-24-DT-30-ABM-de-disciplina`
-
 #### DT-32 · Los eventos no tienen fecha ni horario
 *Nuevo · funcional · backend + frontend*
 
@@ -556,6 +539,30 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### DT-30 · ABM de disciplina
+**US-XX** · 22/09/2026
+
+Se implementó el ABM completo de disciplinas en backend y frontend: listado
+para ADMIN/COLABORADOR, alta, edición, baja lógica, reactivación y auditoría
+de mutaciones. La pantalla incluye búsqueda, filtros por estado, confirmación
+de acciones y feedback con toasts.
+
+También se incorporó la configuración de requisitos documentales por
+disciplina mediante un catálogo enum cerrado, con plazo de tolerancia
+individual por tipo, y restricciones opcionales por edad y género.
+El listado administrativo resuelve búsqueda, filtro de estado y paginación en
+el backend; las pestañas muestran los conteos de todos, activos e inactivos
+según la búsqueda vigente. El formulario permite definir el estado inicial o
+actualizarlo.
+Las mutaciones siguen protegidas para ADMIN, mientras COLABORADOR conserva
+acceso de consulta.
+
+- Enum Prisma: `GeneroDisciplina` con `FEMENINO`, `MASCULINO` y
+  `NO_BINARIO_NO_ESPECIFICADO` (UI: «No binario / No especificado»).
+- Tests: servicio backend (14 casos) y schema Zod frontend (3 casos).
+- El job automático de baja por vencimiento queda fuera de esta US y continúa
+  registrado en DT-27.
 
 ### DT-18 · Numeración única y secuencial de los casos de prueba
 **PR [#39](https://github.com/lucasgazzola/socialclub-backend/pull/39)** ·
