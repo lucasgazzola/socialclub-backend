@@ -182,7 +182,11 @@ describe('SociosController (e2e)', () => {
       };
 
       prismaMock.usuario.findUnique.mockResolvedValue(usuarioSocio);
-      prismaMock.membresia.update.mockResolvedValue({ id: 10, activo: false, fechaBaja: new Date() });
+      prismaMock.membresia.update.mockResolvedValue({
+        id: 10,
+        activo: false,
+        fechaBaja: new Date(),
+      });
       prismaMock.persona.findUnique.mockResolvedValue({
         id: 55,
         nombre: 'Admin',
@@ -205,7 +209,12 @@ describe('SociosController (e2e)', () => {
 
       expect(response.body).toEqual(expect.objectContaining({ id: 55, activo: false }));
       expect(auditoriaMock.registrar).toHaveBeenCalledWith(
-        expect.objectContaining({ accion: 'BAJA', entidad: 'Membresia', idEntidad: 10, responsableId: 99 }),
+        expect.objectContaining({
+          accion: 'BAJA',
+          entidad: 'Membresia',
+          idEntidad: 10,
+          responsableId: 99,
+        }),
         expect.anything(),
       );
     });

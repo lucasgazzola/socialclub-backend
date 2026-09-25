@@ -604,7 +604,11 @@ describe('SociosService', () => {
       };
 
       prismaMock.usuario.findUnique.mockResolvedValue(usuarioSocio);
-      prismaMock.membresia.update.mockResolvedValue({ id: 105, activo: false, fechaBaja: new Date() });
+      prismaMock.membresia.update.mockResolvedValue({
+        id: 105,
+        activo: false,
+        fechaBaja: new Date(),
+      });
       prismaMock.persona.findUnique.mockResolvedValue({
         id: 15,
         nombre: 'Carlos',
@@ -659,9 +663,7 @@ describe('SociosService', () => {
         },
       });
 
-      await expect(service.darseDeBaja(7)).rejects.toThrow(
-        'El socio ya se encuentra dado de baja',
-      );
+      await expect(service.darseDeBaja(7)).rejects.toThrow('El socio ya se encuentra dado de baja');
     });
   });
 });

@@ -40,4 +40,3 @@ export class RegistrarPagoDto {
   @IsString()
   titular?: string;
 }
-
