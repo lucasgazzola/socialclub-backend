@@ -332,7 +332,7 @@ export class SociosService {
           membresias: { include: { categoria: true }, orderBy: { fechaAlta: 'desc' } },
           usuario: { select: { id: true } },
         },
-        orderBy: { apellido: 'asc' },
+        orderBy: { creadoEn: 'desc' },
         skip: (pagina - 1) * porPagina,
         take: porPagina,
       }),
