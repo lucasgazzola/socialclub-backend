@@ -78,7 +78,7 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
 | ✅ Resueltas | DT-03, DT-04, DT-07, DT-13, DT-14, DT-16, DT-18, DT-19, DT-21, DT-30 |
-| 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05, DT-27, DT-29, DT-31, DT-35 |
+| 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05, DT-27, DT-29, DT-31, DT-35 (cobro resuelto en US-21; resta generación y autoservicio) |
 | 🟡 Medias pendientes | DT-10, DT-11, DT-17, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-32, DT-33, DT-34 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-20, DT-36 |
 
@@ -278,22 +278,33 @@ se generan solo si el pago fue aprobado → quedan asociadas al comprador.
 - **Detectado en el análisis funcional de dominio (22/09/2026).**
 - **Rama sugerida:** `issue/TASK-21-DT-31-Compra-real-de-entradas`
 
-#### DT-35 · El pago implementado solo cubre la cuota social
-*Nuevo · funcional · backend*
+#### DT-35 · El cobro de cuota deportiva quedó implementado; resta la generación y el autoservicio
+*funcional · backend · parcialmente resuelto (US-21, 26/09/2026)*
 
-`PagosService` calcula únicamente cuotas sociales. Un participante puede
-estar inscripto en una disciplina con cuota deportiva y el sistema nunca le
-genera ni le cobra esa deuda. Es la contracara de DT-24/DT-06 (que ya
-registran que la cuota deportiva no se emite): además de no generarse, hoy
-tampoco hay ningún camino de cobro para ella.
+**US-21** agregó el cobro de cuota deportiva por secretaría: modelo propio
+`PagoCuotaDeportiva` (independiente de `Pago`/cuota social, con
+`@@unique([personaId, disciplinaId, periodo])`), `PagosDeportivosService`
+(pendientes por disciplina, registro atómico de uno o varios períodos, estado
+`AL_DIA`/`MOROSO`, auditoría) y la pantalla *Cobrar cuota deportiva*
+(ADMIN/COLABORADOR). Con esto ya **existe un camino de cobro** para la cuota
+deportiva.
 
-**Arreglo:** unificar el concepto de obligación de pago, o crear cuotas
-separadas y cobrables para cuota social, cuota deportiva, matrícula y
-eventos.
+**Lo que sigue pendiente:**
+- **Generación/emisión** de la cuota deportiva: hoy la deuda se deriva "al
+  vuelo" desde la fecha de inscripción y la `ConfiguracionCuotaDeportiva`
+  vigente (misma estrategia que la social); no hay emisión persistida (ver
+  DT-24).
+- **Acoplamiento monto ↔ categoría de socio:** el monto de la cuota deportiva
+  se resuelve por la `CategoriaSocio` del participante (a través de su
+  membresía). Un jugador **sin membresía** no tiene categoría y el cobro se
+  rechaza con 400. Si el club admite jugadores no socios, hay que revisar de
+  dónde sale el monto.
+- **Autoservicio y matrícula/eventos:** el pago deportivo por el propio socio
+  (equivalente a US-10) y las obligaciones de matrícula/eventos siguen sin
+  cobrarse.
 
 - **Relacionado:** [DT-24](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe), [DT-06](#dt-06--historias-de-usuario-para-sumar-al-backlog).
-- **Detectado en el análisis funcional de dominio (22/09/2026).**
-- **Rama sugerida:** `issue/TASK-22-DT-35-Cobro-de-cuota-deportiva`
+- **Detectado en el análisis funcional de dominio (22/09/2026); cobro implementado en US-21 (26/09/2026).**
 
 ### 🟡 Medias
 
