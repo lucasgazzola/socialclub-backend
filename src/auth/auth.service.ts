@@ -1,10 +1,16 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { RegisterDto } from './dto/register.dto';
+import { CambiarContrasenaDto } from './dto/cambiar-contrasena.dto';
 
 const SALT_ROUNDS = 10;
 
@@ -207,6 +213,59 @@ export class AuthService {
         roles,
       },
     };
+  }
+
+  /**
+   * US-41: Cambio de contraseña del usuario autenticado.
+   *
+   * Criterios de la historia:
+   *  - Verifica la contraseña actual contra el hash guardado ANTES de guardar
+   *    la nueva; si no coincide, nada se modifica (se responde 401).
+   *  - La complejidad de la nueva contraseña la valida el DTO (ValidationPipe),
+   *    mismo criterio del alta (US-01) y del registro público (US-38).
+   *  - La coincidencia con `confirmarNuevaContrasena` también la valida el DTO.
+   *  - Tras guardar la nueva, el controller borra la cookie httpOnly
+   *    (`clearCookie`, igual que US-40) para exigir reautenticación: aunque el
+   *    JWT previo aún fuese válido, el navegador ya no lo envía. Queda
+   *    registrado en auditoría como `EDITAR`.
+   */
+  async cambiarContrasena(usuarioId: number, dto: CambiarContrasenaDto) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { id: true, passwordHash: true },
+    });
+
+    if (!usuario) {
+      throw new UnauthorizedException('Sesión inválida');
+    }
+
+    const passwordActualValida = await bcrypt.compare(dto.passwordActual, usuario.passwordHash);
+    if (!passwordActualValida) {
+      throw new UnauthorizedException('La contraseña actual es incorrecta');
+    }
+
+    // Evita un "cambio" que en realidad deja la misma contraseña guardada.
+    const igualALaActual = await bcrypt.compare(dto.nuevaContrasena, usuario.passwordHash);
+    if (igualALaActual) {
+      throw new BadRequestException('La nueva contraseña no puede ser igual a la actual');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.nuevaContrasena, SALT_ROUNDS);
+
+    await this.prisma.usuario.update({
+      where: { id: usuarioId },
+      data: { passwordHash },
+    });
+
+    await this.auditoria.registrar({
+      accion: 'EDITAR',
+      entidad: 'Usuario',
+      idEntidad: usuarioId,
+      responsableId: usuarioId,
+      detalle: 'Cambio de contraseña propio (US-41)',
+    });
+
+    return { message: 'Contraseña actualizada correctamente' };
   }
 
   /** Normaliza la Persona vinculada al usuario para la API. */
