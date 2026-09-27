@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -19,6 +19,14 @@ import { AuthService } from './auth.service';
  * TC-077, TC-081, TC-082, TC-083 son de UI/validación de formulario y no
  * corresponden a este archivo (ver RegisterForm.test.tsx del lado del front,
  * pendiente hasta contar con components/RegisterForm.tsx).
+ *
+ * US-41 (cambio de contraseña propio):
+ *   TC-118 -> 'guarda el hash de la nueva' | TC-119 -> 'contraseña actual incorrecta'
+ *   TC-122 -> 'usuario auto-registrado sin roles' | TC-123 -> 'auditoría inalterable'
+ *   TC-124 -> 'nueva igual a la actual' | TC-125 -> 'sesión sin usuario existente'
+ *   TC-126 -> 'login con la nueva contraseña'
+ *   (TC-120 y TC-121 — complejidad y confirmación — se validan en el DTO y se
+ *   cubren en auth.e2e-spec.ts; del lado del front, en CambiarContrasenaForm.test.tsx).
  */
 describe('AuthService', () => {
   let service: AuthService;
@@ -305,6 +313,145 @@ describe('AuthService', () => {
         },
         select: { id: true, email: true, nombre: true, apellido: true },
       });
+    });
+  });
+
+  // ── US-41: Cambio de contraseña del usuario autenticado ─────────────────────
+  describe('cambiarContraseña (US-41)', () => {
+    const CONTRASENA_NUEVA = 'Nueva123!';
+
+    /** Payload del formulario de US-41 (la confirmación siempre acompaña). */
+    const dtoCambio = (passwordActual: string, nueva = CONTRASENA_NUEVA) => ({
+      passwordActual,
+      nuevaContrasena: nueva,
+      confirmarNuevaContrasena: nueva,
+    });
+
+    it('TC-118: con la contraseña actual correcta guarda el hash de la nueva y confirma la operación', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ id: 7, passwordHash });
+      prismaMock.usuario.update.mockResolvedValue({});
+
+      const resultado = await service.cambiarContrasena(7, dtoCambio(PASSWORD_PLANO));
+
+      expect(resultado).toEqual({ message: 'Contraseña actualizada correctamente' });
+      expect(prismaMock.usuario.update).toHaveBeenCalledTimes(1);
+
+      const { where, data } = prismaMock.usuario.update.mock.calls[0][0] as {
+        where: { id: number };
+        data: { passwordHash: string };
+      };
+      expect(where).toEqual({ id: 7 });
+      // Se guarda un hash nuevo (no la contraseña en texto ni el hash anterior).
+      expect(data.passwordHash).not.toBe(passwordHash);
+      expect(bcrypt.compareSync(CONTRASENA_NUEVA, data.passwordHash)).toBe(true);
+      // La respuesta nunca expone el hash.
+      expect(resultado).not.toHaveProperty('passwordHash');
+    });
+
+    it('TC-119: con la contraseña actual incorrecta responde 401 y no modifica la contraseña', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ id: 7, passwordHash });
+
+      const error = await service
+        .cambiarContrasena(7, dtoCambio('Equivocada1!'))
+        .catch((e: unknown) => e as UnauthorizedException);
+
+      expect(error).toBeInstanceOf(UnauthorizedException);
+      expect(error.message).toBe('La contraseña actual es incorrecta');
+      expect(prismaMock.usuario.update).not.toHaveBeenCalled();
+      expect(auditoriaMock.registrar).not.toHaveBeenCalled();
+    });
+
+    it('TC-124: rechaza una nueva contraseña igual a la actual y no escribe nada', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ id: 7, passwordHash });
+
+      const error = await service
+        .cambiarContrasena(7, dtoCambio(PASSWORD_PLANO, PASSWORD_PLANO))
+        .catch((e: unknown) => e as BadRequestException);
+
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect(error.message).toBe('La nueva contraseña no puede ser igual a la actual');
+      expect(prismaMock.usuario.update).not.toHaveBeenCalled();
+      expect(auditoriaMock.registrar).not.toHaveBeenCalled();
+    });
+
+    it('TC-122: cualquier usuario autenticado puede cambiar su contraseña (no exige rol)', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ id: 55, passwordHash });
+      prismaMock.usuario.update.mockResolvedValue({});
+
+      await expect(service.cambiarContrasena(55, dtoCambio(PASSWORD_PLANO))).resolves.toEqual({
+        message: 'Contraseña actualizada correctamente',
+      });
+
+      // Solo lee id y hash: la operación no consulta roles ni permisos, de modo
+      // que un SOCIO auto-registrado (sin roles) tiene exactamente el mismo acceso.
+      expect(prismaMock.usuario.findUnique).toHaveBeenCalledWith({
+        where: { id: 55 },
+        select: { id: true, passwordHash: true },
+      });
+    });
+
+    it('TC-123: deja constancia del cambio en la auditoría inalterable', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ id: 7, passwordHash });
+      prismaMock.usuario.update.mockResolvedValue({});
+
+      await service.cambiarContrasena(7, dtoCambio(PASSWORD_PLANO));
+
+      expect(auditoriaMock.registrar).toHaveBeenCalledTimes(1);
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'EDITAR',
+          entidad: 'Usuario',
+          idEntidad: 7,
+          responsableId: 7,
+          detalle: expect.stringContaining('US-41'),
+        }),
+      );
+    });
+
+    it('TC-125: rechaza la operación si la sesión no corresponde a un usuario existente', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(null);
+
+      const error = await service
+        .cambiarContrasena(999, dtoCambio(PASSWORD_PLANO))
+        .catch((e: unknown) => e as UnauthorizedException);
+
+      expect(error).toBeInstanceOf(UnauthorizedException);
+      expect(error.message).toBe('Sesión inválida');
+      expect(prismaMock.usuario.update).not.toHaveBeenCalled();
+    });
+
+    it('TC-126: tras el cambio se inicia sesión con la nueva contraseña y no con la anterior', async () => {
+      // 1) Cambio de contraseña: se persiste el hash de la nueva.
+      prismaMock.usuario.findUnique.mockResolvedValueOnce({ id: 7, passwordHash });
+      let hashGuardado = '';
+      prismaMock.usuario.update.mockImplementation(async ({ data }: any) => {
+        hashGuardado = data?.passwordHash ?? hashGuardado;
+        return {};
+      });
+
+      await service.cambiarContrasena(7, dtoCambio(PASSWORD_PLANO));
+      expect(hashGuardado).toBeTruthy();
+
+      // 2) Login con la contraseña nueva: credenciales válidas -> JWT emitido.
+      const usuarioEnBase = () => ({
+        id: 7,
+        email: 'admin@socialclub.local',
+        passwordHash: hashGuardado,
+        nombre: 'Administrador',
+        apellido: 'Inicial',
+        activo: true,
+        roles: [],
+      });
+      prismaMock.usuario.findUnique.mockResolvedValueOnce(usuarioEnBase());
+
+      const loginNuevo = await service.login('admin@socialclub.local', CONTRASENA_NUEVA);
+      expect(loginNuevo.accessToken).toBe('signed-jwt');
+
+      // 3) La contraseña anterior dejó de ser válida.
+      prismaMock.usuario.findUnique.mockResolvedValueOnce(usuarioEnBase());
+      await expect(service.login('admin@socialclub.local', PASSWORD_PLANO)).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
     });
   });
 });

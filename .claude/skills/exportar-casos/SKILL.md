@@ -39,11 +39,11 @@ No numerar a mano ni calcular el próximo `TC-XXX` mirando una sola fila. El
 script lee el máximo de:
 
 1. la hoja **Casos de Prueba** del `.xlsx` (`scripts/ids-planilla.py`);
-2. todos los CSV de `docs/exportables/` (el dump `casos-prueba.csv` ya incluye hasta `TC-107`).
+2. todos los CSV de `docs/exportables/` (el dump `casos-prueba.csv` ya incluye hasta `TC-127`).
 
 Si la planilla tiene IDs duplicados, el script **se niega a asignar**. Desde
 DT-18 los IDs son secuenciales y únicos. El próximo libre, con el dump actual,
-es **`TC-108`**.
+es **`TC-128`**.
 
 El formato de salida son **10 columnas** (incluye `Ejecutor`) y los `Pasos`
 llevan saltos de línea reales, así que el intercambio va en **CSV con quoting**,

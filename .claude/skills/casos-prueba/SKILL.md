@@ -52,7 +52,7 @@ línea dentro de la celda.
 `docs/exportables/*.csv`.
 
 - Planilla: `docs/documentacion/desarrollo-del-producto/01 ... Plan de testing del producto ... .xlsx`
-- Dump versionado: `docs/exportables/casos-prueba.csv` (`TC-001` a `TC-107`). El próximo ID libre es **`TC-108`**.
+- Dump versionado: `docs/exportables/casos-prueba.csv` (`TC-001` a `TC-127`). El próximo ID libre es **`TC-128`**.
 - Para pegar en Drive: `docs/exportables/casos-prueba-para-pegar.tsv` (desde A2). No pegar el CSV.
 
 El `.xlsx` es un ZIP de XML y se puede leer con `python3 scripts/ids-planilla.py`

@@ -58,15 +58,15 @@ espejo en git y lo que se pega.
 
 | Archivo | Qué es |
 |---|---|
-| `casos-prueba.csv` | Dump de **Casos de Prueba** (`TC-001` a `TC-107`), con saltos de línea reales en `Pasos`. Lo lee `/exportar-casos` para el próximo ID. |
-| `ejecucion.csv` | Dump de **Ejecución de Pruebas** (`EJ-01` a `EJ-46`). |
+| `casos-prueba.csv` | Dump de **Casos de Prueba** (`TC-001` a `TC-127`), con saltos de línea reales en `Pasos`. Lo lee `/exportar-casos` para el próximo ID. |
+| `ejecucion.csv` | Dump de **Ejecución de Pruebas** (`EJ-01` a `EJ-66`). |
 | `casos-prueba-para-pegar.tsv` | El mismo dump, una fila = una fila (`Pasos` unidos con ` / `). Pegar en Drive desde **A2**. |
 | `ejecucion-para-pegar.tsv` | Idem para la hoja de ejecución. |
 | `mapeo-DT-18.csv` | Histórico: IDs viejos → nuevos (no se pega). |
 
 No pegar los CSV en Sheets: las celdas multilínea parten filas. Usar los TSV.
 
-El próximo ID libre lo asigna `/exportar-casos` (`TC-108` con estos archivos
+El próximo ID libre lo asigna `/exportar-casos` (`TC-128` con estos archivos
 en el repo). No numerar a mano.
 
 ## Cómo lo usa la IA
