@@ -22,7 +22,7 @@ async function main() {
     create: { nombre: 'ADMIN', descripcion: 'Acceso completo al sistema' },
   });
 
-  await prisma.rol.upsert({
+  const rolColaborador = await prisma.rol.upsert({
     where: { nombre: 'COLABORADOR' },
     update: {},
     create: {
@@ -55,6 +55,46 @@ async function main() {
       create: categoria,
     });
     categoriasMap.set(cat.nombre, cat);
+  }
+
+  // 💰 Base ConfiguracionCuotaSocial (Historial desde 2020 para prevenir Fallback al valor actual)
+  for (const cat of categoriasMap.values()) {
+    await prisma.configuracionCuotaSocial.upsert({
+      where: {
+        categoriaId_periodoAplicacion: {
+          categoriaId: cat.id,
+          periodoAplicacion: '2020-01',
+        },
+      },
+      update: {},
+      create: {
+        categoriaId: cat.id,
+        periodoAplicacion: '2020-01',
+        monto: cat.nombre === 'Cuota Juvenil' ? 3000 : cat.nombre === 'Cuota General' ? 5000 : 4000,
+        activo: true,
+      },
+    });
+  }
+
+
+  
+  // 📈 Incremento Historico 2025
+  for (const cat of categoriasMap.values()) {
+    await prisma.configuracionCuotaSocial.upsert({
+      where: {
+        categoriaId_periodoAplicacion: {
+          categoriaId: cat.id,
+          periodoAplicacion: '2025-01',
+        },
+      },
+      update: {},
+      create: {
+        categoriaId: cat.id,
+        periodoAplicacion: '2025-01',
+        monto: cat.nombre === 'Cuota Juvenil' ? 6000 : cat.nombre === 'Cuota General' ? 10000 : 8000,
+        activo: true,
+      },
+    });
   }
 
   // ── Migración legacy (solo para BDs previas a US16): 3 categorías antiguas → 3 nuevas
@@ -270,7 +310,77 @@ async function main() {
     });
   }
 
+  // ── Combinación 7: Usuario con rol COLABORADOR
+  const emailColaborador = 'colaborador@socialclub.local';
+  let personaColaborador = await prisma.persona.findUnique({ where: { dni: '70000007' } });
+  if (!personaColaborador) {
+    personaColaborador = await prisma.persona.create({
+      data: {
+        nombre: 'Franco',
+        apellido: 'Colaborador',
+        dni: '70000007',
+        email: emailColaborador,
+      },
+    });
+  }
+  const colaborador = await prisma.usuario.upsert({
+    where: { email: emailColaborador },
+    update: { personaId: personaColaborador.id },
+    create: {
+      email: emailColaborador,
+      passwordHash,
+      nombre: 'Franco',
+      apellido: 'Colaborador',
+      personaId: personaColaborador.id,
+      roles: { create: [{ rolId: rolColaborador.id }] },
+    },
+  });
+
   console.log('  Combinaciones de Persona, Usuario y Membresía sembradas exitosamente.');
+
+  // ── Historial de pagos y morosidad controlada ───────────────────────────────
+  const generarMeses = (desde: string, hasta: string) => {
+    const meses: string[] = [];
+    const [yIni, mIni] = desde.split('-').map(Number);
+    const [yFin, mFin] = hasta.split('-').map(Number);
+    let curY = yIni;
+    let curM = mIni;
+    while (curY < yFin || (curY === yFin && curM <= mFin)) {
+      meses.push(`${curY}-${String(curM).padStart(2, '0')}`);
+      curM++;
+      if (curM > 12) {
+        curM = 1;
+        curY++;
+      }
+    }
+    return meses;
+  };
+
+  const planPagos = [
+    { persona: personaValeria, desde: '2025-01', hasta: '2026-09' }, // Al día
+    { persona: personaSocioSinCuenta, desde: '2025-01', hasta: '2026-08' }, // Debe 2026-09 (1 cuota)
+    { persona: personaLucia, desde: '2025-03', hasta: '2026-07' }, // Debe 2026-08 y 2026-09 (2 cuotas)
+    { persona: personaMartin, desde: '2024-06', hasta: '2026-06' }, // Debe 2026-07, 2026-08 y 2026-09 (3 cuotas)
+  ];
+
+  for (const plan of planPagos) {
+    if (!plan.persona) continue;
+    await prisma.pago.deleteMany({ where: { personaId: plan.persona.id } });
+
+    const periodos = generarMeses(plan.desde, plan.hasta);
+    for (const periodo of periodos) {
+      await prisma.pago.create({
+        data: {
+          personaId: plan.persona.id,
+          periodo,
+          monto: 5000,
+          metodoPago: 'EFECTIVO',
+          fechaPago: new Date(`${periodo}-10T10:00:00Z`),
+        },
+      });
+    }
+  }
+  console.log('  Pagos y morosidad sembrados (1 Al día, morosos con 1, 2 y 3 cuotas).');
 
   // ── Mock de eventos ────────────────────────────────────────────────────────
   const cantidadEventos = await prisma.evento.count();
@@ -312,9 +422,11 @@ async function main() {
   console.log('Seed completado.');
   if (process.env.NODE_ENV !== 'production') {
     console.log(`  Usuario admin: ${admin.email} / contraseña: ${passwordPlano}`);
+    console.log(`  Usuario colaborador: ${colaborador.email} / contraseña: ${passwordPlano}`);
     console.log('  IMPORTANTE: cambiá esta contraseña fuera del entorno local.');
   } else {
     console.log(`  Usuario admin: ${admin.email} (contraseña oculta en producción)`);
+    console.log(`  Usuario colaborador: ${colaborador.email} (contraseña oculta en producción)`);
   }
 }
 

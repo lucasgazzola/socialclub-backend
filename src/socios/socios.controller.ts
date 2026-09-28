@@ -67,7 +67,7 @@ export class SociosController {
   }
 
   @Patch(':id')
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'COLABORADOR')
   @ApiOperation({ summary: 'US-13 — Editar socio' })
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -84,9 +84,16 @@ export class SociosController {
   }
 
   @Delete(':id')
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'COLABORADOR')
   @ApiOperation({ summary: 'US-14 — Dar de baja socio (baja lógica)' })
   deactivate(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
     return this.sociosService.deactivate(id, user.id);
+  }
+
+  @Patch(':id/activar')
+  @Roles('ADMIN', 'COLABORADOR')
+  @ApiOperation({ summary: 'US-14 (complemento) — Reactivar / Dar de alta socio' })
+  activate(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.sociosService.activate(id, user.id);
   }
 }

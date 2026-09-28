@@ -294,13 +294,13 @@ export class SociosService {
   async findAll(query: FindSociosQueryDto) {
     const { busqueda, categoriaId, estado, pagina, porPagina } = query;
 
-    const filtros: Prisma.PersonaWhereInput[] = [
+    const filtrosBase: Prisma.PersonaWhereInput[] = [
       { membresias: { some: {} } }, // Solo personas que tienen o tuvieron membresías
     ];
 
     if (busqueda) {
       const termino = busqueda.trim();
-      filtros.push({
+      filtrosBase.push({
         OR: [
           { nombre: { contains: termino, mode: 'insensitive' } },
           { apellido: { contains: termino, mode: 'insensitive' } },
@@ -310,22 +310,23 @@ export class SociosService {
     }
 
     if (categoriaId) {
-      filtros.push({
+      filtrosBase.push({
         membresias: { some: { categoriaId, activo: true } },
       });
     }
 
-    if (estado) {
-      if (estado === EstadoSocioFiltro.ALTA) {
-        filtros.push({ membresias: { some: { activo: true } } });
-      } else {
-        filtros.push({ membresias: { none: { activo: true } } });
-      }
+    const whereBase: Prisma.PersonaWhereInput = { AND: filtrosBase };
+    const whereAlta: Prisma.PersonaWhereInput = { AND: [...filtrosBase, { membresias: { some: { activo: true } } }] };
+    const whereBaja: Prisma.PersonaWhereInput = { AND: [...filtrosBase, { membresias: { none: { activo: true } } }] };
+
+    let where: Prisma.PersonaWhereInput = whereBase;
+    if (estado === EstadoSocioFiltro.ALTA) {
+      where = whereAlta;
+    } else if (estado === EstadoSocioFiltro.BAJA) {
+      where = whereBaja;
     }
 
-    const where: Prisma.PersonaWhereInput = { AND: filtros };
-
-    const [items, total] = await this.prisma.$transaction([
+    const [items, total, totalTodos, totalAlta, totalBaja] = await this.prisma.$transaction([
       this.prisma.persona.findMany({
         where,
         include: {
@@ -337,6 +338,9 @@ export class SociosService {
         take: porPagina,
       }),
       this.prisma.persona.count({ where }),
+      this.prisma.persona.count({ where: whereBase }),
+      this.prisma.persona.count({ where: whereAlta }),
+      this.prisma.persona.count({ where: whereBaja }),
     ]);
 
     return {
@@ -344,6 +348,11 @@ export class SociosService {
       total,
       pagina,
       porPagina,
+      counts: {
+        todos: totalTodos,
+        alta: totalAlta,
+        baja: totalBaja,
+      },
     };
   }
 
@@ -448,6 +457,57 @@ export class SociosService {
           entidad: 'Membresia',
           idEntidad: membresiaActiva.id,
           responsableId,
+        },
+        tx,
+      );
+    });
+
+    return this.findOne(id);
+  }
+
+  /** US-14 (complemento): Reactivar / Dar de alta socio (crea nueva membresía activa) */
+  async activate(id: number, responsableId: number) {
+    const persona = await this.prisma.persona.findUnique({
+      where: { id },
+      include: {
+        membresias: { include: { categoria: true }, orderBy: { fechaAlta: 'desc' } },
+      },
+    });
+
+    if (!persona) {
+      throw new NotFoundException('Socio no encontrado');
+    }
+
+    const membresiaActiva = persona.membresias.find((m) => m.activo);
+    if (membresiaActiva) {
+      throw new BadRequestException('El socio ya se encuentra activo');
+    }
+
+    const ultimaMembresia = persona.membresias[0];
+    let categoriaId = ultimaMembresia?.categoriaId;
+    if (!categoriaId) {
+      const cat = await this.prisma.categoriaSocio.findFirst();
+      if (!cat) throw new BadRequestException('No hay categorías de socio configuradas');
+      categoriaId = cat.id;
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const nuevaMembresia = await tx.membresia.create({
+        data: {
+          personaId: id,
+          categoriaId,
+          activo: true,
+          fechaAlta: new Date(),
+        },
+      });
+
+      await this.auditoria.registrar(
+        {
+          accion: 'REACTIVAR',
+          entidad: 'Membresia',
+          idEntidad: nuevaMembresia.id,
+          responsableId,
+          detalle: `Reactivación / Alta de membresía para socio ${persona.apellido}, ${persona.nombre} (DNI ${persona.dni})`,
         },
         tx,
       );

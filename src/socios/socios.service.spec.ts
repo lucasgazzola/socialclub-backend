@@ -666,4 +666,66 @@ describe('SociosService', () => {
       await expect(service.darseDeBaja(7)).rejects.toThrow('El socio ya se encuentra dado de baja');
     });
   });
+
+  describe('US-14 (complemento): Reactivar / Dar de alta socio', () => {
+    it('crea una nueva membresía activa y registra auditoría con REACTIVAR', async () => {
+      prismaMock.persona.findUnique.mockResolvedValueOnce({
+        id: 20,
+        nombre: 'Carlos',
+        apellido: 'Perez',
+        dni: '20111222',
+        membresias: [
+          { id: 10, categoriaId: 1, activo: false, fechaAlta: new Date('2024-01-01'), fechaBaja: new Date('2024-06-01') },
+        ],
+      });
+
+      prismaMock.membresia.create.mockResolvedValueOnce({
+        id: 11,
+        personaId: 20,
+        categoriaId: 1,
+        activo: true,
+        fechaAlta: new Date(),
+      });
+
+      // findOne al final
+      jest.spyOn(service, 'findOne').mockResolvedValueOnce({
+        id: 20,
+        nombre: 'Carlos',
+        apellido: 'Perez',
+        dni: '20111222',
+        activo: true,
+      } as any);
+
+      const res = await service.activate(20, 1);
+
+      expect(prismaMock.membresia.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            personaId: 20,
+            categoriaId: 1,
+            activo: true,
+          }),
+        }),
+      );
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'REACTIVAR',
+          entidad: 'Membresia',
+          idEntidad: 11,
+          responsableId: 1,
+        }),
+        expect.anything(),
+      );
+      expect(res.activo).toBe(true);
+    });
+
+    it('arroja BadRequestException si el socio ya tiene membresía activa', async () => {
+      prismaMock.persona.findUnique.mockResolvedValueOnce({
+        id: 20,
+        membresias: [{ id: 10, activo: true }],
+      });
+
+      await expect(service.activate(20, 1)).rejects.toThrow('El socio ya se encuentra activo');
+    });
+  });
 });
