@@ -501,6 +501,20 @@ export class SociosService {
         },
       });
 
+      // Restablecer el rol SOCIO si el usuario vinculado no lo posee
+      const usuarioVinculado = await tx.usuario.findUnique({ where: { personaId: id } });
+      if (usuarioVinculado) {
+        const rolSocio = await tx.rol.findUnique({ where: { nombre: 'SOCIO' } });
+        if (rolSocio) {
+          const tieneRol = await tx.usuarioRol.findUnique({
+            where: { usuarioId_rolId: { usuarioId: usuarioVinculado.id, rolId: rolSocio.id } },
+          });
+          if (!tieneRol) {
+            await tx.usuarioRol.create({ data: { usuarioId: usuarioVinculado.id, rolId: rolSocio.id } });
+          }
+        }
+      }
+
       await this.auditoria.registrar(
         {
           accion: 'REACTIVAR',
@@ -514,6 +528,85 @@ export class SociosService {
     });
 
     return this.findOne(id);
+  }
+
+  /** US-43: Reactivar mi membresía como ex-socio (auto-reactivación autogestionada) */
+  async reactivarme(usuarioId: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      include: {
+        persona: {
+          include: {
+            membresias: { include: { categoria: true }, orderBy: { fechaAlta: 'desc' } },
+          },
+        },
+      },
+    });
+
+    if (!usuario || !usuario.activo) {
+      throw new UnauthorizedException('El usuario no está habilitado para autogestionarse como socio');
+    }
+
+    if (!usuario.persona) {
+      throw new NotFoundException('No se encontró una ficha de persona asociada a este usuario');
+    }
+
+    const persona = usuario.persona;
+
+    const tieneMembresiaActiva = persona.membresias.some((m) => m.activo);
+    if (tieneMembresiaActiva) {
+      throw new BadRequestException('El socio ya se encuentra activo');
+    }
+
+    if (persona.membresias.length === 0) {
+      throw new BadRequestException(
+        'No registrás una membresía previa dada de baja. Para asociarte por primera vez, usá la opción Hacerme socio.',
+      );
+    }
+
+    const ultimaMembresia = persona.membresias[0];
+    let categoriaId = ultimaMembresia?.categoriaId;
+    if (!categoriaId) {
+      const cat = await this.prisma.categoriaSocio.findFirst();
+      if (!cat) throw new BadRequestException('No hay categorías de socio configuradas');
+      categoriaId = cat.id;
+    }
+
+    const rolSocio = await this.prisma.rol.findUnique({ where: { nombre: 'SOCIO' } });
+    if (!rolSocio) {
+      throw new BadRequestException('El rol SOCIO no está configurado en el sistema');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const nuevaMembresia = await tx.membresia.create({
+        data: {
+          personaId: persona.id,
+          categoriaId,
+          activo: true,
+          fechaAlta: new Date(),
+        },
+      });
+
+      const yaTieneRol = await tx.usuarioRol.findUnique({
+        where: { usuarioId_rolId: { usuarioId: usuario.id, rolId: rolSocio.id } },
+      });
+      if (!yaTieneRol) {
+        await tx.usuarioRol.create({ data: { usuarioId: usuario.id, rolId: rolSocio.id } });
+      }
+
+      await this.auditoria.registrar(
+        {
+          accion: 'REACTIVAR',
+          entidad: 'Membresia',
+          idEntidad: nuevaMembresia.id,
+          responsableId: usuario.id,
+          detalle: `Reactivación autogestionada de membresía por el ex-socio: ${usuario.nombre} ${usuario.apellido}`,
+        },
+        tx,
+      );
+    });
+
+    return this.findOne(persona.id);
   }
 
   /** US-42: Darme de baja como socio (auto-baja del socio autenticado) */

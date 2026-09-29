@@ -728,4 +728,93 @@ describe('SociosService', () => {
       await expect(service.activate(20, 1)).rejects.toThrow('El socio ya se encuentra activo');
     });
   });
+
+  describe('reactivarme (US-43)', () => {
+    it('permite a un ex-socio reactivar su membresía previa autogestionadamente', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValueOnce({
+        id: 5,
+        nombre: 'Maria',
+        apellido: 'Lopez',
+        activo: true,
+        persona: {
+          id: 15,
+          membresias: [{ id: 9, categoriaId: 2, activo: false }],
+        },
+      });
+
+      prismaMock.rol.findUnique.mockResolvedValueOnce({ id: 3, nombre: 'SOCIO' });
+      prismaMock.membresia.create.mockResolvedValueOnce({ id: 12, personaId: 15, categoriaId: 2, activo: true });
+      prismaMock.usuarioRol.findUnique.mockResolvedValueOnce(null);
+      prismaMock.usuarioRol.create.mockResolvedValueOnce({ usuarioId: 5, rolId: 3 });
+
+      jest.spyOn(service, 'findOne').mockResolvedValueOnce({
+        id: 15,
+        nombre: 'Maria',
+        apellido: 'Lopez',
+        activo: true,
+      } as any);
+
+      const res = await service.reactivarme(5);
+
+      expect(prismaMock.membresia.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            personaId: 15,
+            categoriaId: 2,
+            activo: true,
+          }),
+        }),
+      );
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'REACTIVAR',
+          entidad: 'Membresia',
+          idEntidad: 12,
+          responsableId: 5,
+          detalle: expect.stringContaining('Reactivación autogestionada'),
+        }),
+        expect.anything(),
+      );
+      expect(res.activo).toBe(true);
+    });
+
+    it('rechaza la reactivación si el ex-socio ya tiene una membresía activa', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValueOnce({
+        id: 5,
+        activo: true,
+        persona: {
+          id: 15,
+          membresias: [{ id: 9, activo: true }],
+        },
+      });
+
+      await expect(service.reactivarme(5)).rejects.toThrow('El socio ya se encuentra activo');
+    });
+
+    it('rechaza la reactivación si el usuario nunca fue socio antes (sin membresías previas)', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValueOnce({
+        id: 5,
+        activo: true,
+        persona: {
+          id: 15,
+          membresias: [],
+        },
+      });
+
+      await expect(service.reactivarme(5)).rejects.toThrow(
+        'No registrás una membresía previa dada de baja. Para asociarte por primera vez, usá la opción Hacerme socio.',
+      );
+    });
+
+    it('arroja UnauthorizedException si el usuario está inhabilitado', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValueOnce({
+        id: 5,
+        activo: false,
+      });
+
+      await expect(service.reactivarme(5)).rejects.toThrow(
+        'El usuario no está habilitado para autogestionarse como socio',
+      );
+    });
+  });
 });
