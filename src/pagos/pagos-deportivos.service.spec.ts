@@ -168,24 +168,78 @@ describe('PagosDeportivosService · US-21', () => {
     });
   });
 
-  describe('getHistorialPorPersona', () => {
-    it('devuelve los pagos ordenados y serializados', async () => {
+  describe('getHistorialPorPersona · US-22', () => {
+    const pagoConResponsable = {
+      id: 1,
+      disciplinaId: 3,
+      disciplina: { nombre: 'Fútbol' },
+      periodo: '2026-01',
+      monto: 5000,
+      fechaPago: new Date('2026-01-15T10:00:00'),
+      metodoPago: 'EFECTIVO',
+      responsableId: 7,
+      responsable: { id: 7, nombre: 'Lucas', apellido: 'Gazzola' },
+    };
+
+    it('CA: devuelve pagos (con el usuario que registró) y períodos adeudados', async () => {
       mockPrisma.persona.findUnique.mockResolvedValue(participanteBase());
-      mockPrisma.pagoCuotaDeportiva.findMany.mockResolvedValue([
-        {
-          id: 1,
-          disciplinaId: 3,
-          disciplina: { nombre: 'Fútbol' },
-          periodo: '2026-01',
-          monto: 5000,
-          fechaPago: new Date(),
-          metodoPago: 'EFECTIVO',
-          responsableId: 7,
-        },
-      ]);
+      mockPrisma.configuracionCuotaDeportiva.findFirst.mockResolvedValue({ monto: 5000 });
+      mockPrisma.pagoCuotaDeportiva.findMany
+        .mockResolvedValueOnce([]) // 1a llamada: cálculo de pendientes
+        .mockResolvedValueOnce([pagoConResponsable]); // 2a: historial de pagos
+
       const res = await service.getHistorialPorPersona(50);
-      expect(res).toHaveLength(1);
-      expect(res[0]).toMatchObject({ disciplinaNombre: 'Fútbol', monto: 5000, responsableId: 7 });
+
+      expect(res.pagos).toHaveLength(1);
+      expect(res.pagos[0]).toMatchObject({
+        disciplinaNombre: 'Fútbol',
+        monto: 5000,
+        registradoPor: { id: 7, nombre: 'Lucas Gazzola' },
+      });
+      expect(res.totalPagado).toBe(5000);
+      expect(Array.isArray(res.adeudados)).toBe(true);
+      expect(res.adeudados.length).toBeGreaterThan(0); // deuda vigente presente
+      expect(res.estadoDeuda).toBe('MOROSO');
+    });
+
+    it('registradoPor es null cuando el pago no tiene responsable asociado', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(participanteBase());
+      mockPrisma.configuracionCuotaDeportiva.findFirst.mockResolvedValue({ monto: 5000 });
+      mockPrisma.pagoCuotaDeportiva.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ ...pagoConResponsable, responsable: null, responsableId: null }]);
+
+      const res = await service.getHistorialPorPersona(50);
+      expect(res.pagos[0].registradoPor).toBeNull();
+    });
+
+    it('CA: filtra el historial por rango de fechas (fechaPago gte/lte)', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(participanteBase());
+      mockPrisma.configuracionCuotaDeportiva.findFirst.mockResolvedValue({ monto: 5000 });
+      mockPrisma.pagoCuotaDeportiva.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([pagoConResponsable]);
+
+      await service.getHistorialPorPersona(50, { desde: '2026-01-01', hasta: '2026-01-31' });
+
+      // La 2a invocación (historial) debe incluir el filtro por fechaPago.
+      const args = mockPrisma.pagoCuotaDeportiva.findMany.mock.calls[1][0];
+      expect(args.where.fechaPago.gte).toBeInstanceOf(Date);
+      expect(args.where.fechaPago.lte).toBeInstanceOf(Date);
+      expect(args.where.fechaPago.gte.getFullYear()).toBe(2026);
+    });
+
+    it('sin filtros no agrega condición de fecha al historial', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(participanteBase());
+      mockPrisma.configuracionCuotaDeportiva.findFirst.mockResolvedValue({ monto: 5000 });
+      mockPrisma.pagoCuotaDeportiva.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([pagoConResponsable]);
+
+      const res = await service.getHistorialPorPersona(50);
+      const args = mockPrisma.pagoCuotaDeportiva.findMany.mock.calls[1][0];
+      expect(args.where.fechaPago).toBeUndefined();
+      expect(res.filtro).toEqual({ desde: null, hasta: null });
     });
   });
 });

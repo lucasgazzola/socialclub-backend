@@ -295,15 +295,31 @@ export class PagosDeportivosService {
     };
   }
 
-  /** Historial de pagos deportivos de un participante. */
-  async getHistorialPorPersona(personaId: number) {
-    await this.getParticipante(personaId);
+  /**
+   * US-22 — Historial de cuotas deportivas de un participante (solo lectura).
+   * Muestra los pagos realizados (período, fecha, monto y usuario que lo
+   * registró) y los períodos adeudados vigentes, con totales. Permite filtrar
+   * los pagos por rango de fechas de pago (desde/hasta, inclusive).
+   */
+  async getHistorialPorPersona(
+    personaId: number,
+    filtros: { desde?: string; hasta?: string } = {},
+  ) {
+    // Reutiliza el cálculo de pendientes (deuda siempre actualizada según los
+    // registros del sistema) y trae los datos del participante.
+    const resumen = await this.getPendientesPorPersona(personaId);
+
+    const rangoFecha = this.construirRangoFecha(filtros.desde, filtros.hasta);
     const pagos = await this.prisma.pagoCuotaDeportiva.findMany({
-      where: { personaId },
-      include: { disciplina: true },
+      where: {
+        personaId,
+        ...(rangoFecha ? { fechaPago: rangoFecha } : {}),
+      },
+      include: { disciplina: true, responsable: true },
       orderBy: { fechaPago: 'desc' },
     });
-    return pagos.map((p) => ({
+
+    const pagosSerializados = pagos.map((p) => ({
       id: p.id,
       disciplinaId: p.disciplinaId,
       disciplinaNombre: p.disciplina.nombre,
@@ -311,7 +327,47 @@ export class PagosDeportivosService {
       monto: Number(p.monto),
       fechaPago: p.fechaPago,
       metodoPago: p.metodoPago,
-      responsableId: p.responsableId,
+      registradoPor: p.responsable
+        ? {
+            id: p.responsable.id,
+            nombre: `${p.responsable.nombre} ${p.responsable.apellido}`.trim(),
+          }
+        : null,
     }));
+
+    const totalPagado = pagosSerializados.reduce((s, p) => s + p.monto, 0);
+
+    return {
+      personaId: resumen.personaId,
+      participanteNombre: resumen.participanteNombre,
+      dni: resumen.dni,
+      categoria: resumen.categoria,
+      categoriaId: resumen.categoriaId,
+      estadoDeuda: resumen.estadoDeuda,
+      filtro: { desde: filtros.desde ?? null, hasta: filtros.hasta ?? null },
+      pagos: pagosSerializados,
+      adeudados: resumen.cuotasPendientes,
+      totalPagado,
+      totalAdeudado: resumen.totalAdeudado,
+    };
+  }
+
+  /**
+   * Construye el filtro Prisma de rango sobre `fechaPago`. Las fechas (YYYY-MM-DD)
+   * se interpretan en horario local: `desde` desde el inicio del día y `hasta`
+   * hasta el final del día, ambos inclusive.
+   */
+  private construirRangoFecha(desde?: string, hasta?: string) {
+    if (!desde && !hasta) return undefined;
+    const rango: { gte?: Date; lte?: Date } = {};
+    if (desde) {
+      const [y, m, d] = desde.split('-').map(Number);
+      rango.gte = new Date(y, m - 1, d, 0, 0, 0, 0);
+    }
+    if (hasta) {
+      const [y, m, d] = hasta.split('-').map(Number);
+      rango.lte = new Date(y, m - 1, d, 23, 59, 59, 999);
+    }
+    return rango;
   }
 }
