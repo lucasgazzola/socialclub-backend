@@ -73,6 +73,7 @@ npm run prisma:check-drift   # falla si el schema no coincide con las migracione
 > `db push` solo es válido mientras el proyecto no tenga migraciones versionadas.
 > Antes de commitear un cambio de schema: `npm run prisma:check-drift` (mismo
 > chequeo que corre el CI).
+
 > En prod la cookie de sesión usa `SameSite=None; Secure` (front y API en dominios distintos). El seed corre en cada arranque del contenedor.
 
 ## Reglas para agentes de IA
