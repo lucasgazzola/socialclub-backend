@@ -60,8 +60,20 @@ npm test               # Jest (unitarios); usar antes de commitear
 npm run test:cov       # cobertura
 npm run lint           # eslint --fix
 docker compose up -d db        # Postgres local
-npx prisma db push && npm run prisma:seed   # sincronizar esquema + seed (admin@socialclub.local / Admin123!)
+npm run prisma:migrate -- --name <nombre>   # migración versionada (migrate dev)
+npm run prisma:deploy  # aplica migraciones pendientes (lo que corre Docker/Azure)
+npm run prisma:seed    # admin@socialclub.local / Admin123!
+npm run db:shadow      # crea la base `socialclub_shadow` (una vez)
+npm run prisma:check-drift   # falla si el schema no coincide con las migraciones
 ```
+> **Todo cambio de schema necesita su migración.** Docker, test y main aplican
+> `prisma migrate deploy` (ver `docker-entrypoint.sh`), no `db push`: si editás
+> `schema.prisma` y no generás la migración, la base nunca recibe la columna y
+> el error aparece recién en runtime (`column ... does not exist`, DT-37).
+> `db push` solo es válido mientras el proyecto no tenga migraciones versionadas.
+> Antes de commitear un cambio de schema: `npm run prisma:check-drift` (mismo
+> chequeo que corre el CI).
+
 > En prod la cookie de sesión usa `SameSite=None; Secure` (front y API en dominios distintos). El seed corre en cada arranque del contenedor.
 
 ## Reglas para agentes de IA

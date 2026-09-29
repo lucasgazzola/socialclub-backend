@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 22/09/2026
+- **Última actualización:** 29/09/2026
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -77,7 +77,7 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-03, DT-04, DT-07, DT-13, DT-14, DT-16, DT-18, DT-19, DT-21, DT-30 |
+| ✅ Resueltas | DT-03, DT-04, DT-07, DT-13, DT-14, DT-16, DT-18, DT-19, DT-21, DT-30, DT-37 |
 | 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05, DT-27, DT-29, DT-31, DT-35 (cobro resuelto en US-21; resta generación y autoservicio) |
 | 🟡 Medias pendientes | DT-10, DT-11, DT-17, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-32, DT-33, DT-34 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-20, DT-36 |
@@ -550,6 +550,45 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### DT-37 · El esquema de Prisma y las migraciones divergen (drift silencioso)
+**PR [#57](https://github.com/lucasgazzola/socialclub-backend/pull/57)** ·
+**`fix/db-migracion-drift-disciplinas-cuota-deportiva`** · 29/09/2026
+
+`prisma/schema.prisma` tenía objetos que **ninguna migración versionada creaba**:
+las columnas `Disciplina.genero` / `edadMinima` / `edadMaxima` /
+`solicitaDocumentacion` (con el enum `GeneroDisciplina`), la tabla
+`disciplina_requerimientos_doc` (enum `TipoDocumentacionDisciplina`) y la tabla
+`pagos_cuota_deportiva`. Los commits `5555482` (ABM de disciplinas) y `2208b44`
+(US-21) editaron el schema **sin generar la migración**.
+
+**Por qué no saltó antes:** el `CLAUDE.md` documentaba `npx prisma db push` como
+forma de sincronizar el esquema. `db push` reconcilia la base contra el schema
+actual, así que la base local de cada integrante quedaba bien y el drift era
+invisible. Pero `docker-entrypoint.sh` aplica **`prisma migrate deploy`** en
+cuanto existen migraciones versionadas (Docker local, test y main): esas
+columnas y tablas nunca llegaban a esas bases.
+
+**Cómo se manifestó:** `GET /api/v1/inscripcion?pagina=1&porPagina=10` (US-08) y
+`GET /api/v1/disciplinas` devolvían 500 —
+`PrismaClientKnownRequestError: The column disciplinas.genero does not exist in the current database`—
+porque el `include: { disciplina: true }` de los `findMany` selecciona todas sus
+columnas. Lo mismo le esperaba a test en la próxima promoción `dev → test`, con
+el CD en verde (el contenedor falla al atender, no al arrancar).
+
+**Arreglo:** migración
+`20260929174633_restricciones_disciplina_y_pago_cuota_deportiva` (solo aditiva:
+2 tipos enum, 4 columnas en `disciplinas` —`solicitaDocumentacion` con
+`DEFAULT false`— y las 2 tablas con sus índices y FK), reemplazo del `db push`
+por `npm run prisma:migrate` en el `CLAUDE.md` (`db push` solo vale mientras no
+haya migraciones) y **chequeo de drift en el CI**
+(`npm run prisma:check-drift` → `prisma migrate diff --from-migrations … --exit-code`
+contra un Postgres efímero): el PR falla si el schema vuelve a divergir.
+
+- **Para test/main:** no promover `dev → test` sin esta migración; el entrypoint
+  la aplica solo, es aditiva y no necesita backfill.
+
+---
 
 ### DT-30 · ABM de disciplina
 **US-XX** · 22/09/2026

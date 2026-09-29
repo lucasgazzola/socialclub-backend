@@ -11,6 +11,22 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Postgres efímero y descartable: lo usa `prisma migrate diff` como shadow
+    # database en el chequeo de drift de abajo (se borra y se recrea por corrida).
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: socialclub
+          POSTGRES_PASSWORD: socialclub
+          POSTGRES_DB: socialclub_shadow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U socialclub -d socialclub_shadow"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -24,6 +40,13 @@ jobs:
 
       - name: Generar Prisma Client
         run: npx prisma generate
+
+      # Falla si `prisma/schema.prisma` tiene objetos sin migración versionada.
+      # El entrypoint de Docker/test/prod aplica `migrate deploy`, NO `db push`:
+      # un modelo o una columna sin migración compila, pasa los tests y recién
+      # revienta en runtime con "column X does not exist" (DT-37).
+      - name: Verificar drift schema.prisma ↔ migraciones
+        run: npm run prisma:check-drift
 
       - name: Lint
         run: npm run lint
