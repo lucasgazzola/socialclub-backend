@@ -23,6 +23,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
+    "prisma:check-drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url postgresql://socialclub:socialclub@localhost:5432/socialclub_shadow?schema=public --exit-code",
+    "db:shadow": "docker compose exec -T db psql -U socialclub -d postgres -c \"CREATE DATABASE socialclub_shadow;\"",
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
     "build:seed": "tsc prisma/seed.ts --ignoreConfig --outDir prisma --module nodenext --moduleResolution nodenext --target ES2023 --skipLibCheck --esModuleInterop",
     "db:setup": "prisma migrate dev && npm run prisma:seed",
