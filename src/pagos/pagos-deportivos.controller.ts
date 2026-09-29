@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PagosDeportivosService } from './pagos-deportivos.service';
 import { RegistrarPagoDeportivoDto } from './dto/registrar-pago-deportivo.dto';
+import { HistorialDeportivoQueryDto } from './dto/historial-deportivo-query.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -44,8 +45,14 @@ export class PagosDeportivosController {
 
   @Get('persona/:id/historial')
   @Roles('ADMIN', 'COLABORADOR')
-  @ApiOperation({ summary: 'US-21 — Historial de pagos de cuota deportiva de un participante' })
-  getHistorial(@Param('id', ParseIntPipe) id: number) {
-    return this.pagosDeportivosService.getHistorialPorPersona(id);
+  @ApiOperation({
+    summary:
+      'US-22 — Historial de cuotas deportivas de un participante (pagos y adeudados, filtrable por fecha)',
+  })
+  getHistorial(
+    @Param('id', ParseIntPipe) id: number,
+    @Query() query: HistorialDeportivoQueryDto,
+  ) {
+    return this.pagosDeportivosService.getHistorialPorPersona(id, query);
   }
 }
