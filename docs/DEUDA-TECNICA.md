@@ -552,6 +552,7 @@ confirmada; o una cuota está vencida.
 ## Deuda resuelta
 
 ### DT-37 · El esquema de Prisma y las migraciones divergen (drift silencioso)
+**PR [#57](https://github.com/lucasgazzola/socialclub-backend/pull/57)** ·
 **`fix/db-migracion-drift-disciplinas-cuota-deportiva`** · 29/09/2026
 
 `prisma/schema.prisma` tenía objetos que **ninguna migración versionada creaba**:
