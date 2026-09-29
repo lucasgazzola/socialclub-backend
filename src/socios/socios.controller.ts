@@ -83,6 +83,12 @@ export class SociosController {
     return this.sociosService.darseDeBaja(user.id);
   }
 
+  @Post('reactivarme')
+  @ApiOperation({ summary: 'US-43 — Reactivar mi membresía como ex-socio' })
+  reactivarme(@CurrentUser() user: AuthenticatedUser) {
+    return this.sociosService.reactivarme(user.id);
+  }
+
   @Delete(':id')
   @Roles('ADMIN', 'COLABORADOR')
   @ApiOperation({ summary: 'US-14 — Dar de baja socio (baja lógica)' })
@@ -92,7 +98,7 @@ export class SociosController {
 
   @Patch(':id/activar')
   @Roles('ADMIN', 'COLABORADOR')
-  @ApiOperation({ summary: 'US-14 (complemento) — Reactivar / Dar de alta socio' })
+  @ApiOperation({ summary: 'US-14 / US-43 — Reactivar / Dar de alta socio' })
   activate(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
     return this.sociosService.activate(id, user.id);
   }
