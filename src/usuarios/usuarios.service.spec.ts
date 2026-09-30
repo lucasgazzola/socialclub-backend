@@ -492,4 +492,67 @@ describe('UsuariosService', () => {
       );
     });
   });
+  
+  describe('US-04: Consultar usuarios administrativos', () => {
+    it('retorna todos los usuarios si no hay parámetros', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([{ id: 1, persona: { dni: '11' } }]);
+      const result = await service.findAll();
+      expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+      expect(result).toHaveLength(1);
+    });
+
+    it('aplica filtro por nombre en nombre o apellido', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([]);
+      await service.findAll({ nombre: 'Juan' });
+      expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [
+              { nombre: { contains: 'Juan', mode: 'insensitive' } },
+              { apellido: { contains: 'Juan', mode: 'insensitive' } },
+            ],
+          },
+        }),
+      );
+    });
+
+    it('aplica filtro por rol', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([]);
+      await service.findAll({ rol: 'ADMIN' });
+      expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            roles: {
+              some: {
+                rol: { nombre: { equals: 'ADMIN', mode: 'insensitive' } },
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    it('combina filtros de nombre y rol', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([]);
+      await service.findAll({ nombre: 'Ana', rol: 'COLABORADOR' });
+      expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [
+              { nombre: { contains: 'Ana', mode: 'insensitive' } },
+              { apellido: { contains: 'Ana', mode: 'insensitive' } },
+            ],
+            roles: {
+              some: {
+                rol: { nombre: { equals: 'COLABORADOR', mode: 'insensitive' } },
+              },
+            },
+          },
+        }),
+      );
+    });
+  });
 });
+

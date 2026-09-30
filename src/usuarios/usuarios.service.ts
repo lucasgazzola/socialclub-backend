@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioPasswordDto } from './dto/update-usuario.dto';
+import { GetUsuariosQueryDto } from './dto/get-usuarios-query.dto';
 
 const SALT_ROUNDS = 10;
 
@@ -141,8 +142,28 @@ export class UsuariosService {
     return this.aUsuarioDto(usuario);
   }
 
-  async findAll() {
+  async findAll(query?: GetUsuariosQueryDto) {
+    const where: Prisma.UsuarioWhereInput = {};
+
+    if (query?.nombre) {
+      where.OR = [
+        { nombre: { contains: query.nombre, mode: 'insensitive' } },
+        { apellido: { contains: query.nombre, mode: 'insensitive' } },
+      ];
+    }
+
+    if (query?.rol) {
+      where.roles = {
+        some: {
+          rol: {
+            nombre: { equals: query.rol, mode: 'insensitive' },
+          },
+        },
+      };
+    }
+
     const usuarios = await this.prisma.usuario.findMany({
+      where,
       select: SELECT_PUBLICO,
       orderBy: { apellido: 'asc' },
     });
