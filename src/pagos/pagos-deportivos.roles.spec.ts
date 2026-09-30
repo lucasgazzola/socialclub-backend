@@ -22,8 +22,7 @@ describe('US-21 · PagosDeportivosController · control de acceso', () => {
     'GET /pagos-deportivos/persona/:id/pendientes':
       PagosDeportivosController.prototype.getPendientes,
     'POST /pagos-deportivos/persona/:id': PagosDeportivosController.prototype.registrarPago,
-    'GET /pagos-deportivos/persona/:id/historial':
-      PagosDeportivosController.prototype.getHistorial,
+    'GET /pagos-deportivos/persona/:id/historial': PagosDeportivosController.prototype.getHistorial,
   };
 
   describe.each(Object.entries(endpoints))('%s (ADMIN y COLABORADOR)', (_ruta, handler) => {

@@ -224,7 +224,11 @@ export class PagosDeportivosService {
     const items: { periodo: string; monto: number }[] = [];
     let montoTotal = 0;
     for (const periodo of dto.periodos) {
-      const monto = await this.getMontoCuotaDeportiva(dto.disciplinaId, membresia.categoriaId, periodo);
+      const monto = await this.getMontoCuotaDeportiva(
+        dto.disciplinaId,
+        membresia.categoriaId,
+        periodo,
+      );
       if (monto <= 0) {
         throw new BadRequestException(
           `No hay una cuota deportiva configurada (monto mayor a cero) para la disciplina en el período ${periodo}`,

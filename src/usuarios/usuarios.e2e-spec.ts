@@ -57,9 +57,7 @@ describe('UsuariosController (e2e) — US-04 (Refactor)', () => {
 
   describe('GET /usuarios', () => {
     it('filtra por busqueda con múltiples palabras (AND interno)', async () => {
-      const mockResult = [
-        { id: 1, nombre: 'Franco', apellido: 'Perez' },
-      ];
+      const mockResult = [{ id: 1, nombre: 'Franco', apellido: 'Perez' }];
       // $transaction retorna [items, total, totalTodos, totalActivos, totalInactivos]
       prismaMock.$transaction.mockResolvedValue([mockResult, 1, 10, 8, 2]);
 
@@ -96,14 +94,12 @@ describe('UsuariosController (e2e) — US-04 (Refactor)', () => {
               },
             ],
           },
-        })
+        }),
       );
     });
 
     it('filtra por rolId', async () => {
-      const mockResult = [
-        { id: 2, nombre: 'Ana', apellido: 'Gomez' },
-      ];
+      const mockResult = [{ id: 2, nombre: 'Ana', apellido: 'Gomez' }];
       prismaMock.$transaction.mockResolvedValue([mockResult, 1, 10, 8, 2]);
 
       const httpServer = app.getHttpServer() as Server;
@@ -113,7 +109,7 @@ describe('UsuariosController (e2e) — US-04 (Refactor)', () => {
         .expect(200);
 
       expect(response.body.items).toEqual(
-        expect.arrayContaining([expect.objectContaining({ nombre: 'Ana' })])
+        expect.arrayContaining([expect.objectContaining({ nombre: 'Ana' })]),
       );
       expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -122,7 +118,7 @@ describe('UsuariosController (e2e) — US-04 (Refactor)', () => {
               some: { rolId: 3 },
             },
           },
-        })
+        }),
       );
     });
 
@@ -137,7 +133,7 @@ describe('UsuariosController (e2e) — US-04 (Refactor)', () => {
         .expect(200);
 
       expect(response.body.items).toEqual(
-        expect.arrayContaining([expect.objectContaining({ nombre: 'Carlos' })])
+        expect.arrayContaining([expect.objectContaining({ nombre: 'Carlos' })]),
       );
       expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -154,7 +150,7 @@ describe('UsuariosController (e2e) — US-04 (Refactor)', () => {
               some: { rolId: 2 },
             },
           },
-        })
+        }),
       );
     });
 

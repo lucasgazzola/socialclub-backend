@@ -75,14 +75,12 @@ describe('US-29 · EventosService', () => {
     it('crea el evento y audita la acción CREAR', async () => {
       prismaMock.evento.create.mockResolvedValue({ id: 10, nombre: 'Torneo' });
 
-      const res = await service.create(
-        { nombre: 'Torneo', descripcion: 'Anual', entradasDisponibles: 100 },
-        7,
-      );
+      const dto: any = { nombre: 'Torneo', descripcion: 'Anual', entradasDisponibles: 100, capacidadMaxima: 100, cierreInscripcion: new Date(), fechaEvento: new Date(), lugarAcreditacion: 'A', precio: 100 };
+      const res = await service.create(dto, 7);
 
       expect(prismaMock.evento.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: { nombre: 'Torneo', descripcion: 'Anual', entradasDisponibles: 100 },
+          data: { ...dto },
         }),
       );
       expect(auditoriaMock.registrar).toHaveBeenCalledWith(

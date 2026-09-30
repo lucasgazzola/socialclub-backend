@@ -174,19 +174,21 @@ export class UsuariosService {
       where = whereInactivos;
     }
 
-    const [items, total, totalTodos, totalActivos, totalInactivos] = await this.prisma.$transaction([
-      this.prisma.usuario.findMany({
-        where,
-        select: SELECT_PUBLICO,
-        orderBy: { apellido: 'asc' },
-        skip: (pagina - 1) * porPagina,
-        take: porPagina,
-      }),
-      this.prisma.usuario.count({ where }),
-      this.prisma.usuario.count({ where: whereBase }),
-      this.prisma.usuario.count({ where: whereActivos }),
-      this.prisma.usuario.count({ where: whereInactivos }),
-    ]);
+    const [items, total, totalTodos, totalActivos, totalInactivos] = await this.prisma.$transaction(
+      [
+        this.prisma.usuario.findMany({
+          where,
+          select: SELECT_PUBLICO,
+          orderBy: { apellido: 'asc' },
+          skip: (pagina - 1) * porPagina,
+          take: porPagina,
+        }),
+        this.prisma.usuario.count({ where }),
+        this.prisma.usuario.count({ where: whereBase }),
+        this.prisma.usuario.count({ where: whereActivos }),
+        this.prisma.usuario.count({ where: whereInactivos }),
+      ],
+    );
 
     return {
       items: items.map((u) => this.aUsuarioDto(u as UsuarioPublico)),

@@ -49,10 +49,7 @@ export class PagosDeportivosController {
     summary:
       'US-22 — Historial de cuotas deportivas de un participante (pagos y adeudados, filtrable por fecha)',
   })
-  getHistorial(
-    @Param('id', ParseIntPipe) id: number,
-    @Query() query: HistorialDeportivoQueryDto,
-  ) {
+  getHistorial(@Param('id', ParseIntPipe) id: number, @Query() query: HistorialDeportivoQueryDto) {
     return this.pagosDeportivosService.getHistorialPorPersona(id, query);
   }
 }

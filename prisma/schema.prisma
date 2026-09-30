@@ -61,6 +61,13 @@ enum AccionAuditoria {
 
 /// Estados posibles de una entrada vendida. Una entrada nace VALIDA y cambia
 /// de estado cuando se la usa (acceso al evento) o cuando expira.
+enum EstadoEvento {
+  BORRADOR
+  PUBLICADO
+  CANCELADO
+  FINALIZADO
+}
+
 enum EstadoEntrada {
   VALIDA
   USADA
@@ -85,19 +92,19 @@ model Rol {
 /// garantizada por `Persona.usuarioId` @unique). Así, el mismo Usuario que se
 /// autogestiona como socio (US-09) queda vinculado a su ficha de Persona.
 model Usuario {
-  id                 Int                 @id @default(autoincrement())
-  email              String              @unique
+  id                 Int                  @id @default(autoincrement())
+  email              String               @unique
   passwordHash       String
   nombre             String
   apellido           String
-  activo             Boolean             @default(true)
+  activo             Boolean              @default(true)
   ultimoLogin        DateTime?
-  creadoEn           DateTime            @default(now())
-  actualizadoEn      DateTime            @updatedAt
-  personaId          Int                 @unique
-  persona            Persona             @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  creadoEn           DateTime             @default(now())
+  actualizadoEn      DateTime             @updatedAt
+  personaId          Int                  @unique
+  persona            Persona              @relation(fields: [personaId], references: [id], onDelete: Cascade)
   roles              UsuarioRol[]
-  registrosAuditoria RegistroAuditoria[] @relation("usuarioResponsable")
+  registrosAuditoria RegistroAuditoria[]  @relation("usuarioResponsable")
   pagosDeportivos    PagoCuotaDeportiva[] @relation("responsablePagoDeportivo")
 
   @@map("usuarios")
@@ -105,11 +112,11 @@ model Usuario {
 
 /// Relación N a N entre Usuario y Rol (RF02: múltiples roles simultáneos).
 model UsuarioRol {
-  usuarioId   Int
-  rolId       Int
-  asignadoEn  DateTime @default(now())
-  usuario     Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  rol         Rol      @relation(fields: [rolId], references: [id], onDelete: Cascade)
+  usuarioId  Int
+  rolId      Int
+  asignadoEn DateTime @default(now())
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  rol        Rol      @relation(fields: [rolId], references: [id], onDelete: Cascade)
 
   @@id([usuarioId, rolId])
   @@map("usuarios_roles")
@@ -118,12 +125,12 @@ model UsuarioRol {
 /// Categoría de socio. Condiciona el cálculo de cuotas (RF04).
 /// US16: determina las 3 cuotas sociales (Cuota Juvenil / General / Senior).
 model CategoriaSocio {
-  id                             Int                                @id @default(autoincrement())
-  nombre                         String                             @unique
-  descripcion                    String?
-  membresias                     Membresia[]
-  configuracionesCuotaDeportiva  ConfiguracionCuotaDeportiva[]
-  configuracionesCuotaSocial     ConfiguracionCuotaSocial[]
+  id                            Int                           @id @default(autoincrement())
+  nombre                        String                        @unique
+  descripcion                   String?
+  membresias                    Membresia[]
+  configuracionesCuotaDeportiva ConfiguracionCuotaDeportiva[]
+  configuracionesCuotaSocial    ConfiguracionCuotaSocial[]
 
   @@map("categorias_socio")
 }
@@ -131,25 +138,25 @@ model CategoriaSocio {
 /// Disciplina deportiva del club (ej: Fútbol, Vóley, Básquet). Cada una puede
 /// tener un monto de cuota mensual distinto por categoría de socio.
 model Disciplina {
-  id                             Int                                @id @default(autoincrement())
-  nombre                         String                             @unique
-  descripcion                    String?
+  id                            Int                           @id @default(autoincrement())
+  nombre                        String                        @unique
+  descripcion                   String?
   /// Restricción de género para la inscripción. Null = sin restricción.
-  genero                         GeneroDisciplina?
+  genero                        GeneroDisciplina?
   /// Edad mínima requerida para inscribirse (años cumplidos). Null = sin mínimo.
-  edadMinima                     Int?
+  edadMinima                    Int?
   /// Edad máxima permitida para inscribirse (años cumplidos). Null = sin máximo.
-  edadMaxima                     Int?
+  edadMaxima                    Int?
   /// Indica si la disciplina exige documentación para la inscripción/permanencia.
-  solicitaDocumentacion          Boolean                            @default(false)
-  activo                         Boolean                            @default(true)
-  creadoEn                       DateTime                           @default(now())
-  actualizadoEn                  DateTime                           @updatedAt
-  configuracionesCuotaDeportiva  ConfiguracionCuotaDeportiva[]
-  categorias                     CategoriaDisciplina[]
-  inscripciones                  Inscripcion[]
-  requerimientosDoc              DisciplinaRequerimientoDoc[]
-  pagosDeportivos                PagoCuotaDeportiva[]
+  solicitaDocumentacion         Boolean                       @default(false)
+  activo                        Boolean                       @default(true)
+  creadoEn                      DateTime                      @default(now())
+  actualizadoEn                 DateTime                      @updatedAt
+  configuracionesCuotaDeportiva ConfiguracionCuotaDeportiva[]
+  categorias                    CategoriaDisciplina[]
+  inscripciones                 Inscripcion[]
+  requerimientosDoc             DisciplinaRequerimientoDoc[]
+  pagosDeportivos               PagoCuotaDeportiva[]
 
   @@map("disciplinas")
 }
@@ -159,16 +166,16 @@ model Disciplina {
 /// Relación N a 1 con Disciplina; se gestiona como delete-all + re-insert
 /// al actualizar la disciplina.
 model DisciplinaRequerimientoDoc {
-  id             Int        @id @default(autoincrement())
-  disciplinaId   Int
-  disciplina     Disciplina @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
-  tipoDocumento  TipoDocumentacionDisciplina
+  id                  Int                         @id @default(autoincrement())
+  disciplinaId        Int
+  disciplina          Disciplina                  @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
+  tipoDocumento       TipoDocumentacionDisciplina
   /// 0 = debe estar presentada al inscribirse; mayor a 0 = días corridos de tolerancia.
-  plazoDiasTolerancia Int    @default(0)
-  creadoEn       DateTime   @default(now())
+  plazoDiasTolerancia Int                         @default(0)
+  creadoEn            DateTime                    @default(now())
 
-  @@index([disciplinaId])
   @@unique([disciplinaId, tipoDocumento])
+  @@index([disciplinaId])
   @@map("disciplina_requerimientos_doc")
 }
 
@@ -177,16 +184,16 @@ model DisciplinaRequerimientoDoc {
 /// Los cambios de monto aplican a partir del período siguiente al configurado,
 /// conservando el histórico de períodos anteriores.
 model ConfiguracionCuotaDeportiva {
-  id               Int             @id @default(autoincrement())
-  disciplinaId     Int
-  categoriaId      Int
-  periodoAplicacion String         // "YYYY-MM" — período al que aplica el monto
-  monto            Decimal         @db.Decimal(12, 2)
-  activo           Boolean         @default(true)
-  creadoEn         DateTime        @default(now())
-  actualizadoEn    DateTime        @updatedAt
-  disciplina       Disciplina      @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
-  categoria        CategoriaSocio  @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+  id                Int            @id @default(autoincrement())
+  disciplinaId      Int
+  categoriaId       Int
+  periodoAplicacion String // "YYYY-MM" — período al que aplica el monto
+  monto             Decimal        @db.Decimal(12, 2)
+  activo            Boolean        @default(true)
+  creadoEn          DateTime       @default(now())
+  actualizadoEn     DateTime       @updatedAt
+  disciplina        Disciplina     @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
+  categoria         CategoriaSocio @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
 
   @@unique([disciplinaId, categoriaId, periodoAplicacion])
   @@index([periodoAplicacion])
@@ -199,14 +206,14 @@ model ConfiguracionCuotaDeportiva {
 /// Los cambios aplican a partir del período siguiente (YYYY-MM), no se permite
 /// guardar montos <= 0. Histórico por período.
 model ConfiguracionCuotaSocial {
-  id               Int            @id @default(autoincrement())
-  categoriaId      Int
-  periodoAplicacion String        // "YYYY-MM"
-  monto            Decimal        @db.Decimal(12, 2)
-  activo           Boolean        @default(true)
-  creadoEn         DateTime       @default(now())
-  actualizadoEn    DateTime       @updatedAt
-  categoria        CategoriaSocio @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+  id                Int            @id @default(autoincrement())
+  categoriaId       Int
+  periodoAplicacion String // "YYYY-MM"
+  monto             Decimal        @db.Decimal(12, 2)
+  activo            Boolean        @default(true)
+  creadoEn          DateTime       @default(now())
+  actualizadoEn     DateTime       @updatedAt
+  categoria         CategoriaSocio @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
 
   @@unique([categoriaId, periodoAplicacion])
   @@index([periodoAplicacion])
@@ -217,16 +224,16 @@ model ConfiguracionCuotaSocial {
 /// membresías históricas (personaId sin @unique). Como regla de negocio se
 /// valida en el backend un máximo de una membresía activa por Persona.
 model Membresia {
-  id          Int            @id @default(autoincrement())
-  personaId   Int
-  persona     Persona        @relation(fields: [personaId], references: [id], onDelete: Cascade)
-  categoriaId Int
-  categoria   CategoriaSocio @relation(fields: [categoriaId], references: [id])
-  fechaAlta   DateTime       @default(now())
-  fechaBaja   DateTime?
-  activo      Boolean        @default(true)
-  creadoEn    DateTime       @default(now())
-  actualizadoEn DateTime     @updatedAt
+  id            Int            @id @default(autoincrement())
+  personaId     Int
+  persona       Persona        @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  categoriaId   Int
+  categoria     CategoriaSocio @relation(fields: [categoriaId], references: [id])
+  fechaAlta     DateTime       @default(now())
+  fechaBaja     DateTime?
+  activo        Boolean        @default(true)
+  creadoEn      DateTime       @default(now())
+  actualizadoEn DateTime       @updatedAt
 
   @@index([personaId])
   @@index([categoriaId])
@@ -242,16 +249,16 @@ model Membresia {
 /// (`Inscripcion.activo`, que expone US-08 como INSCRIPTO/BAJA): un participante
 /// inactivo está bloqueado y no puede ser inscripto en ninguna disciplina.
 model Persona {
-  id              Int           @id @default(autoincrement())
+  id              Int       @id @default(autoincrement())
   nombre          String
   apellido        String
-  dni             String?       @unique
+  dni             String?   @unique
   fechaNacimiento DateTime?
-  email           String?       @unique
+  email           String?   @unique
   telefono        String?
-  activo          Boolean       @default(true)
-  creadoEn        DateTime      @default(now())
-  actualizadoEn   DateTime      @updatedAt
+  activo          Boolean   @default(true)
+  creadoEn        DateTime  @default(now())
+  actualizadoEn   DateTime  @updatedAt
 
   usuario         Usuario?
   membresias      Membresia[]
@@ -268,13 +275,20 @@ model Persona {
 /// Evento del club. Cada Evento tiene un cupo de entradas disponibles; al
 /// vender entradas se decrementa ese cupo de forma atómica.
 model Evento {
-  id                  Int       @id @default(autoincrement())
+  id                  Int          @id @default(autoincrement())
   nombre              String
   descripcion         String?
-  entradasDisponibles Int       @default(0)
+  capacidadMaxima     Int
+  cierreInscripcion   DateTime
+  estado              EstadoEvento @default(BORRADOR)
+  fechaEvento         DateTime
+  imagen              String?
+  lugarAcreditacion   String
+  precio              Decimal      @default(0) @db.Decimal(12, 2)
+  entradasDisponibles Int          @default(0)
   entradas            Entrada[]
-  creadoEn            DateTime  @default(now())
-  actualizadoEn       DateTime  @updatedAt
+  creadoEn            DateTime     @default(now())
+  actualizadoEn       DateTime     @updatedAt
 
   @@map("eventos")
 }
@@ -313,15 +327,14 @@ model RegistroAuditoria {
   @@map("registros_auditoria")
 }
 
-
 /// Categoría dentro de una disciplina (ej: "Sub-15", "Primera", "Adultos").
 model CategoriaDisciplina {
-  id           Int      @id @default(autoincrement())
+  id           Int        @id @default(autoincrement())
   nombre       String
   disciplinaId Int
   disciplina   Disciplina @relation(fields: [disciplinaId], references: [id])
-  activo       Boolean  @default(true)
-  creadoEn     DateTime @default(now())
+  activo       Boolean    @default(true)
+  creadoEn     DateTime   @default(now())
 
   inscripciones Inscripcion[]
 
@@ -347,7 +360,6 @@ model Inscripcion {
   creadoEn         DateTime @default(now())
   actualizadoEn    DateTime @updatedAt
 
-
   @@unique([personaId, disciplinaId])
   @@index([disciplinaId])
   @@map("inscripciones")
@@ -365,10 +377,10 @@ model Documentacion {
   persona          Persona  @relation(fields: [personaId], references: [id], onDelete: Cascade)
   // Archivo adjunto opcional (PDF/imagen). El binario se guarda en el filesystem
   // del servidor (ruta configurable); en la BD solo la referencia.
-  archivoNombre    String?  // nombre original subido por el usuario
-  archivoRuta      String?  // nombre del archivo almacenado (relativo al dir de storage)
+  archivoNombre    String? // nombre original subido por el usuario
+  archivoRuta      String? // nombre del archivo almacenado (relativo al dir de storage)
   mimeType         String?
-  tamano           Int?     // en bytes
+  tamano           Int? // en bytes
   creadoEn         DateTime @default(now())
   actualizadoEn    DateTime @updatedAt
 
@@ -384,7 +396,7 @@ model Pago {
   id         Int      @id @default(autoincrement())
   personaId  Int
   persona    Persona  @relation(fields: [personaId], references: [id], onDelete: Cascade)
-  periodo    String   // "YYYY-MM"
+  periodo    String // "YYYY-MM"
   monto      Decimal  @db.Decimal(12, 2)
   metodoPago String   @default("MOCK_TARJETA")
   fechaPago  DateTime @default(now())
@@ -409,7 +421,7 @@ model PagoCuotaDeportiva {
   persona       Persona    @relation(fields: [personaId], references: [id], onDelete: Cascade)
   disciplinaId  Int
   disciplina    Disciplina @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
-  periodo       String     // "YYYY-MM"
+  periodo       String // "YYYY-MM"
   monto         Decimal    @db.Decimal(12, 2)
   metodoPago    String     @default("EFECTIVO")
   fechaPago     DateTime   @default(now())

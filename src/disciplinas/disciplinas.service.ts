@@ -72,11 +72,12 @@ export class DisciplinasService {
 
   async findAll(query: FindDisciplinasQueryDto = new FindDisciplinasQueryDto()) {
     const { busqueda, estado, pagina = 1, porPagina = 20 } = query;
-    const activo = estado === EstadoDisciplinaFiltro.ACTIVA
-      ? true
-      : estado === EstadoDisciplinaFiltro.INACTIVA
-        ? false
-        : undefined;
+    const activo =
+      estado === EstadoDisciplinaFiltro.ACTIVA
+        ? true
+        : estado === EstadoDisciplinaFiltro.INACTIVA
+          ? false
+          : undefined;
     const where = {
       ...(activo === undefined ? {} : { activo }),
       ...(busqueda?.trim()
@@ -158,9 +159,13 @@ export class DisciplinasService {
 
       // Si se enviaron requisitos, o se desactivó la documentación,
       // reemplazar los requisitos para no conservar datos obsoletos.
-      if (requerimientosDocumentacion !== undefined || dataDisciplina.solicitaDocumentacion === false) {
+      if (
+        requerimientosDocumentacion !== undefined ||
+        dataDisciplina.solicitaDocumentacion === false
+      ) {
         await tx.disciplinaRequerimientoDoc.deleteMany({ where: { disciplinaId: id } });
-        const solicitaDocumentacion = dataDisciplina.solicitaDocumentacion ?? actual.solicitaDocumentacion;
+        const solicitaDocumentacion =
+          dataDisciplina.solicitaDocumentacion ?? actual.solicitaDocumentacion;
         if (solicitaDocumentacion && requerimientosDocumentacion?.length) {
           await tx.disciplinaRequerimientoDoc.createMany({
             data: requerimientosDocumentacion.map((requerimiento) => ({

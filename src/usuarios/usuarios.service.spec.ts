@@ -29,7 +29,9 @@ describe('UsuariosService', () => {
     rol: {
       findMany: jest.fn(),
     },
-    $transaction: jest.fn((cb: any) => (typeof cb === 'function' ? cb(prismaMock) : Promise.all(cb))),
+    $transaction: jest.fn((cb: any) =>
+      typeof cb === 'function' ? cb(prismaMock) : Promise.all(cb),
+    ),
   };
   const auditoriaMock = {
     registrar: jest.fn(),
@@ -494,7 +496,7 @@ describe('UsuariosService', () => {
       );
     });
   });
-  
+
   describe('US-04: Consultar usuarios administrativos', () => {
     it('retorna todos los usuarios si no hay parámetros (paginado)', async () => {
       prismaMock.usuario.findMany.mockResolvedValue([{ id: 1, persona: { dni: '11' } }]);
@@ -628,4 +630,3 @@ describe('UsuariosService', () => {
     });
   });
 });
-

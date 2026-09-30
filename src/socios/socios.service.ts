@@ -316,8 +316,12 @@ export class SociosService {
     }
 
     const whereBase: Prisma.PersonaWhereInput = { AND: filtrosBase };
-    const whereAlta: Prisma.PersonaWhereInput = { AND: [...filtrosBase, { membresias: { some: { activo: true } } }] };
-    const whereBaja: Prisma.PersonaWhereInput = { AND: [...filtrosBase, { membresias: { none: { activo: true } } }] };
+    const whereAlta: Prisma.PersonaWhereInput = {
+      AND: [...filtrosBase, { membresias: { some: { activo: true } } }],
+    };
+    const whereBaja: Prisma.PersonaWhereInput = {
+      AND: [...filtrosBase, { membresias: { none: { activo: true } } }],
+    };
 
     let where: Prisma.PersonaWhereInput = whereBase;
     if (estado === EstadoSocioFiltro.ALTA) {
@@ -510,7 +514,9 @@ export class SociosService {
             where: { usuarioId_rolId: { usuarioId: usuarioVinculado.id, rolId: rolSocio.id } },
           });
           if (!tieneRol) {
-            await tx.usuarioRol.create({ data: { usuarioId: usuarioVinculado.id, rolId: rolSocio.id } });
+            await tx.usuarioRol.create({
+              data: { usuarioId: usuarioVinculado.id, rolId: rolSocio.id },
+            });
           }
         }
       }
@@ -544,7 +550,9 @@ export class SociosService {
     });
 
     if (!usuario || !usuario.activo) {
-      throw new UnauthorizedException('El usuario no está habilitado para autogestionarse como socio');
+      throw new UnauthorizedException(
+        'El usuario no está habilitado para autogestionarse como socio',
+      );
     }
 
     if (!usuario.persona) {

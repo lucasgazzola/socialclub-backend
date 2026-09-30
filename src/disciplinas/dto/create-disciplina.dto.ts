@@ -78,7 +78,8 @@ export class CreateDisciplinaDto {
       { tipoDocumento: 'DNI', plazoDiasTolerancia: 0 },
       { tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA', plazoDiasTolerancia: 30 },
     ],
-    description: 'Documentación requerida y plazo individual. Solo aplica si solicitaDocumentacion=true.',
+    description:
+      'Documentación requerida y plazo individual. Solo aplica si solicitaDocumentacion=true.',
   })
   @ValidateIf((o: CreateDisciplinaDto) => o.solicitaDocumentacion === true)
   @IsArray()

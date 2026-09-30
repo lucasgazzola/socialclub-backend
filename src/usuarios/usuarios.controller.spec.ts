@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { UsuariosController } from './usuarios.controller';
 import { UsuariosService } from './usuarios.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
@@ -54,10 +54,8 @@ describe('UsuariosController', () => {
     });
 
     it('should propagate ConflictException from service', async () => {
-      mockUsuariosService.create.mockRejectedValue(
-        new ConflictException('Email duplicado'),
-      );
-      
+      mockUsuariosService.create.mockRejectedValue(new ConflictException('Email duplicado'));
+
       const dto: CreateUsuarioDto = {
         dni: '12345678',
         email: 'nuevo@test.com',

@@ -51,9 +51,7 @@ describe('PagosDeportivosService · US-21', () => {
     });
 
     it('devuelve AL_DIA cuando no hay inscripciones activas', async () => {
-      mockPrisma.persona.findUnique.mockResolvedValue(
-        participanteBase({ inscripciones: [] }),
-      );
+      mockPrisma.persona.findUnique.mockResolvedValue(participanteBase({ inscripciones: [] }));
       mockPrisma.pagoCuotaDeportiva.findMany.mockResolvedValue([]);
       const res = await service.getPendientesPorPersona(50);
       expect(res.estadoDeuda).toBe('AL_DIA');
@@ -68,7 +66,10 @@ describe('PagosDeportivosService · US-21', () => {
       expect(res.estadoDeuda).toBe('MOROSO');
       expect(res.cuotasPendientes.length).toBeGreaterThan(0);
       expect(res.totalAdeudado).toBeGreaterThan(0);
-      expect(res.cuotasPendientes[0]).toMatchObject({ disciplinaId: 3, disciplinaNombre: 'Fútbol' });
+      expect(res.cuotasPendientes[0]).toMatchObject({
+        disciplinaId: 3,
+        disciplinaNombre: 'Fútbol',
+      });
     });
   });
 
@@ -76,9 +77,9 @@ describe('PagosDeportivosService · US-21', () => {
     const periodo = periodoActualDeportivo();
 
     it('rechaza lista de períodos vacía (BadRequest)', async () => {
-      await expect(
-        service.registrarPago(50, { disciplinaId: 3, periodos: [] }, 1),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.registrarPago(50, { disciplinaId: 3, periodos: [] }, 1)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('rechaza períodos repetidos en la misma operación (BadRequest)', async () => {
@@ -158,7 +159,11 @@ describe('PagosDeportivosService · US-21', () => {
 
       expect(mockPrisma.pagoCuotaDeportiva.create).toHaveBeenCalledTimes(1);
       expect(mockAuditoria.registrar).toHaveBeenCalledWith(
-        expect.objectContaining({ accion: 'CREAR', entidad: 'PagoCuotaDeportiva', responsableId: 7 }),
+        expect.objectContaining({
+          accion: 'CREAR',
+          entidad: 'PagoCuotaDeportiva',
+          responsableId: 7,
+        }),
         expect.anything(),
       );
       expect(res.montoTotal).toBe(5000);

@@ -72,6 +72,12 @@ export class EventosService {
         nombre: dto.nombre,
         descripcion: dto.descripcion,
         entradasDisponibles: dto.entradasDisponibles,
+        capacidadMaxima: dto.capacidadMaxima,
+        cierreInscripcion: dto.cierreInscripcion,
+        fechaEvento: dto.fechaEvento,
+        imagen: dto.imagen,
+        lugarAcreditacion: dto.lugarAcreditacion,
+        precio: dto.precio,
       },
     });
 
