@@ -143,12 +143,12 @@ export class UsuariosService {
   }
 
   async findAll(query: GetUsuariosQueryDto = new GetUsuariosQueryDto()) {
-    const { busqueda, rolId, pagina, porPagina } = query;
-    const where: Prisma.UsuarioWhereInput = {};
+    const { busqueda, rolId, estado, pagina = 1, porPagina = 10 } = query;
+    const whereBase: Prisma.UsuarioWhereInput = {};
 
     if (busqueda) {
       const terminos = busqueda.trim().split(/\s+/);
-      where.AND = terminos.map((t) => ({
+      whereBase.AND = terminos.map((t) => ({
         OR: [
           { nombre: { contains: t, mode: 'insensitive' } },
           { apellido: { contains: t, mode: 'insensitive' } },
@@ -157,11 +157,21 @@ export class UsuariosService {
     }
 
     if (rolId) {
-      where.roles = {
+      whereBase.roles = {
         some: {
           rolId,
         },
       };
+    }
+
+    const whereActivos: Prisma.UsuarioWhereInput = { ...whereBase, activo: true };
+    const whereInactivos: Prisma.UsuarioWhereInput = { ...whereBase, activo: false };
+
+    let where: Prisma.UsuarioWhereInput = whereBase;
+    if (estado === 'activos') {
+      where = whereActivos;
+    } else if (estado === 'inactivos') {
+      where = whereInactivos;
     }
 
     const [items, total, totalTodos, totalActivos, totalInactivos] = await this.prisma.$transaction([
@@ -173,9 +183,9 @@ export class UsuariosService {
         take: porPagina,
       }),
       this.prisma.usuario.count({ where }),
-      this.prisma.usuario.count({ where: {} }),
-      this.prisma.usuario.count({ where: { activo: true } }),
-      this.prisma.usuario.count({ where: { activo: false } }),
+      this.prisma.usuario.count({ where: whereBase }),
+      this.prisma.usuario.count({ where: whereActivos }),
+      this.prisma.usuario.count({ where: whereInactivos }),
     ]);
 
     return {

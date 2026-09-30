@@ -12,6 +12,10 @@ export class GetUsuariosQueryDto {
   rolId?: number;
 
   @IsOptional()
+  @IsString()
+  estado?: 'todos' | 'activos' | 'inactivos';
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)

@@ -25,12 +25,13 @@ Desarrollar un endpoint en el backend (`GET /usuarios`) que reciba parámetros d
 
 ### Frontend Implementation Decisions (React + TanStack Query)
 
-- **Búsqueda en Tiempo Real y Filtros UI**: Se implementó `usuariosFilterSchema` con `busqueda` y `rolId` mediante React Hook Form y Zod. Se removió el botón explícito de "Buscar", implementando una búsqueda reactiva con debounce de 300ms idéntica a `SociosPage` y filtrado instantáneo al seleccionar un rol (`1`: Administrador, `2`: Colaborador).
-- **Iconografía y Componentes**: Siguiendo `ESTANDARES_UI_UX.md`, se mantuvieron los íconos `<Search />` para el `<Input />` de búsqueda y `<Filter />` para el `<Select />` de roles.
+- **Búsqueda en Tiempo Real y Filtros UI**: Se implementó la búsqueda reactiva con debounce de 300ms idéntica a `SociosPage` y filtrado instantáneo al seleccionar un rol (`1`: Administrador, `2`: Colaborador). Se añadió `autoComplete="off"` al input de búsqueda para evitar superposiciones de autocompletado nativo del navegador.
+- **Estandarización de Grilla a Tabla (`SociosTable`)**: Se homologó completamente `UsuariosGrid` a la estructura canónica de tabla HTML (`<table className="w-full text-left text-sm">`), eliminando el layout experimental basado en `<ul>/<li>` y `grid` que generaba anchos forzados (`min-w-[59.25rem]`), avatares que agrandaban la fila y artefactos de bordes negros en Tailwind v4 (`:where(.divide-slate-100)`).
+- **Iconografía y Componentes**: Siguiendo `ESTANDARES_UI_UX.md`, se mantuvieron los íconos `<Search />` para el `<Input />` de búsqueda, `<Filter />` para el `<Select />` de roles y el encabezado `Usuarios`.
 - **Consumo de Respuesta Paginada**: Se adaptó el cliente API (`usuariosApi.list`) y el hook `useUsers` para operar con `Paginated<Usuario>`, recibiendo `{ items, total, pagina, porPagina, counts }`.
-- **Paginación de la Tabla**: Se incorporó el pie de paginación idéntico al estándar de `SociosPage`, con botones "Anterior" y "Siguiente", cálculo de páginas totales y total de usuarios con indicador de sincronización (`isFetching`).
+- **Paginación de la Tabla**: Se incorporó el pie de paginación idéntico al estándar de `SociosPage`, con botones "Anterior" y "Siguiente", cálculo de páginas totales y total de usuarios con indicador de sincronización.
 - **Integración de StatusTabs**: Las pestañas de estado consumen directamente los contadores agregados `data.counts.todos`, `data.counts.activos` y `data.counts.inactivos` provistos por el backend.
-- **Compatibilidad y Robustez**: La vista soporta tanto respuestas paginadas estándar como estructuras polimórficas de pruebas unitarias, garantizando que el 100% de la suite de tests permanezca en verde.
+- **Compatibilidad y Robustez**: La vista soporta tanto respuestas paginadas estándar como estructuras polimórficas de pruebas unitarias, garantizando que el 100% de la suite de tests (188 tests) permanezca en verde.
 
 ## Testing Decisions
 
