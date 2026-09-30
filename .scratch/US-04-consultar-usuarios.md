@@ -25,7 +25,7 @@ Desarrollar un endpoint en el backend (`GET /usuarios`) que reciba parámetros d
 
 ### Frontend Implementation Decisions (React + TanStack Query)
 
-- **Filtros UI con React Hook Form + Zod**: Se implementó `usuariosFilterSchema` con `busqueda` y `rolId` para el formulario de filtrado. El selector de roles envía los IDs numéricos estandarizados (`1`: Administrador, `2`: Colaborador), permitiendo además la reactividad inmediata `onChange` al cambiar de opción.
+- **Búsqueda en Tiempo Real y Filtros UI**: Se implementó `usuariosFilterSchema` con `busqueda` y `rolId` mediante React Hook Form y Zod. Se removió el botón explícito de "Buscar", implementando una búsqueda reactiva con debounce de 300ms idéntica a `SociosPage` y filtrado instantáneo al seleccionar un rol (`1`: Administrador, `2`: Colaborador).
 - **Iconografía y Componentes**: Siguiendo `ESTANDARES_UI_UX.md`, se mantuvieron los íconos `<Search />` para el `<Input />` de búsqueda y `<Filter />` para el `<Select />` de roles.
 - **Consumo de Respuesta Paginada**: Se adaptó el cliente API (`usuariosApi.list`) y el hook `useUsers` para operar con `Paginated<Usuario>`, recibiendo `{ items, total, pagina, porPagina, counts }`.
 - **Paginación de la Tabla**: Se incorporó el pie de paginación idéntico al estándar de `SociosPage`, con botones "Anterior" y "Siguiente", cálculo de páginas totales y total de usuarios con indicador de sincronización (`isFetching`).
