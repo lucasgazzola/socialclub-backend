@@ -675,7 +675,13 @@ describe('SociosService', () => {
         apellido: 'Perez',
         dni: '20111222',
         membresias: [
-          { id: 10, categoriaId: 1, activo: false, fechaAlta: new Date('2024-01-01'), fechaBaja: new Date('2024-06-01') },
+          {
+            id: 10,
+            categoriaId: 1,
+            activo: false,
+            fechaAlta: new Date('2024-01-01'),
+            fechaBaja: new Date('2024-06-01'),
+          },
         ],
       });
 
@@ -743,7 +749,12 @@ describe('SociosService', () => {
       });
 
       prismaMock.rol.findUnique.mockResolvedValueOnce({ id: 3, nombre: 'SOCIO' });
-      prismaMock.membresia.create.mockResolvedValueOnce({ id: 12, personaId: 15, categoriaId: 2, activo: true });
+      prismaMock.membresia.create.mockResolvedValueOnce({
+        id: 12,
+        personaId: 15,
+        categoriaId: 2,
+        activo: true,
+      });
       prismaMock.usuarioRol.findUnique.mockResolvedValueOnce(null);
       prismaMock.usuarioRol.create.mockResolvedValueOnce({ usuarioId: 5, rolId: 3 });
 

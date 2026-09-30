@@ -1,14 +1,35 @@
+/*
+  Warnings:
+
+  - Added the required column `capacidadMaxima` to the `eventos` table without a default value. This is not possible if the table is not empty.
+  - Added the required column `cierreInscripcion` to the `eventos` table without a default value. This is not possible if the table is not empty.
+  - Added the required column `fechaEvento` to the `eventos` table without a default value. This is not possible if the table is not empty.
+  - Added the required column `lugarAcreditacion` to the `eventos` table without a default value. This is not possible if the table is not empty.
+
+*/
 -- CreateEnum
 CREATE TYPE "GeneroDisciplina" AS ENUM ('FEMENINO', 'MASCULINO', 'NO_BINARIO_NO_ESPECIFICADO');
 
 -- CreateEnum
 CREATE TYPE "TipoDocumentacionDisciplina" AS ENUM ('DNI', 'FICHA_INSCRIPCION', 'CERTIFICADO_MEDICO_APTITUD_FISICA', 'SEGURO_COBERTURA_MEDICA', 'AUTORIZACION_PADRES_TUTORES', 'CARNET_FEDERATIVO_LICENCIA_DEPORTIVA', 'REGLAMENTO_INTERNO_FIRMADO', 'FICHA_TECNICA_NATACION', 'FICHA_TECNICA_GIMNASIO_FITNESS', 'FICHA_TECNICA_ARTES_MARCIALES', 'FICHA_TECNICA_DEPORTES_CONTACTO', 'COMPROBANTE_PAGO_CUOTA_SOCIAL_DEPORTIVA');
 
+-- CreateEnum
+CREATE TYPE "EstadoEvento" AS ENUM ('BORRADOR', 'PUBLICADO', 'CANCELADO', 'FINALIZADO');
+
 -- AlterTable
 ALTER TABLE "disciplinas" ADD COLUMN     "edadMaxima" INTEGER,
 ADD COLUMN     "edadMinima" INTEGER,
 ADD COLUMN     "genero" "GeneroDisciplina",
 ADD COLUMN     "solicitaDocumentacion" BOOLEAN NOT NULL DEFAULT false;
+
+-- AlterTable
+ALTER TABLE "eventos" ADD COLUMN     "capacidadMaxima" INTEGER NOT NULL,
+ADD COLUMN     "cierreInscripcion" TIMESTAMP(3) NOT NULL,
+ADD COLUMN     "estado" "EstadoEvento" NOT NULL DEFAULT 'BORRADOR',
+ADD COLUMN     "fechaEvento" TIMESTAMP(3) NOT NULL,
+ADD COLUMN     "imagen" TEXT,
+ADD COLUMN     "lugarAcreditacion" TEXT NOT NULL,
+ADD COLUMN     "precio" DECIMAL(12,2) NOT NULL DEFAULT 0;
 
 -- CreateTable
 CREATE TABLE "disciplina_requerimientos_doc" (

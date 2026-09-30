@@ -7,12 +7,14 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UsuariosService } from './usuarios.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
+import { GetUsuariosQueryDto } from './dto/get-usuarios-query.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -35,8 +37,8 @@ export class UsuariosController {
 
   @Get()
   @ApiOperation({ summary: 'Listar usuarios administrativos' })
-  findAll() {
-    return this.usuariosService.findAll();
+  findAll(@Query() query: GetUsuariosQueryDto) {
+    return this.usuariosService.findAll(query);
   }
 
   @Get(':id')

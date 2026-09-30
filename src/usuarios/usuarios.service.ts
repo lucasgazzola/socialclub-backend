@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioPasswordDto } from './dto/update-usuario.dto';
+import { GetUsuariosQueryDto } from './dto/get-usuarios-query.dto';
 
 const SALT_ROUNDS = 10;
 
@@ -141,12 +142,65 @@ export class UsuariosService {
     return this.aUsuarioDto(usuario);
   }
 
-  async findAll() {
-    const usuarios = await this.prisma.usuario.findMany({
-      select: SELECT_PUBLICO,
-      orderBy: { apellido: 'asc' },
-    });
-    return usuarios.map((u) => this.aUsuarioDto(u));
+  async findAll(query: GetUsuariosQueryDto = new GetUsuariosQueryDto()) {
+    const { busqueda, rolId, estado, pagina = 1, porPagina = 10 } = query;
+    const whereBase: Prisma.UsuarioWhereInput = {};
+
+    if (busqueda) {
+      const terminos = busqueda.trim().split(/\s+/);
+      whereBase.AND = terminos.map((t) => ({
+        OR: [
+          { nombre: { contains: t, mode: 'insensitive' } },
+          { apellido: { contains: t, mode: 'insensitive' } },
+        ],
+      }));
+    }
+
+    if (rolId) {
+      whereBase.roles = {
+        some: {
+          rolId,
+        },
+      };
+    }
+
+    const whereActivos: Prisma.UsuarioWhereInput = { ...whereBase, activo: true };
+    const whereInactivos: Prisma.UsuarioWhereInput = { ...whereBase, activo: false };
+
+    let where: Prisma.UsuarioWhereInput = whereBase;
+    if (estado === 'activos') {
+      where = whereActivos;
+    } else if (estado === 'inactivos') {
+      where = whereInactivos;
+    }
+
+    const [items, total, totalTodos, totalActivos, totalInactivos] = await this.prisma.$transaction(
+      [
+        this.prisma.usuario.findMany({
+          where,
+          select: SELECT_PUBLICO,
+          orderBy: { apellido: 'asc' },
+          skip: (pagina - 1) * porPagina,
+          take: porPagina,
+        }),
+        this.prisma.usuario.count({ where }),
+        this.prisma.usuario.count({ where: whereBase }),
+        this.prisma.usuario.count({ where: whereActivos }),
+        this.prisma.usuario.count({ where: whereInactivos }),
+      ],
+    );
+
+    return {
+      items: items.map((u) => this.aUsuarioDto(u as UsuarioPublico)),
+      total,
+      pagina,
+      porPagina,
+      counts: {
+        todos: totalTodos,
+        activos: totalActivos,
+        inactivos: totalInactivos,
+      },
+    };
   }
 
   async findOne(id: number) {

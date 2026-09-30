@@ -33,7 +33,8 @@ describe('DisciplinasService', () => {
       count: jest.fn(),
     },
     $transaction: jest.fn((value: ((tx: typeof txMock) => unknown) | unknown[]) =>
-      Array.isArray(value) ? Promise.all(value) : (value as (tx: typeof txMock) => unknown)(txMock)),
+      Array.isArray(value) ? Promise.all(value) : (value as (tx: typeof txMock) => unknown)(txMock),
+    ),
   };
   const auditoriaMock = { registrar: jest.fn() };
 
@@ -88,7 +89,9 @@ describe('DisciplinasService', () => {
         id: 7,
         nombre: 'Natación',
         activo: true,
-        requerimientosDoc: [{ id: 1, tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA', plazoDiasTolerancia: 30 }],
+        requerimientosDoc: [
+          { id: 1, tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA', plazoDiasTolerancia: 30 },
+        ],
         categorias: [],
         _count: {},
         configuracionesCuotaDeportiva: [],
@@ -99,13 +102,21 @@ describe('DisciplinasService', () => {
         {
           nombre: 'Natación',
           solicitaDocumentacion: true,
-          requerimientosDocumentacion: [{ tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA', plazoDiasTolerancia: 30 }],
+          requerimientosDocumentacion: [
+            { tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA', plazoDiasTolerancia: 30 },
+          ],
         },
         5,
       );
 
       expect(txMock.disciplinaRequerimientoDoc.createMany).toHaveBeenCalledWith({
-        data: [{ disciplinaId: 7, tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA', plazoDiasTolerancia: 30 }],
+        data: [
+          {
+            disciplinaId: 7,
+            tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA',
+            plazoDiasTolerancia: 30,
+          },
+        ],
       });
     });
 
@@ -134,19 +145,26 @@ describe('DisciplinasService', () => {
       prismaMock.disciplina.findMany.mockResolvedValue([]);
       prismaMock.disciplina.count.mockResolvedValue(0);
 
-      const resultado = await service.findAll({ busqueda: 'nat', estado: EstadoDisciplinaFiltro.ACTIVA, pagina: 2, porPagina: 10 });
+      const resultado = await service.findAll({
+        busqueda: 'nat',
+        estado: EstadoDisciplinaFiltro.ACTIVA,
+        pagina: 2,
+        porPagina: 10,
+      });
 
-      expect(prismaMock.disciplina.findMany).toHaveBeenCalledWith(expect.objectContaining({
-        where: {
-          activo: true,
-          OR: [
-            { nombre: { contains: 'nat', mode: 'insensitive' } },
-            { descripcion: { contains: 'nat', mode: 'insensitive' } },
-          ],
-        },
-        skip: 10,
-        take: 10,
-      }));
+      expect(prismaMock.disciplina.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            activo: true,
+            OR: [
+              { nombre: { contains: 'nat', mode: 'insensitive' } },
+              { descripcion: { contains: 'nat', mode: 'insensitive' } },
+            ],
+          },
+          skip: 10,
+          take: 10,
+        }),
+      );
       expect(resultado).toEqual({
         items: [],
         total: 0,
@@ -275,7 +293,11 @@ describe('DisciplinasService', () => {
       });
       expect(txMock.disciplinaRequerimientoDoc.createMany).toHaveBeenCalledWith({
         data: [
-          { disciplinaId: 1, tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA', plazoDiasTolerancia: 30 },
+          {
+            disciplinaId: 1,
+            tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA',
+            plazoDiasTolerancia: 30,
+          },
           { disciplinaId: 1, tipoDocumento: 'DNI', plazoDiasTolerancia: 0 },
         ],
       });
