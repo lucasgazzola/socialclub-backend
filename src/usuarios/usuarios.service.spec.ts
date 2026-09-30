@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsuariosService } from './usuarios.service';
+import { GetUsuariosQueryDto } from './dto/get-usuarios-query.dto';
 
 describe('UsuariosService', () => {
   let service: UsuariosService;
@@ -14,6 +15,7 @@ describe('UsuariosService', () => {
       create: jest.fn(),
       update: jest.fn(),
       findMany: jest.fn(),
+      count: jest.fn(),
     },
     persona: {
       findFirst: jest.fn(),
@@ -27,7 +29,7 @@ describe('UsuariosService', () => {
     rol: {
       findMany: jest.fn(),
     },
-    $transaction: jest.fn((cb: any) => (typeof cb === 'function' ? cb(prismaMock) : cb)),
+    $transaction: jest.fn((cb: any) => (typeof cb === 'function' ? cb(prismaMock) : Promise.all(cb))),
   };
   const auditoriaMock = {
     registrar: jest.fn(),
@@ -36,7 +38,7 @@ describe('UsuariosService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     prismaMock.$transaction.mockImplementation((cb: any) =>
-      typeof cb === 'function' ? cb(prismaMock) : cb,
+      typeof cb === 'function' ? cb(prismaMock) : Promise.all(cb),
     );
     prismaMock.persona.findFirst.mockResolvedValue(null);
     prismaMock.persona.findUnique.mockResolvedValue(null);
@@ -494,24 +496,33 @@ describe('UsuariosService', () => {
   });
   
   describe('US-04: Consultar usuarios administrativos', () => {
-    it('retorna todos los usuarios si no hay parámetros', async () => {
+    it('retorna todos los usuarios si no hay parámetros (paginado)', async () => {
       prismaMock.usuario.findMany.mockResolvedValue([{ id: 1, persona: { dni: '11' } }]);
-      const result = await service.findAll();
+      prismaMock.usuario.count.mockResolvedValue(1);
+      const result = await service.findAll(new GetUsuariosQueryDto());
       expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: {} }),
       );
-      expect(result).toHaveLength(1);
+      expect(result.items).toHaveLength(1);
+      expect(result.total).toBe(1);
     });
 
     it('aplica filtro por nombre en nombre o apellido', async () => {
       prismaMock.usuario.findMany.mockResolvedValue([]);
-      await service.findAll({ nombre: 'Juan' });
+      prismaMock.usuario.count.mockResolvedValue(0);
+      const query = new GetUsuariosQueryDto();
+      query.busqueda = 'Juan';
+      await service.findAll(query);
       expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
-            OR: [
-              { nombre: { contains: 'Juan', mode: 'insensitive' } },
-              { apellido: { contains: 'Juan', mode: 'insensitive' } },
+            AND: [
+              {
+                OR: [
+                  { nombre: { contains: 'Juan', mode: 'insensitive' } },
+                  { apellido: { contains: 'Juan', mode: 'insensitive' } },
+                ],
+              },
             ],
           },
         }),
@@ -520,13 +531,16 @@ describe('UsuariosService', () => {
 
     it('aplica filtro por rol', async () => {
       prismaMock.usuario.findMany.mockResolvedValue([]);
-      await service.findAll({ rol: 'ADMIN' });
+      prismaMock.usuario.count.mockResolvedValue(0);
+      const query = new GetUsuariosQueryDto();
+      query.rolId = 2;
+      await service.findAll(query);
       expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
             roles: {
               some: {
-                rol: { nombre: { equals: 'ADMIN', mode: 'insensitive' } },
+                rolId: 2,
               },
             },
           },
@@ -536,22 +550,81 @@ describe('UsuariosService', () => {
 
     it('combina filtros de nombre y rol', async () => {
       prismaMock.usuario.findMany.mockResolvedValue([]);
-      await service.findAll({ nombre: 'Ana', rol: 'COLABORADOR' });
+      prismaMock.usuario.count.mockResolvedValue(0);
+      const query = new GetUsuariosQueryDto();
+      query.busqueda = 'Ana';
+      query.rolId = 3;
+      await service.findAll(query);
       expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
-            OR: [
-              { nombre: { contains: 'Ana', mode: 'insensitive' } },
-              { apellido: { contains: 'Ana', mode: 'insensitive' } },
+            AND: [
+              {
+                OR: [
+                  { nombre: { contains: 'Ana', mode: 'insensitive' } },
+                  { apellido: { contains: 'Ana', mode: 'insensitive' } },
+                ],
+              },
             ],
             roles: {
               some: {
-                rol: { nombre: { equals: 'COLABORADOR', mode: 'insensitive' } },
+                rolId: 3,
               },
             },
           },
         }),
       );
+    });
+  });
+
+  describe('US-03 (complemento): Reactivar un usuario previamente dado de baja', () => {
+    const usuarioInactivo = {
+      id: 1,
+      dni: '12345678',
+      activo: false,
+    };
+
+    beforeEach(() => {
+      prismaMock.usuario.findUnique.mockResolvedValue(usuarioInactivo);
+      prismaMock.usuario.update.mockResolvedValue({ ...usuarioInactivo, activo: true });
+    });
+
+    it('reactiva el usuario y audita la acción', async () => {
+      const resultado = await service.activate(1, 99);
+
+      expect(resultado!.activo).toBe(true);
+      expect(prismaMock.usuario.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: { activo: true },
+        }),
+      );
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({ accion: 'REACTIVAR', idEntidad: 1, responsableId: 99 }),
+      );
+    });
+
+    it('lanza NotFoundException si no existe el usuario', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(null);
+      await expect(service.activate(999, 99)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('lanza BadRequestException si el usuario ya está activo', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ ...usuarioInactivo, activo: true });
+      await expect(service.activate(1, 99)).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('findOne', () => {
+    it('retorna el usuario si existe', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ id: 1, persona: { dni: '11' } });
+      const resultado = await service.findOne(1);
+      expect(resultado).toEqual(expect.objectContaining({ id: 1, dni: '11' }));
+    });
+
+    it('lanza NotFoundException si no existe', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(null);
+      await expect(service.findOne(999)).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

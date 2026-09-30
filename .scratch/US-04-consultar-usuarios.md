@@ -16,21 +16,34 @@ Desarrollar un endpoint en el backend (`GET /usuarios`) que reciba parámetros d
 
 ## Implementation Decisions
 
-- **DTO**: Se creará un `GetUsuariosQueryDto` utilizando `class-validator` y `class-transformer` para asegurar el parseo estricto de los query params (`nombre`, `rol`).
-- **Endpoint**: Se agregará el decorador `@Get()` al `UsuariosController`.
-- **Servicio**: En `UsuariosService`, se implementará el método `findAll` (o se actualizará si ya existe) usando Prisma. Se usará `OR` para buscar el texto tanto en `nombre` como en `apellido` del usuario con `contains` y `mode: 'insensitive'`.
+- **DTO**: Se creará un `GetUsuariosQueryDto` utilizando `class-validator` y `class-transformer` para asegurar el parseo estricto de los query params (`busqueda`, `rolId`, `pagina`, `porPagina`).
+- **Endpoint**: Se agregará el decorador `@Get()` al `UsuariosController` para recibir este DTO.
+- **Servicio**: En `UsuariosService`, el método `findAll` usará `skip` y `take` de Prisma para paginar, además del uso de `contains` (mode: 'insensitive') para `nombre/apellido` y de buscar en `roles` si se pide. El endpoint retornará la misma estructura estandarizada que `socios` (con `items`, `total`, `pagina`, `porPagina` y `counts`).
 - **Relaciones**: Para mostrar el DNI (que vive en la entidad `Persona`) y el rol (que vive en `Rol` a través de `UsuarioRol`), el query a Prisma incluirá `include: { persona: true, roles: { include: { rol: true } } }`.
 - El mapeo a los datos básicos (nombre, DNI, rol, correo) se puede hacer en el servicio o se retornará la data y el front lo acomoda (se devolverá la información estrictamente necesaria).
 
+
+### Frontend Implementation Decisions (React + TanStack Query)
+
+- **Filtros UI**: Se integró React Hook Form junto a Zod (con usuariosFilterSchema) para gestionar el estado de los filtros (nombre y rol) en la barra de búsqueda superior.
+- **Iconografía y Componentes**: Siguiendo ESTANDARES_UI_UX.md, se utilizaron los íconos <Search /> para el <Input /> de nombre y <Filter /> para el <Select /> de roles.
+- **Jerarquía Visual**: La vista no utiliza centrado mx-auto forzado y mantiene la tipografía obligatoria en el <h1>.
+- **Integración con API**: Se actualizó el hook useUsers y usuariosApi.list para aceptar un parámetro opcional GetUsuariosParams que mapea a los query params correspondientes en el endpoint GET /usuarios.
+- **Experiencia de Usuario**: Se mantuvo el componente StatusTabs para la vista de estados lógicos del front y se aseguró de que si la API retorna un array vacío tras filtrar, se muestre la tarjeta adecuada (ej. "Ningún usuario coincide con el filtro seleccionado.").
+
 ## Testing Decisions
 
-- Se probará el comportamiento externo del endpoint `GET /usuarios` en `usuarios.controller.spec.ts` o en los tests e2e.
-- Las pruebas en `usuarios.service.spec.ts` simularán `prisma.usuario.findMany` para verificar que:
+- Se probaron unitariamente los endpoints en `usuarios.controller.spec.ts` aislando el servicio para garantizar que los filtros, los datos del cuerpo y los roles operativos se propagan correctamente hacia la capa de negocio.
+- Se amplió la cobertura en `usuarios.service.spec.ts` simulando `prisma.usuario.findMany` para verificar que:
   - Sin parámetros, retorna todo.
-  - Con parámetro `nombre`, Prisma recibe la consulta de búsqueda ignorando mayúsculas/minúsculas.
-  - Con parámetro `rol`, Prisma recibe el filtro por la relación `roles`.
-  - Retorna un array vacío si `findMany` no encuentra nada.
-- Sólo probamos el comportamiento de los filtros, no la lógica interna de Prisma.
+  - Con parámetro `busqueda`, Prisma recibe la consulta de búsqueda usando un bloque `OR` con `contains` e ignorando mayúsculas/minúsculas (`mode: 'insensitive'`).
+  - Con parámetro `rolId`, Prisma recibe el filtro por la relación `roles`.
+- Se diseñaron y ejecutaron **pruebas de integración (E2E) en `usuarios.e2e-spec.ts`**:
+  - **Filtro por Nombre**: Se envió una petición HTTP GET con `?nombre=...` y se verificó que devuelva la estructura completa esperada y que invoque al servicio de BD con el criterio correcto.
+  - **Filtro por Rol**: Se envió una petición con `?rol=...` verificando el comportamiento del endpoint.
+  - **Filtros Combinados**: Se envió una petición con `?nombre=...&rol=...` comprobando la combinación en la consulta (`OR` para nombre y `roles` para el rol).
+  - **Casos Borde (Sin resultados)**: Se probó explícitamente enviar filtros que no coinciden con registros en BD, garantizando que el endpoint responda exitosamente con un array vacío `[]` (y no devuelva null ni un error 404).
+- Sólo probamos el comportamiento de los filtros y la interacción de la API, delegando la lógica interna final a Prisma.
 
 ## Out of Scope
 

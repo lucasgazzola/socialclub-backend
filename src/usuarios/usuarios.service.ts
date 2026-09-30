@@ -142,32 +142,53 @@ export class UsuariosService {
     return this.aUsuarioDto(usuario);
   }
 
-  async findAll(query?: GetUsuariosQueryDto) {
+  async findAll(query: GetUsuariosQueryDto = new GetUsuariosQueryDto()) {
+    const { busqueda, rolId, pagina, porPagina } = query;
     const where: Prisma.UsuarioWhereInput = {};
 
-    if (query?.nombre) {
-      where.OR = [
-        { nombre: { contains: query.nombre, mode: 'insensitive' } },
-        { apellido: { contains: query.nombre, mode: 'insensitive' } },
-      ];
+    if (busqueda) {
+      const terminos = busqueda.trim().split(/\s+/);
+      where.AND = terminos.map((t) => ({
+        OR: [
+          { nombre: { contains: t, mode: 'insensitive' } },
+          { apellido: { contains: t, mode: 'insensitive' } },
+        ],
+      }));
     }
 
-    if (query?.rol) {
+    if (rolId) {
       where.roles = {
         some: {
-          rol: {
-            nombre: { equals: query.rol, mode: 'insensitive' },
-          },
+          rolId,
         },
       };
     }
 
-    const usuarios = await this.prisma.usuario.findMany({
-      where,
-      select: SELECT_PUBLICO,
-      orderBy: { apellido: 'asc' },
-    });
-    return usuarios.map((u) => this.aUsuarioDto(u));
+    const [items, total, totalTodos, totalActivos, totalInactivos] = await this.prisma.$transaction([
+      this.prisma.usuario.findMany({
+        where,
+        select: SELECT_PUBLICO,
+        orderBy: { apellido: 'asc' },
+        skip: (pagina - 1) * porPagina,
+        take: porPagina,
+      }),
+      this.prisma.usuario.count({ where }),
+      this.prisma.usuario.count({ where: {} }),
+      this.prisma.usuario.count({ where: { activo: true } }),
+      this.prisma.usuario.count({ where: { activo: false } }),
+    ]);
+
+    return {
+      items: items.map((u) => this.aUsuarioDto(u as UsuarioPublico)),
+      total,
+      pagina,
+      porPagina,
+      counts: {
+        todos: totalTodos,
+        activos: totalActivos,
+        inactivos: totalInactivos,
+      },
+    };
   }
 
   async findOne(id: number) {
