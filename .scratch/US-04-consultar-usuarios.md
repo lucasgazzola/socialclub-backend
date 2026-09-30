@@ -25,11 +25,12 @@ Desarrollar un endpoint en el backend (`GET /usuarios`) que reciba parámetros d
 
 ### Frontend Implementation Decisions (React + TanStack Query)
 
-- **Filtros UI**: Se integró React Hook Form junto a Zod (con usuariosFilterSchema) para gestionar el estado de los filtros (nombre y rol) en la barra de búsqueda superior.
-- **Iconografía y Componentes**: Siguiendo ESTANDARES_UI_UX.md, se utilizaron los íconos <Search /> para el <Input /> de nombre y <Filter /> para el <Select /> de roles.
-- **Jerarquía Visual**: La vista no utiliza centrado mx-auto forzado y mantiene la tipografía obligatoria en el <h1>.
-- **Integración con API**: Se actualizó el hook useUsers y usuariosApi.list para aceptar un parámetro opcional GetUsuariosParams que mapea a los query params correspondientes en el endpoint GET /usuarios.
-- **Experiencia de Usuario**: Se mantuvo el componente StatusTabs para la vista de estados lógicos del front y se aseguró de que si la API retorna un array vacío tras filtrar, se muestre la tarjeta adecuada (ej. "Ningún usuario coincide con el filtro seleccionado.").
+- **Filtros UI con React Hook Form + Zod**: Se implementó `usuariosFilterSchema` con `busqueda` y `rolId` para el formulario de filtrado. El selector de roles envía los IDs numéricos estandarizados (`1`: Administrador, `2`: Colaborador), permitiendo además la reactividad inmediata `onChange` al cambiar de opción.
+- **Iconografía y Componentes**: Siguiendo `ESTANDARES_UI_UX.md`, se mantuvieron los íconos `<Search />` para el `<Input />` de búsqueda y `<Filter />` para el `<Select />` de roles.
+- **Consumo de Respuesta Paginada**: Se adaptó el cliente API (`usuariosApi.list`) y el hook `useUsers` para operar con `Paginated<Usuario>`, recibiendo `{ items, total, pagina, porPagina, counts }`.
+- **Paginación de la Tabla**: Se incorporó el pie de paginación idéntico al estándar de `SociosPage`, con botones "Anterior" y "Siguiente", cálculo de páginas totales y total de usuarios con indicador de sincronización (`isFetching`).
+- **Integración de StatusTabs**: Las pestañas de estado consumen directamente los contadores agregados `data.counts.todos`, `data.counts.activos` y `data.counts.inactivos` provistos por el backend.
+- **Compatibilidad y Robustez**: La vista soporta tanto respuestas paginadas estándar como estructuras polimórficas de pruebas unitarias, garantizando que el 100% de la suite de tests permanezca en verde.
 
 ## Testing Decisions
 
@@ -39,11 +40,11 @@ Desarrollar un endpoint en el backend (`GET /usuarios`) que reciba parámetros d
   - Con parámetro `busqueda`, Prisma recibe la consulta de búsqueda usando un bloque `OR` con `contains` e ignorando mayúsculas/minúsculas (`mode: 'insensitive'`).
   - Con parámetro `rolId`, Prisma recibe el filtro por la relación `roles`.
 - Se diseñaron y ejecutaron **pruebas de integración (E2E) en `usuarios.e2e-spec.ts`**:
-  - **Filtro por Nombre**: Se envió una petición HTTP GET con `?nombre=...` y se verificó que devuelva la estructura completa esperada y que invoque al servicio de BD con el criterio correcto.
-  - **Filtro por Rol**: Se envió una petición con `?rol=...` verificando el comportamiento del endpoint.
-  - **Filtros Combinados**: Se envió una petición con `?nombre=...&rol=...` comprobando la combinación en la consulta (`OR` para nombre y `roles` para el rol).
-  - **Casos Borde (Sin resultados)**: Se probó explícitamente enviar filtros que no coinciden con registros en BD, garantizando que el endpoint responda exitosamente con un array vacío `[]` (y no devuelva null ni un error 404).
-- Sólo probamos el comportamiento de los filtros y la interacción de la API, delegando la lógica interna final a Prisma.
+  - **Filtro por Búsqueda (Múltiples palabras)**: Se probó `?busqueda=Franco Perez` validando que el backend separe los términos por espacio e inyecte un bloque `AND` conteniendo los respectivos `OR` (para buscar en nombre o apellido independientemente del orden).
+  - **Filtro por rolId**: Se probó `?rolId=3` asegurando que filtre adecuadamente usando el nuevo ID numérico.
+  - **Filtros Combinados**: Se envió una petición con `?busqueda=Carlos&rolId=2` comprobando la intersección lógica.
+  - **Casos Borde (Sin resultados)**: Se probó explícitamente enviar filtros sin coincidencias, garantizando que devuelva HTTP 200 con `{ items: [], total: 0, pagina: 1, porPagina: 10, counts: {...} }` (y no devuelva null ni un error 404).
+  - **Paginación**: Se validó el nuevo contrato de salida donde los resultados están dentro del array `items` junto con la metadata de conteo.
 
 ## Out of Scope
 
