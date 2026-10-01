@@ -38,6 +38,7 @@ CREDENCIALES.md
 docs/documentacion/
 # Config local de Claude Code (por usuario)
 .claude/settings.local.json
+.agents/
 
 # Artefactos generados por los skills de testing (evidencia bajo demanda)
 jest-results.json
