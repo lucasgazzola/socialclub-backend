@@ -3,19 +3,20 @@
 --   - Vincula Usuario 1:1 con Persona vía `usuarios.personaId` (reemplaza `usuarios.dni`).
 --   - Limpia columnas legacy de `personas` (`activo`, `categoriaId`) y relaja `dni` a nullable.
 -- DropForeignKey
-ALTER TABLE "personas" DROP CONSTRAINT "personas_categoriaId_fkey";
+ALTER TABLE "personas" DROP CONSTRAINT IF EXISTS "personas_categoriaId_fkey";
 
 -- DropIndex
-DROP INDEX "usuarios_dni_key";
+DROP INDEX IF EXISTS "usuarios_dni_key";
 
 -- AlterTable
-ALTER TABLE "personas" DROP COLUMN "activo",
-DROP COLUMN "categoriaId",
+ALTER TABLE "personas" DROP COLUMN IF EXISTS "activo",
+DROP COLUMN IF EXISTS "categoriaId",
 ALTER COLUMN "dni" DROP NOT NULL;
 
 -- AlterTable
-ALTER TABLE "usuarios" DROP COLUMN "dni",
-ADD COLUMN     "personaId" INTEGER NOT NULL;
+ALTER TABLE "usuarios" DROP COLUMN IF EXISTS "dni",
+ADD COLUMN IF NOT EXISTS "personaId" INTEGER;
+ALTER TABLE "usuarios" ALTER COLUMN "personaId" SET NOT NULL;
 
 -- CreateTable
 CREATE TABLE "membresias" (
@@ -57,13 +58,23 @@ CREATE INDEX "membresias_categoriaId_idx" ON "membresias"("categoriaId");
 CREATE INDEX "documentaciones_personaId_idx" ON "documentaciones"("personaId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "personas_email_key" ON "personas"("email");
+CREATE UNIQUE INDEX IF NOT EXISTS "personas_email_key" ON "personas"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "usuarios_personaId_key" ON "usuarios"("personaId");
+CREATE UNIQUE INDEX IF NOT EXISTS "usuarios_personaId_key" ON "usuarios"("personaId");
 
 -- AddForeignKey
-ALTER TABLE "usuarios" ADD CONSTRAINT "usuarios_personaId_fkey" FOREIGN KEY ("personaId") REFERENCES "personas"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'usuarios_personaId_fkey'
+  ) THEN
+    ALTER TABLE "usuarios" ADD CONSTRAINT "usuarios_personaId_fkey" FOREIGN KEY ("personaId") REFERENCES "personas"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END
+$$;
 
 -- AddForeignKey
 ALTER TABLE "membresias" ADD CONSTRAINT "membresias_personaId_fkey" FOREIGN KEY ("personaId") REFERENCES "personas"("id") ON DELETE CASCADE ON UPDATE CASCADE;
