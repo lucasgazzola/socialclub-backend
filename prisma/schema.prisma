@@ -75,8 +75,7 @@ enum EstadoEntrada {
 }
 
 enum EstadoCompraEntrada {
-  APROBADA,
-  CANCELADA
+  APROBADA
 }
 
 /// Catálogo de roles del sistema. Un Usuario puede tener uno o más roles
