@@ -76,8 +76,6 @@ async function main() {
     });
   }
 
-
-  
   // 📈 Incremento Historico 2025
   for (const cat of categoriasMap.values()) {
     await prisma.configuracionCuotaSocial.upsert({
@@ -91,7 +89,8 @@ async function main() {
       create: {
         categoriaId: cat.id,
         periodoAplicacion: '2025-01',
-        monto: cat.nombre === 'Cuota Juvenil' ? 6000 : cat.nombre === 'Cuota General' ? 10000 : 8000,
+        monto:
+          cat.nombre === 'Cuota Juvenil' ? 6000 : cat.nombre === 'Cuota General' ? 10000 : 8000,
         activo: true,
       },
     });
@@ -109,7 +108,10 @@ async function main() {
     if (!legacyCat) continue;
     const nuevoCat = categoriasMap.get(nuevo);
     if (!nuevoCat || legacyCat.id === nuevoCat.id) continue;
-    await prisma.membresia.updateMany({ where: { categoriaId: legacyCat.id }, data: { categoriaId: nuevoCat.id } });
+    await prisma.membresia.updateMany({
+      where: { categoriaId: legacyCat.id },
+      data: { categoriaId: nuevoCat.id },
+    });
     await prisma.configuracionCuotaDeportiva.updateMany({
       where: { categoriaId: legacyCat.id },
       data: { categoriaId: nuevoCat.id },
@@ -390,26 +392,66 @@ async function main() {
         nombre: 'Fiesta de Fin de Año',
         descripcion: 'Celebración anual del club con música en vivo y cena.',
         entradasDisponibles: 150,
+        capacidadMaxima: 150,
+        cierreInscripcion: new Date('2026-12-31T23:59:59Z'),
+        fechaEvento: new Date('2026-12-20T21:00:00Z'),
+        lugarAcreditacion: 'Salón principal',
+        precio: 5000,
+        estado: 'PUBLICADO' as const,
+        inicioVenta: new Date('2026-09-01T00:00:00Z'),
+        finVenta: new Date('2026-12-20T20:00:00Z'),
       },
       {
         nombre: 'Torneo de Fútbol 2026',
         descripcion: 'Torneo interclubes de fútbol 7. Incluye partidos los fines de semana.',
         entradasDisponibles: 80,
+        capacidadMaxima: 80,
+        cierreInscripcion: new Date('2026-11-30T23:59:59Z'),
+        fechaEvento: new Date('2026-11-15T09:00:00Z'),
+        lugarAcreditacion: 'Predio deportivo',
+        precio: 2500,
+        estado: 'PUBLICADO' as const,
+        inicioVenta: new Date('2026-09-01T00:00:00Z'),
+        finVenta: new Date('2026-11-15T08:00:00Z'),
       },
       {
         nombre: 'Gran Baile de Carnaval',
         descripcion: 'Noche de disfraces y música de carnaval con bandas locales.',
         entradasDisponibles: 200,
+        capacidadMaxima: 200,
+        cierreInscripcion: new Date('2027-02-28T23:59:59Z'),
+        fechaEvento: new Date('2027-02-20T21:00:00Z'),
+        lugarAcreditacion: 'Salón principal',
+        precio: 3500,
+        estado: 'PUBLICADO' as const,
+        inicioVenta: new Date('2026-09-01T00:00:00Z'),
+        finVenta: new Date('2027-02-20T20:00:00Z'),
       },
       {
         nombre: 'Show de Stand-Up',
         descripcion: 'Noche de humor con comediantes invitados.',
         entradasDisponibles: 60,
+        capacidadMaxima: 60,
+        cierreInscripcion: new Date('2026-11-30T23:59:59Z'),
+        fechaEvento: new Date('2026-11-20T21:00:00Z'),
+        lugarAcreditacion: 'Teatro del club',
+        precio: 4000,
+        estado: 'PUBLICADO' as const,
+        inicioVenta: new Date('2026-09-01T00:00:00Z'),
+        finVenta: new Date('2026-11-20T20:00:00Z'),
       },
       {
         nombre: 'Clínica de Natación',
         descripcion: 'Jornada de entrenamiento y técnicas de natación para todas las edades.',
         entradasDisponibles: 40,
+        capacidadMaxima: 40,
+        cierreInscripcion: new Date('2026-10-31T23:59:59Z'),
+        fechaEvento: new Date('2026-10-25T09:00:00Z'),
+        lugarAcreditacion: 'Natatorio',
+        precio: 2000,
+        estado: 'PUBLICADO' as const,
+        inicioVenta: new Date('2026-09-01T00:00:00Z'),
+        finVenta: new Date('2026-10-25T08:00:00Z'),
       },
     ];
 

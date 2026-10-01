@@ -80,7 +80,12 @@ describe('US-29 · EventosService', () => {
 
       expect(prismaMock.evento.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: { ...dto },
+          data: expect.objectContaining({
+            ...dto,
+            estado: 'PUBLICADO',
+            inicioVenta: dto.cierreInscripcion,
+            finVenta: dto.cierreInscripcion,
+          }),
         }),
       );
       expect(auditoriaMock.registrar).toHaveBeenCalledWith(
