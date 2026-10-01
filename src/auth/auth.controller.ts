@@ -1,10 +1,11 @@
-import { Body, Controller, Get, HttpCode, Post, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Patch, Post, Res, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import type { CookieOptions, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { CambiarContrasenaDto } from './dto/cambiar-contrasena.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from './types/authenticated-user';
@@ -62,9 +63,39 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('refresh')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'US-09: Re-firma el JWT con los roles actuales (tras hacerse socio)',
+  })
+  async refresh(@CurrentUser() user: AuthenticatedUser, @Res({ passthrough: true }) res: Response) {
+    const { accessToken, usuario } = await this.authService.refrescarSesion(user.id);
+    res.cookie(COOKIE_NAME, accessToken, this.cookieOptions);
+    return { usuario };
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('me')
-  @ApiOperation({ summary: 'Devuelve el usuario de la sesión actual' })
+  @ApiOperation({ summary: 'Devuelve el usuario de la sesión actual (roles y persona)' })
   me(@CurrentUser() user: AuthenticatedUser) {
-    return user;
+    return this.authService.obtenerPerfil(user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('cambiar-contrasena')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'US-41 — Cambiar la contraseña del usuario autenticado',
+    description:
+      'Cualquier usuario con sesión activa cambia su propia contraseña. Exige la contraseña actual; si no coincide, no se modifica nada. Al cambiarla exitosamente, invalida la sesión borrando la cookie para exigir nuevo inicio de sesión.',
+  })
+  async cambiarContrasena(
+    @Body() dto: CambiarContrasenaDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const resultado = await this.authService.cambiarContrasena(user.id, dto);
+    res.clearCookie(COOKIE_NAME, this.cookieOptions);
+    return resultado;
   }
 }

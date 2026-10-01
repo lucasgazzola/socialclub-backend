@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { CrearEntradasDto } from './dto/crear-entradas.dto';
+import { ValidarEntradaDto } from './dto/validar-entrada.dto';
 
 /**
  * - Cada entrada tiene un token generado por el sistema.
@@ -93,5 +94,54 @@ export class EntradasService {
     });
 
     return items;
+  }
+
+  async validarAcceso(dto: ValidarEntradaDto, responsableId: number) {
+    // Primero verificamos que la entrada existe
+    const entrada = await this.prisma.entrada.findUnique({
+      where: { token: dto.token },
+      include: { evento: true },
+    });
+
+    if (!entrada) {
+      throw new NotFoundException('Entrada no encontrada. El código QR no es válido.');
+    }
+
+    if (entrada.estado === 'EXPIRADA') {
+      throw new BadRequestException(`Entrada expirada para el evento "${entrada.evento.nombre}".`);
+    }
+
+    if (entrada.estado === 'USADA') {
+      throw new ConflictException(
+        `Entrada ya utilizada para el evento "${entrada.evento.nombre}". Posible intento de reingreso no autorizado.`,
+      );
+    }
+
+    // Actualización atómica: solo cambia si sigue en estado VALIDA
+    const resultado = await this.prisma.entrada.updateMany({
+      where: { token: dto.token, estado: 'VALIDA' },
+      data: { estado: 'USADA' },
+    });
+
+    if (resultado.count === 0) {
+      throw new ConflictException('La entrada ya fue utilizada o no es válida.');
+    }
+
+    await this.auditoria.registrar({
+      accion: 'EDITAR',
+      entidad: 'Entrada',
+      idEntidad: entrada.id,
+      responsableId,
+      detalle: `Acceso validado para el evento "${entrada.evento.nombre}" (token: ${dto.token})`,
+    });
+
+    return {
+      acceso: 'PERMITIDO',
+      entrada: {
+        id: entrada.id,
+        eventoId: entrada.eventoId,
+        eventoNombre: entrada.evento.nombre,
+      },
+    };
   }
 }

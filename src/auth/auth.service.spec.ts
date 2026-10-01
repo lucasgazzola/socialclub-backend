@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -8,20 +8,40 @@ import { AuthService } from './auth.service';
 
 /**
  * Tests unitarios del AuthService con dependencias mockeadas (mismo patrón que
- * SociosService). Cubren US-39 (iniciar sesión) y US-40 (cerrar sesión).
+ * SociosService). Cubren US-38 (registro público) y US-39/US-40 (login/logout).
  *
- * `bcrypt` se usa real contra un hash precomputado: así validamos de verdad la
- * comparación de contraseñas sin acoplarnos a mocks del módulo.
+ * Mapeo con la matriz de casos:
+ *   TC-078 -> describe('login luego de register (US-38 + US-39)')
+ *   TC-079 -> 'el usuario auto-registrado no recibe roles'
+ *   TC-080 -> 'rechaza el registro si el email ya está en uso'
+ *   TC-084 -> describe('TC-084: no auto-asignación de rol')
+ *
+ * TC-077, TC-081, TC-082, TC-083 son de UI/validación de formulario y no
+ * corresponden a este archivo (ver RegisterForm.test.tsx del lado del front,
+ * pendiente hasta contar con components/RegisterForm.tsx).
+ *
+ * US-41 (cambio de contraseña propio):
+ *   TC-118 -> 'guarda el hash de la nueva' | TC-119 -> 'contraseña actual incorrecta'
+ *   TC-122 -> 'usuario auto-registrado sin roles' | TC-123 -> 'auditoría inalterable'
+ *   TC-124 -> 'nueva igual a la actual' | TC-125 -> 'sesión sin usuario existente'
+ *   TC-126 -> 'login con la nueva contraseña'
+ *   (TC-120 y TC-121 — complejidad y confirmación — se validan en el DTO y se
+ *   cubren en auth.e2e-spec.ts; del lado del front, en CambiarContrasenaForm.test.tsx).
  */
 describe('AuthService', () => {
   let service: AuthService;
 
-  const prismaMock = {
+  const prismaMock: any = {
     usuario: {
       findUnique: jest.fn(),
       update: jest.fn(),
       create: jest.fn(),
     },
+    persona: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+    },
+    $transaction: jest.fn((cb: any) => (typeof cb === 'function' ? cb(prismaMock) : cb)),
   };
   const jwtMock = { sign: jest.fn() };
   const auditoriaMock = { registrar: jest.fn() };
@@ -46,6 +66,11 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    prismaMock.$transaction.mockImplementation((cb: any) =>
+      typeof cb === 'function' ? cb(prismaMock) : cb,
+    );
+    prismaMock.persona.findUnique.mockResolvedValue(null);
+    prismaMock.persona.create.mockResolvedValue({ id: 101, nombre: 'Test', apellido: 'User' });
     jwtMock.sign.mockReturnValue('signed-jwt');
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [
@@ -93,9 +118,9 @@ describe('AuthService', () => {
     it('rechaza un email inexistente sin filtrar si estaba registrado', async () => {
       prismaMock.usuario.findUnique.mockResolvedValue(null);
 
-      await expect(service.login('noexiste@socialclub.local', PASSWORD_PLANO)).rejects.toBeInstanceOf(
-        UnauthorizedException,
-      );
+      await expect(
+        service.login('noexiste@socialclub.local', PASSWORD_PLANO),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
       // No se emite token y se deja constancia del intento fallido.
       expect(jwtMock.sign).not.toHaveBeenCalled();
       expect(auditoriaMock.registrar).toHaveBeenCalledWith(
@@ -174,19 +199,259 @@ describe('AuthService', () => {
       const dataCreada = prismaMock.usuario.create.mock.calls[0][0].data;
       expect(dataCreada.email).toBe('nuevo@socialclub.local');
       expect(dataCreada.passwordHash).not.toBe(dto.password);
-      expect(bcrypt.compareSync(dto.password, dataCreada.passwordHash)).toBe(true);
+      expect(bcrypt.compareSync(dto.password, dataCreada.passwordHash as string)).toBe(true);
       expect(dataCreada.roles).toBeUndefined();
       expect(auditoriaMock.registrar).toHaveBeenCalledWith(
         expect.objectContaining({ accion: 'CREAR', entidad: 'Usuario', idEntidad: 12 }),
       );
     });
 
-    it('rechaza el registro si el email ya está en uso', async () => {
+    it('TC-080: rechaza el registro si el email ya está en uso (409)', async () => {
       prismaMock.usuario.findUnique.mockResolvedValue({ id: 1 });
 
       await expect(service.register(dto)).rejects.toBeInstanceOf(ConflictException);
       // No crea el usuario duplicado.
       expect(prismaMock.usuario.create).not.toHaveBeenCalled();
+    });
+
+    it('TC-079: el usuario auto-registrado no recibe ningún rol', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(null);
+      prismaMock.usuario.create.mockResolvedValue({
+        id: 13,
+        email: 'nuevo@socialclub.local',
+        nombre: 'Ana',
+        apellido: 'Pérez',
+      });
+
+      const { usuario } = await service.register(dto);
+
+      expect(usuario.roles).toEqual([]);
+      // El create hacia Prisma tampoco intenta vincular ningún UsuarioRol.
+      expect(prismaMock.usuario.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.not.objectContaining({ roles: expect.anything() }),
+        }),
+      );
+    });
+  });
+
+  // ── TC-078: login luego de register (integración US-38 + US-39) ───────────
+  describe('TC-078: iniciar sesión con la cuenta recién registrada', () => {
+    it('el usuario puede loguearse inmediatamente después de registrarse, con sus propias credenciales', async () => {
+      const dto = {
+        email: 'ana@test.com',
+        password: 'Nuevo123!',
+        nombre: 'Ana',
+        apellido: 'Pérez',
+      };
+
+      // 1) Registro: no existe el email todavía.
+      prismaMock.usuario.findUnique.mockResolvedValueOnce(null);
+      let hashGuardado = '';
+      prismaMock.usuario.create.mockImplementation(async ({ data }: any) => {
+        hashGuardado = data.passwordHash;
+        return { id: 21, email: data.email, nombre: data.nombre, apellido: data.apellido };
+      });
+
+      const { usuario: usuarioRegistrado } = await service.register(dto);
+      expect(usuarioRegistrado.roles).toEqual([]);
+
+      // 2) Login: ahora sí "existe" en la base, con el hash recién generado y
+      // sin roles (coherente con TC-079).
+      prismaMock.usuario.findUnique.mockResolvedValueOnce({
+        id: 21,
+        email: 'ana@test.com',
+        passwordHash: hashGuardado,
+        nombre: 'Ana',
+        apellido: 'Pérez',
+        activo: true,
+        roles: [],
+      });
+      prismaMock.usuario.update.mockResolvedValue({});
+
+      const resultadoLogin = await service.login(dto.email, dto.password);
+
+      expect(resultadoLogin.accessToken).toBe('signed-jwt');
+      expect(resultadoLogin.usuario).toEqual(
+        expect.objectContaining({ id: 21, email: 'ana@test.com', roles: [] }),
+      );
+    });
+  });
+
+  // TC-084: impedir auto-asignación de rol
+  describe('TC-084: impedir auto-asignación de rol (escalada de privilegios)', () => {
+    it('ignora por completo cualquier campo "roles" recibido en el DTO de registro', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(null);
+      prismaMock.usuario.create.mockResolvedValue({
+        id: 30,
+        email: 'atacante@test.com',
+        nombre: 'Mal',
+        apellido: 'Actor',
+      });
+
+      const dtoConRolesInyectado = {
+        email: 'atacante@test.com',
+        password: 'Nuevo123!',
+        nombre: 'Mal',
+        apellido: 'Actor',
+        roles: ['ADMIN'],
+      };
+
+      const { usuario } = await service.register(dtoConRolesInyectado);
+
+      // El servicio arma `data` explícitamente (email, passwordHash, nombre,
+      // apellido): aunque llegue `roles` en el payload, nunca se propaga a
+      // Prisma ni a la respuesta.
+      expect(usuario.roles).toEqual([]);
+      expect(prismaMock.usuario.create).toHaveBeenCalledWith({
+        data: {
+          email: 'atacante@test.com',
+          passwordHash: expect.any(String),
+          nombre: 'Mal',
+          apellido: 'Actor',
+          personaId: 101,
+        },
+        select: { id: true, email: true, nombre: true, apellido: true },
+      });
+    });
+  });
+
+  // ── US-41: Cambio de contraseña del usuario autenticado ─────────────────────
+  describe('cambiarContraseña (US-41)', () => {
+    const CONTRASENA_NUEVA = 'Nueva123!';
+
+    /** Payload del formulario de US-41 (la confirmación siempre acompaña). */
+    const dtoCambio = (passwordActual: string, nueva = CONTRASENA_NUEVA) => ({
+      passwordActual,
+      nuevaContrasena: nueva,
+      confirmarNuevaContrasena: nueva,
+    });
+
+    it('TC-118: con la contraseña actual correcta guarda el hash de la nueva y confirma la operación', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ id: 7, passwordHash });
+      prismaMock.usuario.update.mockResolvedValue({});
+
+      const resultado = await service.cambiarContrasena(7, dtoCambio(PASSWORD_PLANO));
+
+      expect(resultado).toEqual({ message: 'Contraseña actualizada correctamente' });
+      expect(prismaMock.usuario.update).toHaveBeenCalledTimes(1);
+
+      const { where, data } = prismaMock.usuario.update.mock.calls[0][0] as {
+        where: { id: number };
+        data: { passwordHash: string };
+      };
+      expect(where).toEqual({ id: 7 });
+      // Se guarda un hash nuevo (no la contraseña en texto ni el hash anterior).
+      expect(data.passwordHash).not.toBe(passwordHash);
+      expect(bcrypt.compareSync(CONTRASENA_NUEVA, data.passwordHash)).toBe(true);
+      // La respuesta nunca expone el hash.
+      expect(resultado).not.toHaveProperty('passwordHash');
+    });
+
+    it('TC-119: con la contraseña actual incorrecta responde 401 y no modifica la contraseña', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ id: 7, passwordHash });
+
+      const error = await service
+        .cambiarContrasena(7, dtoCambio('Equivocada1!'))
+        .catch((e: unknown) => e as UnauthorizedException);
+
+      expect(error).toBeInstanceOf(UnauthorizedException);
+      expect(error.message).toBe('La contraseña actual es incorrecta');
+      expect(prismaMock.usuario.update).not.toHaveBeenCalled();
+      expect(auditoriaMock.registrar).not.toHaveBeenCalled();
+    });
+
+    it('TC-124: rechaza una nueva contraseña igual a la actual y no escribe nada', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ id: 7, passwordHash });
+
+      const error = await service
+        .cambiarContrasena(7, dtoCambio(PASSWORD_PLANO, PASSWORD_PLANO))
+        .catch((e: unknown) => e as BadRequestException);
+
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect(error.message).toBe('La nueva contraseña no puede ser igual a la actual');
+      expect(prismaMock.usuario.update).not.toHaveBeenCalled();
+      expect(auditoriaMock.registrar).not.toHaveBeenCalled();
+    });
+
+    it('TC-122: cualquier usuario autenticado puede cambiar su contraseña (no exige rol)', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ id: 55, passwordHash });
+      prismaMock.usuario.update.mockResolvedValue({});
+
+      await expect(service.cambiarContrasena(55, dtoCambio(PASSWORD_PLANO))).resolves.toEqual({
+        message: 'Contraseña actualizada correctamente',
+      });
+
+      // Solo lee id y hash: la operación no consulta roles ni permisos, de modo
+      // que un SOCIO auto-registrado (sin roles) tiene exactamente el mismo acceso.
+      expect(prismaMock.usuario.findUnique).toHaveBeenCalledWith({
+        where: { id: 55 },
+        select: { id: true, passwordHash: true },
+      });
+    });
+
+    it('TC-123: deja constancia del cambio en la auditoría inalterable', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ id: 7, passwordHash });
+      prismaMock.usuario.update.mockResolvedValue({});
+
+      await service.cambiarContrasena(7, dtoCambio(PASSWORD_PLANO));
+
+      expect(auditoriaMock.registrar).toHaveBeenCalledTimes(1);
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'EDITAR',
+          entidad: 'Usuario',
+          idEntidad: 7,
+          responsableId: 7,
+          detalle: expect.stringContaining('US-41'),
+        }),
+      );
+    });
+
+    it('TC-125: rechaza la operación si la sesión no corresponde a un usuario existente', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(null);
+
+      const error = await service
+        .cambiarContrasena(999, dtoCambio(PASSWORD_PLANO))
+        .catch((e: unknown) => e as UnauthorizedException);
+
+      expect(error).toBeInstanceOf(UnauthorizedException);
+      expect(error.message).toBe('Sesión inválida');
+      expect(prismaMock.usuario.update).not.toHaveBeenCalled();
+    });
+
+    it('TC-126: tras el cambio se inicia sesión con la nueva contraseña y no con la anterior', async () => {
+      // 1) Cambio de contraseña: se persiste el hash de la nueva.
+      prismaMock.usuario.findUnique.mockResolvedValueOnce({ id: 7, passwordHash });
+      let hashGuardado = '';
+      prismaMock.usuario.update.mockImplementation(async ({ data }: any) => {
+        hashGuardado = data?.passwordHash ?? hashGuardado;
+        return {};
+      });
+
+      await service.cambiarContrasena(7, dtoCambio(PASSWORD_PLANO));
+      expect(hashGuardado).toBeTruthy();
+
+      // 2) Login con la contraseña nueva: credenciales válidas -> JWT emitido.
+      const usuarioEnBase = () => ({
+        id: 7,
+        email: 'admin@socialclub.local',
+        passwordHash: hashGuardado,
+        nombre: 'Administrador',
+        apellido: 'Inicial',
+        activo: true,
+        roles: [],
+      });
+      prismaMock.usuario.findUnique.mockResolvedValueOnce(usuarioEnBase());
+
+      const loginNuevo = await service.login('admin@socialclub.local', CONTRASENA_NUEVA);
+      expect(loginNuevo.accessToken).toBe('signed-jwt');
+
+      // 3) La contraseña anterior dejó de ser válida.
+      prismaMock.usuario.findUnique.mockResolvedValueOnce(usuarioEnBase());
+      await expect(service.login('admin@socialclub.local', PASSWORD_PLANO)).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
     });
   });
 });

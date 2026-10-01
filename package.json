@@ -10,7 +10,7 @@
   "scripts": {
     "build": "nest build",
     "start": "nest start",
-    "dev": "nest start --watch",
+    "dev": "nest build && nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,test}/**/*.ts\" --fix",
@@ -23,9 +23,12 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
+    "prisma:check-drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url postgresql://socialclub:socialclub@localhost:5432/socialclub_shadow?schema=public --exit-code",
+    "db:shadow": "docker compose exec -T db psql -U socialclub -d postgres -c \"CREATE DATABASE socialclub_shadow;\"",
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
     "build:seed": "tsc prisma/seed.ts --ignoreConfig --outDir prisma --module nodenext --moduleResolution nodenext --target ES2023 --skipLibCheck --esModuleInterop",
     "db:setup": "prisma migrate dev && npm run prisma:seed",
+    "db:reset": "prisma db push --force-reset --accept-data-loss --skip-generate && npm run prisma:seed",
     "up": "docker compose up --build -d",
     "down": "docker compose down"
   },
@@ -58,6 +61,7 @@
     "@types/cookie-parser": "1.4.10",
     "@types/express": "5.0.6",
     "@types/jest": "30.0.0",
+    "@types/multer": "^2.2.0",
     "@types/node": "^22.10.0",
     "@types/passport-jwt": "4.0.1",
     "@types/supertest": "7.2.0",
@@ -80,14 +84,30 @@
     "seed": "ts-node --transpile-only prisma/seed.ts"
   },
   "jest": {
-    "moduleFileExtensions": ["js", "json", "ts"],
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
-    "collectCoverageFrom": ["**/*.(t|j)s"],
+    "collectCoverageFrom": [
+      "**/*.service.ts",
+      "**/*.controller.ts",
+      "!**/*.spec.ts"
+    ],
     "coverageDirectory": "../coverage",
+    "coverageThreshold": {
+      "global": {
+        "statements": 58,
+        "branches": 64,
+        "functions": 49,
+        "lines": 57
+      }
+    },
     "testEnvironment": "node"
   }
 }

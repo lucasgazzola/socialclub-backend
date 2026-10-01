@@ -1,0 +1,13 @@
+// Proyecto TS que usa solo ESLint. El tsconfig.json de build excluye los
+// spec, `test/` y `prisma/` (y fija rootDir en ./src), pero el lint corre
+// sobre todos ellos: con `project` apuntando al tsconfig de build, esos
+// archivos no pertenecen a ningún proyecto y el parser falla.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "prisma/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}
