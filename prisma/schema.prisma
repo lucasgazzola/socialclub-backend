@@ -24,7 +24,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Género al que aplica la disciplina deportiva (restricción de inscripción).
+/// Género al que aplica una disciplina o categoría (restricción de inscripción).
+/// También es el género registrado del participante (`Persona.genero`).
 enum GeneroDisciplina {
   FEMENINO
   MASCULINO
@@ -96,21 +97,22 @@ model Rol {
 /// garantizada por `Persona.usuarioId` @unique). Así, el mismo Usuario que se
 /// autogestiona como socio (US-09) queda vinculado a su ficha de Persona.
 model Usuario {
-  id                 Int                  @id @default(autoincrement())
-  email              String               @unique
-  passwordHash       String
-  nombre             String
-  apellido           String
-  activo             Boolean              @default(true)
-  ultimoLogin        DateTime?
-  creadoEn           DateTime             @default(now())
-  actualizadoEn      DateTime             @updatedAt
-  personaId          Int                  @unique
-  persona            Persona              @relation(fields: [personaId], references: [id], onDelete: Cascade)
-  roles              UsuarioRol[]
-  registrosAuditoria RegistroAuditoria[]  @relation("usuarioResponsable")
-  pagosDeportivos    PagoCuotaDeportiva[] @relation("responsablePagoDeportivo")
-  comprasEntradas    CompraEntrada[]
+  id                          Int                       @id @default(autoincrement())
+  email                       String                    @unique
+  passwordHash                String
+  nombre                      String
+  apellido                    String
+  activo                      Boolean                   @default(true)
+  ultimoLogin                 DateTime?
+  creadoEn                    DateTime                  @default(now())
+  actualizadoEn               DateTime                  @updatedAt
+  personaId                   Int                       @unique
+  persona                     Persona                   @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  roles                       UsuarioRol[]
+  registrosAuditoria          RegistroAuditoria[]       @relation("usuarioResponsable")
+  pagosDeportivos             PagoCuotaDeportiva[]      @relation("responsablePagoDeportivo")
+  comprasEntradas             CompraEntrada[]
+  habilitacionesExcepcionales HabilitacionExcepcional[] @relation("responsableHabilitacionExcepcional")
 
   @@map("usuarios")
 }
@@ -148,9 +150,11 @@ model Disciplina {
   descripcion                   String?
   /// Restricción de género para la inscripción. Null = sin restricción.
   genero                        GeneroDisciplina?
-  /// Edad mínima requerida para inscribirse (años cumplidos). Null = sin mínimo.
+  /// Edad mínima para inscribirse, medida como la edad que se cumple en el año
+  /// calendario (año actual - año de nacimiento). Null = sin mínimo.
   edadMinima                    Int?
-  /// Edad máxima permitida para inscribirse (años cumplidos). Null = sin máximo.
+  /// Edad máxima para inscribirse (edad que se cumple en el año calendario).
+  /// Null = sin máximo.
   edadMaxima                    Int?
   /// Indica si la disciplina exige documentación para la inscripción/permanencia.
   solicitaDocumentacion         Boolean                       @default(false)
@@ -166,21 +170,29 @@ model Disciplina {
   @@map("disciplinas")
 }
 
-/// Tipos de documentación obligatoria requeridos por una disciplina para
-/// la inscripción o permanencia del socio (ej: "Apto Médico", "DNI").
-/// Relación N a 1 con Disciplina; se gestiona como delete-all + re-insert
-/// al actualizar la disciplina.
+/// Tipos de documentación obligatoria requeridos para la inscripción o
+/// permanencia de un participante (ej: "Apto Médico", "DNI").
+/// - `categoriaDisciplinaId` null → requisito de toda la disciplina (US-44/45).
+/// - `categoriaDisciplinaId` con valor → requisito ADICIONAL de esa categoría
+///   (US-48/49). Lo exigido a un participante es la suma de ambos.
+/// Al editar se sincroniza por tipo (no delete-all): `creadoEn` indica desde
+/// cuándo rige el requisito y es la base del plazo para los ya inscriptos.
+/// La unicidad con categoría null (Postgres trata NULL como distinto) se
+/// garantiza en el service.
 model DisciplinaRequerimientoDoc {
-  id                  Int                         @id @default(autoincrement())
-  disciplinaId        Int
-  disciplina          Disciplina                  @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
-  tipoDocumento       TipoDocumentacionDisciplina
+  id                    Int                         @id @default(autoincrement())
+  disciplinaId          Int
+  disciplina            Disciplina                  @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
+  categoriaDisciplinaId Int?
+  categoriaDisciplina   CategoriaDisciplina?        @relation(fields: [categoriaDisciplinaId], references: [id], onDelete: Cascade)
+  tipoDocumento         TipoDocumentacionDisciplina
   /// 0 = debe estar presentada al inscribirse; mayor a 0 = días corridos de tolerancia.
-  plazoDiasTolerancia Int                         @default(0)
-  creadoEn            DateTime                    @default(now())
+  plazoDiasTolerancia   Int                         @default(0)
+  creadoEn              DateTime                    @default(now())
 
-  @@unique([disciplinaId, tipoDocumento])
+  @@unique([disciplinaId, categoriaDisciplinaId, tipoDocumento])
   @@index([disciplinaId])
+  @@index([categoriaDisciplinaId])
   @@map("disciplina_requerimientos_doc")
 }
 
@@ -254,16 +266,18 @@ model Membresia {
 /// (`Inscripcion.activo`, que expone US-08 como INSCRIPTO/BAJA): un participante
 /// inactivo está bloqueado y no puede ser inscripto en ninguna disciplina.
 model Persona {
-  id              Int       @id @default(autoincrement())
+  id              Int               @id @default(autoincrement())
   nombre          String
   apellido        String
-  dni             String?   @unique
+  dni             String?           @unique
   fechaNacimiento DateTime?
-  email           String?   @unique
+  /// Género registrado, para validar restricciones de disciplina/categoría (US-5).
+  genero          GeneroDisciplina?
+  email           String?           @unique
   telefono        String?
-  activo          Boolean   @default(true)
-  creadoEn        DateTime  @default(now())
-  actualizadoEn   DateTime  @updatedAt
+  activo          Boolean           @default(true)
+  creadoEn        DateTime          @default(now())
+  actualizadoEn   DateTime          @updatedAt
 
   usuario         Usuario?
   membresias      Membresia[]
@@ -280,23 +294,23 @@ model Persona {
 /// Evento del club. Cada Evento tiene un cupo de entradas disponibles; al
 /// vender entradas se decrementa ese cupo de forma atómica.
 model Evento {
-  id                  Int          @id @default(autoincrement())
+  id                  Int             @id @default(autoincrement())
   nombre              String
   descripcion         String?
   capacidadMaxima     Int
   cierreInscripcion   DateTime
-  estado              EstadoEvento @default(BORRADOR)
+  estado              EstadoEvento    @default(BORRADOR)
   fechaEvento         DateTime
   imagen              String?
   lugarAcreditacion   String
-  precio              Decimal      @default(0) @db.Decimal(12, 2)
-  inicioVenta        DateTime     @default(now())
-  finVenta           DateTime     @default(now())
-  entradasDisponibles Int          @default(0)
+  precio              Decimal         @default(0) @db.Decimal(12, 2)
+  inicioVenta         DateTime        @default(now())
+  finVenta            DateTime        @default(now())
+  entradasDisponibles Int             @default(0)
   entradas            Entrada[]
-  compras            CompraEntrada[]
-  creadoEn            DateTime     @default(now())
-  actualizadoEn       DateTime     @updatedAt
+  compras             CompraEntrada[]
+  creadoEn            DateTime        @default(now())
+  actualizadoEn       DateTime        @updatedAt
 
   @@map("eventos")
 }
@@ -306,14 +320,14 @@ model Evento {
 /// La constraint `@unique` en `token` garantiza que no existen dos entradas
 /// con el mismo identificador (criterio de aceptación de la US).
 model Entrada {
-  id       Int           @id @default(autoincrement())
-  token    String        @unique // UUID v4 seguro, único por entrada
+  id       Int            @id @default(autoincrement())
+  token    String         @unique // UUID v4 seguro, único por entrada
   eventoId Int
-  evento   Evento        @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  evento   Evento         @relation(fields: [eventoId], references: [id], onDelete: Cascade)
   compraId Int?
   compra   CompraEntrada? @relation(fields: [compraId], references: [id], onDelete: SetNull)
-  estado   EstadoEntrada @default(VALIDA)
-  creadoEn DateTime      @default(now())
+  estado   EstadoEntrada  @default(VALIDA)
+  creadoEn DateTime       @default(now())
 
   @@index([eventoId])
   @@index([compraId])
@@ -360,15 +374,22 @@ model RegistroAuditoria {
 }
 
 /// Categoría dentro de una disciplina (ej: "Sub-15", "Primera", "Adultos").
+/// Sus restricciones de género y edad afinan las de la disciplina y deben
+/// quedar dentro de ellas (US-48/49). La edad se mide por año de nacimiento:
+/// edad que se cumple en el año calendario. Null = hereda de la disciplina.
 model CategoriaDisciplina {
-  id           Int        @id @default(autoincrement())
+  id           Int               @id @default(autoincrement())
   nombre       String
   disciplinaId Int
-  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id])
-  activo       Boolean    @default(true)
-  creadoEn     DateTime   @default(now())
+  disciplina   Disciplina        @relation(fields: [disciplinaId], references: [id])
+  genero       GeneroDisciplina?
+  edadMinima   Int?
+  edadMaxima   Int?
+  activo       Boolean           @default(true)
+  creadoEn     DateTime          @default(now())
 
-  inscripciones Inscripcion[]
+  inscripciones     Inscripcion[]
+  requerimientosDoc DisciplinaRequerimientoDoc[]
 
   @@unique([disciplinaId, nombre])
   @@unique([id, disciplinaId])
@@ -387,10 +408,15 @@ model Inscripcion {
   categoriaDisciplinaId Int?
   categoriaDisciplina   CategoriaDisciplina? @relation(fields: [categoriaDisciplinaId], references: [id])
 
-  fechaInscripcion DateTime @default(now())
-  activo           Boolean  @default(true)
-  creadoEn         DateTime @default(now())
-  actualizadoEn    DateTime @updatedAt
+  fechaInscripcion DateTime  @default(now())
+  /// Desde cuándo corre el plazo de presentación de la documentación exigida
+  /// (ej. al cambiar de categoría, US-6). Null = desde `fechaInscripcion`.
+  requisitosDesde  DateTime?
+  activo           Boolean   @default(true)
+  creadoEn         DateTime  @default(now())
+  actualizadoEn    DateTime  @updatedAt
+
+  habilitacionesExcepcionales HabilitacionExcepcional[]
 
   @@unique([personaId, disciplinaId])
   @@index([disciplinaId])
@@ -402,22 +428,44 @@ model Inscripcion {
 /// fecha de vencimiento e integrante (Persona) asociado. La regla "la fecha de
 /// vencimiento no puede ser anterior a hoy" se valida en el backend al cargar.
 model Documentacion {
-  id               Int      @id @default(autoincrement())
+  id               Int                          @id @default(autoincrement())
+  /// Descripción libre heredada (antes era el único dato del tipo).
   tipo             String
+  /// Tipo del catálogo que cubre un requisito de disciplina/categoría.
+  /// Null en documentos cargados antes del catálogo que no pudieron mapearse.
+  tipoDocumento    TipoDocumentacionDisciplina?
   fechaVencimiento DateTime
   personaId        Int
-  persona          Persona  @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  persona          Persona                      @relation(fields: [personaId], references: [id], onDelete: Cascade)
   // Archivo adjunto opcional (PDF/imagen). El binario se guarda en el filesystem
   // del servidor (ruta configurable); en la BD solo la referencia.
   archivoNombre    String? // nombre original subido por el usuario
   archivoRuta      String? // nombre del archivo almacenado (relativo al dir de storage)
   mimeType         String?
   tamano           Int? // en bytes
-  creadoEn         DateTime @default(now())
-  actualizadoEn    DateTime @updatedAt
+  creadoEn         DateTime                     @default(now())
+  actualizadoEn    DateTime                     @updatedAt
 
   @@index([personaId])
+  @@index([personaId, tipoDocumento])
   @@map("documentaciones")
+}
+
+/// Habilitación excepcional de una inscripción bloqueada por documentación
+/// (US-28): el administrador registra el motivo y hasta cuándo rige.
+/// Solo INSERT: el historial de excepciones no se edita.
+model HabilitacionExcepcional {
+  id            Int         @id @default(autoincrement())
+  inscripcionId Int
+  inscripcion   Inscripcion @relation(fields: [inscripcionId], references: [id], onDelete: Cascade)
+  motivo        String
+  hasta         DateTime
+  responsableId Int
+  responsable   Usuario     @relation("responsableHabilitacionExcepcional", fields: [responsableId], references: [id])
+  creadoEn      DateTime    @default(now())
+
+  @@index([inscripcionId])
+  @@map("habilitaciones_excepcionales")
 }
 
 /// Pago de cuota realizado por un socio (US-10).
