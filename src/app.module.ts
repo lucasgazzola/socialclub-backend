@@ -11,6 +11,7 @@ import { CategoriasModule } from './categorias/categorias.module';
 import { EventosModule } from './eventos/eventos.module';
 import { EntradasModule } from './entradas/entradas.module';
 import { DisciplinasModule } from './disciplinas/disciplinas.module';
+import { CategoriasDisciplinaModule } from './categorias-disciplina/categorias-disciplina.module';
 import { CuotasModule } from './cuotas/cuotas.module';
 import { CuotaSocialModule } from './cuota-social/cuota-social.module';
 import { PersonasModule } from './personas/personas.module';
@@ -35,6 +36,7 @@ import { PagosModule } from './pagos/pagos.module';
     EventosModule,
     EntradasModule,
     DisciplinasModule,
+    CategoriasDisciplinaModule,
     CuotasModule,
     CuotaSocialModule,
     PersonasModule,

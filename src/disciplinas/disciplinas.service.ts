@@ -9,6 +9,7 @@ import { AuditoriaService } from '../auditoria/auditoria.service';
 import { CreateDisciplinaDto } from './dto/create-disciplina.dto';
 import { UpdateDisciplinaDto } from './dto/update-disciplina.dto';
 import { EstadoDisciplinaFiltro, FindDisciplinasQueryDto } from './dto/find-disciplinas-query.dto';
+import { sincronizarRequerimientos, validarTiposSinRepetir } from './requerimientos-doc';
 
 /** Campos de Disciplina que se incluyen siempre en las respuestas de listado y detalle. */
 const DISCIPLINA_INCLUDE = {
@@ -16,7 +17,10 @@ const DISCIPLINA_INCLUDE = {
     orderBy: { nombre: 'asc' as const },
     select: { id: true, nombre: true, activo: true },
   },
+  // Solo los requisitos de la disciplina; los adicionales de cada categoría
+  // se exponen desde /disciplinas/:id/categorias (US-48/51).
   requerimientosDoc: {
+    where: { categoriaDisciplinaId: null },
     select: { id: true, tipoDocumento: true, plazoDiasTolerancia: true },
     orderBy: { tipoDocumento: 'asc' as const },
   },
@@ -42,6 +46,7 @@ export class DisciplinasService {
     }
 
     const { requerimientosDocumentacion, ...dataDisciplina } = dto;
+    validarTiposSinRepetir(requerimientosDocumentacion);
 
     const disciplina = await this.prisma.$transaction(async (tx) => {
       const disc = await tx.disciplina.create({ data: dataDisciplina });
@@ -158,21 +163,28 @@ export class DisciplinasService {
       await tx.disciplina.update({ where: { id }, data: dataDisciplina });
 
       // Si se enviaron requisitos, o se desactivó la documentación,
-      // reemplazar los requisitos para no conservar datos obsoletos.
+      // sincronizar los requisitos para no conservar datos obsoletos.
       if (
         requerimientosDocumentacion !== undefined ||
         dataDisciplina.solicitaDocumentacion === false
       ) {
-        await tx.disciplinaRequerimientoDoc.deleteMany({ where: { disciplinaId: id } });
         const solicitaDocumentacion =
           dataDisciplina.solicitaDocumentacion ?? actual.solicitaDocumentacion;
-        if (solicitaDocumentacion && requerimientosDocumentacion?.length) {
-          await tx.disciplinaRequerimientoDoc.createMany({
-            data: requerimientosDocumentacion.map((requerimiento) => ({
+        const requerimientos = solicitaDocumentacion ? (requerimientosDocumentacion ?? []) : [];
+        await sincronizarRequerimientos(
+          tx,
+          { disciplinaId: id, categoriaDisciplinaId: null },
+          requerimientos,
+        );
+        // Un tipo que ahora exige la disciplina deja de ser adicional en sus
+        // categorías (no puede repetirse, US-48).
+        if (requerimientos.length) {
+          await tx.disciplinaRequerimientoDoc.deleteMany({
+            where: {
               disciplinaId: id,
-              tipoDocumento: requerimiento.tipoDocumento,
-              plazoDiasTolerancia: requerimiento.plazoDiasTolerancia ?? 0,
-            })),
+              categoriaDisciplinaId: { not: null },
+              tipoDocumento: { in: requerimientos.map((r) => r.tipoDocumento) },
+            },
           });
         }
       }
