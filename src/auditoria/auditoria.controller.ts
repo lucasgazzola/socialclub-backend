@@ -15,7 +15,7 @@ export class AuditoriaController {
 
   @Get()
   @Roles('ADMIN')
-  @ApiOperation({ summary: 'US-32 — Consultar log de operaciones' })
+  @ApiOperation({ summary: 'US-33 — Consultar log de operaciones' })
   findAll(@Query() query: FindAuditoriaQueryDto) {
     return this.auditoriaService.listarTodos(query);
   }
