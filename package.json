@@ -28,6 +28,7 @@
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
     "build:seed": "tsc prisma/seed.ts --ignoreConfig --outDir prisma --module nodenext --moduleResolution nodenext --target ES2023 --skipLibCheck --esModuleInterop",
     "db:setup": "prisma migrate dev && npm run prisma:seed",
+    "db:reset": "prisma db push --force-reset --accept-data-loss --skip-generate && npm run prisma:seed",
     "up": "docker compose up --build -d",
     "down": "docker compose down"
   },
