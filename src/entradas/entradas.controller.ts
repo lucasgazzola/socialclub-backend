@@ -8,6 +8,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { ValidarEntradaDto } from './dto/validar-entrada.dto';
+import { ComprarEntradasDto } from './dto/comprar-entradas.dto';
 
 @ApiTags('entradas')
 @ApiCookieAuth()
@@ -30,6 +31,18 @@ export class EntradasController {
   @ApiOperation({ summary: 'US-31 — Validar acceso mediante lectura de QR' })
   validarAcceso(@Body() dto: ValidarEntradaDto, @CurrentUser() user: AuthenticatedUser) {
     return this.entradasService.validarAcceso(dto, user.id);
+  }
+
+  @Post('comprar')
+  @ApiOperation({ summary: 'US-52 — Comprar entradas con pasarela mock' })
+  comprar(@Body() dto: ComprarEntradasDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.entradasService.comprar(dto, user.id);
+  }
+
+  @Get('mis-entradas')
+  @ApiOperation({ summary: 'US-52 — Listar entradas del usuario autenticado' })
+  misEntradas(@CurrentUser() user: AuthenticatedUser) {
+    return this.entradasService.listarMisEntradas(user.id);
   }
 
   @Get('evento/:eventoId')

@@ -74,6 +74,11 @@ enum EstadoEntrada {
   EXPIRADA
 }
 
+enum EstadoCompraEntrada {
+  APROBADA,
+  CANCELADA
+}
+
 /// Catálogo de roles del sistema. Un Usuario puede tener uno o más roles
 /// simultáneos (RF02), de ahí la tabla intermedia UsuarioRol.
 model Rol {
@@ -106,6 +111,7 @@ model Usuario {
   roles              UsuarioRol[]
   registrosAuditoria RegistroAuditoria[]  @relation("usuarioResponsable")
   pagosDeportivos    PagoCuotaDeportiva[] @relation("responsablePagoDeportivo")
+  comprasEntradas    CompraEntrada[]
 
   @@map("usuarios")
 }
@@ -285,8 +291,11 @@ model Evento {
   imagen              String?
   lugarAcreditacion   String
   precio              Decimal      @default(0) @db.Decimal(12, 2)
+  inicioVenta        DateTime     @default(now())
+  finVenta           DateTime     @default(now())
   entradasDisponibles Int          @default(0)
   entradas            Entrada[]
+  compras            CompraEntrada[]
   creadoEn            DateTime     @default(now())
   actualizadoEn       DateTime     @updatedAt
 
@@ -302,11 +311,35 @@ model Entrada {
   token    String        @unique // UUID v4 seguro, único por entrada
   eventoId Int
   evento   Evento        @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  compraId Int?
+  compra   CompraEntrada? @relation(fields: [compraId], references: [id], onDelete: SetNull)
   estado   EstadoEntrada @default(VALIDA)
   creadoEn DateTime      @default(now())
 
   @@index([eventoId])
+  @@index([compraId])
   @@map("entradas")
+}
+
+/// Compra aprobada de una o más entradas. Los datos sensibles de la tarjeta
+/// nunca se almacenan; solo se conserva el método mock y los importes.
+model CompraEntrada {
+  id             Int                 @id @default(autoincrement())
+  usuarioId      Int
+  usuario        Usuario             @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  eventoId       Int
+  evento         Evento              @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  cantidad       Int
+  precioUnitario Decimal             @db.Decimal(12, 2)
+  montoTotal     Decimal             @db.Decimal(12, 2)
+  estado         EstadoCompraEntrada @default(APROBADA)
+  metodoPago     String              @default("MOCK_TARJETA")
+  creadoEn       DateTime            @default(now())
+  entradas       Entrada[]
+
+  @@index([usuarioId, creadoEn])
+  @@index([eventoId])
+  @@map("compras_entradas")
 }
 
 /// Registro de auditoría inalterable (RF12 / RNF03 / RNF11).

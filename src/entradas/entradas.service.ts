@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { CrearEntradasDto } from './dto/crear-entradas.dto';
 import { ValidarEntradaDto } from './dto/validar-entrada.dto';
+import { ComprarEntradasDto } from './dto/comprar-entradas.dto';
 
 /**
  * - Cada entrada tiene un token generado por el sistema.
@@ -94,6 +95,62 @@ export class EntradasService {
     });
 
     return items;
+  }
+
+  async comprar(dto: ComprarEntradasDto, usuarioId: number) {
+    const ahora = new Date();
+    const evento = await this.prisma.evento.findUnique({ where: { id: dto.eventoId } });
+    if (!evento) throw new NotFoundException('Evento no encontrado');
+    if (evento.estado !== 'PUBLICADO' || ahora < evento.inicioVenta || ahora > evento.finVenta) {
+      throw new BadRequestException('El evento no está habilitado para la venta de entradas.');
+    }
+
+    const tokens = Array.from({ length: dto.cantidad }, () => randomUUID());
+    const montoTotal = Number(evento.precio) * dto.cantidad;
+
+    return this.prisma.$transaction(async (tx) => {
+      const stock = await tx.evento.updateMany({
+        where: { id: dto.eventoId, estado: 'PUBLICADO', entradasDisponibles: { gte: dto.cantidad } },
+        data: { entradasDisponibles: { decrement: dto.cantidad } },
+      });
+      if (stock.count === 0) {
+        throw new BadRequestException('Las entradas se agotaron. Actualizá la página e intentá nuevamente.');
+      }
+
+      const compra = await tx.compraEntrada.create({
+        data: {
+          usuarioId,
+          eventoId: dto.eventoId,
+          cantidad: dto.cantidad,
+          precioUnitario: evento.precio,
+          montoTotal,
+        },
+      });
+      const entradas = await tx.entrada.createManyAndReturn({
+        data: tokens.map((token) => ({ token, eventoId: dto.eventoId, compraId: compra.id })),
+      });
+
+      await this.auditoria.registrar(
+        {
+          accion: 'CREAR',
+          entidad: 'CompraEntrada',
+          idEntidad: compra.id,
+          responsableId: usuarioId,
+          detalle: `Compra aprobada de ${dto.cantidad} entrada(s) para "${evento.nombre}" por $${montoTotal.toFixed(2)}`,
+        },
+        tx,
+      );
+
+      return { ...compra, entradas, eventoNombre: evento.nombre };
+    });
+  }
+
+  async listarMisEntradas(usuarioId: number) {
+    return this.prisma.entrada.findMany({
+      where: { compra: { usuarioId } },
+      orderBy: { creadoEn: 'desc' },
+      include: { evento: true, compra: true },
+    });
   }
 
   async validarAcceso(dto: ValidarEntradaDto, responsableId: number) {

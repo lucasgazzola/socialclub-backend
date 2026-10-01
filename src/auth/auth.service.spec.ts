@@ -200,6 +200,9 @@ describe('AuthService', () => {
       expect(dataCreada.email).toBe('nuevo@socialclub.local');
       expect(dataCreada.passwordHash).not.toBe(dto.password);
       expect(bcrypt.compareSync(dto.password, dataCreada.passwordHash as string)).toBe(true);
+      expect(prismaMock.persona.create).toHaveBeenCalledWith({
+        data: { nombre: 'Ana', apellido: 'Pérez', email: 'nuevo@socialclub.local' },
+      });
       expect(dataCreada.roles).toBeUndefined();
       expect(auditoriaMock.registrar).toHaveBeenCalledWith(
         expect.objectContaining({ accion: 'CREAR', entidad: 'Usuario', idEntidad: 12 }),

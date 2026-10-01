@@ -78,6 +78,9 @@ export class EventosService {
         imagen: dto.imagen,
         lugarAcreditacion: dto.lugarAcreditacion,
         precio: dto.precio,
+        estado: 'PUBLICADO',
+        inicioVenta: dto.inicioVenta ?? new Date(),
+        finVenta: dto.finVenta ?? dto.cierreInscripcion,
       },
     });
 

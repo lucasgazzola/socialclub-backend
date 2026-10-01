@@ -14,6 +14,7 @@ describe('US-30 · EntradasService', () => {
   const txMock = {
     evento: { updateMany: jest.fn() },
     entrada: { createManyAndReturn: jest.fn() },
+    compraEntrada: { create: jest.fn() },
   };
   const prismaMock = {
     evento: { findUnique: jest.fn() },
@@ -130,6 +131,89 @@ describe('US-30 · EntradasService', () => {
         }),
       );
       expect(items).toHaveLength(1);
+    });
+  });
+
+  describe('comprar', () => {
+    const dto = {
+      eventoId: 1,
+      cantidad: 2,
+      titular: 'JUAN PEREZ',
+      numeroTarjeta: '4500000000000000',
+      vencimiento: '12/28',
+      cvc: '123',
+    };
+
+    const eventoVenta = {
+      id: 1,
+      nombre: 'Peña',
+      precio: 1500,
+      estado: 'PUBLICADO',
+      inicioVenta: new Date(Date.now() - 60_000),
+      finVenta: new Date(Date.now() + 60_000),
+      entradasDisponibles: 10,
+    };
+
+    it('rechaza un evento fuera de la ventana de venta sin tocar stock', async () => {
+      prismaMock.evento.findUnique.mockResolvedValue({
+        ...eventoVenta,
+        inicioVenta: new Date(Date.now() + 60_000),
+      });
+
+      await expect(service.comprar(dto, 7)).rejects.toBeInstanceOf(BadRequestException);
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('emite entradas, descuenta stock y audita dentro de la misma transacción', async () => {
+      prismaMock.evento.findUnique.mockResolvedValue(eventoVenta);
+      txMock.evento.updateMany.mockResolvedValue({ count: 1 });
+      txMock.compraEntrada.create.mockResolvedValue({ id: 25, eventoId: 1, cantidad: 2 });
+      txMock.entrada.createManyAndReturn.mockResolvedValue([
+        { id: 1, token: 't1', eventoId: 1, compraId: 25 },
+        { id: 2, token: 't2', eventoId: 1, compraId: 25 },
+      ]);
+
+      const resultado = await service.comprar(dto, 7);
+
+      expect(txMock.evento.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 1, estado: 'PUBLICADO', entradasDisponibles: { gte: 2 } },
+      }));
+      expect(txMock.compraEntrada.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ usuarioId: 7, montoTotal: 3000 }),
+      }));
+      expect(txMock.entrada.createManyAndReturn).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.arrayContaining([expect.objectContaining({ compraId: 25 })]),
+      }));
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({ entidad: 'CompraEntrada', idEntidad: 25 }),
+        txMock,
+      );
+      expect(resultado.entradas).toHaveLength(2);
+    });
+
+    it('revierte la compra si el stock cambió durante la confirmación', async () => {
+      prismaMock.evento.findUnique.mockResolvedValue(eventoVenta);
+      txMock.evento.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.comprar(dto, 7)).rejects.toBeInstanceOf(BadRequestException);
+      expect(txMock.compraEntrada.create).not.toHaveBeenCalled();
+      expect(txMock.entrada.createManyAndReturn).not.toHaveBeenCalled();
+      expect(auditoriaMock.registrar).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listarMisEntradas', () => {
+    it('filtra las entradas por el usuario comprador y devuelve el evento asociado', async () => {
+      prismaMock.entrada.findMany.mockResolvedValue([{ id: 1, token: 't1' }]);
+
+      const resultado = await service.listarMisEntradas(7);
+
+      expect(prismaMock.entrada.findMany).toHaveBeenCalledWith({
+        where: { compra: { usuarioId: 7 } },
+        orderBy: { creadoEn: 'desc' },
+        include: { evento: true, compra: true },
+      });
+      expect(resultado).toHaveLength(1);
     });
   });
 });
