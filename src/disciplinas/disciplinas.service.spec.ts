@@ -16,6 +16,8 @@ describe('DisciplinasService', () => {
   const disciplinaRequerimientoDocMock = {
     createMany: jest.fn(),
     deleteMany: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
+    update: jest.fn(),
   };
   const txMock = {
     disciplina: {
@@ -139,6 +141,27 @@ describe('DisciplinasService', () => {
   });
 
   // ─── findOne ─────────────────────────────────────────────────────────────────
+
+  describe('create · documentación obligatoria (US-44)', () => {
+    it('rechaza requisitos con un tipo de documento repetido', async () => {
+      prismaMock.disciplina.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.create(
+          {
+            nombre: 'Natación',
+            solicitaDocumentacion: true,
+            requerimientosDocumentacion: [
+              { tipoDocumento: 'DNI', plazoDiasTolerancia: 0 },
+              { tipoDocumento: 'DNI', plazoDiasTolerancia: 10 },
+            ],
+          },
+          5,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(txMock.disciplina.create).not.toHaveBeenCalled();
+    });
+  });
 
   describe('findAll', () => {
     it('aplica búsqueda, estado y paginación en backend', async () => {
@@ -288,19 +311,67 @@ describe('DisciplinasService', () => {
         5,
       );
 
-      expect(txMock.disciplinaRequerimientoDoc.deleteMany).toHaveBeenCalledWith({
-        where: { disciplinaId: 1 },
+      expect(txMock.disciplinaRequerimientoDoc.findMany).toHaveBeenCalledWith({
+        where: { disciplinaId: 1, categoriaDisciplinaId: null },
       });
       expect(txMock.disciplinaRequerimientoDoc.createMany).toHaveBeenCalledWith({
         data: [
           {
             disciplinaId: 1,
+            categoriaDisciplinaId: null,
             tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA',
             plazoDiasTolerancia: 30,
           },
-          { disciplinaId: 1, tipoDocumento: 'DNI', plazoDiasTolerancia: 0 },
+          {
+            disciplinaId: 1,
+            categoriaDisciplinaId: null,
+            tipoDocumento: 'DNI',
+            plazoDiasTolerancia: 0,
+          },
         ],
       });
+      // Los tipos que ahora exige la disciplina dejan de ser adicionales en sus categorías.
+      expect(txMock.disciplinaRequerimientoDoc.deleteMany).toHaveBeenCalledWith({
+        where: {
+          disciplinaId: 1,
+          categoriaDisciplinaId: { not: null },
+          tipoDocumento: { in: ['CERTIFICADO_MEDICO_APTITUD_FISICA', 'DNI'] },
+        },
+      });
+    });
+
+    it('conserva los requisitos que siguen (y su fecha de vigencia) y solo borra los quitados', async () => {
+      const disciplinaBase = {
+        id: 1,
+        nombre: 'Fútbol',
+        activo: true,
+        solicitaDocumentacion: true,
+        requerimientosDoc: [],
+        categorias: [],
+        _count: {},
+        configuracionesCuotaDeportiva: [],
+      };
+      prismaMock.disciplina.findUnique.mockResolvedValue(disciplinaBase);
+      txMock.disciplina.update.mockResolvedValue({ id: 1 });
+      txMock.disciplinaRequerimientoDoc.findMany.mockResolvedValueOnce([
+        { id: 10, tipoDocumento: 'DNI', plazoDiasTolerancia: 0 },
+        { id: 11, tipoDocumento: 'SEGURO_COBERTURA_MEDICA', plazoDiasTolerancia: 10 },
+      ]);
+
+      await service.update(
+        1,
+        { requerimientosDocumentacion: [{ tipoDocumento: 'DNI', plazoDiasTolerancia: 5 }] },
+        5,
+      );
+
+      expect(txMock.disciplinaRequerimientoDoc.deleteMany).toHaveBeenCalledWith({
+        where: { id: { in: [11] } },
+      });
+      expect(txMock.disciplinaRequerimientoDoc.update).toHaveBeenCalledWith({
+        where: { id: 10 },
+        data: { plazoDiasTolerancia: 5 },
+      });
+      expect(txMock.disciplinaRequerimientoDoc.createMany).not.toHaveBeenCalled();
     });
   });
 

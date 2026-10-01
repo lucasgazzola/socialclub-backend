@@ -17,7 +17,9 @@ import { Type } from 'class-transformer';
 
 export class RequerimientoDocumentacionDto {
   @ApiProperty({ enum: TipoDocumentacionDisciplina })
-  @IsEnum(TipoDocumentacionDisciplina)
+  @IsEnum(TipoDocumentacionDisciplina, {
+    message: 'El tipo de documento no pertenece al catálogo de documentación obligatoria.',
+  })
   tipoDocumento: TipoDocumentacionDisciplina;
 
   @ApiPropertyOptional({
@@ -26,8 +28,8 @@ export class RequerimientoDocumentacionDto {
     description: 'Días corridos de tolerancia. 0 significa obligatorio al inscribirse.',
   })
   @IsOptional()
-  @IsInt()
-  @Min(0)
+  @IsInt({ message: 'El plazo de presentación debe ser un número entero de días.' })
+  @Min(0, { message: 'El plazo de presentación no puede ser negativo.' })
   plazoDiasTolerancia?: number;
 }
 
@@ -82,8 +84,8 @@ export class CreateDisciplinaDto {
       'Documentación requerida y plazo individual. Solo aplica si solicitaDocumentacion=true.',
   })
   @ValidateIf((o: CreateDisciplinaDto) => o.solicitaDocumentacion === true)
-  @IsArray()
-  @ArrayMinSize(1)
+  @IsArray({ message: 'Seleccioná al menos un documento obligatorio.' })
+  @ArrayMinSize(1, { message: 'Seleccioná al menos un documento obligatorio.' })
   @ValidateNested({ each: true })
   @Type(() => RequerimientoDocumentacionDto)
   requerimientosDocumentacion?: RequerimientoDocumentacionDto[];
