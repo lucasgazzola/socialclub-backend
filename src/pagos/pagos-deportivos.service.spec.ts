@@ -6,25 +6,58 @@ import { PagosDeportivosService, periodoActualDeportivo } from './pagos-deportiv
 
 const mockPrisma: any = {
   persona: { findUnique: jest.fn() },
-  configuracionCuotaDeportiva: { findFirst: jest.fn() },
+  configuracionCuotaDeportiva: { findMany: jest.fn() },
   pagoCuotaDeportiva: { findMany: jest.fn(), create: jest.fn() },
   $transaction: jest.fn((arg: any) => (Array.isArray(arg) ? Promise.all(arg) : arg(mockPrisma))),
 };
 
 const mockAuditoria = { registrar: jest.fn() };
 
-/** Participante con una inscripción activa en la disciplina 3 y categoría de socio 1. */
+/** Inscripción activa en Fútbol (disciplina 3), sin categoría. */
+function inscripcion(overrides: Partial<any> = {}) {
+  return {
+    disciplinaId: 3,
+    fechaInscripcion: new Date(new Date().getFullYear() - 1, 0, 1), // enero del año pasado
+    fechaBaja: null,
+    activo: true,
+    categoriaDisciplinaId: null,
+    categoriaDisciplina: null,
+    disciplina: { id: 3, nombre: 'Fútbol' },
+    ...overrides,
+  };
+}
+
+/** Participante socio desde hace años, con una inscripción activa en Fútbol. */
 function participanteBase(overrides: Partial<any> = {}) {
-  const inicio = new Date(new Date().getFullYear() - 1, 0, 1); // enero del año pasado
   return {
     id: 50,
     nombre: 'Ana',
     apellido: 'Jugadora',
     dni: '30111222',
-    inscripciones: [
-      { disciplinaId: 3, fechaInscripcion: inicio, disciplina: { id: 3, nombre: 'Fútbol' } },
+    inscripciones: [inscripcion()],
+    membresias: [
+      {
+        activo: true,
+        fechaAlta: new Date(2020, 0, 1),
+        fechaBaja: null,
+        categoriaId: 1,
+        categoria: { nombre: 'General' },
+      },
     ],
-    membresias: [{ activo: true, categoriaId: 1, categoria: { nombre: 'General' } }],
+    ...overrides,
+  };
+}
+
+/** Tarifa base de Fútbol: $5.000 con 20 % de descuento para socios, desde 2020. */
+function tarifa(overrides: Partial<any> = {}) {
+  return {
+    id: 1,
+    disciplinaId: 3,
+    categoriaDisciplinaId: null,
+    periodoAplicacion: '2020-01',
+    monto: 5000,
+    descuentoSocioPorcentaje: 20,
+    activo: true,
     ...overrides,
   };
 }
@@ -61,7 +94,7 @@ describe('PagosDeportivosService · US-21', () => {
     it('devuelve MOROSO con períodos pendientes valorizados', async () => {
       mockPrisma.persona.findUnique.mockResolvedValue(participanteBase());
       mockPrisma.pagoCuotaDeportiva.findMany.mockResolvedValue([]);
-      mockPrisma.configuracionCuotaDeportiva.findFirst.mockResolvedValue({ monto: 5000 });
+      mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([tarifa()]);
       const res = await service.getPendientesPorPersona(50);
       expect(res.estadoDeuda).toBe('MOROSO');
       expect(res.cuotasPendientes.length).toBeGreaterThan(0);
@@ -111,21 +144,13 @@ describe('PagosDeportivosService · US-21', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('rechaza si el participante no tiene categoría de socio (BadRequest)', async () => {
-      mockPrisma.persona.findUnique.mockResolvedValue(participanteBase({ membresias: [] }));
-      mockPrisma.pagoCuotaDeportiva.findMany.mockResolvedValue([]);
-      await expect(
-        service.registrarPago(50, { disciplinaId: 3, periodos: [periodo] }, 1),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('rechaza si no hay cuota deportiva configurada (monto 0) (BadRequest)', async () => {
+    it('TASK-33: rechaza un período sin tarifa configurada (BadRequest)', async () => {
       mockPrisma.persona.findUnique.mockResolvedValue(participanteBase());
       mockPrisma.pagoCuotaDeportiva.findMany.mockResolvedValue([]);
-      mockPrisma.configuracionCuotaDeportiva.findFirst.mockResolvedValue(null);
+      mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([]);
       await expect(
         service.registrarPago(50, { disciplinaId: 3, periodos: [periodo] }, 1),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(`No hay una tarifa configurada para Fútbol en el período ${periodo}`);
     });
 
     it('CA: registra el pago, audita y recalcula el estado a AL_DIA', async () => {
@@ -133,20 +158,14 @@ describe('PagosDeportivosService · US-21', () => {
       const inicioEsteMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
       mockPrisma.persona.findUnique.mockResolvedValue(
         participanteBase({
-          inscripciones: [
-            {
-              disciplinaId: 3,
-              fechaInscripcion: inicioEsteMes,
-              disciplina: { id: 3, nombre: 'Fútbol' },
-            },
-          ],
+          inscripciones: [inscripcion({ fechaInscripcion: inicioEsteMes })],
         }),
       );
       // 1a llamada (validación de existentes): ninguno; 2a (recalcular pendientes): ya pagado.
       mockPrisma.pagoCuotaDeportiva.findMany
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([{ disciplinaId: 3, periodo }]);
-      mockPrisma.configuracionCuotaDeportiva.findFirst.mockResolvedValue({ monto: 5000 });
+      mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([tarifa()]);
       mockPrisma.pagoCuotaDeportiva.create.mockResolvedValue({
         id: 1,
         periodo,
@@ -166,7 +185,11 @@ describe('PagosDeportivosService · US-21', () => {
         }),
         expect.anything(),
       );
-      expect(res.montoTotal).toBe(5000);
+      // Socio: $5.000 con 20 % de descuento.
+      expect(res.montoTotal).toBe(4000);
+      expect(mockPrisma.pagoCuotaDeportiva.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ periodo, monto: 4000 }) as object,
+      });
       expect(res.usuarioResponsableId).toBe(7);
       expect(res.estadoDeudaActual).toBe('AL_DIA');
       expect(res.cuotasPendientesRestantes).toBe(0);
@@ -188,7 +211,7 @@ describe('PagosDeportivosService · US-21', () => {
 
     it('CA: devuelve pagos (con el usuario que registró) y períodos adeudados', async () => {
       mockPrisma.persona.findUnique.mockResolvedValue(participanteBase());
-      mockPrisma.configuracionCuotaDeportiva.findFirst.mockResolvedValue({ monto: 5000 });
+      mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([tarifa()]);
       mockPrisma.pagoCuotaDeportiva.findMany
         .mockResolvedValueOnce([]) // 1a llamada: cálculo de pendientes
         .mockResolvedValueOnce([pagoConResponsable]); // 2a: historial de pagos
@@ -209,7 +232,7 @@ describe('PagosDeportivosService · US-21', () => {
 
     it('registradoPor es null cuando el pago no tiene responsable asociado', async () => {
       mockPrisma.persona.findUnique.mockResolvedValue(participanteBase());
-      mockPrisma.configuracionCuotaDeportiva.findFirst.mockResolvedValue({ monto: 5000 });
+      mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([tarifa()]);
       mockPrisma.pagoCuotaDeportiva.findMany
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([{ ...pagoConResponsable, responsable: null, responsableId: null }]);
@@ -220,7 +243,7 @@ describe('PagosDeportivosService · US-21', () => {
 
     it('CA: filtra el historial por rango de fechas (fechaPago gte/lte)', async () => {
       mockPrisma.persona.findUnique.mockResolvedValue(participanteBase());
-      mockPrisma.configuracionCuotaDeportiva.findFirst.mockResolvedValue({ monto: 5000 });
+      mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([tarifa()]);
       mockPrisma.pagoCuotaDeportiva.findMany
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([pagoConResponsable]);
@@ -236,7 +259,7 @@ describe('PagosDeportivosService · US-21', () => {
 
     it('sin filtros no agrega condición de fecha al historial', async () => {
       mockPrisma.persona.findUnique.mockResolvedValue(participanteBase());
-      mockPrisma.configuracionCuotaDeportiva.findFirst.mockResolvedValue({ monto: 5000 });
+      mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([tarifa()]);
       mockPrisma.pagoCuotaDeportiva.findMany
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([pagoConResponsable]);
@@ -245,6 +268,156 @@ describe('PagosDeportivosService · US-21', () => {
       const args = mockPrisma.pagoCuotaDeportiva.findMany.mock.calls[1][0];
       expect(args.where.fechaPago).toBeUndefined();
       expect(res.filtro).toEqual({ desde: null, hasta: null });
+    });
+  });
+
+  describe('TASK-33 · tarifa por disciplina y categoría, descuento para socios', () => {
+    const anio = new Date().getFullYear();
+    const mesActual = new Date().getMonth();
+
+    beforeEach(() => {
+      mockPrisma.pagoCuotaDeportiva.findMany.mockResolvedValue([]);
+    });
+
+    it('un participante que no es socio paga la tarifa completa (antes figuraba $0)', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(participanteBase({ membresias: [] }));
+      mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([tarifa()]);
+
+      const res = await service.getPendientesPorPersona(50);
+
+      expect(res.esSocio).toBe(false);
+      expect(res.cuotasPendientes.every((c) => c.monto === 5000 && !c.esSocio)).toBe(true);
+    });
+
+    it('a un socio le aplica el descuento en los meses en que era socio', async () => {
+      const inicio = new Date(anio, mesActual - 2, 1);
+      const altaSocio = new Date(anio, mesActual - 1, 10);
+      mockPrisma.persona.findUnique.mockResolvedValue(
+        participanteBase({
+          inscripciones: [inscripcion({ fechaInscripcion: inicio })],
+          membresias: [
+            {
+              activo: true,
+              fechaAlta: altaSocio,
+              fechaBaja: null,
+              categoriaId: 1,
+              categoria: { nombre: 'General' },
+            },
+          ],
+        }),
+      );
+      mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([tarifa()]);
+
+      const res = await service.getPendientesPorPersona(50);
+
+      expect(res.cuotasPendientes.map((c) => [c.monto, c.descuentoSocioPorcentaje])).toEqual([
+        [5000, 0], // todavía no era socio
+        [4000, 20],
+        [4000, 20],
+      ]);
+      expect(res.totalAdeudado).toBe(13000);
+    });
+
+    it('la tarifa de la categoría reemplaza a la de la disciplina', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(
+        participanteBase({
+          membresias: [],
+          inscripciones: [
+            inscripcion({
+              fechaInscripcion: new Date(anio, mesActual, 1),
+              categoriaDisciplinaId: 7,
+              categoriaDisciplina: { id: 7, nombre: 'Sub-15' },
+            }),
+          ],
+        }),
+      );
+      mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([
+        tarifa(),
+        tarifa({ id: 2, categoriaDisciplinaId: 7, monto: 3000 }),
+      ]);
+
+      const res = await service.getPendientesPorPersona(50);
+
+      expect(res.cuotasPendientes).toEqual([
+        expect.objectContaining({ monto: 3000, categoriaNombre: 'Sub-15', sinTarifa: false }),
+      ]);
+    });
+
+    it('al dar de baja se conserva la deuda anterior y no se generan meses nuevos', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(
+        participanteBase({
+          membresias: [],
+          inscripciones: [
+            inscripcion({
+              activo: false,
+              fechaInscripcion: new Date(anio - 1, 0, 15),
+              fechaBaja: new Date(anio - 1, 2, 3),
+            }),
+          ],
+        }),
+      );
+      mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([tarifa()]);
+
+      const res = await service.getPendientesPorPersona(50);
+
+      expect(res.cuotasPendientes.map((c) => c.periodo)).toEqual([
+        `${anio - 1}-01`,
+        `${anio - 1}-02`,
+        `${anio - 1}-03`, // el mes de la baja se cobra completo
+      ]);
+      expect(res.cuotasPendientes.every((c) => c.inscripcionActiva === false)).toBe(true);
+      expect(res.estadoDeuda).toBe('MOROSO');
+    });
+
+    it('un mes sin tarifa figura como "sin tarifa" y no cuenta como deuda', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(
+        participanteBase({
+          membresias: [],
+          inscripciones: [inscripcion({ fechaInscripcion: new Date(anio, mesActual, 1) })],
+        }),
+      );
+      mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([]);
+
+      const res = await service.getPendientesPorPersona(50);
+
+      expect(res.cuotasPendientes).toEqual([
+        expect.objectContaining({ sinTarifa: true, monto: null }),
+      ]);
+      expect(res.totalAdeudado).toBe(0);
+      expect(res.estadoDeuda).toBe('AL_DIA');
+    });
+
+    it('permite cobrar la deuda de una disciplina dada de baja, pero no meses posteriores a la baja', async () => {
+      const dadaDeBaja = participanteBase({
+        membresias: [],
+        inscripciones: [
+          inscripcion({
+            activo: false,
+            fechaInscripcion: new Date(anio - 1, 0, 15),
+            fechaBaja: new Date(anio - 1, 2, 3),
+          }),
+        ],
+      });
+      mockPrisma.persona.findUnique.mockResolvedValue(dadaDeBaja);
+      mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([tarifa()]);
+
+      await expect(
+        service.registrarPago(50, { disciplinaId: 3, periodos: [`${anio - 1}-05`] }, 1),
+      ).rejects.toThrow('No se permite registrar pagos posteriores a la baja de la disciplina');
+
+      mockPrisma.pagoCuotaDeportiva.create.mockResolvedValue({
+        id: 9,
+        periodo: `${anio - 1}-02`,
+        monto: 5000,
+        fechaPago: new Date(),
+        metodoPago: 'EFECTIVO',
+      });
+      const res = await service.registrarPago(
+        50,
+        { disciplinaId: 3, periodos: [`${anio - 1}-02`] },
+        1,
+      );
+      expect(res.montoTotal).toBe(5000);
     });
   });
 });

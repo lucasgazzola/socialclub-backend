@@ -112,10 +112,6 @@ async function main() {
       where: { categoriaId: legacyCat.id },
       data: { categoriaId: nuevoCat.id },
     });
-    await prisma.configuracionCuotaDeportiva.updateMany({
-      where: { categoriaId: legacyCat.id },
-      data: { categoriaId: nuevoCat.id },
-    });
     try {
       await (prisma as any).configuracionCuotaSocial?.updateMany?.({
         where: { categoriaId: legacyCat.id },

@@ -10,13 +10,13 @@ estrategia de testing y su secuencia.
 
 ---
 
-## Estado al 01/10/2026
+## Estado al 02/10/2026
 
 | | Backend | Frontend |
 |---|---|---|
-| Tests | 472 ✅ | 249 ✅ |
-| Cobertura (statements) | **75,8 %** ✅ | 43,2 % |
-| Cobertura (ramas) | 76,4 % | 44,0 % |
+| Tests | 497 ✅ | 260 ✅ |
+| Cobertura (statements) | **76,8 %** ✅ | 45,4 % |
+| Cobertura (ramas) | 78,6 % | 46,5 % |
 | Piso configurado (stmts / ramas / funcs / líneas) | 70 / 70 / 61 / 69 (antes 58 / 64 / 49 / 57) | 33 / 33 / 28 / 33 (antes 28 / 27 / 24 / 28) |
 | Módulos/features sin ningún test | `categorias` (categorías de socio) | `auditoria`, `cuota-social`, `dashboard` |
 
@@ -27,8 +27,8 @@ estrategia de testing y su secuencia.
 | Casos documentados | 159 filas (`TC-001`–`TC-159`) |
 | Ejecuciones registradas | 98 (`EJ-01` a `EJ-98`) |
 
-**Objetivo de la DoD: 70 % de cobertura.** El backend lo superó (75,8 %); al
-frontend le faltan ~27 puntos (medido con las TASK-31 y TASK-32).
+**Objetivo de la DoD: 70 % de cobertura.** El backend lo superó (76,8 %); al
+frontend le faltan ~25 puntos (medido con las TASK-31 a TASK-33).
 
 Últimas incorporaciones (01/10/2026): US-44 y US-48 a US-51 (categorías de
 disciplina) con 25 casos (`TC-135`–`TC-159`) y su ejecución (`EJ-74`–`EJ-98`,

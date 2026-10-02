@@ -674,9 +674,10 @@ describe('InscripcionService', () => {
         where: { personaId: 10, activo: true },
         include: { disciplina: true },
       });
+      // Cada disciplina queda con su fecha de baja.
       expect(mockPrisma.inscripcion.updateMany).toHaveBeenCalledWith({
         where: { personaId: 10, activo: true },
-        data: { activo: false },
+        data: { activo: false, fechaBaja: expect.any(Date) as Date },
       });
       expect(resultado).toEqual({
         personaId: 10,
@@ -1106,6 +1107,138 @@ describe('InscripcionService', () => {
       });
 
       await expect(service.requisitos(1, 99)).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('email duplicado (feedback del 02/10/2026)', () => {
+    beforeEach(() => {
+      mockPrisma.disciplina.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Ajedrez',
+        activo: true,
+        genero: null,
+        edadMinima: null,
+        edadMaxima: null,
+        categorias: [],
+      });
+    });
+
+    it('rechaza el alta si el email ya lo tiene otra persona, con un mensaje sobre el email', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValueOnce({
+        id: 3,
+        dni: '10000001',
+        email: 'admin@socialclub.local',
+      });
+
+      await expect(
+        service.create(
+          {
+            dni: '47123456',
+            nombre: 'Nuevo',
+            apellido: 'Prueba',
+            email: 'admin@socialclub.local',
+            disciplinaId: 1,
+          },
+          99,
+        ),
+      ).rejects.toThrow('El email ya está registrado por otra persona');
+      expect(mockPrisma.inscripcion.create).not.toHaveBeenCalled();
+    });
+
+    it('acepta el email si es de la misma persona (mismo DNI)', async () => {
+      mockPrisma.persona.findUnique
+        .mockResolvedValueOnce({ id: 3, dni: '47123456', email: 'yo@club.local' }) // por email
+        .mockResolvedValueOnce({
+          id: 3,
+          dni: '47123456',
+          activo: true,
+          genero: null,
+          fechaNacimiento: null,
+        }); // por DNI
+      mockPrisma.inscripcion.findUnique.mockResolvedValue(null);
+      mockPrisma.inscripcion.create.mockResolvedValue({ id: 50, personaId: 3 });
+
+      await expect(
+        service.create(
+          {
+            dni: '47123456',
+            nombre: 'Yo',
+            apellido: 'Mismo',
+            email: 'yo@club.local',
+            disciplinaId: 1,
+          },
+          99,
+        ),
+      ).resolves.toBeDefined();
+    });
+
+    it('si la base corta por unicidad, el mensaje nombra el campo que chocó', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(null);
+      mockPrisma.$transaction.mockRejectedValueOnce(
+        new PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: '6',
+          meta: { target: ['email'] },
+        }),
+      );
+
+      await expect(
+        service.create(
+          { dni: '47123456', nombre: 'A', apellido: 'B', email: 'x@y.z', disciplinaId: 1 },
+          99,
+        ),
+      ).rejects.toThrow('El email ya está registrado por otra persona');
+    });
+  });
+
+  describe('fecha de baja de la inscripción (feedback del 02/10/2026)', () => {
+    const activa = {
+      id: 7,
+      personaId: 10,
+      disciplinaId: 1,
+      activo: true,
+      persona: { id: 10, nombre: 'Juan', apellido: 'Perez', dni: '12345678' },
+      disciplina: { id: 1, nombre: 'Fútbol' },
+      categoriaDisciplina: null,
+    };
+
+    it('guarda la fecha de baja al dar de baja una disciplina', async () => {
+      mockPrisma.inscripcion.findUnique.mockResolvedValue(activa);
+      mockPrisma.inscripcion.update.mockResolvedValue({ ...activa, activo: false });
+
+      await service.remove(7, 99);
+
+      expect(mockPrisma.inscripcion.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { activo: false, fechaBaja: expect.any(Date) as Date } }),
+      );
+    });
+
+    it('limpia la fecha de baja al reinscribir en la misma disciplina', async () => {
+      mockPrisma.disciplina.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Fútbol',
+        activo: true,
+        genero: null,
+        edadMinima: null,
+        edadMaxima: null,
+        categorias: [],
+      });
+      mockPrisma.persona.findUnique.mockResolvedValue({
+        id: 10,
+        activo: true,
+        genero: null,
+        fechaNacimiento: null,
+      });
+      mockPrisma.inscripcion.findUnique.mockResolvedValue({ id: 7, activo: false });
+      mockPrisma.inscripcion.update.mockResolvedValue({ id: 7, personaId: 10 });
+
+      await service.create({ personaId: 10, disciplinaId: 1 }, 99);
+
+      expect(mockPrisma.inscripcion.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ activo: true, fechaBaja: null }) as object,
+        }),
+      );
     });
   });
 });
