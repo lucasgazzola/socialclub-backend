@@ -27,6 +27,16 @@ export function proximoPeriodo(now = new Date()): string {
   return `${proxAnio}-${String(proxMes).padStart(2, '0')}`;
 }
 
+/** Período "YYYY-MM" actual. */
+export function periodoActual(now = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+const INCLUDE_TARIFA = {
+  disciplina: { select: { id: true, nombre: true } },
+  categoriaDisciplina: { select: { id: true, nombre: true } },
+} as const;
+
 @Injectable()
 export class CuotasService {
   constructor(
@@ -35,78 +45,66 @@ export class CuotasService {
   ) {}
 
   /**
-   * Configurar (o reconfigurar) el monto de la cuota deportiva para una
-   * combinación disciplina-categoría. Reglas de la US:
-   *  - Un monto por combinación disciplina-categoría-período de aplicación.
+   * US-20 · TASK-33 — Configurar la tarifa mensual de la cuota deportiva de una
+   * disciplina (tarifa base) o de una de sus categorías (reemplaza a la base).
    *  - El monto debe ser mayor a cero (validado además en el DTO).
-   *  - El cambio aplica a partir del período siguiente (no se permite configurar
-   *    períodos pasados ni el actual).
-   *  - Si ya existe una configuración para la combinación y período, se
-   *    actualiza en lugar de crear un duplicado (regla 7).
+   *  - Descuento para socios opcional, en porcentaje (0 a 100).
+   *  - Los cambios aplican a partir del período siguiente; la PRIMERA tarifa de
+   *    la disciplina/categoría puede regir desde el período actual.
+   *  - Si ya existe una tarifa para ese alcance y período, se actualiza.
    */
   async configurar(dto: ConfigurarCuotaDto, responsableId: number) {
-    const periodoAplicacion = dto.periodoAplicacion ?? proximoPeriodo();
-    this.validarPeriodoFuturo(periodoAplicacion);
-
-    const [disciplina, categoria] = await Promise.all([
-      this.prisma.disciplina.findUnique({ where: { id: dto.disciplinaId } }),
-      this.prisma.categoriaSocio.findUnique({ where: { id: dto.categoriaId } }),
-    ]);
+    const categoriaDisciplinaId = dto.categoriaDisciplinaId ?? null;
+    const disciplina = await this.prisma.disciplina.findUnique({
+      where: { id: dto.disciplinaId },
+      include: { categorias: true },
+    });
     if (!disciplina) {
       throw new NotFoundException('Disciplina no encontrada');
     }
-    if (!categoria) {
-      throw new NotFoundException('Categoría de socio no encontrada');
+    const categoria = categoriaDisciplinaId
+      ? disciplina.categorias.find((c) => c.id === categoriaDisciplinaId)
+      : null;
+    if (categoriaDisciplinaId && !categoria) {
+      throw new NotFoundException('La categoría no pertenece a esta disciplina');
     }
 
-    const existente = await this.prisma.configuracionCuotaDeportiva.findUnique({
-      where: {
-        disciplinaId_categoriaId_periodoAplicacion: {
-          disciplinaId: dto.disciplinaId,
-          categoriaId: dto.categoriaId,
-          periodoAplicacion,
-        },
-      },
+    const alcance = { disciplinaId: dto.disciplinaId, categoriaDisciplinaId };
+    const yaTieneTarifa =
+      (await this.prisma.configuracionCuotaDeportiva.count({ where: alcance })) > 0;
+    const periodoAplicacion =
+      dto.periodoAplicacion ?? (yaTieneTarifa ? proximoPeriodo() : periodoActual());
+    this.validarPeriodo(periodoAplicacion, yaTieneTarifa);
+
+    const datos = {
+      monto: dto.monto,
+      descuentoSocioPorcentaje: dto.descuentoSocioPorcentaje ?? 0,
+    };
+    const destino = `${disciplina.nombre}${categoria ? ` · ${categoria.nombre}` : ' (tarifa base)'}`;
+    const existente = await this.prisma.configuracionCuotaDeportiva.findFirst({
+      where: { ...alcance, periodoAplicacion },
     });
 
-    // Regla 7: si la combinación+período ya existe, se actualiza (upsert).
-    if (existente) {
-      const actualizada = await this.prisma.configuracionCuotaDeportiva.update({
-        where: { id: existente.id },
-        data: { monto: dto.monto },
-        include: { disciplina: true, categoria: true },
-      });
-
-      await this.auditoria.registrar({
-        accion: 'EDITAR',
-        entidad: 'ConfiguracionCuotaDeportiva',
-        idEntidad: actualizada.id,
-        responsableId,
-        detalle: `Periodo ${periodoAplicacion} - Disciplina ${actualizada.disciplinaId} - Categoria ${actualizada.categoriaId}`,
-      });
-
-      return serializarCuota(actualizada);
-    }
-
-    const creada = await this.prisma.configuracionCuotaDeportiva.create({
-      data: {
-        disciplinaId: dto.disciplinaId,
-        categoriaId: dto.categoriaId,
-        periodoAplicacion,
-        monto: dto.monto,
-      },
-      include: { disciplina: true, categoria: true },
-    });
+    const guardada = existente
+      ? await this.prisma.configuracionCuotaDeportiva.update({
+          where: { id: existente.id },
+          data: { ...datos, activo: true },
+          include: INCLUDE_TARIFA,
+        })
+      : await this.prisma.configuracionCuotaDeportiva.create({
+          data: { ...alcance, periodoAplicacion, ...datos },
+          include: INCLUDE_TARIFA,
+        });
 
     await this.auditoria.registrar({
-      accion: 'CREAR',
+      accion: existente ? 'EDITAR' : 'CREAR',
       entidad: 'ConfiguracionCuotaDeportiva',
-      idEntidad: creada.id,
+      idEntidad: guardada.id,
       responsableId,
-      detalle: `Periodo ${periodoAplicacion} - Disciplina ${creada.disciplinaId} - Categoria ${creada.categoriaId}`,
+      detalle: `Tarifa ${destino} desde ${periodoAplicacion}: $${dto.monto}, descuento socios ${datos.descuentoSocioPorcentaje} %`,
     });
 
-    return serializarCuota(creada);
+    return serializarCuota(guardada);
   }
 
   /**
@@ -114,19 +112,23 @@ export class CuotasService {
    * (disciplina, categoría, período de aplicación) y paginación.
    */
   async findAll(query: FindCuotasQueryDto) {
-    const { disciplinaId, categoriaId, periodoAplicacion, pagina, porPagina } = query;
+    const { disciplinaId, categoriaDisciplinaId, periodoAplicacion, pagina, porPagina } = query;
 
     const where: Prisma.ConfiguracionCuotaDeportivaWhereInput = {
       ...(disciplinaId && { disciplinaId }),
-      ...(categoriaId && { categoriaId }),
+      ...(categoriaDisciplinaId && { categoriaDisciplinaId }),
       ...(periodoAplicacion && { periodoAplicacion }),
     };
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.configuracionCuotaDeportiva.findMany({
         where,
-        include: { disciplina: true, categoria: true },
-        orderBy: [{ periodoAplicacion: 'desc' }, { disciplina: { nombre: 'asc' } }],
+        include: INCLUDE_TARIFA,
+        orderBy: [
+          { disciplina: { nombre: 'asc' } },
+          { categoriaDisciplinaId: { sort: 'asc', nulls: 'first' } },
+          { periodoAplicacion: 'desc' },
+        ],
         skip: (pagina - 1) * porPagina,
         take: porPagina,
       }),
@@ -144,7 +146,7 @@ export class CuotasService {
   async findOne(id: number) {
     const configuracion = await this.prisma.configuracionCuotaDeportiva.findUnique({
       where: { id },
-      include: { disciplina: true, categoria: true },
+      include: INCLUDE_TARIFA,
     });
     if (!configuracion) {
       throw new NotFoundException('Configuración de cuota no encontrada');
@@ -163,7 +165,7 @@ export class CuotasService {
     const configuracion = await this.prisma.configuracionCuotaDeportiva.update({
       where: { id },
       data: dto,
-      include: { disciplina: true, categoria: true },
+      include: INCLUDE_TARIFA,
     });
 
     await this.auditoria.registrar({
@@ -176,12 +178,17 @@ export class CuotasService {
     return serializarCuota(configuracion);
   }
 
-  /** El período configurado no puede ser el actual ni uno pasado. */
-  private validarPeriodoFuturo(periodoAplicacion: string) {
-    const minimo = proximoPeriodo();
+  /**
+   * Los cambios aplican desde el período siguiente; la primera tarifa de un
+   * alcance puede regir desde el actual. Nunca un período pasado.
+   */
+  private validarPeriodo(periodoAplicacion: string, yaTieneTarifa: boolean) {
+    const minimo = yaTieneTarifa ? proximoPeriodo() : periodoActual();
     if (periodoAplicacion < minimo) {
       throw new BadRequestException(
-        `El período ${periodoAplicacion} no es válido: los cambios de cuota aplican a partir del período siguiente (${minimo})`,
+        yaTieneTarifa
+          ? `El período ${periodoAplicacion} no es válido: los cambios de cuota aplican a partir del período siguiente (${minimo})`
+          : `El período ${periodoAplicacion} no es válido: la primera tarifa puede regir desde el período actual (${minimo})`,
       );
     }
   }

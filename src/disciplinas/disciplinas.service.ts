@@ -130,7 +130,7 @@ export class DisciplinasService {
       include: {
         ...DISCIPLINA_INCLUDE,
         configuracionesCuotaDeportiva: {
-          include: { categoria: true },
+          include: { categoriaDisciplina: { select: { id: true, nombre: true } } },
           orderBy: { periodoAplicacion: 'desc' },
         },
       },
