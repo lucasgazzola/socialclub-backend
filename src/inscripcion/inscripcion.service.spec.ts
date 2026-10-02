@@ -3,6 +3,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
+import { EstadoDocumentalService } from '../documentacion/estado-documental.service';
 import { InscripcionService } from './inscripcion.service';
 import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
 import { EstadoInscripcionFiltro } from './dto/find-participantes-query.dto';
@@ -13,6 +14,7 @@ const mockPrisma: any = {
   },
   persona: {
     findUnique: jest.fn(),
+    create: jest.fn(),
     update: jest.fn(),
     findMany: jest.fn(),
     count: jest.fn(),
@@ -41,6 +43,14 @@ const mockAuditoria = {
   registrar: jest.fn(),
 };
 
+const mockEstadoDocumental = {
+  porPersona: jest
+    .fn()
+    .mockResolvedValue({ personaId: 0, estado: null, inscripciones: [], tiposExigidos: [] }),
+  porPersonas: jest.fn().mockResolvedValue(new Map()),
+  previsualizar: jest.fn(),
+};
+
 describe('InscripcionService', () => {
   let service: InscripcionService;
 
@@ -51,6 +61,7 @@ describe('InscripcionService', () => {
         InscripcionService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditoriaService, useValue: mockAuditoria },
+        { provide: EstadoDocumentalService, useValue: mockEstadoDocumental },
       ],
     }).compile();
 
@@ -324,6 +335,34 @@ describe('InscripcionService', () => {
       await expect(service.update(1, { telefono: '351000' }, 99)).resolves.toBeDefined();
     });
 
+    it('TASK-31 · US-06: al cambiar de categoría el plazo de la documentación corre desde hoy', async () => {
+      mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
+      mockPrisma.disciplina.findUnique.mockResolvedValue({
+        ...inscripcionExistente.disciplina,
+        categorias: [
+          { id: inscripcionExistente.categoriaDisciplinaId, nombre: 'Sub-18', activo: true },
+          { id: 3, nombre: 'Primera', activo: true },
+        ],
+      });
+      mockPrisma.persona.update.mockResolvedValue(inscripcionExistente.persona);
+      mockPrisma.inscripcion.update.mockResolvedValue({
+        ...inscripcionExistente,
+        categoriaDisciplinaId: 3,
+      });
+      mockPrisma.categoriaDisciplina.findUnique.mockResolvedValue({ id: 3, nombre: 'Primera' });
+
+      await service.update(1, { categoriaDisciplinaId: 3 }, 99);
+
+      expect(mockPrisma.inscripcion.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            categoriaDisciplinaId: 3,
+            requisitosDesde: expect.any(Date) as Date,
+          }) as object,
+        }),
+      );
+    });
+
     it('should change category within same discipline', async () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
       mockPrisma.disciplina.findUnique.mockResolvedValue(inscripcionExistente.disciplina);
@@ -450,6 +489,33 @@ describe('InscripcionService', () => {
       expect(result.items[0].disciplinas).toHaveLength(2);
       expect(result.items[0].cantidadDisciplinas).toBe(2);
       expect(result.total).toBe(1);
+    });
+
+    it('TASK-31: incluye el estado documental del participante y de cada disciplina', async () => {
+      mockPrisma.persona.findMany.mockResolvedValue([participanteDosDisciplinas]);
+      mockPrisma.persona.count.mockResolvedValue(1);
+      const inscripcionId = participanteDosDisciplinas.inscripciones[0].id;
+      mockEstadoDocumental.porPersonas.mockResolvedValueOnce(
+        new Map([
+          [
+            10,
+            {
+              estado: 'BLOQUEADO',
+              inscripciones: [
+                { inscripcionId, estado: 'BLOQUEADO', motivos: ['DNI: vencido el 30/09/2026'] },
+              ],
+            },
+          ],
+        ]),
+      );
+
+      const result = await service.findAll({ pagina: 1, porPagina: 10 });
+
+      expect(mockEstadoDocumental.porPersonas).toHaveBeenCalledWith([10]);
+      expect(result.items[0].estadoDocumental).toBe('BLOQUEADO');
+      const disciplina = result.items[0].disciplinas.find((d) => d.inscripcionId === inscripcionId);
+      expect(disciplina?.estadoDocumental).toBe('BLOQUEADO');
+      expect(disciplina?.motivosDocumentacion).toEqual(['DNI: vencido el 30/09/2026']);
     });
 
     it('TC-0802: valida la coincidencia exacta por DNI', async () => {
@@ -852,6 +918,194 @@ describe('InscripcionService', () => {
       expect(mockPrisma.inscripcion.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { personaId: 10 } }),
       );
+    });
+  });
+
+  // ─── TASK-31 · DT-39 restricciones y estado documental al inscribir ────────
+
+  describe('TASK-31 · alta con restricciones y estado documental', () => {
+    const futbolFemenino = {
+      id: 1,
+      nombre: 'Fútbol',
+      activo: true,
+      genero: 'FEMENINO',
+      edadMinima: 6,
+      edadMaxima: 18,
+      categorias: [
+        { id: 7, nombre: 'Sub-15', activo: true, genero: null, edadMinima: 13, edadMaxima: 15 },
+      ],
+    };
+    const anio = new Date().getFullYear();
+    const lola = {
+      id: 20,
+      nombre: 'Lola',
+      apellido: 'Gómez',
+      dni: '50111222',
+      activo: true,
+      genero: 'FEMENINO',
+      fechaNacimiento: new Date(Date.UTC(anio - 14, 4, 3)),
+    };
+
+    beforeEach(() => {
+      mockPrisma.disciplina.findUnique.mockResolvedValue(futbolFemenino);
+      mockPrisma.inscripcion.findUnique.mockResolvedValue(null);
+      mockPrisma.inscripcion.create.mockResolvedValue({ id: 99, personaId: 20 });
+      mockPrisma.registroAuditoria.create.mockResolvedValue({});
+    });
+
+    it('inscribe a quien cumple las restricciones y devuelve su estado documental', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(lola);
+      const estado = {
+        inscripcionId: 99,
+        estado: 'PENDIENTE',
+        motivos: ['DNI: falta presentarlo hasta el 15/10/2026'],
+      };
+      mockEstadoDocumental.porPersona.mockResolvedValueOnce({
+        personaId: 20,
+        inscripciones: [estado],
+      });
+
+      const res = await service.create(
+        { personaId: 20, disciplinaId: 1, categoriaDisciplinaId: 7 },
+        99,
+      );
+
+      expect(res.estadoDocumental).toEqual(estado);
+      expect(mockEstadoDocumental.porPersona).toHaveBeenCalledWith(20);
+    });
+
+    it('rechaza a quien no cumple la edad de la categoría (por año de nacimiento)', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue({
+        ...lola,
+        fechaNacimiento: new Date(Date.UTC(anio - 17, 0, 1)),
+      });
+
+      await expect(
+        service.create({ personaId: 20, disciplinaId: 1, categoriaDisciplinaId: 7 }, 99),
+      ).rejects.toThrow(
+        `El participante no cumple las restricciones de Fútbol · Sub-15. Edad fuera del rango (13 a 15 años): cumple 17 en ${anio}.`,
+      );
+      expect(mockPrisma.inscripcion.create).not.toHaveBeenCalled();
+    });
+
+    it('rechaza a quien no cumple el género de la disciplina', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue({ ...lola, genero: 'MASCULINO' });
+
+      await expect(
+        service.create({ personaId: 20, disciplinaId: 1, categoriaDisciplinaId: 7 }, 99),
+      ).rejects.toThrow('Solo admite el género Femenino.');
+    });
+
+    it('pide los datos que faltan si la restricción los exige', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue({
+        ...lola,
+        genero: null,
+        fechaNacimiento: null,
+      });
+
+      await expect(
+        service.create({ personaId: 20, disciplinaId: 1, categoriaDisciplinaId: 7 }, 99),
+      ).rejects.toThrow(
+        'Falta registrar el género del participante. Falta registrar la fecha de nacimiento del participante.',
+      );
+    });
+
+    it('completa la fecha de nacimiento y el género que le faltaban a una persona existente', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue({
+        ...lola,
+        genero: null,
+        fechaNacimiento: null,
+      });
+      mockPrisma.persona.update.mockResolvedValue(lola);
+
+      await service.create(
+        {
+          dni: '50111222',
+          nombre: 'Lola',
+          apellido: 'Gómez',
+          genero: 'FEMENINO',
+          fechaNacimiento: `${anio - 14}-05-03`,
+          disciplinaId: 1,
+          categoriaDisciplinaId: 7,
+        },
+        99,
+      );
+
+      expect(mockPrisma.persona.update).toHaveBeenCalledWith({
+        where: { id: 20 },
+        data: { fechaNacimiento: new Date(`${anio - 14}-05-03`), genero: 'FEMENINO' },
+      });
+    });
+
+    it('no pisa los datos que la persona ya tenía', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(lola);
+
+      await service.create(
+        {
+          dni: '50111222',
+          nombre: 'Otra',
+          apellido: 'Persona',
+          genero: 'MASCULINO',
+          disciplinaId: 1,
+          categoriaDisciplinaId: 7,
+        },
+        99,
+      );
+
+      expect(mockPrisma.persona.update).not.toHaveBeenCalled();
+    });
+
+    it('registra el género al dar de alta una persona nueva', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(null);
+      mockPrisma.persona.create.mockResolvedValue(lola);
+
+      await service.create(
+        {
+          dni: '50111222',
+          nombre: 'Lola',
+          apellido: 'Gómez',
+          genero: 'FEMENINO',
+          fechaNacimiento: `${anio - 14}-05-03`,
+          disciplinaId: 1,
+          categoriaDisciplinaId: 7,
+        },
+        99,
+      );
+
+      expect(mockPrisma.persona.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ genero: 'FEMENINO' }) as object,
+      });
+    });
+  });
+
+  describe('TASK-31 · requisitos antes de inscribir', () => {
+    it('devuelve las restricciones que rigen y la documentación exigida', async () => {
+      mockPrisma.disciplina.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Fútbol',
+        genero: null,
+        edadMinima: 6,
+        edadMaxima: 18,
+        categorias: [
+          { id: 7, nombre: 'Sub-15', genero: 'FEMENINO', edadMinima: 13, edadMaxima: 15 },
+        ],
+      });
+      mockEstadoDocumental.previsualizar.mockResolvedValue({ estado: 'PENDIENTE', documentos: [] });
+
+      const res = await service.requisitos(1, 7, 20);
+
+      expect(res.restricciones).toEqual({ genero: 'FEMENINO', edadMinima: 13, edadMaxima: 15 });
+      expect(mockEstadoDocumental.previsualizar).toHaveBeenCalledWith(1, 7, 20);
+    });
+
+    it('lanza 404 si la categoría no es de la disciplina', async () => {
+      mockPrisma.disciplina.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Fútbol',
+        categorias: [],
+      });
+
+      await expect(service.requisitos(1, 99)).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });
