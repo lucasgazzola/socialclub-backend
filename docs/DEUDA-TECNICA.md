@@ -28,7 +28,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 - [Deuda pendiente](#deuda-pendiente)
   - [🟠 Altas](#-altas)
     - [DT-02 · Faltan los casos de prueba de las historias ya implementadas (backend)](#dt-02--faltan-los-casos-de-prueba-de-las-historias-ya-implementadas-backend)
-    - [DT-01 · Cobertura de testing frontend](#dt-01--cobertura-de-testing-frontend)
     - [DT-05 · Falta activar/desactivar la cuota deportiva](#dt-05--falta-activardesactivar-la-cuota-deportiva)
     - [DT-27 · Documentación por disciplina: requisitos, estados y vigencia](#dt-27--documentación-por-disciplina-requisitos-estados-y-vigencia)
     - [DT-29 · No existe solicitud de inscripción con aprobación](#dt-29--no-existe-solicitud-de-inscripción-con-aprobación)
@@ -74,16 +73,16 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-03, DT-04, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-30, DT-37, DT-38, DT-39, DT-40 |
-| 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05, DT-27 (configuración y estado documental resueltos; restan alertas, aprobación/rechazo y habilitación excepcional), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio), DT-41 |
+| ✅ Resueltas | DT-01, DT-03, DT-04, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-30, DT-37, DT-38, DT-39, DT-40 |
+| 🟠 Altas pendientes | DT-02 (en curso), DT-05, DT-27 (configuración y estado documental resueltos; restan alertas, aprobación/rechazo y habilitación excepcional), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio), DT-41 |
 | 🟡 Medias pendientes | DT-10, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-32, DT-33, DT-34 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-36 |
 
-**Cobertura de tests** (medida el 01/10/2026, objetivo DoD **70 %**):
+**Cobertura de tests** (medida el 02/10/2026, objetivo DoD **70 %**):
 
 | Repo | Statements | Piso configurado |
 |---|---|---|
-| Frontend (Vitest) | 45,35 % | 33 % |
+| Frontend (Vitest) | **70,13 %** ✅ | 67 % |
 | Backend (Jest) | **76,8 %** ✅ | 70 % |
 
 Los dos repos tenían además el **CI en rojo** por configuración de lint, no por
@@ -175,17 +174,6 @@ es lo que pide la DoD y lo que se entrega.
 
 - **Orden sugerido para lo que queda:** US-01/02/03 (permisos), US-20, US-29/30/31, US-24, socios.
 - **Rama sugerida:** `issue/TASK-<n>-DT-02-Casos-<US>`
-
-#### DT-01 · Cobertura de testing frontend
-*frontend · 8 SP*
-
-De 22 % a 70 % no se llega en una rama. Conviene repartir por feature — una
-rama por dominio sin tests (`auditoria`, `entradas`, `documentacion`,
-`disciplinas`, `dashboard`) — y subir el piso en cada PR. **Regla de equipo:
-ninguna rama de deuda técnica se mergea sin sus propios tests**; así DT-01
-avanza sola con el resto del trabajo.
-
-- **Rama sugerida:** `issue/TASK-<n>-DT-01-Cobertura-frontend-<feature>`
 
 #### DT-05 · Falta activar/desactivar la cuota deportiva
 *frontend · 1 SP*
@@ -554,6 +542,19 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### DT-01 · Cobertura de testing frontend alcanzada (70 % DoD)
+**PR [#110](https://github.com/lucasgazzola/socialclub-frontend/pull/110)** ·
+**`issue/TASK-34-DT-01-Cobertura-frontend-70`** (frontend) · 02/10/2026
+
+Se implementó la suite completa de tests unitarios y de integración de componentes, páginas, modales, hooks, servicios y schemas en el frontend para alcanzar el objetivo mínimo del 70 % de cobertura exigido por la Definition of Done (subiendo del 45,35 % al 70,13 % de statements y 71,09 % de líneas, con 81 suites y 399 tests totales pasando).
+
+- **Statements:** **70,13 %** (1597 / 2277).
+- **Líneas:** **71,09 %** (1532 / 2155).
+- **Ramas:** **69,01 %** (1441 / 2088).
+- **Funciones:** **60,51 %** (567 / 937).
+- Se cubrieron exhaustivamente los módulos sin tests previos o con cobertura insuficiente (`auditoria`, `auth`, `cuota-social`, `cuotas`, `dashboard`, `disciplinas`, `documentacion`, `entradas`, `inscripcion`, `pagos`, `socios`, `usuarios`, `routes` y componentes comunes de UI).
+- Se elevó el ratchet en `vitest.config.ts` a `statements: 67, branches: 66, functions: 57, lines: 68` conservando los ~3 puntos de margen acordados.
 
 ### Decisión · Cuota deportiva por disciplina y categoría, con descuento para socios (US-20)
 **`issue/TASK-33-US-20-Cuota-deportiva-por-disciplina`** · 02/10/2026
