@@ -1,4 +1,13 @@
-import { IsEmail, IsDateString, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
+import { GeneroDisciplina } from '@prisma/client';
+import {
+  IsEmail,
+  IsDateString,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+} from 'class-validator';
 
 /**
  * US-06: edición de los datos básicos de un participante. Todos los campos
@@ -26,6 +35,11 @@ export class ActualizarPersonaDto {
   @IsOptional()
   @IsDateString({}, { message: 'La fecha de nacimiento debe tener formato ISO (YYYY-MM-DD)' })
   fechaNacimiento?: string;
+
+  /** DT-39: lo usan las restricciones de género de disciplinas y categorías. */
+  @IsOptional()
+  @IsEnum(GeneroDisciplina, { message: 'El género seleccionado no es válido' })
+  genero?: GeneroDisciplina;
 
   @IsOptional()
   @IsEmail({}, { message: 'El email no tiene un formato válido' })

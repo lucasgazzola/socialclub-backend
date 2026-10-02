@@ -35,7 +35,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-29 · No existe solicitud de inscripción con aprobación](#dt-29--no-existe-solicitud-de-inscripción-con-aprobación)
     - [DT-31 · No existe compra real de entradas](#dt-31--no-existe-compra-real-de-entradas)
     - [DT-35 · El pago implementado solo cubre la cuota social](#dt-35--el-pago-implementado-solo-cubre-la-cuota-social)
-    - [DT-39 · La inscripción no aplica las restricciones de edad y género](#dt-39--la-inscripción-no-aplica-las-restricciones-de-edad-y-género)
   - [🟡 Medias](#-medias)
     - [DT-10 · La pantalla de Auditoría es interminable](#dt-10--la-pantalla-de-auditoría-es-interminable)
     - [DT-24 · La planilla documenta generación de cuotas que no existe](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe)
@@ -50,7 +49,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
   - [⚪ Bajas](#-bajas)
     - [DT-08 · Las entradas con QR no se pueden descargar en PDF](#dt-08--las-entradas-con-qr-no-se-pueden-descargar-en-pdf)
     - [DT-09 · Imágenes en eventos](#dt-09--imágenes-en-eventos)
-    - [DT-20 · La edición de socio y de cuota social sigue en página aparte](#dt-20--la-edición-de-socio-y-de-cuota-social-sigue-en-página-aparte)
     - [DT-06 · Historias de usuario para sumar al backlog](#dt-06--historias-de-usuario-para-sumar-al-backlog)
     - [DT-36 · No hay notificaciones de vencimiento o resolución](#dt-36--no-hay-notificaciones-de-vencimiento-o-resolución)
 - [Deuda resuelta](#deuda-resuelta)
@@ -77,17 +75,17 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente), [categoría de la cuota deportiva (US-20)](#cuota-deportiva-categoría-de-socio-o-de-disciplina-us-20) |
-| ✅ Resueltas | DT-03, DT-04, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-21, DT-30, DT-37, DT-38, DT-40 |
-| 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05, DT-27 (configuración resuelta; resta estado y validación), DT-29, DT-31, DT-35 (cobro resuelto en US-21; resta generación y autoservicio), DT-39 |
+| ✅ Resueltas | DT-03, DT-04, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-30, DT-37, DT-38, DT-39, DT-40 |
+| 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05, DT-27 (configuración y estado documental resueltos; restan alertas, aprobación/rechazo y habilitación excepcional), DT-29, DT-31, DT-35 (cobro resuelto en US-21; resta generación y autoservicio) |
 | 🟡 Medias pendientes | DT-10, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-32, DT-33, DT-34 |
-| ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-20, DT-36 |
+| ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-36 |
 
 **Cobertura de tests** (medida el 01/10/2026, objetivo DoD **70 %**):
 
 | Repo | Statements | Piso configurado |
 |---|---|---|
-| Frontend (Vitest) | 39,01 % | 33 % |
-| Backend (Jest) | **73,04 %** ✅ | 70 % |
+| Frontend (Vitest) | 43,15 % | 33 % |
+| Backend (Jest) | **75,84 %** ✅ | 70 % |
 
 Los dos repos tenían además el **CI en rojo** por configuración de lint, no por
 código: ver [Extra](#extra--ci-del-frontend-en-rojo-desde-el-0709) al final.
@@ -263,9 +261,20 @@ disciplina real (DT-30) para poder configurar estos requisitos.
   (catálogo; los documentos viejos con texto libre se mapearon cuando
   coincidían y el resto quedó en null), `Inscripcion.requisitosDesde` (US-6) y
   la tabla `habilitaciones_excepcionales` (US-28).
-- **Pendiente:** estado documental por inscripción (servicio central que usan
-  US-5, 8, 24, 25, 26, 27, 28 y 34), validación de inscripción y bloqueo por
-  vencimiento del plazo.
+- **Estado documental resuelto en TASK-31 (01/10/2026):**
+  `EstadoDocumentalService` calcula en el momento, por cada inscripción activa,
+  el estado de cada documento exigido (Vigente / Por vencer / Vencido / Faltante
+  con fecha límite) y el estado general (Habilitado / Pendiente de documentación
+  / Bloqueado), con los motivos en texto. Al ser un cálculo, el bloqueo por
+  vencimiento (US-27) no necesita jobs. Lo usan: el alta de inscripción
+  (`GET /inscripcion/requisitos` y la respuesta del alta), el listado de
+  participantes y `GET /documentacion/persona/:id/estado`. La documentación se
+  carga con un tipo del catálogo, solo entre los exigidos al participante; un
+  documento nuevo del mismo tipo renueva al anterior.
+- **Pendiente:** alertas (US-26), aprobación/rechazo de documentos (estados
+  `PENDIENTE`/`APROBADA`/`RECHAZADA` de este ítem), habilitación excepcional
+  (US-28, la tabla ya existe), filtro del listado por estado de habilitación
+  (US-08) y que la inscripción bloqueada impida operar (US-27).
 - **Rama sugerida:** `issue/TASK-19-DT-27-Documentacion-por-disciplina`
 
 #### DT-29 · No existe solicitud de inscripción con aprobación
@@ -331,24 +340,6 @@ deportiva.
 
 - **Relacionado:** [DT-24](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe), [DT-06](#dt-06--historias-de-usuario-para-sumar-al-backlog).
 - **Detectado en el análisis funcional de dominio (22/09/2026); cobro implementado en US-21 (26/09/2026).**
-
-#### DT-39 · La inscripción no aplica las restricciones de edad y género
-*Nuevo · funcional · backend + frontend*
-
-Desde US-48 las categorías tienen restricciones de género y edad dentro de las
-de su disciplina, y `Persona` tiene `genero`, pero la inscripción (US-5/6)
-**no las valida** ni pide el género del participante: hoy las restricciones se
-guardan y no tienen efecto.
-
-**Decisiones del equipo (01/10/2026):** se registra el género del participante,
-y la edad se mide por **año de nacimiento** (edad que se cumple en el año
-calendario), para que «Sub-15» valga cada temporada sin editar la categoría.
-
-**Arreglo:** pedir fecha de nacimiento y género en el alta/edición del
-participante y validar con `restriccionesEfectivas` + `motivosDeIncumplimiento`
-(`src/disciplinas/restricciones.ts`, ya implementadas y testeadas).
-
-- **Corresponde a:** US-5 y US-6 (criterios ya actualizados en la planilla).
 
 ### 🟡 Medias
 
@@ -529,17 +520,6 @@ generarlo en el backend. **Decidir eso antes de instalar nada.**
 validación de tipo y tamaño, y UI de carga y preview. **No empezar antes de
 DT-15**: hay que reusar el mecanismo de almacenamiento que quede definido ahí.
 
-#### DT-20 · La edición de socio y de cuota social sigue en página aparte
-*Nuevo · frontend · 2 SP*
-
-Al unificar las altas en modales (DT-13, DT-14, DT-19) quedaron sin convertir
-las ediciones: `EditarSocioPage`, `EditarCuotaSocialPage` y
-`EditarParticipantePage` siguen siendo pantallas propias con navegación de ida
-y vuelta. Es una inconsistencia visible: en la misma pantalla, "Nuevo" abre un
-modal y "Editar" cambia de página.
-
-- **Nota:** `EditarParticipantePage` tiene 369 líneas, así que conviene evaluarla aparte de las otras dos.
-
 #### DT-06 · Historias de usuario para sumar al backlog
 *gestión · 0 SP de código*
 
@@ -578,6 +558,40 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### DT-20 · Modales unificados y estandarizados
+**`issue/TASK-32-DT-20-Modales-unificados`** (frontend) · 01/10/2026
+
+Las ediciones de socio, cuota social y participante dejaron de ser páginas
+aparte: se abren como modal sobre su listado (`?editar=<id>`) y las rutas
+viejas (`/socios/:id/editar`, etc.) redirigen ahí. La de participante suma
+pestañas para datos y documentación.
+
+Además se estandarizó el `Modal` del design system para que todos se vean
+igual:
+- **Tamaños fijos:** `sm` (confirmaciones), `md` (formularios cortos), `lg`
+  (formularios) y `xl` (fichas con secciones), en lugar de anchos sueltos por
+  pantalla.
+- **Encabezado:** ícono opcional en un chip con tono (`brand`, `danger`,
+  `success`, `warning`), título y descripción.
+- **Acciones:** siempre a la derecha y fijas al pie; Cancelar (secundario) antes
+  de la acción principal. `ModalActions` lo resuelve para los formularios.
+- **Comportamiento:** entrada sutil (desactivada con *reduced motion*) y hoja
+  inferior a todo el ancho en móvil; se mantiene la accesibilidad (foco
+  atrapado, Escape, devolución del foco).
+
+**Regla para lo que venga:** altas y ediciones van en `Modal`; las acciones van
+en `footer` o en `ModalActions`; no se pasan anchos por `className`.
+
+### DT-39 · La inscripción no aplicaba las restricciones de edad y género
+**`issue/TASK-31-DT-27-Estado-documental-e-inscripcion`** · 01/10/2026
+
+El alta y la edición de inscripción validan género y edad contra la categoría
+o, si no las define, contra la disciplina, e informan el motivo. La edad se
+mide **por año de nacimiento** (decisión del equipo del 01/10/2026). El alta
+pide fecha de nacimiento y género; a una persona ya registrada solo se le
+completan los datos que le falten. La edición de participante también permite
+cargar el género.
 
 ### DT-11 · Pantalla única de participantes (inscripción y documentación)
 **PR [#101](https://github.com/lucasgazzola/socialclub-frontend/pull/101)** ·
@@ -885,7 +899,7 @@ Lo que ya usa el equipo, aplicado a la deuda técnica:
 
 - **Ramas:** `issue/TASK-<n>-DT-<nn>-<Descripcion-en-kebab>` para deuda
   identificada; `fix/<Descripcion>` para arreglos de configuración o tooling.
-  El número `TASK` es correlativo y global. **Último usado: TASK-30**
+  El número `TASK` es correlativo y global. **Último usado: TASK-32**
   (01/10/2026).
 - **Commits:** `<prefijo>[scope]: <descripción en minúscula>`, con el ID de la
   deuda como scope — `refactor[DT-03]: …`, `test[DT-01]: …`, `ci[lint]: …`.
