@@ -16,6 +16,7 @@ import { ApiConsumes, ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagg
 import { createReadStream } from 'node:fs';
 import type { Response } from 'express';
 import { DocumentacionService } from './documentacion.service';
+import { EstadoDocumentalService } from './estado-documental.service';
 import { CreateDocumentacionDto } from './dto/create-documentacion.dto';
 import { documentacionStorage, type ArchivoSubido } from './storage.config';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -29,7 +30,10 @@ import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('documentacion')
 export class DocumentacionController {
-  constructor(private readonly documentacionService: DocumentacionService) {}
+  constructor(
+    private readonly documentacionService: DocumentacionService,
+    private readonly estadoDocumental: EstadoDocumentalService,
+  ) {}
 
   @Post()
   @Roles('ADMIN', 'DELEGADO')
@@ -49,6 +53,15 @@ export class DocumentacionController {
   @ApiOperation({ summary: 'Listar la documentación de un participante' })
   findByPersona(@Param('personaId', ParseIntPipe) personaId: number) {
     return this.documentacionService.findByPersona(personaId);
+  }
+
+  @Get('persona/:personaId/estado')
+  @Roles('ADMIN', 'DELEGADO')
+  @ApiOperation({
+    summary: 'US-25 — Estado documental del participante por inscripción (exigido vs. presentado)',
+  })
+  estadoPorPersona(@Param('personaId', ParseIntPipe) personaId: number) {
+    return this.estadoDocumental.porPersona(personaId);
   }
 
   @Get(':id/archivo')
