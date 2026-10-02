@@ -31,6 +31,7 @@ type InscConRelaciones = Pick<
   | 'categoriaDisciplinaId'
   | 'categoriaDisciplina'
   | 'fechaInscripcion'
+  | 'fechaBaja'
   | 'activo'
 >;
 
@@ -66,6 +67,33 @@ export class InscripcionService {
         `El participante no cumple las restricciones de ${destino}. ${motivos.join(' ')}`,
       );
     }
+  }
+
+  /**
+   * El email es único por persona: si ya lo tiene OTRA persona se rechaza con
+   * un mensaje claro (antes la base cortaba el alta y el mensaje hablaba del DNI).
+   */
+  private async validarEmailDisponible(
+    email: string | undefined,
+    propia: { id?: number; dni?: string | null },
+  ) {
+    if (!email) return;
+    const conEseEmail = await this.prisma.persona.findUnique({ where: { email } });
+    const esLaMisma =
+      !!conEseEmail &&
+      ((propia.id !== undefined && conEseEmail.id === propia.id) ||
+        (!!propia.dni && conEseEmail.dni === propia.dni));
+    if (conEseEmail && !esLaMisma) {
+      throw new ConflictException('El email ya está registrado por otra persona');
+    }
+  }
+
+  /** Traduce un choque de unicidad de la base al campo que lo provocó. */
+  private mensajeDuplicado(error: PrismaClientKnownRequestError, porDefecto: string) {
+    const campos = JSON.stringify(error.meta?.target ?? '');
+    if (campos.includes('email')) return 'El email ya está registrado por otra persona';
+    if (campos.includes('dni')) return 'Ya existe una persona registrada con ese DNI';
+    return porDefecto;
   }
 
   /** US-05/25: estado documental de una inscripción recién creada o editada. */
@@ -132,6 +160,8 @@ export class InscripcionService {
         );
       }
     }
+
+    await this.validarEmailDisponible(dto.email, { id: dto.personaId, dni: dto.dni });
 
     try {
       const resultado = await this.prisma.$transaction(async (tx) => {
@@ -226,6 +256,7 @@ export class InscripcionService {
             data: {
               activo: true,
               fechaInscripcion: new Date(),
+              fechaBaja: null,
               requisitosDesde: null,
               categoriaDisciplinaId: dto.categoriaDisciplinaId ?? null,
             },
@@ -277,7 +308,9 @@ export class InscripcionService {
       // Si dos requests concurrentes pasan la verificación al mismo tiempo, el
       // constraint único de la DB corta el segundo insert acá.
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException('Ya existe una persona registrada con ese DNI');
+        throw new ConflictException(
+          this.mensajeDuplicado(error, 'El participante ya está inscripto en esta disciplina'),
+        );
       }
       throw error;
     }
@@ -380,6 +413,10 @@ export class InscripcionService {
     // El DNI nuevo puede pertenecer a OTRA persona que ya esté inscripta y
     // vigente en la disciplina destino. Si el DNI no cambia, el choque contra
     // el unique ya lo cubre la verificación de arriba.
+    if (dto.email && dto.email !== inscripcionActual.persona.email) {
+      await this.validarEmailDisponible(dto.email, { id: inscripcionActual.personaId });
+    }
+
     if (dniCambio && dniNuevo) {
       const personaConMismoDni = await this.prisma.persona.findUnique({
         where: { dni: dniNuevo },
@@ -429,6 +466,7 @@ export class InscripcionService {
               data: {
                 activo: true,
                 fechaInscripcion: new Date(),
+                fechaBaja: null,
                 requisitosDesde: null,
                 categoriaDisciplinaId: categoriaIdDestino,
               },
@@ -447,7 +485,7 @@ export class InscripcionService {
             });
 
         if (inscripcionInactivaEnDestino) {
-          await tx.inscripcion.update({ where: { id }, data: { activo: false } });
+          await tx.inscripcion.update({ where: { id }, data: { activo: false, fechaBaja: new Date() } });
 
           await this.auditoria.registrar(
             {
@@ -494,7 +532,9 @@ export class InscripcionService {
       });
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException('Ya existe un participante con ese DNI en esta disciplina');
+        throw new ConflictException(
+          this.mensajeDuplicado(error, 'Ya existe un participante con ese DNI en esta disciplina'),
+        );
       }
       throw error;
     }
@@ -546,7 +586,7 @@ export class InscripcionService {
 
       await tx.inscripcion.updateMany({
         where: { personaId, activo: true },
-        data: { activo: false },
+        data: { activo: false, fechaBaja: new Date() },
       });
 
       // Una fila de auditoría por disciplina: la trazabilidad tiene que
@@ -637,6 +677,7 @@ export class InscripcionService {
       categoriaDisciplinaId: inscripcion.categoriaDisciplinaId ?? null,
       categoriaDisciplina: inscripcion.categoriaDisciplina ?? null,
       fechaInscripcion: inscripcion.fechaInscripcion,
+      fechaBaja: inscripcion.fechaBaja ?? null,
       activo: inscripcion.activo,
       estado: inscripcion.activo ? 'INSCRIPTO' : 'BAJA',
     };
@@ -796,7 +837,7 @@ export class InscripcionService {
     return this.prisma.$transaction(async (tx) => {
       const dadaDeBaja = await tx.inscripcion.update({
         where: { id },
-        data: { activo: false },
+        data: { activo: false, fechaBaja: new Date() },
         include: { persona: true, disciplina: true, categoriaDisciplina: true },
       });
 
