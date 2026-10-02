@@ -413,6 +413,8 @@ model Inscripcion {
   /// (ej. al cambiar de categoría, US-6). Null = desde `fechaInscripcion`.
   requisitosDesde  DateTime?
   activo           Boolean   @default(true)
+  /// Fecha en que se dio de baja la inscripción (null mientras está activa).
+  fechaBaja        DateTime?
   creadoEn         DateTime  @default(now())
   actualizadoEn    DateTime  @updatedAt
 
