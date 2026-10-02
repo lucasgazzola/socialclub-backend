@@ -37,15 +37,12 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-35 · El pago implementado solo cubre la cuota social](#dt-35--el-pago-implementado-solo-cubre-la-cuota-social)
     - [DT-39 · La inscripción no aplica las restricciones de edad y género](#dt-39--la-inscripción-no-aplica-las-restricciones-de-edad-y-género)
   - [🟡 Medias](#-medias)
-    - [DT-11 · Participantes, inscripción y documentación en pantallas separadas](#dt-11--participantes-inscripción-y-documentación-en-pantallas-separadas)
-    - [DT-40 · Los selectores de fecha muestran mm/dd/aaaa](#dt-40--los-selectores-de-fecha-muestran-mmddaaaa)
     - [DT-10 · La pantalla de Auditoría es interminable](#dt-10--la-pantalla-de-auditoría-es-interminable)
     - [DT-24 · La planilla documenta generación de cuotas que no existe](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe)
     - [DT-25 · La auditoría append-only no está garantizada por la base](#dt-25--la-auditoría-append-only-no-está-garantizada-por-la-base)
     - [DT-22 · La rotación mensual de la cuota social no tiene quién la dispare](#dt-22--la-rotación-mensual-de-la-cuota-social-no-tiene-quién-la-dispare)
     - [DT-23 · El ratchet de cobertura corta el CI por décimas](#dt-23--el-ratchet-de-cobertura-corta-el-ci-por-décimas)
     - [DT-26 · La documentación de la API no declara respuestas](#dt-26--la-documentación-de-la-api-no-declara-respuestas)
-    - [DT-17 · Código muerto: `EditarInscripcionPage`](#dt-17--código-muerto-editarinscripcionpage)
     - [DT-28 · El participante no puede consultar su propia documentación](#dt-28--el-participante-no-puede-consultar-su-propia-documentación)
     - [DT-32 · Los eventos no tienen fecha ni horario](#dt-32--los-eventos-no-tienen-fecha-ni-horario)
     - [DT-33 · Las entradas no pueden expirar correctamente](#dt-33--las-entradas-no-pueden-expirar-correctamente)
@@ -80,16 +77,16 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente), [categoría de la cuota deportiva (US-20)](#cuota-deportiva-categoría-de-socio-o-de-disciplina-us-20) |
-| ✅ Resueltas | DT-03, DT-04, DT-07, DT-13, DT-14, DT-16, DT-18, DT-19, DT-21, DT-30, DT-37, DT-38 |
+| ✅ Resueltas | DT-03, DT-04, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-21, DT-30, DT-37, DT-38, DT-40 |
 | 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05, DT-27 (configuración resuelta; resta estado y validación), DT-29, DT-31, DT-35 (cobro resuelto en US-21; resta generación y autoservicio), DT-39 |
-| 🟡 Medias pendientes | DT-10, DT-11 (en curso, TASK-29), DT-17, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-32, DT-33, DT-34, DT-40 (en curso, TASK-30) |
+| 🟡 Medias pendientes | DT-10, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-32, DT-33, DT-34 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-20, DT-36 |
 
 **Cobertura de tests** (medida el 01/10/2026, objetivo DoD **70 %**):
 
 | Repo | Statements | Piso configurado |
 |---|---|---|
-| Frontend (Vitest) | 36,13 % | 33 % |
+| Frontend (Vitest) | 39,01 % | 33 % |
 | Backend (Jest) | **73,04 %** ✅ | 70 % |
 
 Los dos repos tenían además el **CI en rojo** por configuración de lint, no por
@@ -355,35 +352,6 @@ participante y validar con `restriccionesEfectivas` + `motivosDeIncumplimiento`
 
 ### 🟡 Medias
 
-#### DT-11 · Participantes, inscripción y documentación en pantallas separadas
-*frontend · 5 SP · en curso*
-
-`GET /inscripcion` ya devuelve todas las inscripciones con persona, disciplina
-y categoría, ordenadas por fecha, pero el flujo está partido en tres entradas
-del menú: **Participantes** (listado), **Inscripción** (solo el formulario de
-alta) y **Documentación** (carga suelta). Con la documentación obligatoria
-configurada por disciplina/categoría (US-44/48), la documentación de cada
-participante tiene que administrarse desde el propio participante.
-
-**Arreglo (pedido del equipo, 01/10/2026):** una sola pantalla de
-Participantes con el listado, el alta de inscripción y la documentación del
-participante; quitar las entradas sueltas de Inscripción y Documentación. Se
-resuelve junto con DT-17 y es la base de DT-28.
-
-- **Rama:** `issue/TASK-29-DT-11-Pantalla-unica-de-participantes`
-
-#### DT-40 · Los selectores de fecha muestran mm/dd/aaaa
-*Nuevo · frontend · 2 SP · en curso*
-
-Los `<input type="date">` nativos toman el formato del idioma del navegador:
-con el navegador en inglés se ven como `mm/dd/aaaa`, cuando el producto usa
-`dd/mm/aaaa`.
-
-**Arreglo:** un selector de fecha propio que muestre y acepte `dd/mm/aaaa`
-siempre, y reemplazar los inputs de fecha de todas las pantallas.
-
-- **Rama:** `issue/TASK-30-DT-40-Formato-de-fecha-dd-mm-aaaa`
-
 #### DT-10 · La pantalla de Auditoría es interminable
 *frontend · 2 SP*
 
@@ -485,12 +453,6 @@ contrato queda a medias.
 - **Empezar por** `auth`, `usuarios` e `inscripcion`, que son los que el frontend consume más y los que tienen reglas de permisos.
 - **Detectado al revisar Swagger sobre la instancia local.**
 - **Rama sugerida:** `issue/TASK-<n>-DT-26-Documentar-respuestas-api`
-
-#### DT-17 · Código muerto: `EditarInscripcionPage`
-*Nuevo · frontend · incluido en DT-11*
-
-El archivo existe (196 líneas) y no está importado en ningún lado — no tiene
-ruta en `AppRouter`. Al hacer DT-11: o se conecta al listado nuevo, o se borra.
 
 #### DT-28 · El participante no puede consultar su propia documentación
 *Nuevo · funcional · backend + frontend*
@@ -616,6 +578,34 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### DT-11 · Pantalla única de participantes (inscripción y documentación)
+**PR [#101](https://github.com/lucasgazzola/socialclub-frontend/pull/101)** ·
+**`issue/TASK-29-DT-11-Pantalla-unica-de-participantes`** · 01/10/2026
+
+Participantes pasa a ser la pantalla única del participante: el alta de
+inscripción se abre en un modal ("Nueva inscripción") y cada participante
+tiene su documentación (modal desde el listado y sección en la edición). Se
+quitaron del menú Inscripción y Documentación; `/inscripcion` y
+`/documentacion` redirigen a Participantes. Componentes nuevos:
+`InscripcionForm` y `DocumentacionParticipante`.
+
+- De paso se corrigió un bug de US-08: el debounce de la búsqueda volvía a la
+  página 1 a los 300 ms de cargar la pantalla y pisaba el "Siguiente".
+- **Sigue pendiente DT-28** (el propio participante no ve su documentación).
+
+### DT-17 · Código muerto: `EditarInscripcionPage`
+Resuelta junto con DT-11 (PR #101): el archivo se eliminó.
+
+### DT-40 · Los selectores de fecha mostraban mm/dd/aaaa
+**PR [#100](https://github.com/lucasgazzola/socialclub-frontend/pull/100)** ·
+**`issue/TASK-30-DT-40-Formato-de-fecha-dd-mm-aaaa`** · 01/10/2026
+
+El `<input type="date">` nativo toma el formato del idioma del navegador. Se
+creó `DateInput` (`components/ui`): máscara dd/mm/aaaa, calendario nativo
+desde un botón y valor siempre en ISO, así que la API y los schemas no
+cambiaron. Reemplazó las 6 fechas del producto. Los selectores de mes
+(`type="month"`, cuotas) quedan como estaban.
 
 ### DT-38 · Test de eventos intermitente (`inicioVenta`)
 **`fix/US-50-Categorias-inactivas-en-inscripcion`** · 01/10/2026
@@ -895,8 +885,8 @@ Lo que ya usa el equipo, aplicado a la deuda técnica:
 
 - **Ramas:** `issue/TASK-<n>-DT-<nn>-<Descripcion-en-kebab>` para deuda
   identificada; `fix/<Descripcion>` para arreglos de configuración o tooling.
-  El número `TASK` es correlativo y global (el último usado va en la tabla de
-  arriba).
+  El número `TASK` es correlativo y global. **Último usado: TASK-30**
+  (01/10/2026).
 - **Commits:** `<prefijo>[scope]: <descripción en minúscula>`, con el ID de la
   deuda como scope — `refactor[DT-03]: …`, `test[DT-01]: …`, `ci[lint]: …`.
   Prefijos válidos: `feat`, `fix`, `docs`, `test`, `ci`, `chore`, `refactor`.
