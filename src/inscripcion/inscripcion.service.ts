@@ -53,7 +53,9 @@ export class InscripcionService {
       throw new BadRequestException('Disciplina inactiva');
     }
 
-    const tieneCategorias = disciplina.categorias.length > 0;
+    // US-50: una categoría dada de baja no se ofrece para nuevas inscripciones,
+    // así que solo las activas obligan a elegir categoría.
+    const tieneCategorias = disciplina.categorias.some((c) => c.activo);
 
     if (tieneCategorias && !dto.categoriaDisciplinaId) {
       throw new BadRequestException(
@@ -217,7 +219,7 @@ export class InscripcionService {
     if (!disciplinaDestino) throw new NotFoundException('Disciplina destino no encontrada');
     if (!disciplinaDestino.activo) throw new BadRequestException('Disciplina inactiva');
 
-    const tieneCategorias = disciplinaDestino.categorias.length > 0;
+    const tieneCategorias = disciplinaDestino.categorias.some((c) => c.activo);
     const disciplinaCambio = disciplinaIdDestino !== inscripcionActual.disciplinaId;
 
     let categoriaIdDestino: number | null;
@@ -229,11 +231,16 @@ export class InscripcionService {
       categoriaIdDestino = inscripcionActual.categoriaDisciplinaId ?? null;
     }
 
-    if (tieneCategorias && categoriaIdDestino === null) {
+    // US-50: la inscripción conserva su categoría aunque se haya dado de baja;
+    // solo se exige una categoría activa cuando se cambia.
+    const categoriaCambio =
+      disciplinaCambio || categoriaIdDestino !== (inscripcionActual.categoriaDisciplinaId ?? null);
+
+    if (tieneCategorias && categoriaIdDestino === null && categoriaCambio) {
       throw new BadRequestException('Debe seleccionar una categoría para esta disciplina');
     }
 
-    if (categoriaIdDestino) {
+    if (categoriaIdDestino && categoriaCambio) {
       const categoriaValida = disciplinaDestino.categorias.some(
         (c) => c.id === categoriaIdDestino && c.activo,
       );
