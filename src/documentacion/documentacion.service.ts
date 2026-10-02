@@ -5,12 +5,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { CreateDocumentacionDto } from './dto/create-documentacion.dto';
 import { getStorageDir, type ArchivoSubido } from './storage.config';
+import { ETIQUETA_TIPO_DOCUMENTO } from '../disciplinas/requerimientos-doc';
+import { EstadoDocumentalService } from './estado-documental.service';
 
 @Injectable()
 export class DocumentacionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
+    private readonly estadoDocumental: EstadoDocumentalService,
   ) {}
 
   /**
@@ -19,6 +22,10 @@ export class DocumentacionService {
    * - El integrante (Persona) debe existir.
    * - La fecha de vencimiento es obligatoria (validada en el DTO).
    * - La fecha de vencimiento no puede ser anterior a la fecha actual.
+   * - El tipo es del catálogo y tiene que estar exigido por alguna disciplina o
+   *   categoría en la que el participante esté inscripto. Un documento nuevo
+   *   del mismo tipo reemplaza al anterior para la habilitación (renovación);
+   *   el anterior se conserva como histórico.
    */
   async create(dto: CreateDocumentacionDto, responsableId: number, archivo?: ArchivoSubido) {
     const persona = await this.prisma.persona.findUnique({ where: { id: dto.personaId } });
@@ -46,9 +53,17 @@ export class DocumentacionService {
       );
     }
 
+    const exigidos = await this.estadoDocumental.tiposExigidos(dto.personaId);
+    if (!exigidos.includes(dto.tipoDocumento)) {
+      throw new BadRequestException(
+        `Ninguna disciplina o categoría del participante exige «${ETIQUETA_TIPO_DOCUMENTO[dto.tipoDocumento]}».`,
+      );
+    }
+
     const documentacion = await this.prisma.documentacion.create({
       data: {
-        tipo: dto.tipo.trim(),
+        tipoDocumento: dto.tipoDocumento,
+        tipo: dto.tipo?.trim() || ETIQUETA_TIPO_DOCUMENTO[dto.tipoDocumento],
         fechaVencimiento,
         personaId: dto.personaId,
         // Archivo opcional: en la BD solo la referencia; el binario vive en disco.
