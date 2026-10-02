@@ -84,6 +84,8 @@
     "seed": "ts-node --transpile-only prisma/seed.ts"
   },
   "jest": {
+    "maxWorkers": "25%",
+    "workerIdleMemoryLimit": "512MB",
     "moduleFileExtensions": [
       "js",
       "json",
