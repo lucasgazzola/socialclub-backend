@@ -5,31 +5,35 @@ a [`DEUDA-TECNICA.md`](DEUDA-TECNICA.md): allá está el detalle por ítem, acá
 estrategia de testing y su secuencia.
 
 - **Equipo:** Nullpointer
-- **Medido el:** 16/09/2026, sobre `socialclub-backend@dev` y `socialclub-frontend@dev`
+- **Medido el:** 01/10/2026, sobre `dev` + las ramas `fix/US-50-Categorias-inactivas-en-inscripcion` (medición anterior: 16/09/2026)
 - **Versión navegable:** <https://claude.ai/code/artifact/b817ba9b-ac31-44c8-9dfb-c72ac923b7a3>
 
 ---
 
-## Estado al 16/09/2026
+## Estado al 01/10/2026
 
 | | Backend | Frontend |
 |---|---|---|
-| Tests | 217 ✅ | 122 ✅ |
-| Cobertura (statements) | 60,8 % | 31,9 % |
-| Cobertura (ramas) | 67,0 % | 31,0 % |
-| Piso configurado | 58 / 64 / 49 / 57 | 28 / 27 / 24 / 28 |
-| Módulos/features sin ningún test | `categorias` | `auditoria`, `cuota-social`, `dashboard`, `disciplinas`, `documentacion` |
+| Tests | 415 ✅ | 230 ✅ |
+| Cobertura (statements) | **73,0 %** ✅ | 39,0 % |
+| Cobertura (ramas) | 73,9 % | 39,3 % |
+| Piso configurado (stmts / ramas / funcs / líneas) | 70 / 70 / 61 / 69 (antes 58 / 64 / 49 / 57) | 33 / 33 / 28 / 33 (antes 28 / 27 / 24 / 28) |
+| Módulos/features sin ningún test | `categorias` (categorías de socio) | `auditoria`, `cuota-social`, `dashboard` |
 
 | | Cantidad |
 |---|---|
-| US implementadas (los dos repos) | ~24 |
-| US con casos documentados | 16 |
-| **US sin ningún caso** | **8** |
-| Casos documentados | 107 filas · **107 IDs únicos** (`TC-001`–`TC-107`) |
-| Ejecuciones registradas | 46 (`EJ-01` a `EJ-46`) |
+| US implementadas (los dos repos) | ~40 |
+| US con casos documentados | 25 |
+| Casos documentados | 159 filas (`TC-001`–`TC-159`) |
+| Ejecuciones registradas | 98 (`EJ-01` a `EJ-98`) |
 
-**Objetivo de la DoD: 70 % de cobertura.** Faltan ~10 puntos en el backend y
-~38 en el frontend.
+**Objetivo de la DoD: 70 % de cobertura.** El backend lo superó (73 %); al
+frontend le faltan ~31 puntos (medido con los PR #97, #100 y #101 del frontend).
+
+Últimas incorporaciones (01/10/2026): US-44 y US-48 a US-51 (categorías de
+disciplina) con 25 casos (`TC-135`–`TC-159`) y su ejecución (`EJ-74`–`EJ-98`,
+ejecutadas por el desarrollador, **pendiente la prueba cruzada**). Se corrigió
+el test intermitente de eventos (DT-38), que cortaba el CI de vez en cuando.
 
 ---
 

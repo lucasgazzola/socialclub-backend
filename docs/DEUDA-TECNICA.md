@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 29/09/2026
+- **Última actualización:** 01/10/2026
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -25,6 +25,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 - [Decisiones pendientes del equipo](#decisiones-pendientes-del-equipo)
   - [🔴 Persistencia de los adjuntos en Azure (DT-15)](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo)
   - [🟠 Estandarización del código a inglés](#estandarización-del-código-a-inglés---costo-creciente)
+  - [🟡 Cuota deportiva: ¿categoría de socio o de disciplina? (US-20)](#cuota-deportiva-categoría-de-socio-o-de-disciplina-us-20)
 - [Deuda pendiente](#deuda-pendiente)
   - [🟠 Altas](#-altas)
     - [DT-02 · Faltan los casos de prueba de las historias ya implementadas (backend)](#dt-02--faltan-los-casos-de-prueba-de-las-historias-ya-implementadas-backend)
@@ -34,15 +35,14 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-29 · No existe solicitud de inscripción con aprobación](#dt-29--no-existe-solicitud-de-inscripción-con-aprobación)
     - [DT-31 · No existe compra real de entradas](#dt-31--no-existe-compra-real-de-entradas)
     - [DT-35 · El pago implementado solo cubre la cuota social](#dt-35--el-pago-implementado-solo-cubre-la-cuota-social)
+    - [DT-39 · La inscripción no aplica las restricciones de edad y género](#dt-39--la-inscripción-no-aplica-las-restricciones-de-edad-y-género)
   - [🟡 Medias](#-medias)
-    - [DT-11 · La pantalla de Inscripción no muestra a los inscriptos](#dt-11--la-pantalla-de-inscripción-no-muestra-a-los-inscriptos)
     - [DT-10 · La pantalla de Auditoría es interminable](#dt-10--la-pantalla-de-auditoría-es-interminable)
     - [DT-24 · La planilla documenta generación de cuotas que no existe](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe)
     - [DT-25 · La auditoría append-only no está garantizada por la base](#dt-25--la-auditoría-append-only-no-está-garantizada-por-la-base)
     - [DT-22 · La rotación mensual de la cuota social no tiene quién la dispare](#dt-22--la-rotación-mensual-de-la-cuota-social-no-tiene-quién-la-dispare)
     - [DT-23 · El ratchet de cobertura corta el CI por décimas](#dt-23--el-ratchet-de-cobertura-corta-el-ci-por-décimas)
     - [DT-26 · La documentación de la API no declara respuestas](#dt-26--la-documentación-de-la-api-no-declara-respuestas)
-    - [DT-17 · Código muerto: `EditarInscripcionPage`](#dt-17--código-muerto-editarinscripcionpage)
     - [DT-28 · El participante no puede consultar su propia documentación](#dt-28--el-participante-no-puede-consultar-su-propia-documentación)
     - [DT-32 · Los eventos no tienen fecha ni horario](#dt-32--los-eventos-no-tienen-fecha-ni-horario)
     - [DT-33 · Las entradas no pueden expirar correctamente](#dt-33--las-entradas-no-pueden-expirar-correctamente)
@@ -76,18 +76,18 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 
 | Estado | Ítems |
 |---|---|
-| 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-03, DT-04, DT-07, DT-13, DT-14, DT-16, DT-18, DT-19, DT-21, DT-30, DT-37 |
-| 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05, DT-27, DT-29, DT-31, DT-35 (cobro resuelto en US-21; resta generación y autoservicio) |
-| 🟡 Medias pendientes | DT-10, DT-11, DT-17, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-32, DT-33, DT-34 |
+| 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente), [categoría de la cuota deportiva (US-20)](#cuota-deportiva-categoría-de-socio-o-de-disciplina-us-20) |
+| ✅ Resueltas | DT-03, DT-04, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-21, DT-30, DT-37, DT-38, DT-40 |
+| 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05, DT-27 (configuración resuelta; resta estado y validación), DT-29, DT-31, DT-35 (cobro resuelto en US-21; resta generación y autoservicio), DT-39 |
+| 🟡 Medias pendientes | DT-10, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-32, DT-33, DT-34 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-20, DT-36 |
 
-**Cobertura de tests** (medida el 16/09/2026, objetivo DoD **70 %**):
+**Cobertura de tests** (medida el 01/10/2026, objetivo DoD **70 %**):
 
 | Repo | Statements | Piso configurado |
 |---|---|---|
-| Frontend (Vitest) | 22,03 % | 22 % |
-| Backend (Jest) | **60,82 %** | 58 % |
+| Frontend (Vitest) | 39,01 % | 33 % |
+| Backend (Jest) | **73,04 %** ✅ | 70 % |
 
 Los dos repos tenían además el **CI en rojo** por configuración de lint, no por
 código: ver [Extra](#extra--ci-del-frontend-en-rojo-desde-el-0709) al final.
@@ -123,6 +123,21 @@ archivos y la base queda con referencias a rutas que ya no existen.
 - **Además hay que decidir** qué hacer con los registros que ya apuntan a rutas inexistentes en el entorno de pruebas.
 - **Bloquea:** DT-09 (imágenes en eventos). Si se hace antes, repite el mismo bug.
 - **Rama sugerida una vez decidido:** `issue/TASK-13-DT-15-Persistencia-adjuntos-azure`
+
+### Cuota deportiva: ¿categoría de socio o de disciplina? (US-20) · 🟡
+
+US-20 dice «monto por combinación disciplina-categoría», pero
+`ConfiguracionCuotaDeportiva` está implementada contra **`CategoriaSocio`**
+(Activo, Vitalicio…). Desde US-48 cada disciplina tiene sus propias
+**`CategoriaDisciplina`** (Sub-15, Primera…), que es lo que la US parece pedir.
+
+| Opción | A favor | En contra |
+|---|---|---|
+| **Categoría de disciplina** | Coincide con la US y con cómo se cobra en un club | Migrar la tabla y las configuraciones existentes; tocar US-21/22/23 |
+| **Categoría de socio** (como está) | Sin cambios | La cuota no distingue Sub-15 de Primera |
+
+- **Evidencia:** `prisma/schema.prisma` (`ConfiguracionCuotaDeportiva.categoriaId → CategoriaSocio`).
+- **Detectado:** 01/10/2026, al definir la documentación por categoría.
 
 ### Estandarización del código a inglés · 🟠 costo creciente
 
@@ -237,9 +252,20 @@ aprobada y vigente del tipo pedido, y si falta o está vencida la inscripción
 (o la solicitud) queda pendiente o se rechaza. Depende de que exista un ABM de
 disciplina real (DT-30) para poder configurar estos requisitos.
 
-- **Configuración de requisitos resuelta en US-XX (22/09/2026).**
-- **Pendiente:** estados/vigencia de `Documentacion`, validación de inscripción
-  y job automático de baja por vencimiento del plazo.
+- **Configuración de requisitos resuelta en US-44 (22/09/2026).**
+- **Requisitos por categoría resueltos en US-48/49 (01/10/2026,**
+  backend [#64](https://github.com/lucasgazzola/socialclub-backend/pull/64) ·
+  frontend [#89](https://github.com/lucasgazzola/socialclub-frontend/pull/89)**):**
+  `DisciplinaRequerimientoDoc.categoriaDisciplinaId` (null = de toda la
+  disciplina; con valor = adicional de la categoría). Cada requisito guarda
+  desde cuándo rige (`creadoEn`), base del plazo para los ya inscriptos.
+- **Base de datos lista para lo que sigue:** `Documentacion.tipoDocumento`
+  (catálogo; los documentos viejos con texto libre se mapearon cuando
+  coincidían y el resto quedó en null), `Inscripcion.requisitosDesde` (US-6) y
+  la tabla `habilitaciones_excepcionales` (US-28).
+- **Pendiente:** estado documental por inscripción (servicio central que usan
+  US-5, 8, 24, 25, 26, 27, 28 y 34), validación de inscripción y bloqueo por
+  vencimiento del plazo.
 - **Rama sugerida:** `issue/TASK-19-DT-27-Documentacion-por-disciplina`
 
 #### DT-29 · No existe solicitud de inscripción con aprobación
@@ -306,17 +332,25 @@ deportiva.
 - **Relacionado:** [DT-24](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe), [DT-06](#dt-06--historias-de-usuario-para-sumar-al-backlog).
 - **Detectado en el análisis funcional de dominio (22/09/2026); cobro implementado en US-21 (26/09/2026).**
 
+#### DT-39 · La inscripción no aplica las restricciones de edad y género
+*Nuevo · funcional · backend + frontend*
+
+Desde US-48 las categorías tienen restricciones de género y edad dentro de las
+de su disciplina, y `Persona` tiene `genero`, pero la inscripción (US-5/6)
+**no las valida** ni pide el género del participante: hoy las restricciones se
+guardan y no tienen efecto.
+
+**Decisiones del equipo (01/10/2026):** se registra el género del participante,
+y la edad se mide por **año de nacimiento** (edad que se cumple en el año
+calendario), para que «Sub-15» valga cada temporada sin editar la categoría.
+
+**Arreglo:** pedir fecha de nacimiento y género en el alta/edición del
+participante y validar con `restriccionesEfectivas` + `motivosDeIncumplimiento`
+(`src/disciplinas/restricciones.ts`, ya implementadas y testeadas).
+
+- **Corresponde a:** US-5 y US-6 (criterios ya actualizados en la planilla).
+
 ### 🟡 Medias
-
-#### DT-11 · La pantalla de Inscripción no muestra a los inscriptos
-*frontend · 3 SP*
-
-`GET /inscripcion` ya devuelve todas las inscripciones con persona, disciplina
-y categoría, ordenadas por fecha. La pantalla no lo consume:
-`InscripcionPage` es solo el formulario de alta. Es trabajo de frontend, no de
-API — salvo que se quiera paginar. Se resuelve junto con DT-17.
-
-- **Rama sugerida:** `issue/TASK-17-DT-11-Listado-de-inscriptos`
 
 #### DT-10 · La pantalla de Auditoría es interminable
 *frontend · 2 SP*
@@ -419,12 +453,6 @@ contrato queda a medias.
 - **Empezar por** `auth`, `usuarios` e `inscripcion`, que son los que el frontend consume más y los que tienen reglas de permisos.
 - **Detectado al revisar Swagger sobre la instancia local.**
 - **Rama sugerida:** `issue/TASK-<n>-DT-26-Documentar-respuestas-api`
-
-#### DT-17 · Código muerto: `EditarInscripcionPage`
-*Nuevo · frontend · incluido en DT-11*
-
-El archivo existe (196 líneas) y no está importado en ningún lado — no tiene
-ruta en `AppRouter`. Al hacer DT-11: o se conecta al listado nuevo, o se borra.
 
 #### DT-28 · El participante no puede consultar su propia documentación
 *Nuevo · funcional · backend + frontend*
@@ -551,6 +579,43 @@ confirmada; o una cuota está vencida.
 
 ## Deuda resuelta
 
+### DT-11 · Pantalla única de participantes (inscripción y documentación)
+**PR [#101](https://github.com/lucasgazzola/socialclub-frontend/pull/101)** ·
+**`issue/TASK-29-DT-11-Pantalla-unica-de-participantes`** · 01/10/2026
+
+Participantes pasa a ser la pantalla única del participante: el alta de
+inscripción se abre en un modal ("Nueva inscripción") y cada participante
+tiene su documentación (modal desde el listado y sección en la edición). Se
+quitaron del menú Inscripción y Documentación; `/inscripcion` y
+`/documentacion` redirigen a Participantes. Componentes nuevos:
+`InscripcionForm` y `DocumentacionParticipante`.
+
+- De paso se corrigió un bug de US-08: el debounce de la búsqueda volvía a la
+  página 1 a los 300 ms de cargar la pantalla y pisaba el "Siguiente".
+- **Sigue pendiente DT-28** (el propio participante no ve su documentación).
+
+### DT-17 · Código muerto: `EditarInscripcionPage`
+Resuelta junto con DT-11 (PR #101): el archivo se eliminó.
+
+### DT-40 · Los selectores de fecha mostraban mm/dd/aaaa
+**PR [#100](https://github.com/lucasgazzola/socialclub-frontend/pull/100)** ·
+**`issue/TASK-30-DT-40-Formato-de-fecha-dd-mm-aaaa`** · 01/10/2026
+
+El `<input type="date">` nativo toma el formato del idioma del navegador. Se
+creó `DateInput` (`components/ui`): máscara dd/mm/aaaa, calendario nativo
+desde un botón y valor siempre en ISO, así que la API y los schemas no
+cambiaron. Reemplazó las 6 fechas del producto. Los selectores de mes
+(`type="month"`, cuotas) quedan como estaban.
+
+### DT-38 · Test de eventos intermitente (`inicioVenta`)
+**`fix/US-50-Categorias-inactivas-en-inscripcion`** · 01/10/2026
+
+`eventos.service.spec.ts › create` comparaba `inicioVenta` contra la fecha del
+DTO, pero el servicio la genera con `new Date()` cuando no viene: el test
+fallaba cada vez que las dos fechas caían en milisegundos distintos (≈1 de cada
+3 corridas), y con eso el CI. Ahora espera `expect.any(Date)`. Corrida 5 veces
+seguidas en verde.
+
 ### DT-37 · El esquema de Prisma y las migraciones divergen (drift silencioso)
 **PR [#57](https://github.com/lucasgazzola/socialclub-backend/pull/57)** ·
 **`fix/db-migracion-drift-disciplinas-cuota-deportiva`** · 29/09/2026
@@ -591,7 +656,8 @@ contra un Postgres efímero): el PR falla si el schema vuelve a divergir.
 ---
 
 ### DT-30 · ABM de disciplina
-**US-XX** · 22/09/2026
+**TASK-18 (US-44 a US-47)** · 22/09/2026 · categorías y restricciones por
+categoría en US-48 a US-51 (01/10/2026)
 
 Se implementó el ABM completo de disciplinas en backend y frontend: listado
 para ADMIN/COLABORADOR, alta, edición, baja lógica, reactivación y auditoría
@@ -819,8 +885,8 @@ Lo que ya usa el equipo, aplicado a la deuda técnica:
 
 - **Ramas:** `issue/TASK-<n>-DT-<nn>-<Descripcion-en-kebab>` para deuda
   identificada; `fix/<Descripcion>` para arreglos de configuración o tooling.
-  El número `TASK` es correlativo y global (el último usado va en la tabla de
-  arriba).
+  El número `TASK` es correlativo y global. **Último usado: TASK-30**
+  (01/10/2026).
 - **Commits:** `<prefijo>[scope]: <descripción en minúscula>`, con el ID de la
   deuda como scope — `refactor[DT-03]: …`, `test[DT-01]: …`, `ci[lint]: …`.
   Prefijos válidos: `feat`, `fix`, `docs`, `test`, `ci`, `chore`, `refactor`.

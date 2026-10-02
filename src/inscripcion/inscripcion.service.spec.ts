@@ -305,6 +305,25 @@ describe('InscripcionService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('US-50 · permite editar datos básicos aunque la categoría actual esté dada de baja', async () => {
+      const disciplinaConCategoriaInactiva = {
+        ...inscripcionExistente.disciplina,
+        categorias: [
+          { id: inscripcionExistente.categoriaDisciplinaId, nombre: 'Sub-18', activo: false },
+        ],
+      };
+      mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
+      mockPrisma.disciplina.findUnique.mockResolvedValue(disciplinaConCategoriaInactiva);
+      mockPrisma.persona.findUnique.mockResolvedValue(null);
+      mockPrisma.persona.update.mockResolvedValue({
+        ...inscripcionExistente.persona,
+        telefono: '351000',
+      });
+      mockPrisma.inscripcion.update.mockResolvedValue(inscripcionExistente);
+
+      await expect(service.update(1, { telefono: '351000' }, 99)).resolves.toBeDefined();
+    });
+
     it('should change category within same discipline', async () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
       mockPrisma.disciplina.findUnique.mockResolvedValue(inscripcionExistente.disciplina);
@@ -699,6 +718,40 @@ describe('InscripcionService', () => {
 
       expect(mockPrisma.inscripcion.create).not.toHaveBeenCalled();
       expect(mockPrisma.inscripcion.update).not.toHaveBeenCalled();
+    });
+
+    it('US-50 · no exige categoría si todas las de la disciplina están dadas de baja', async () => {
+      mockPrisma.disciplina.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Fútbol',
+        activo: true,
+        categorias: [{ id: 5, nombre: 'Sub-18', activo: false }],
+      });
+      mockPrisma.persona.findUnique.mockResolvedValue({ ...personaBaja, activo: true });
+
+      // Si exigiera categoría, cortaría con ese mensaje antes de seguir con el alta.
+      const resultado: unknown = await service
+        .create({ personaId: 10, disciplinaId: 1 }, 99)
+        .catch((error: unknown) => error);
+      expect(resultado instanceof Error ? resultado.message : '').not.toBe(
+        'Debe seleccionar una categoría para inscribirse en esta disciplina',
+      );
+    });
+
+    it('US-50 · rechaza inscribir en una categoría dada de baja', async () => {
+      mockPrisma.disciplina.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Fútbol',
+        activo: true,
+        categorias: [
+          { id: 5, nombre: 'Sub-18', activo: false },
+          { id: 6, nombre: 'Primera', activo: true },
+        ],
+      });
+
+      await expect(
+        service.create({ personaId: 10, disciplinaId: 1, categoriaDisciplinaId: 5 }, 99),
+      ).rejects.toThrow('La categoría indicada no pertenece a esta disciplina o no está activa');
     });
 
     it('TC-0707: permite editar los datos de un participante activo (regresión US-06)', async () => {
