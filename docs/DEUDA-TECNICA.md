@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 01/10/2026
+- **Última actualización:** 02/10/2026
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -25,7 +25,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 - [Decisiones pendientes del equipo](#decisiones-pendientes-del-equipo)
   - [🔴 Persistencia de los adjuntos en Azure (DT-15)](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo)
   - [🟠 Estandarización del código a inglés](#estandarización-del-código-a-inglés---costo-creciente)
-  - [🟡 Cuota deportiva: ¿categoría de socio o de disciplina? (US-20)](#cuota-deportiva-categoría-de-socio-o-de-disciplina-us-20)
 - [Deuda pendiente](#deuda-pendiente)
   - [🟠 Altas](#-altas)
     - [DT-02 · Faltan los casos de prueba de las historias ya implementadas (backend)](#dt-02--faltan-los-casos-de-prueba-de-las-historias-ya-implementadas-backend)
@@ -74,9 +73,9 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 
 | Estado | Ítems |
 |---|---|
-| 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente), [categoría de la cuota deportiva (US-20)](#cuota-deportiva-categoría-de-socio-o-de-disciplina-us-20) |
+| 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
 | ✅ Resueltas | DT-03, DT-04, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-30, DT-37, DT-38, DT-39, DT-40 |
-| 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05, DT-27 (configuración y estado documental resueltos; restan alertas, aprobación/rechazo y habilitación excepcional), DT-29, DT-31, DT-35 (cobro resuelto en US-21; resta generación y autoservicio) |
+| 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05, DT-27 (configuración y estado documental resueltos; restan alertas, aprobación/rechazo y habilitación excepcional), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio), DT-41 |
 | 🟡 Medias pendientes | DT-10, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-32, DT-33, DT-34 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-36 |
 
@@ -84,8 +83,8 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 
 | Repo | Statements | Piso configurado |
 |---|---|---|
-| Frontend (Vitest) | 43,15 % | 33 % |
-| Backend (Jest) | **75,84 %** ✅ | 70 % |
+| Frontend (Vitest) | 45,35 % | 33 % |
+| Backend (Jest) | **76,8 %** ✅ | 70 % |
 
 Los dos repos tenían además el **CI en rojo** por configuración de lint, no por
 código: ver [Extra](#extra--ci-del-frontend-en-rojo-desde-el-0709) al final.
@@ -121,21 +120,6 @@ archivos y la base queda con referencias a rutas que ya no existen.
 - **Además hay que decidir** qué hacer con los registros que ya apuntan a rutas inexistentes en el entorno de pruebas.
 - **Bloquea:** DT-09 (imágenes en eventos). Si se hace antes, repite el mismo bug.
 - **Rama sugerida una vez decidido:** `issue/TASK-13-DT-15-Persistencia-adjuntos-azure`
-
-### Cuota deportiva: ¿categoría de socio o de disciplina? (US-20) · 🟡
-
-US-20 dice «monto por combinación disciplina-categoría», pero
-`ConfiguracionCuotaDeportiva` está implementada contra **`CategoriaSocio`**
-(Activo, Vitalicio…). Desde US-48 cada disciplina tiene sus propias
-**`CategoriaDisciplina`** (Sub-15, Primera…), que es lo que la US parece pedir.
-
-| Opción | A favor | En contra |
-|---|---|---|
-| **Categoría de disciplina** | Coincide con la US y con cómo se cobra en un club | Migrar la tabla y las configuraciones existentes; tocar US-21/22/23 |
-| **Categoría de socio** (como está) | Sin cambios | La cuota no distingue Sub-15 de Primera |
-
-- **Evidencia:** `prisma/schema.prisma` (`ConfiguracionCuotaDeportiva.categoriaId → CategoriaSocio`).
-- **Detectado:** 01/10/2026, al definir la documentación por categoría.
 
 ### Estandarización del código a inglés · 🟠 costo creciente
 
@@ -340,6 +324,18 @@ deportiva.
 
 - **Relacionado:** [DT-24](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe), [DT-06](#dt-06--historias-de-usuario-para-sumar-al-backlog).
 - **Detectado en el análisis funcional de dominio (22/09/2026); cobro implementado en US-21 (26/09/2026).**
+
+#### DT-41 · Reinscribirse en la misma disciplina pierde la deuda de la inscripción anterior
+*Nuevo · backend · detectado en TASK-33*
+
+`Inscripcion` es única por persona y disciplina: al reinscribir a alguien
+que se había dado de baja, se reactiva la misma fila y `fechaInscripcion` se
+reemplaza. La deuda de cuota deportiva se calcula desde esa fecha, así que
+los meses impagos de la inscripción anterior (entre el alta vieja y la baja)
+dejan de aparecer.
+
+**Arreglo:** guardar el historial de períodos de inscripción (tabla
+`PeriodoInscripcion` con alta y baja) y calcular la deuda sobre todos ellos.
 
 ### 🟡 Medias
 
@@ -558,6 +554,28 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### Decisión · Cuota deportiva por disciplina y categoría, con descuento para socios (US-20)
+**`issue/TASK-33-US-20-Cuota-deportiva-por-disciplina`** · 02/10/2026
+
+Decisión del equipo: la tarifa de la cuota deportiva depende de la
+**disciplina**, y una **categoría de la disciplina** puede tener tarifa propia
+que reemplaza a la base. Antes dependía de la categoría de **socio**, con dos
+errores: quien no era socio debía $0, y dar de baja una disciplina borraba su
+deuda.
+
+- `ConfiguracionCuotaDeportiva`: `categoriaDisciplinaId` opcional (null = tarifa
+  base) y `descuentoSocioPorcentaje` (0 a 100). La migración conservó una tarifa
+  base por disciplina y período (la de monto más alto) y descartó la apertura
+  por categoría de socio.
+- Período **mensual**. Los cambios rigen desde el mes siguiente; la **primera**
+  tarifa de una disciplina/categoría puede regir desde el mes actual.
+- El **descuento para socios** se aplica en los meses en que la persona tenía
+  la membresía activa.
+- Se cobran completos el mes de alta y el de baja; la deuda anterior a la baja
+  se conserva y se puede cobrar. Sin tarifa para un mes: "Sin tarifa", no $0, y
+  no se puede cobrar.
+- Sin matrícula por ahora. Límite conocido: DT-41.
 
 ### DT-20 · Modales unificados y estandarizados
 **`issue/TASK-32-DT-20-Modales-unificados`** (frontend) · 01/10/2026
@@ -899,7 +917,7 @@ Lo que ya usa el equipo, aplicado a la deuda técnica:
 
 - **Ramas:** `issue/TASK-<n>-DT-<nn>-<Descripcion-en-kebab>` para deuda
   identificada; `fix/<Descripcion>` para arreglos de configuración o tooling.
-  El número `TASK` es correlativo y global. **Último usado: TASK-32**
+  El número `TASK` es correlativo y global. **Último usado: TASK-33**
   (01/10/2026).
 - **Commits:** `<prefijo>[scope]: <descripción en minúscula>`, con el ID de la
   deuda como scope — `refactor[DT-03]: …`, `test[DT-01]: …`, `ci[lint]: …`.
