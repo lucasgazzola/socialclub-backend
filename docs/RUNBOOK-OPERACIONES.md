@@ -516,3 +516,78 @@ No hace falta Docker para operar Azure si tenés `az` + `gh`. Docker sí para de
 Mismos comandos, otros nombres: `ca-socialclub-api-main`, `socialclub_main`, environment GitHub `production`, Vercel `socialclub-frontend-main`.
 
 **No** recrear `socialclub_main` como parte de un promote a test. **No** mergear a `main` sin acuerdo del equipo y aprobación del environment. Un hotfix: rama desde `main`, PR `--base main`, y después cherry-pick/PR a `dev`.
+
+---
+
+## 8. Tareas automáticas: cargar los secrets y probar
+
+Contexto: [`DESPLIEGUE.md` §5.2.1](../DESPLIEGUE.md) y
+[decisión 0002](decisiones/0002-servicio-de-tareas-automaticas.md). El workflow
+`tareas-automaticas.yml` llama a cada API con una URL y un token; la API compara
+el token con su `TAREAS_TOKEN`.
+
+> **Estado al 03/10/2026: pendiente de cargar** (ningún entorno tiene los secrets).
+
+### 1. Generar un token por entorno
+
+```bash
+openssl rand -hex 24   # uno para test
+openssl rand -hex 24   # otro, distinto, para main
+```
+
+**Por qué:** es un secreto compartido que generamos nosotros; ningún servicio lo
+emite. Distinto por entorno para que filtrar uno no habilite el otro. No se
+commitea ni se pega en issues o PRs.
+
+### 2. Cargarlo en la API (secret del environment)
+
+```bash
+gh secret set TAREAS_TOKEN --env test         # pegar el token de test
+gh secret set TAREAS_TOKEN --env production   # pegar el token de main
+```
+
+**Por qué:** el CD lee el secret del environment y lo pasa a la Container App
+como `TAREAS_TOKEN` (`secretref:tareas-token`). `gh secret set` pide el valor
+por consola: no queda en el historial.
+
+### 3. Cargar URL y token para el workflow (secrets de repositorio)
+
+```bash
+gh secret set TAREAS_API_URL_TEST --body "https://ca-socialclub-api-test.agreeablehill-d095161e.brazilsouth.azurecontainerapps.io"
+gh secret set TAREAS_TOKEN_TEST               # el mismo token del paso 2 (test)
+
+# Solo cuando main esté prendida:
+gh secret set TAREAS_API_URL_MAIN --body "https://ca-socialclub-api-main.agreeablehill-d095161e.brazilsouth.azurecontainerapps.io"
+gh secret set TAREAS_TOKEN_MAIN               # el mismo token del paso 2 (main)
+```
+
+**Por qué:** a nivel repositorio y no de environment, porque `production` pide
+aprobación manual y el workflow programado quedaría esperando. Si a un entorno
+le falta la URL o el token, el workflow lo saltea con un aviso.
+
+### 4. Redesplegar el entorno
+
+El CD aplica `TAREAS_TOKEN` solo al desplegar: promover `dev → test` (§7) o
+volver a correr el último *CD Test* (`gh run rerun <id>`).
+
+### 5. Probar
+
+```bash
+# A mano contra la API de test (TOKEN = el de test):
+curl -sS --max-time 120 -X POST \
+  "https://ca-socialclub-api-test.agreeablehill-d095161e.brazilsouth.azurecontainerapps.io/api/v1/tareas/reintentar-notificaciones/programada" \
+  -H "x-tareas-token: $TOKEN"
+
+# El workflow, eligiendo la tarea:
+gh workflow run tareas-automaticas.yml -f tarea=reintentar-notificaciones
+gh run list --workflow tareas-automaticas.yml --limit 3
+```
+
+**Esperado:** `200` con la ejecución registrada (`"estado":"EXITOSA"` y su
+`resultado`). `401` = el token no coincide con el de la API; `403` = la API no
+tiene `TAREAS_TOKEN` (faltó redesplegar). También se ve en la app:
+*Administración → Tareas automáticas*.
+
+**Ojo:** GitHub solo ejecuta los `schedule` desde `main`; hasta que el workflow
+llegue a `main`, solo corre a mano (`workflow_dispatch`).
+
