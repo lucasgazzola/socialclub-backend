@@ -424,10 +424,30 @@ model Inscripcion {
   actualizadoEn    DateTime  @updatedAt
 
   habilitacionesExcepcionales HabilitacionExcepcional[]
+  alertasNotificadas          AlertaDocumentacionNotificada[]
 
   @@unique([personaId, disciplinaId])
   @@index([disciplinaId])
   @@map("inscripciones")
+}
+
+/// Alertas de documentación ya avisadas por email (US-26). Las alertas se
+/// calculan en el momento a partir del estado documental; esta tabla solo
+/// recuerda qué se notificó para no repetir el mismo aviso todos los días.
+/// `clave` = inscripción + tipo de documento + tipo de alerta + fecha de
+/// referencia: una renovación o un cambio de estado generan un aviso nuevo.
+model AlertaDocumentacionNotificada {
+  id              Int                         @id @default(autoincrement())
+  clave           String                      @unique
+  inscripcionId   Int
+  inscripcion     Inscripcion                 @relation(fields: [inscripcionId], references: [id], onDelete: Cascade)
+  tipoDocumento   TipoDocumentacionDisciplina
+  tipoAlerta      String
+  fechaReferencia DateTime                    @db.Date
+  notificadaEn    DateTime                    @default(now())
+
+  @@index([inscripcionId])
+  @@map("alertas_documentacion_notificadas")
 }
 
 /// Documentación obligatoria de un participante (US-24). Habilita la
