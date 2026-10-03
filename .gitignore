@@ -44,6 +44,8 @@ docs/documentacion/
 jest-results.json
 vitest-results.json
 registro-ejecucion*.csv
+# Cookies de sesión de pruebas con curl (-c cookies.txt): nunca commitear
+cookies*.txt
 
 # Archivos subidos (documentación) — no versionar los binarios
 storage/
