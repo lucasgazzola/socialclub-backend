@@ -27,9 +27,9 @@ describe('AuditoriaController', () => {
   it('llama a listarTodos del service', async () => {
     const query = { pagina: 1, porPagina: 10 };
     mockAuditoriaService.listarTodos.mockResolvedValue({ items: [], total: 0 });
-    
+
     const result = await controller.findAll(query);
-    
+
     expect(mockAuditoriaService.listarTodos).toHaveBeenCalledWith(query);
     expect(result).toEqual({ items: [], total: 0 });
   });

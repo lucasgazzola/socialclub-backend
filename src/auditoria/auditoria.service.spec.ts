@@ -2,6 +2,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from './auditoria.service';
+import { PeriodoAuditoria } from './dto/find-auditoria-query.dto';
 
 /**
  * US-32 · Registrar logs de operaciones (RF12 / RNF03 / RNF11).
@@ -120,6 +121,65 @@ describe('US-32 · AuditoriaService', () => {
       await service.listarTodos({ fechaDesde: '2026-06-01' });
 
       expect(whereUsado()).toEqual({ fechaHora: { gte: new Date('2026-06-01') } });
+    });
+
+    describe('filtro rápido por período (US-33)', () => {
+      const fixedNow = new Date('2026-10-03T18:00:00.000Z');
+
+      beforeEach(() => {
+        jest.useFakeTimers().setSystemTime(fixedNow);
+      });
+
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      it('filtra por última 1h', async () => {
+        await service.listarTodos({ periodo: PeriodoAuditoria.ULTIMA_HORA });
+
+        expect(whereUsado()).toEqual({
+          fechaHora: { gte: new Date('2026-10-03T17:00:00.000Z') },
+        });
+      });
+
+      it('filtra por últimas 24h', async () => {
+        await service.listarTodos({ periodo: PeriodoAuditoria.ULTIMAS_24H });
+
+        expect(whereUsado()).toEqual({
+          fechaHora: { gte: new Date('2026-10-02T18:00:00.000Z') },
+        });
+      });
+
+      it('filtra por últimos 7 días', async () => {
+        await service.listarTodos({ periodo: PeriodoAuditoria.ULTIMOS_7D });
+
+        expect(whereUsado()).toEqual({
+          fechaHora: { gte: new Date('2026-09-26T18:00:00.000Z') },
+        });
+      });
+
+      it('soporta alias rango para período rápido', async () => {
+        await service.listarTodos({ rango: PeriodoAuditoria.ULTIMA_HORA });
+
+        expect(whereUsado()).toEqual({
+          fechaHora: { gte: new Date('2026-10-03T17:00:00.000Z') },
+        });
+      });
+
+      it('período personalizado utiliza fechaDesde y fechaHasta', async () => {
+        await service.listarTodos({
+          periodo: PeriodoAuditoria.PERSONALIZADO,
+          fechaDesde: '2026-05-01',
+          fechaHasta: '2026-05-15',
+        });
+
+        expect(whereUsado()).toEqual({
+          fechaHora: {
+            gte: new Date('2026-05-01'),
+            lte: new Date('2026-05-15'),
+          },
+        });
+      });
     });
 
     it('calcula el salto de la página pedida y devuelve el total', async () => {
