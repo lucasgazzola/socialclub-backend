@@ -49,3 +49,6 @@ cookies*.txt
 
 # Archivos subidos (documentación) — no versionar los binarios
 storage/
+
+# Bytecode de los scripts de Python
+__pycache__/
