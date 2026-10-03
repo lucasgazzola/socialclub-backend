@@ -69,6 +69,14 @@ convierte en tests → `/ejecutar-pruebas` corre la suite y exporta la evidencia
 > tipos que no existen en la planilla, TSV en lugar de CSV). Corregidos contra
 > el `.xlsx` real el 16/09.
 
+**Con la planilla viva de Drive (03/10):** `/exportar-casos` baja el plan de
+testing por su ID y `scripts/comparar-planilla.py` lo contrasta con
+`docs/pruebas/`: detecta casos cargados en Drive sin pasar por el repo (y los
+importa con `--importar`), filas con el mismo ID y distinto contenido, e IDs
+duplicados. El próximo ID sale de la planilla real. `/backlog` lee los criterios
+de aceptación vigentes del backlog. Sin conector de Drive, los dos usan la copia
+local o se omiten: no frenan. Ver `docs/README.md` § *Planillas en Drive*.
+
 ### Falta escribir
 
 - **`/auditar-planilla`** — contrastar la planilla contra el código y reportar discrepancias. Hecho a mano una vez, destapó DT-24 (casos que esperan cuotas que no existen), DT-25 (append-only sin respaldo en la base) y los IDs duplicados. Automatizado es un comando antes de cada entrega.
