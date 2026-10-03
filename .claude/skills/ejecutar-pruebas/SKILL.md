@@ -60,9 +60,15 @@ Encabezados en la **fila 2**, 10 columnas en este orden:
   quedó cubierto solo en parte (p. ej. a nivel de servicio pero no de base de
   datos), decirlo acá en lugar de marcarlo Aprobado sin más.
 
-Salida: CSV con `QUOTE_ALL` y BOM en `docs/exportables/ejecucion-<US>.csv`
-(dump con saltos reales). Para Drive, el pegable es
-`docs/exportables/ejecucion-para-pegar.tsv` (desde A2). No generar `.xlsx`.
+Salida: las filas `EJ-NN` se **agregan al consolidado** `docs/pruebas/ejecucion.csv`
+(`QUOTE_ALL`, BOM, saltos de línea reales; agregar al final sin reescribir las
+filas anteriores). **No se crean archivos por US.** Capturas, respuestas de la
+API y otra evidencia que no entra en la celda van en
+`docs/pruebas/evidencias/<US>/`, con un `README.md` que diga qué muestra cada
+archivo y qué casos respalda; la columna **Evidencia** cita esos archivos.
+
+Para Drive: `npm run docs:para-pegar` regenera
+`docs/pruebas/para-pegar/ejecucion.tsv` (pegar desde A2). No generar `.xlsx`.
 
 ## Casos que ya estaban en la planilla
 Si los tests cubren casos ya cargados (que hasta ahora no tenían ejecución

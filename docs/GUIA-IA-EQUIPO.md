@@ -41,9 +41,10 @@ Léela una vez: son 5 minutos y te ahorra horas por sprint.
    `/casos-prueba US-XX <título + criterios de aceptación>`
    y después `/exportar-casos` para volcarlos a la planilla.
 4. **Tests** → `/casos-a-tests` genera los tests desde esos casos.
-5. **Ejecutar + evidencia** → `/ejecutar-pruebas` corre todo y te deja el CSV de evidencia.
-6. Abrí el **Pull Request** a `dev` (`gh pr create --base dev ...`; la default del repo es `main`) y enlazalo a la tarjeta de la US en GitHub Projects. Confirmá que el PR muestre base `dev` antes de mergear.
-7. En el PR, el **CI corre lint + tests + cobertura** solo. Que quede en verde.
+5. **Ejecutar + evidencia** → `/ejecutar-pruebas` corre todo y agrega las ejecuciones a `docs/pruebas/ejecucion.csv` (las capturas van en `docs/pruebas/evidencias/US-XX/`).
+6. **Llevarlo a Drive** → `npm run docs:para-pegar` y pegá `docs/pruebas/para-pegar/*.tsv` en su hoja desde **A2** (ver [`pruebas/README.md`](pruebas/README.md)).
+7. Abrí el **Pull Request** a `dev` (`gh pr create --base dev ...`; la default del repo es `main`) y enlazalo a la tarjeta de la US en GitHub Projects. Confirmá que el PR muestre base `dev` antes de mergear.
+8. En el PR, el **CI corre lint + tests + cobertura** solo. Que quede en verde.
 
 > Comandos manuales por si los necesitás:
 > - Backend: `npm test` · `npm run test:cov`
