@@ -20,6 +20,9 @@ import {
   restriccionesEfectivas,
   type Restricciones,
 } from '../disciplinas/restricciones';
+import { ETIQUETA_TIPO_DOCUMENTO } from '../disciplinas/requerimientos-doc';
+import { periodoActual } from '../cuotas/cuotas.service';
+import { tarifaVigente, montoACobrar } from '../cuotas/tarifas';
 
 type InscConRelaciones = Pick<
   Prisma.InscripcionGetPayload<{
@@ -247,9 +250,7 @@ export class InscripcionService {
           );
         }
 
-        // El unique (personaId, disciplinaId) hace que la fila sobreviva a la
-        // baja lógica, así que una re-inscripción no puede insertar otra:
-        // reactiva la que ya está.
+        let inscripcionFinal;
         if (inscripcionExistente) {
           const reactivada = await tx.inscripcion.update({
             where: { id: inscripcionExistente.id },
@@ -273,30 +274,146 @@ export class InscripcionService {
             tx,
           );
 
-          return { persona, inscripcion: reactivada };
+          inscripcionFinal = reactivada;
+        } else {
+          const inscripcion = await tx.inscripcion.create({
+            data: {
+              personaId: persona.id,
+              disciplinaId: dto.disciplinaId,
+              categoriaDisciplinaId: dto.categoriaDisciplinaId ?? null,
+            },
+          });
+
+          await tx.registroAuditoria.create({
+            data: {
+              accion: 'CREAR',
+              entidad: 'Inscripcion',
+              idEntidad: inscripcion.id,
+              detalle: `Inscripción de ${persona.apellido} ${persona.nombre}, ${persona.dni} en la disciplina ${disciplina.nombre}`,
+              responsableId,
+            },
+          });
+
+          inscripcionFinal = inscripcion;
         }
 
-        const inscripcion = await tx.inscripcion.create({
-          data: {
-            personaId: persona.id,
-            disciplinaId: dto.disciplinaId,
-            categoriaDisciplinaId: dto.categoriaDisciplinaId ?? null,
-          },
-        });
+        // US-05 Criterio 7: adjuntar documentos faltantes en la misma operación de alta
+        if (dto.documentos && dto.documentos.length > 0) {
+          const requisitos = tx.disciplinaRequerimientoDoc
+            ? await tx.disciplinaRequerimientoDoc.findMany({
+                where: {
+                  disciplinaId: dto.disciplinaId,
+                  OR: [
+                    { categoriaDisciplinaId: null },
+                    ...(dto.categoriaDisciplinaId ? [{ categoriaDisciplinaId: dto.categoriaDisciplinaId }] : []),
+                  ],
+                },
+              })
+            : [];
+          const tiposExigidos = new Set(requisitos.map((r) => r.tipoDocumento));
 
-        await tx.registroAuditoria.create({
-          data: {
-            accion: 'CREAR',
-            entidad: 'Inscripcion',
-            idEntidad: inscripcion.id,
-            detalle: `Inscripción de ${persona.apellido} ${persona.nombre}, ${persona.dni} en la disciplina ${disciplina.nombre}`,
-            responsableId,
-          },
-        });
+          const hoy = new Date();
+          hoy.setHours(0, 0, 0, 0);
 
-        return { persona, inscripcion };
+          for (const doc of dto.documentos) {
+            if (tiposExigidos.size > 0 && !tiposExigidos.has(doc.tipoDocumento)) {
+              throw new BadRequestException(
+                `Ninguna disciplina o categoría de la inscripción exige «${ETIQUETA_TIPO_DOCUMENTO[doc.tipoDocumento] ?? doc.tipoDocumento}».`,
+              );
+            }
+
+            const soloFecha = /^(\d{4})-(\d{2})-(\d{2})/.exec(doc.fechaVencimiento);
+            const fechaVencimiento = soloFecha
+              ? new Date(Number(soloFecha[1]), Number(soloFecha[2]) - 1, Number(soloFecha[3]))
+              : new Date(doc.fechaVencimiento);
+
+            const diaVencimiento = new Date(
+              fechaVencimiento.getFullYear(),
+              fechaVencimiento.getMonth(),
+              fechaVencimiento.getDate(),
+            );
+            if (diaVencimiento < hoy) {
+              throw new BadRequestException(
+                'La fecha de vencimiento no puede ser anterior a la fecha actual.',
+              );
+            }
+
+            if (tx.documentacion) {
+              const docCreado = await tx.documentacion.create({
+                data: {
+                  tipoDocumento: doc.tipoDocumento,
+                  tipo: doc.tipo?.trim() || ETIQUETA_TIPO_DOCUMENTO[doc.tipoDocumento] || doc.tipoDocumento,
+                  fechaVencimiento,
+                  personaId: persona.id,
+                  archivoNombre: doc.archivoNombre ?? null,
+                  archivoRuta: doc.archivoRuta ?? null,
+                  mimeType: doc.mimeType ?? null,
+                  tamano: doc.tamano ?? null,
+                },
+              });
+
+              await this.auditoria.registrar(
+                {
+                  accion: 'CREAR',
+                  entidad: 'Documentacion',
+                  idEntidad: docCreado.id,
+                  detalle: `Documento "${docCreado.tipo}" cargado para la persona id=${persona.id}`,
+                  responsableId,
+                },
+                tx,
+              );
+            }
+          }
+        }
+
+        // US-05 Criterio 10: calcular la cuota generada correspondiente a esa disciplina
+        const periodo = periodoActual();
+        const rawTarifas = tx.configuracionCuotaDeportiva
+          ? await tx.configuracionCuotaDeportiva.findMany({
+              where: { disciplinaId: dto.disciplinaId, activo: true },
+            })
+          : [];
+        const tarifas = Array.isArray(rawTarifas) ? rawTarifas : [];
+        const membresiaActiva = tx.membresia
+          ? await tx.membresia.findFirst({
+              where: { personaId: persona.id, activo: true },
+            })
+          : null;
+
+        const tarifa = tarifaVigente(
+          tarifas.map((t) => ({
+            id: t.id,
+            categoriaDisciplinaId: t.categoriaDisciplinaId,
+            periodoAplicacion: t.periodoAplicacion,
+            monto: Number(t.monto),
+            descuentoSocioPorcentaje: t.descuentoSocioPorcentaje,
+            activo: t.activo,
+          })),
+          dto.categoriaDisciplinaId ?? null,
+          periodo,
+        );
+        const esSocio = !!membresiaActiva;
+        const cuotaGenerada = tarifa
+          ? {
+              periodo,
+              monto: montoACobrar(tarifa, esSocio),
+              montoTarifa: Number(tarifa.monto),
+              descuentoSocioPorcentaje: esSocio ? tarifa.descuentoSocioPorcentaje : 0,
+              esSocio,
+              sinTarifa: false,
+            }
+          : {
+              periodo,
+              monto: null,
+              montoTarifa: null,
+              descuentoSocioPorcentaje: 0,
+              esSocio,
+              sinTarifa: true,
+            };
+
+        return { persona, inscripcion: inscripcionFinal, cuotaGenerada };
       });
-      // US-05: al confirmar se informa qué documentación falta y hasta cuándo.
+      // US-05: al confirmar se informa qué documentación falta y hasta cuándo, y la cuota generada.
       return {
         ...resultado,
         estadoDocumental: await this.estadoDocumentalDe(
