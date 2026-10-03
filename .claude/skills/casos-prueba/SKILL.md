@@ -19,7 +19,8 @@ al **comportamiento real del código**, no inventados.
 
 ## Entrada
 La US a cubrir: **título + criterios de aceptación**. Si el usuario no los pega,
-pedírselos o leerlos del issue de GitHub de esa US. Confirmar en qué repo vive la
+leerlos del backlog de Drive con el skill `/backlog` (criterios vigentes); si no
+hay conector de Drive, pedírselos o leerlos del issue de GitHub de esa US. Confirmar en qué repo vive la
 funcionalidad (back/front) para revisar el código real.
 
 ## Columnas de salida (EXACTAS, en este orden)

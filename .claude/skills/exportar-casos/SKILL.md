@@ -17,11 +17,23 @@ Objetivo: cerrar el circuito **definir → documentar**: que los casos de
 y apenda las filas con IDs correlativos, respetando el quoting del CSV.
 
 ## Pasos
+0. **Traer la planilla viva de Drive** (si la sesión tiene el conector de Google
+   Drive): `download_file_content` con el ID del plan de testing (ver
+   `docs/README.md` § *Planillas en Drive*) y
+   `python3 scripts/drive-a-xlsx.py <archivo-guardado> <scratchpad>/plan-testing.xlsx`.
+   Después, `python3 scripts/comparar-planilla.py --xlsx <scratchpad>/plan-testing.xlsx`:
+   - **Solo en Drive** (alguien cargó casos sin pasar por el repo): mostrárselos al
+     usuario y, si confirma, `--importar` para sumarlos al consolidado.
+   - **Mismo ID, distinto contenido**: mostrarlo; no pisar nada sin confirmación.
+   - **Solo en el repo**: falta pegar el TSV en Drive.
+   Sin conector de Drive se sigue igual (el script usa la copia local o se omite):
+   **nunca frena**.
 1. Generar los casos con `/casos-prueba` para la US y guardarlos en un `.tsv`
    (o pasarlos por stdin).
 2. Apendar a la planilla:
 ```bash
-node scripts/exportar-casos.mjs --casos=casos-US-XX.tsv --csv=docs/pruebas/casos-prueba.csv
+node scripts/exportar-casos.mjs --casos=casos-US-XX.tsv --csv=docs/pruebas/casos-prueba.csv --planilla=<scratchpad>/plan-testing.xlsx
+# Sin la planilla de Drive, omitir --planilla (usa la copia local si existe)
 # Vista previa sin escribir:
 node scripts/exportar-casos.mjs --casos=casos-US-XX.tsv --csv="<ruta>" --dry-run
 ```
