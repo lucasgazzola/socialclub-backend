@@ -24,6 +24,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "prisma:check-drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url postgresql://socialclub:socialclub@localhost:5432/socialclub_shadow?schema=public --exit-code",
+    "docs:para-pegar": "node scripts/para-pegar.mjs",
     "db:shadow": "docker compose exec -T db psql -U socialclub -d postgres -c \"CREATE DATABASE socialclub_shadow;\"",
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
     "build:seed": "tsc prisma/seed.ts --ignoreConfig --outDir prisma --module nodenext --moduleResolution nodenext --target ES2023 --skipLibCheck --esModuleInterop",

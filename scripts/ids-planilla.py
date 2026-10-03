@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Lee la planilla de casos (.xlsx) y reporta el máximo TC-XXX / duplicados.
 
-Fuente de verdad para /exportar-casos: no usar docs/exportables/casos-prueba.csv
+Fuente de verdad para /exportar-casos: no usar docs/pruebas/casos-prueba.csv
 para calcular el próximo ID.
 
 Uso:
