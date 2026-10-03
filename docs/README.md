@@ -89,5 +89,7 @@ viven en **Google Drive**. Cada integrante puede bajar una copia a
 la carpeta está en `.gitignore` porque son binarios (`.docx`, `.xlsx`, `.pdf`).
 
 Los skills la leen cuando está: `/casos-prueba` toma la plantilla del plan de
-testing y la Definition of Done del documento *03 · Ciclo de vida*;
-`scripts/ids-planilla.py` lee los IDs de la planilla `.xlsx`.
+testing (`.docx`) y la Definition of Done del documento *03 · Ciclo de vida*.
+**Las planillas vivas (backlog y plan de testing) no se bajan:** se leen desde
+Drive (ver *Planillas en Drive*). Una copia local solo hace falta para trabajar
+sin el conector, y los scripts avisan que puede estar desactualizada.
