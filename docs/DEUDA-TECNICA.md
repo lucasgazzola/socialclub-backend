@@ -798,13 +798,13 @@ cátedra). En el orden de la planilla:
 | … | cada bloque posterior se desplazó | hasta `TC-090` |
 
 - Planilla local (`.xlsx`, gitignored): 90 IDs únicos, `TC-001` a `TC-090`. Las 27 ejecuciones ya cargadas se remapearon con la US que declaraban, así que las 7 que apuntaban a un ID ambiguo (todas US-02) no cambiaron.
-- `docs/exportables/casos-prueba.csv` pasó a ser el dump de esa planilla, no una fuente paralela. El mapa viejo→nuevo está en `docs/exportables/mapeo-DT-18.csv`.
+- `docs/exportables/casos-prueba.csv` (hoy `docs/pruebas/casos-prueba.csv`) pasó a ser el dump de esa planilla, no una fuente paralela. El mapa viejo→nuevo quedó en el historial de git: `git show ada3020:docs/exportables/mapeo-DT-18.csv`.
 - Los 17 casos de US-16/US-32 que estaban listos para pegar (`TC-084`..`TC-100`) pasaron a `TC-091`..`TC-107` para no chocar con los IDs nuevos de US-38/39/40.
 - Los specs que etiquetaban `TC-xxx` se remapearon **por US** (auth/US-38, socios/US-12). Los de usuarios (US-02) no se tocaron: esos IDs no cambian. Los `TC-0701` / `TC-0801` de inscripción son otro esquema y se dejaron.
-- `scripts/exportar-casos.mjs` + `scripts/ids-planilla.py` leen el máximo del `.xlsx` y de `docs/exportables/*.csv`, y se niegan a asignar si vuelven a aparecer duplicados. El próximo ID libre es **`TC-108`**.
+- `scripts/exportar-casos.mjs` + `scripts/ids-planilla.py` leen el máximo del `.xlsx` y de `docs/pruebas/*.csv`, y se niegan a asignar si vuelven a aparecer duplicados. El próximo ID libre es **`TC-108`**.
 
-La copia de Drive se actualiza pegando `docs/exportables/casos-prueba-para-pegar.tsv`
-(no el CSV). El `.xlsx` del repo es local y gitignored.
+La copia de Drive se actualiza pegando `docs/pruebas/para-pegar/casos-prueba.tsv`
+(no el CSV; lo regenera `npm run docs:para-pegar`). El `.xlsx` del repo es local y gitignored.
 
 ### DT-16 · Endpoints de inscripción sin control de rol
 **PR [#33](https://github.com/lucasgazzola/socialclub-backend/pull/33)** ·
@@ -950,29 +950,12 @@ tocar el tsconfig de build.
 
 ## Trazabilidad de casos de prueba
 
-La fuente de verdad es la planilla
-`docs/documentacion/desarrollo-del-producto/01 ... Plan de testing del producto ... .xlsx`
-(hojas *Casos de Prueba*, *Ejecución de Pruebas*, *Defectos*, *Conformidad PO*,
-*Resumen*). `docs/exportables/` versiona ese contenido en git; no reemplaza a la planilla.
-
-Estado al 16/09/2026, contrastado contra el código (IDs **después de DT-18**):
-
-| | Cantidad |
-|---|---|
-| Casos en el dump | **107 IDs únicos** (`TC-001` a `TC-107`) |
-| US con casos documentados | 18 (las 16 de la planilla original + US-16 y US-32) |
-| US implementadas en el backend | 22 (+ US-16, que no estaba etiquetada) |
-| **US implementadas sin ningún caso** | **US-06, US-08, US-09, US-11, US-24, US-31** |
-| Ejecuciones en el dump | 46 (`EJ-01` a `EJ-46`) |
-
-Archivos:
-
-- `docs/exportables/casos-prueba.csv` — dump de **Casos de Prueba** (saltos reales; lo usa `/exportar-casos`)
-- `docs/exportables/ejecucion.csv` — dump de **Ejecución de Pruebas**
-- `docs/exportables/casos-prueba-para-pegar.tsv` / `ejecucion-para-pegar.tsv` — pegar en Drive desde **A2** (`Pasos`/`Evidencia` unidos con ` / `)
-- `docs/exportables/mapeo-DT-18.csv` — histórico viejo → nuevo; no se pega
-
-No pegar los CSV en Sheets: las celdas multilínea parten filas.
+La fuente de verdad es la planilla de Drive (*Plan de testing del producto*,
+hojas *Casos de Prueba*, *Ejecución de Pruebas*, *Defectos*, *Conformidad PO*,
+*Resumen*). `docs/pruebas/` la espeja en git: consolidados, TSV para pegar y
+evidencias por historia. Cómo se organiza y cómo se actualiza:
+[`pruebas/README.md`](pruebas/README.md). Cantidades medidas al día:
+[`PLAN-TESTING.md`](PLAN-TESTING.md).
 
 ## Nomenclatura
 

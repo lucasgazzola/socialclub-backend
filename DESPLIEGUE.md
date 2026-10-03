@@ -180,7 +180,7 @@ Todo envío queda en la tabla `notificaciones` (outbox, decisión
 FALLIDA con el error, y sin SMTP configurado queda PENDIENTE hasta que se configure.
 
 Para probarlo antes con una casilla real (Gmail o Brevo desde local) o sin
-enviar nada (Mailpit): ver [`docs/evidencias/US-26/README.md`](docs/evidencias/US-26/README.md).
+enviar nada (Mailpit): ver [`docs/pruebas/evidencias/US-26/README.md`](docs/pruebas/evidencias/US-26/README.md).
 
 > Los valores reales (JWT, DB, passwords) viven en **Azure Container App secrets** y **GitHub Environment secrets**. No están en el repo.
 >
