@@ -14,7 +14,7 @@ estrategia de testing y su secuencia.
 
 | | Backend | Frontend |
 |---|---|---|
-| Tests | 526 ✅ | 406 ✅ |
+| Tests | 529 ✅ | 406 ✅ |
 | Cobertura (statements) | **77,8 %** ✅ | **70,1 %** ✅ |
 | Cobertura (ramas) | 78,5 % | 69,1 % |
 | Piso configurado (stmts / ramas / funcs / líneas) | 70 / 70 / 61 / 69 (antes 58 / 64 / 49 / 57) | 33 / 33 / 28 / 33 (antes 28 / 27 / 24 / 28) |
@@ -32,7 +32,9 @@ estrategia de testing y su secuencia.
 
 Últimas incorporaciones (03/10/2026): US-26 (alertas de documentación con aviso
 por email) con 13 casos (`TC-160`–`TC-172`) y su ejecución (`EJ-99`–`EJ-111`):
-el envío se probó con SMTP real local (Mailpit), no con el proveedor gratuito;
+el envío se probó con SMTP real local (Mailpit) y con un test de integración
+contra un servidor SMTP en memoria; capturas en `docs/evidencias/US-26/`.
+Falta probarlo con el proveedor gratuito;
 **pendiente la prueba cruzada**.
 
 Anteriores (01/10/2026): US-44 y US-48 a US-51 (categorías de

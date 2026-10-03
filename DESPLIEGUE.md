@@ -149,6 +149,9 @@ esperada: `{"alertas":N,"nuevas":M,"destinatarios":D,"enviado":true}`. Cada aler
 se avisa **una sola vez** (tabla `alertas_documentacion_notificadas`); los destinatarios
 son los usuarios activos con rol `DELEGADO`.
 
+Para probarlo antes con una casilla real (Gmail o Brevo desde local) o sin
+enviar nada (Mailpit): ver [`docs/evidencias/US-26/README.md`](docs/evidencias/US-26/README.md).
+
 > Los valores reales (JWT, DB, passwords) viven en **Azure Container App secrets** y **GitHub Environment secrets**. No están en el repo.
 >
 > **Referencia local:** `.env.example` documenta las variables (sin valores reales). El detalle de todas las credenciales está en `CREDENCIALES.md` (**gitignoreado**, no se commitea).
