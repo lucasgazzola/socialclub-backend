@@ -18,6 +18,7 @@ import { PersonasModule } from './personas/personas.module';
 import { InscripcionModule } from './inscripcion/inscripcion.module';
 import { DocumentacionModule } from './documentacion/documentacion.module';
 import { PagosModule } from './pagos/pagos.module';
+import { AlertasModule } from './alertas/alertas.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { PagosModule } from './pagos/pagos.module';
     InscripcionModule,
     DocumentacionModule,
     PagosModule,
+    AlertasModule,
   ],
   controllers: [AppController],
 })

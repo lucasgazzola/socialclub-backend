@@ -57,21 +57,31 @@ export interface EstadoDeInscripcion {
   habilitadoExcepcionalmenteHasta: Date | null;
 }
 
-const MS_DIA = 24 * 60 * 60 * 1000;
+export const MS_DIA = 24 * 60 * 60 * 1000;
 
-/** Día calendario (sin hora) como número comparable. */
-function dia(fecha: Date): number {
-  return Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+/**
+ * Día calendario (sin hora) de una fecha guardada, como número comparable.
+ * Las fechas de vencimiento viajan como "aaaa-mm-dd" y se guardan a las 00:00
+ * UTC: se leen en UTC para que en Argentina (UTC-3) no caigan el día anterior.
+ */
+export function dia(fecha: Date): number {
+  return Date.UTC(fecha.getUTCFullYear(), fecha.getUTCMonth(), fecha.getUTCDate());
+}
+
+/** Día calendario de "hoy" (un instante): el del huso horario del servidor. */
+export function diaDeHoy(hoy: Date): number {
+  return Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
 }
 
 function sumarDias(fecha: Date, dias: number): Date {
   return new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate() + dias);
 }
 
-function formatear(fecha: Date): string {
-  const dd = String(fecha.getDate()).padStart(2, '0');
-  const mm = String(fecha.getMonth() + 1).padStart(2, '0');
-  return `${dd}/${mm}/${fecha.getFullYear()}`;
+/** dd/mm/aaaa de una fecha guardada (leída en UTC, igual que `dia`). */
+export function formatear(fecha: Date): string {
+  const dd = String(fecha.getUTCDate()).padStart(2, '0');
+  const mm = String(fecha.getUTCMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${fecha.getUTCFullYear()}`;
 }
 
 /** El documento que cuenta para un tipo: el último cargado (una renovación reemplaza al anterior). */
@@ -93,7 +103,7 @@ export function estadoDeInscripcion(
   habilitacionesExcepcionales: { hasta: Date }[] = [],
   hoy: Date = new Date(),
 ): EstadoDeInscripcion {
-  const hoyDia = dia(hoy);
+  const hoyDia = diaDeHoy(hoy);
   const inicio = inscripcion.requisitosDesde ?? inscripcion.fechaInscripcion;
 
   const estados: EstadoDeDocumento[] = requisitos.map((req) => {

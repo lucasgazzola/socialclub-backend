@@ -81,6 +81,24 @@ jobs:
                      JWT_SECRET=secretref:jwt-secret \
                      SEED_ADMIN_PASSWORD=secretref:seed-admin-password"
 
+            # US-26 · Emails y tarea programada de alertas: opcionales. Si el
+            # entorno no tiene estos secrets, la API arranca igual y no envía emails.
+            if [ -n "${{ secrets.SMTP_HOST }}" ]; then
+              SECRETS="$SECRETS smtp-pass=${{ secrets.SMTP_PASS }}"
+              ENVVARS="$ENVVARS SMTP_HOST=${{ secrets.SMTP_HOST }} \
+                       SMTP_PORT=${{ secrets.SMTP_PORT || '587' }} \
+                       SMTP_USER=${{ secrets.SMTP_USER }} \
+                       MAIL_FROM=${{ secrets.MAIL_FROM }} \
+                       SMTP_PASS=secretref:smtp-pass"
+            fi
+            if [ -n "${{ secrets.ALERTAS_CRON_TOKEN }}" ]; then
+              SECRETS="$SECRETS alertas-cron-token=${{ secrets.ALERTAS_CRON_TOKEN }}"
+              ENVVARS="$ENVVARS ALERTAS_CRON_TOKEN=secretref:alertas-cron-token"
+            fi
+            if [ -n "${{ secrets.APP_URL }}" ]; then
+              ENVVARS="$ENVVARS APP_URL=${{ secrets.APP_URL }}"
+            fi
+
             if az containerapp show -g "$RESOURCE_GROUP" -n "$APP_NAME" >/dev/null 2>&1; then
               echo "Actualizando Container App existente..."
               az containerapp secret set -g "$RESOURCE_GROUP" -n "$APP_NAME" --secrets $SECRETS

@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 02/10/2026
+- **Última actualización:** 03/10/2026
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -74,9 +74,9 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
 | ✅ Resueltas | DT-01, DT-03, DT-04, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-30, DT-37, DT-38, DT-39, DT-40 |
-| 🟠 Altas pendientes | DT-02 (en curso), DT-05, DT-27 (configuración y estado documental resueltos; restan alertas, aprobación/rechazo y habilitación excepcional), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio), DT-41 |
-| 🟡 Medias pendientes | DT-10, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-32, DT-33, DT-34 |
-| ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-36 |
+| 🟠 Altas pendientes | DT-02 (en curso), DT-05, DT-27 (configuración, estado documental y alertas resueltos; restan aprobación/rechazo y habilitación excepcional), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio), DT-41 |
+| 🟡 Medias pendientes | DT-10, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-32, DT-33, DT-34, DT-42 |
+| ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-36 (alertas de documentación resueltas en US-26) |
 
 **Cobertura de tests** (medida el 02/10/2026, objetivo DoD **70 %**):
 
@@ -243,7 +243,8 @@ disciplina real (DT-30) para poder configurar estos requisitos.
   participantes y `GET /documentacion/persona/:id/estado`. La documentación se
   carga con un tipo del catálogo, solo entre los exigidos al participante; un
   documento nuevo del mismo tipo renueva al anterior.
-- **Pendiente:** alertas (US-26), aprobación/rechazo de documentos (estados
+- **Alertas resueltas en US-26 (03/10/2026):** ver [Resuelta](#us-26--alertas-por-vencimiento-de-documentación-con-aviso-por-email).
+- **Pendiente:** aprobación/rechazo de documentos (estados
   `PENDIENTE`/`APROBADA`/`RECHAZADA` de este ítem), habilitación excepcional
   (US-28, la tabla ya existe), filtro del listado por estado de habilitación
   (US-08) y que la inscripción bloqueada impida operar (US-27).
@@ -326,6 +327,20 @@ dejan de aparecer.
 `PeriodoInscripcion` con alta y baja) y calcular la deuda sobre todos ellos.
 
 ### 🟡 Medias
+
+#### DT-42 · Los delegados no están asociados a disciplinas
+*Nuevo · backend + frontend · detectado en US-26*
+
+Un usuario `DELEGADO` no tiene relación con las disciplinas que gestiona, así
+que las alertas de documentación (US-26) le llegan **de todo el club**, en el
+Inicio y por email. Con varios delegados, cada uno recibe las de todos.
+
+**Arreglo:** relación `Usuario`–`Disciplina` (tabla `delegados_disciplinas`),
+ABM en Usuarios y filtro por disciplina en `AlertasService.listar` y en los
+destinatarios de `notificar`. Mismo filtro para el listado de participantes.
+
+- **Rama sugerida:** `issue/TASK-35-DT-42-Delegado-por-disciplina`
+
 
 #### DT-10 · La pantalla de Auditoría es interminable
 *frontend · 2 SP*
@@ -537,11 +552,40 @@ confirmada; o una cuota está vencida.
 **Arreglo:** agregar notificaciones internas y, opcionalmente, email.
 
 - **Detectado en el análisis funcional de dominio (22/09/2026).**
+- **Parcialmente resuelto en US-26 (03/10/2026):** la documentación por vencer,
+  vencida o pendiente ya se avisa en el Inicio y por email a los delegados. La
+  infraestructura (`MailService` por SMTP + workflow programado) sirve para el
+  resto: solicitudes, compras y cuotas vencidas.
 - **Rama sugerida:** `issue/TASK-28-DT-36-Notificaciones`
 
 ---
 
 ## Deuda resuelta
+
+### US-26 · Alertas por vencimiento de documentación, con aviso por email
+**`feature/US-26-Alertas-vencimiento-documentacion`** (backend + frontend) · 03/10/2026
+
+- **Cálculo, no jobs:** `alertasDeDocumentacion` deriva las alertas del estado
+  documental (US-25) en el momento: documentos que vencen o cuyo plazo de
+  presentación termina en los próximos **10 días** (`DIAS_ALERTA`), más lo ya
+  vencido. El estado "Por vencer" sigue mirando 30 días; la alerta, 10.
+- **Inicio:** `GET /alertas/documentacion` (ADMIN, DELEGADO) alimenta una tabla
+  en el Inicio del ADMIN y un Inicio propio del DELEGADO (antes caía en la
+  pantalla neutra con "Hacerme socio"). Cada fila abre la documentación del
+  participante.
+- **Email:** `MailService` por SMTP genérico (nodemailer), apto para proveedores
+  gratuitos (Brevo recomendado). Sin `SMTP_HOST` no envía. El workflow
+  `alertas-documentacion.yml` despierta la API una vez por día (escala a cero:
+  un cron interno no correría) y llama a `POST /alertas/documentacion/notificar`
+  con `x-cron-token`. Cada alerta se avisa una sola vez
+  (`alertas_documentacion_notificadas`); el envío queda auditado. Configuración
+  en `DESPLIEGUE.md` §5.2.1.
+- **Fechas en UTC:** `dia`/`formatear` del estado documental leían las fechas
+  guardadas (00:00 UTC) en hora local: en Argentina un vencimiento del 10/01
+  se mostraba como 09/01 en los motivos de bloqueo. En Azure no se veía (el
+  contenedor corre en UTC). Ahora se leen en UTC y "hoy" en hora local.
+- Detectado: [DT-42](#dt-42--los-delegados-no-están-asociados-a-disciplinas).
+
 
 ### DT-01 · Cobertura de testing frontend alcanzada (70 % DoD)
 **PR [#110](https://github.com/lucasgazzola/socialclub-frontend/pull/110)** ·
@@ -918,8 +962,8 @@ Lo que ya usa el equipo, aplicado a la deuda técnica:
 
 - **Ramas:** `issue/TASK-<n>-DT-<nn>-<Descripcion-en-kebab>` para deuda
   identificada; `fix/<Descripcion>` para arreglos de configuración o tooling.
-  El número `TASK` es correlativo y global. **Último usado: TASK-33**
-  (01/10/2026).
+  El número `TASK` es correlativo y global. **Último usado: TASK-34**
+  (02/10/2026).
 - **Commits:** `<prefijo>[scope]: <descripción en minúscula>`, con el ID de la
   deuda como scope — `refactor[DT-03]: …`, `test[DT-01]: …`, `ci[lint]: …`.
   Prefijos válidos: `feat`, `fix`, `docs`, `test`, `ci`, `chore`, `refactor`.
