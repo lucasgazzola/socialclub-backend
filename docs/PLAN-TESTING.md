@@ -14,7 +14,7 @@ estrategia de testing y su secuencia.
 
 | | Backend | Frontend |
 |---|---|---|
-| Tests | 540 ✅ | 406 ✅ |
+| Tests | 565 ✅ | 412 ✅ |
 | Cobertura (statements) | **77,8 %** ✅ | **70,1 %** ✅ |
 | Cobertura (ramas) | 78,5 % | 69,1 % |
 | Piso configurado (stmts / ramas / funcs / líneas) | 70 / 70 / 61 / 69 (antes 58 / 64 / 49 / 57) | 33 / 33 / 28 / 33 (antes 28 / 27 / 24 / 28) |

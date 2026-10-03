@@ -254,8 +254,12 @@ describe('US-16 · CuotaSocialService', () => {
     it('activa la cuota que pasó a regir y desactiva las anteriores de la categoría', async () => {
       mockPrisma.categoriaSocio.findMany.mockResolvedValue([{ id: 1 }]);
       mockPrisma.configuracionCuotaSocial.findFirst.mockResolvedValue({ id: 4, activo: false });
+      mockPrisma.configuracionCuotaSocial.updateMany.mockResolvedValue({ count: 1 });
 
-      await service.sincronizarVigentes(new Date(2026, 9, 1));
+      const resumen = await service.sincronizarVigentes(new Date(2026, 9, 1));
+
+      // DT-22: el resumen queda registrado en la ejecución de la tarea automática.
+      expect(resumen).toEqual({ periodo: '2026-10', categorias: 1, activadas: 1, desactivadas: 1 });
 
       expect(mockPrisma.configuracionCuotaSocial.updateMany).toHaveBeenCalledWith({
         where: { categoriaId: 1, activo: true, id: { not: 4 } },

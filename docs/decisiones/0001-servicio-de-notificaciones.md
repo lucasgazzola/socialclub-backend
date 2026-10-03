@@ -107,8 +107,9 @@ Módulo de dominio ──► NotificacionesService (Facade)
 - La tabla `notificaciones` crece con el tiempo. Con el volumen del club no es
   un problema; si lo fuera, una tarea de limpieza de lo ENVIADO con más de N
   meses.
-- Los reintentos dependen de que algo llame a `despacharPendientes`: lo
-  dispara el servicio de tareas automáticas (decisión 0002, TASK-36).
+- Los reintentos dependen de que algo llame a `despacharPendientes`: lo hace
+  la tarea automática `reintentar-notificaciones` cada 6 horas
+  ([decisión 0002](0002-servicio-de-tareas-automaticas.md)).
 - Hoy todos los delegados reciben todas las alertas (DT-42).
 
 **Para sumar push** (guía corta)

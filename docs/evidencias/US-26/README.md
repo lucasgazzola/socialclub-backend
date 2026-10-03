@@ -3,6 +3,10 @@
 > **Desde TASK-35 (DT-36)** los avisos salen por el servicio centralizado de
 > notificaciones: cada delegado recibe **su propio email** (ya no van todos en
 > copia oculta) y el registro de lo avisado está en la tabla `notificaciones`.
+> **Desde TASK-36 (DT-22)** el envío es la tarea automática
+> `vencimientos-documentacion`: se dispara con
+> `POST /api/v1/tareas/vencimientos-documentacion/programada` (cabecera
+> `x-tareas-token`) o desde *Administración → Tareas automáticas*.
 > Las capturas de abajo son de la corrida original de US-26.
 
 Corrida del 03/10/2026 contra la API y el frontend locales (rama
@@ -48,15 +52,15 @@ SMTP_HOST=localhost
 SMTP_PORT=1025
 MAIL_FROM=avisos@socialclub.local
 APP_URL=http://localhost:5173
-ALERTAS_CRON_TOKEN=token-local-de-prueba-123
+TAREAS_TOKEN=token-local-de-prueba-123
 ```
 
 Levantar la API (`npm run dev`), correr el seed (crea el delegado
 `delegado@socialclub.local`) y disparar el aviso:
 
 ```bash
-curl -X POST -H "x-cron-token: token-local-de-prueba-123" \
-  http://localhost:3000/api/v1/alertas/documentacion/notificar
+curl -X POST -H "x-tareas-token: token-local-de-prueba-123" \
+  http://localhost:3000/api/v1/tareas/vencimientos-documentacion/programada
 ```
 
 El email aparece en <http://localhost:8025>. Para volver a enviar lo mismo,
@@ -93,6 +97,6 @@ al endpoint como en el paso 1. Si no llega, mirar *Spam* y el log de la API.
 ### 3. En el entorno de pruebas (test)
 
 Seguir `DESPLIEGUE.md` §5.2.1 (secrets del environment `test` y de
-repositorio), redesplegar y ejecutar *Actions → Alertas de documentación →
-Run workflow*. El log del job muestra la respuesta del endpoint; el delegado
-del entorno recibe el email.
+repositorio), redesplegar y ejecutar *Actions → Tareas automáticas →
+Run workflow* (tarea `vencimientos-documentacion`). El log del job muestra la
+ejecución registrada; el delegado del entorno recibe el email.
