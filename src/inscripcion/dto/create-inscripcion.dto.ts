@@ -1,4 +1,6 @@
+import { GeneroDisciplina } from '@prisma/client';
 import {
+  IsEnum,
   IsString,
   IsNotEmpty,
   IsOptional,
@@ -38,6 +40,10 @@ export class CreateInscripcionDto {
   @IsOptional()
   @IsDateString({}, { message: 'La fecha de nacimiento debe tener formato ISO (YYYY-MM-DD)' })
   fechaNacimiento?: string;
+
+  @IsOptional()
+  @IsEnum(GeneroDisciplina, { message: 'El género seleccionado no es válido' })
+  genero?: GeneroDisciplina;
 
   @IsOptional()
   @IsEmail({}, { message: 'El email no tiene un formato válido' })

@@ -202,27 +202,39 @@ export class CuotaSocialService {
     return vigentes.filter((v): v is NonNullable<typeof v> => v !== null);
   }
 
-  /** Sincroniza el flag activo con la vigencia por fecha. Se ejecuta el día 1 de cada mes. */
+  /**
+   * Sincroniza el flag activo con la vigencia por fecha. La dispara el día 1
+   * de cada mes la tarea automática `rotacion-cuota-social` (DT-22).
+   */
   async sincronizarVigentes(now = new Date()) {
     const actual = periodoActual(now);
     const categorias = await this.prisma.categoriaSocio.findMany({ select: { id: true } });
+    const resumen = {
+      periodo: actual,
+      categorias: categorias.length,
+      activadas: 0,
+      desactivadas: 0,
+    };
     for (const { id: categoriaId } of categorias) {
       const vigente = await this.prisma.configuracionCuotaSocial.findFirst({
         where: { categoriaId, periodoAplicacion: { lte: actual } },
         orderBy: { periodoAplicacion: 'desc' },
       });
       if (!vigente) continue;
-      await this.prisma.configuracionCuotaSocial.updateMany({
+      const desactivadas = await this.prisma.configuracionCuotaSocial.updateMany({
         where: { categoriaId, activo: true, id: { not: vigente.id } },
         data: { activo: false },
       });
+      resumen.desactivadas += desactivadas?.count ?? 0;
       if (!vigente.activo) {
         await this.prisma.configuracionCuotaSocial.update({
           where: { id: vigente.id },
           data: { activo: true },
         });
+        resumen.activadas++;
       }
     }
+    return resumen;
   }
 
   private validarPeriodoFuturo(periodoAplicacion: string) {

@@ -11,12 +11,16 @@ import { CategoriasModule } from './categorias/categorias.module';
 import { EventosModule } from './eventos/eventos.module';
 import { EntradasModule } from './entradas/entradas.module';
 import { DisciplinasModule } from './disciplinas/disciplinas.module';
+import { CategoriasDisciplinaModule } from './categorias-disciplina/categorias-disciplina.module';
 import { CuotasModule } from './cuotas/cuotas.module';
 import { CuotaSocialModule } from './cuota-social/cuota-social.module';
 import { PersonasModule } from './personas/personas.module';
 import { InscripcionModule } from './inscripcion/inscripcion.module';
 import { DocumentacionModule } from './documentacion/documentacion.module';
 import { PagosModule } from './pagos/pagos.module';
+import { AlertasModule } from './alertas/alertas.module';
+import { NotificacionesModule } from './notificaciones/notificaciones.module';
+import { TareasModule } from './tareas/tareas.module';
 
 @Module({
   imports: [
@@ -35,12 +39,17 @@ import { PagosModule } from './pagos/pagos.module';
     EventosModule,
     EntradasModule,
     DisciplinasModule,
+    CategoriasDisciplinaModule,
     CuotasModule,
     CuotaSocialModule,
     PersonasModule,
     InscripcionModule,
     DocumentacionModule,
     PagosModule,
+    AlertasModule,
+    // Servicios transversales (DT-36, DT-22)
+    NotificacionesModule,
+    TareasModule,
   ],
   controllers: [AppController],
 })

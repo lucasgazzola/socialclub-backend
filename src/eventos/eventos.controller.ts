@@ -24,7 +24,6 @@ export class EventosController {
   }
 
   @Get()
-  @Roles('ADMIN', 'COLABORADOR')
   @ApiOperation({
     summary: 'Listar eventos con filtros opcionales (?search=, ?soloDisponibles=, ?ordenar=)',
   })
@@ -33,7 +32,6 @@ export class EventosController {
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'COLABORADOR')
   @ApiOperation({ summary: 'Obtener un evento por id' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.eventosService.findOne(id);

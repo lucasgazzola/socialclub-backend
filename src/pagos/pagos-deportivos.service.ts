@@ -7,14 +7,32 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { RegistrarPagoDeportivoDto } from './dto/registrar-pago-deportivo.dto';
+import {
+  aPeriodo,
+  eraSocioEn,
+  montoACobrar,
+  periodosEntre,
+  tarifaVigente,
+  type TarifaDeportiva,
+} from '../cuotas/tarifas';
 
 export type EstadoDeudaDeportiva = 'AL_DIA' | 'MOROSO';
 
 export interface CuotaDeportivaPendiente {
   disciplinaId: number;
   disciplinaNombre: string;
+  categoriaNombre: string | null;
   periodo: string;
-  monto: number;
+  /** null = no hay tarifa configurada para ese período (no se puede cobrar). */
+  monto: number | null;
+  /** Tarifa sin descuento (para mostrar el descuento aplicado). */
+  montoTarifa: number | null;
+  /** Descuento de socio aplicado en ese período (0 si no era socio). */
+  descuentoSocioPorcentaje: number;
+  esSocio: boolean;
+  sinTarifa: boolean;
+  /** false si la deuda es de una disciplina ya dada de baja. */
+  inscripcionActiva: boolean;
 }
 
 /** Período "YYYY-MM" actual. */
@@ -31,36 +49,18 @@ export class PagosDeportivosService {
     private readonly auditoria: AuditoriaService,
   ) {}
 
-  /** Formatea un Date a "YYYY-MM". */
-  private toPeriodo(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    return `${year}-${month}`;
-  }
-
-  /** Genera los períodos "YYYY-MM" desde una fecha inicial hasta una final (por defecto hoy). */
-  private generarPeriodosHasta(fechaInicio: Date, fechaFin: Date = new Date()): string[] {
-    const periodos: string[] = [];
-    const actual = new Date(fechaInicio.getFullYear(), fechaInicio.getMonth(), 1);
-    const fin = new Date(fechaFin.getFullYear(), fechaFin.getMonth(), 1);
-    while (actual <= fin) {
-      periodos.push(this.toPeriodo(actual));
-      actual.setMonth(actual.getMonth() + 1);
-    }
-    return periodos;
-  }
-
   /**
-   * Obtiene la persona con sus inscripciones activas y su membresía (para
-   * resolver la categoría de socio que determina el monto de la cuota deportiva).
+   * La persona con TODAS sus inscripciones (también las dadas de baja: su
+   * deuda anterior a la baja se conserva) y sus membresías (para saber en qué
+   * meses era socia y aplicar el descuento).
    */
   private async getParticipante(personaId: number) {
     const persona = await this.prisma.persona.findUnique({
       where: { id: personaId },
       include: {
         inscripciones: {
-          where: { activo: true },
-          include: { disciplina: true },
+          include: { disciplina: true, categoriaDisciplina: true },
+          orderBy: { disciplina: { nombre: 'asc' } },
         },
         membresias: {
           include: { categoria: true },
@@ -73,84 +73,100 @@ export class PagosDeportivosService {
       throw new NotFoundException('Participante no encontrado');
     }
 
-    const membresiaActiva = persona.membresias.find((m) => m.activo);
-    const membresia = membresiaActiva ?? persona.membresias[0] ?? null;
+    const membresiaActiva = persona.membresias.find((m) => m.activo) ?? null;
+    return { persona, membresiaActiva };
+  }
 
-    return { persona, membresia };
+  /** Tarifas de las disciplinas indicadas, agrupadas por disciplina. */
+  private async getTarifas(disciplinaIds: number[]) {
+    const filas = disciplinaIds.length
+      ? await this.prisma.configuracionCuotaDeportiva.findMany({
+          where: { disciplinaId: { in: disciplinaIds } },
+        })
+      : [];
+    const porDisciplina = new Map<number, TarifaDeportiva[]>();
+    for (const f of filas) {
+      const lista = porDisciplina.get(f.disciplinaId) ?? [];
+      lista.push({
+        id: f.id,
+        categoriaDisciplinaId: f.categoriaDisciplinaId,
+        periodoAplicacion: f.periodoAplicacion,
+        monto: Number(f.monto),
+        descuentoSocioPorcentaje: f.descuentoSocioPorcentaje,
+        activo: f.activo,
+      });
+      porDisciplina.set(f.disciplinaId, lista);
+    }
+    return porDisciplina;
   }
 
   /**
-   * Determina el monto de la cuota deportiva vigente para una disciplina,
-   * categoría de socio y período dados. Toma la configuración con
-   * periodoAplicacion <= periodo (la más reciente); si no hay una anterior,
-   * usa la más antigua configurada como fallback.
+   * Períodos que se le cobran a una inscripción: desde el mes de la
+   * inscripción hasta el actual o, si se dio de baja, hasta el mes de la baja
+   * (ambos meses completos).
    */
-  async getMontoCuotaDeportiva(
-    disciplinaId: number,
-    categoriaId: number,
-    periodo: string,
-  ): Promise<number> {
-    const config = await this.prisma.configuracionCuotaDeportiva.findFirst({
-      where: { disciplinaId, categoriaId, periodoAplicacion: { lte: periodo } },
-      orderBy: { periodoAplicacion: 'desc' },
-    });
-    if (config) {
-      return Number(config.monto);
-    }
-
-    const fallback = await this.prisma.configuracionCuotaDeportiva.findFirst({
-      where: { disciplinaId, categoriaId },
-      orderBy: { periodoAplicacion: 'asc' },
-    });
-    return fallback ? Number(fallback.monto) : 0;
+  private periodosDe(inscripcion: {
+    fechaInscripcion: Date;
+    fechaBaja: Date | null;
+    activo: boolean;
+  }) {
+    const hasta = !inscripcion.activo && inscripcion.fechaBaja ? inscripcion.fechaBaja : new Date();
+    return periodosEntre(inscripcion.fechaInscripcion, hasta);
   }
 
   /**
    * US-21 — Cuotas deportivas pendientes y estado de deuda de un participante.
-   * La deuda de cada disciplina corre desde la fecha de inscripción hasta el
-   * período actual; se considera pendiente todo período sin un pago registrado.
+   * Por cada inscripción (activa o dada de baja), los meses sin pago con el
+   * monto de la tarifa vigente (disciplina o categoría) y el descuento de
+   * socio si lo era ese mes. Un mes sin tarifa figura como "sin tarifa".
    */
   async getPendientesPorPersona(personaId: number) {
-    const { persona, membresia } = await this.getParticipante(personaId);
-    const categoriaId = membresia?.categoriaId ?? null;
-
-    const pagos = await this.prisma.pagoCuotaDeportiva.findMany({
-      where: { personaId },
-    });
+    const { persona, membresiaActiva } = await this.getParticipante(personaId);
+    const tarifas = await this.getTarifas([
+      ...new Set(persona.inscripciones.map((i) => i.disciplinaId)),
+    ]);
+    const pagos = await this.prisma.pagoCuotaDeportiva.findMany({ where: { personaId } });
 
     const pendientes: CuotaDeportivaPendiente[] = [];
-    let totalAdeudado = 0;
-
     for (const inscripcion of persona.inscripciones) {
-      const periodos = this.generarPeriodosHasta(inscripcion.fechaInscripcion);
       const pagados = new Set(
         pagos.filter((p) => p.disciplinaId === inscripcion.disciplinaId).map((p) => p.periodo),
       );
-
-      for (const periodo of periodos) {
+      for (const periodo of this.periodosDe(inscripcion)) {
         if (pagados.has(periodo)) continue;
-        const monto =
-          categoriaId != null
-            ? await this.getMontoCuotaDeportiva(inscripcion.disciplinaId, categoriaId, periodo)
-            : 0;
+        const tarifa = tarifaVigente(
+          tarifas.get(inscripcion.disciplinaId) ?? [],
+          inscripcion.categoriaDisciplinaId ?? null,
+          periodo,
+        );
+        const esSocio = eraSocioEn(persona.membresias, periodo);
         pendientes.push({
           disciplinaId: inscripcion.disciplinaId,
           disciplinaNombre: inscripcion.disciplina.nombre,
+          categoriaNombre: inscripcion.categoriaDisciplina?.nombre ?? null,
           periodo,
-          monto,
+          monto: tarifa ? montoACobrar(tarifa, esSocio) : null,
+          montoTarifa: tarifa?.monto ?? null,
+          descuentoSocioPorcentaje: tarifa && esSocio ? tarifa.descuentoSocioPorcentaje : 0,
+          esSocio,
+          sinTarifa: !tarifa,
+          inscripcionActiva: inscripcion.activo,
         });
-        totalAdeudado += monto;
       }
     }
 
-    const estadoDeuda: EstadoDeudaDeportiva = pendientes.length === 0 ? 'AL_DIA' : 'MOROSO';
+    const cobrables = pendientes.filter((p) => p.monto !== null);
+    const totalAdeudado = Math.round(cobrables.reduce((s, p) => s + (p.monto ?? 0), 0) * 100) / 100;
+    // Moroso = hay meses con tarifa sin pagar. Los meses sin tarifa no se pueden cobrar.
+    const estadoDeuda: EstadoDeudaDeportiva = cobrables.length === 0 ? 'AL_DIA' : 'MOROSO';
 
     return {
       personaId: persona.id,
       participanteNombre: `${persona.nombre} ${persona.apellido}`.trim(),
       dni: persona.dni,
-      categoria: membresia?.categoria?.nombre ?? null,
-      categoriaId,
+      esSocio: !!membresiaActiva,
+      categoria: membresiaActiva?.categoria?.nombre ?? null,
+      categoriaId: membresiaActiva?.categoriaId ?? null,
       estadoDeuda,
       cuotasPendientes: pendientes,
       totalAdeudado,
@@ -175,14 +191,12 @@ export class PagosDeportivosService {
       throw new BadRequestException('No se pueden repetir períodos en la misma operación');
     }
 
-    const { persona, membresia } = await this.getParticipante(personaId);
+    const { persona } = await this.getParticipante(personaId);
 
-    // El participante debe estar inscripto y activo en la disciplina.
+    // Se puede cobrar la deuda de una inscripción activa o ya dada de baja.
     const inscripcion = persona.inscripciones.find((i) => i.disciplinaId === dto.disciplinaId);
     if (!inscripcion) {
-      throw new BadRequestException(
-        'El participante no tiene una inscripción activa en la disciplina indicada',
-      );
+      throw new BadRequestException('El participante no está inscripto en la disciplina indicada');
     }
 
     // No se permiten períodos futuros.
@@ -194,12 +208,19 @@ export class PagosDeportivosService {
       );
     }
 
-    // No se permiten períodos anteriores a la inscripción.
-    const periodoInscripcion = this.toPeriodo(inscripcion.fechaInscripcion);
+    // Solo los meses en que estuvo inscripto (desde la inscripción hasta la baja).
+    const cobrables = new Set(this.periodosDe(inscripcion));
+    const periodoInscripcion = aPeriodo(inscripcion.fechaInscripcion);
     const previos = dto.periodos.filter((p) => p < periodoInscripcion);
     if (previos.length > 0) {
       throw new BadRequestException(
         `No se permite registrar pagos anteriores a la inscripción (${periodoInscripcion}): ${previos.join(', ')}`,
+      );
+    }
+    const posterioresBaja = dto.periodos.filter((p) => !cobrables.has(p));
+    if (posterioresBaja.length > 0) {
+      throw new BadRequestException(
+        `No se permite registrar pagos posteriores a la baja de la disciplina: ${posterioresBaja.join(', ')}`,
       );
     }
 
@@ -214,29 +235,23 @@ export class PagosDeportivosService {
       );
     }
 
-    // La categoría de socio determina el monto de la cuota deportiva.
-    if (membresia?.categoriaId == null) {
-      throw new BadRequestException(
-        'No se puede determinar la cuota deportiva: el participante no tiene una categoría de socio asociada',
-      );
-    }
-
+    // TASK-33: el monto sale de la tarifa (disciplina o categoría) con el
+    // descuento de socio si lo era ese mes.
+    const tarifas = (await this.getTarifas([dto.disciplinaId])).get(dto.disciplinaId) ?? [];
     const items: { periodo: string; monto: number }[] = [];
     let montoTotal = 0;
     for (const periodo of dto.periodos) {
-      const monto = await this.getMontoCuotaDeportiva(
-        dto.disciplinaId,
-        membresia.categoriaId,
-        periodo,
-      );
-      if (monto <= 0) {
+      const tarifa = tarifaVigente(tarifas, inscripcion.categoriaDisciplinaId ?? null, periodo);
+      if (!tarifa) {
         throw new BadRequestException(
-          `No hay una cuota deportiva configurada (monto mayor a cero) para la disciplina en el período ${periodo}`,
+          `No hay una tarifa configurada para ${inscripcion.disciplina.nombre} en el período ${periodo}`,
         );
       }
+      const monto = montoACobrar(tarifa, eraSocioEn(persona.membresias, periodo));
       items.push({ periodo, monto });
       montoTotal += monto;
     }
+    montoTotal = Math.round(montoTotal * 100) / 100;
 
     const metodoPago = dto.metodoPago || 'EFECTIVO';
     const fechaHora = new Date();

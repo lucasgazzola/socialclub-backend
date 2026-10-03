@@ -36,6 +36,45 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   CORS_ORIGIN = 'http://localhost:5173';
+
+  // ── Emails (US-26). Sin SMTP_HOST no se envía nada (solo se registra en el log).
+  @IsString()
+  @IsOptional()
+  SMTP_HOST?: string;
+
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  SMTP_PORT?: number;
+
+  @IsString()
+  @IsOptional()
+  SMTP_USER?: string;
+
+  @IsString()
+  @IsOptional()
+  SMTP_PASS?: string;
+
+  @IsString()
+  @IsOptional()
+  MAIL_FROM?: string;
+
+  /** URL del frontend, para el enlace de los emails. */
+  @IsString()
+  @IsOptional()
+  APP_URL?: string;
+
+  /** Secreto con el que el workflow dispara las tareas automáticas (DT-22). */
+  @IsString()
+  @MinLength(16, { message: 'TAREAS_TOKEN debe tener al menos 16 caracteres.' })
+  @IsOptional()
+  TAREAS_TOKEN?: string;
+
+  /** Nombre anterior de TAREAS_TOKEN (US-26); se acepta mientras se migran los entornos. */
+  @IsString()
+  @MinLength(16, { message: 'ALERTAS_CRON_TOKEN debe tener al menos 16 caracteres.' })
+  @IsOptional()
+  ALERTAS_CRON_TOKEN?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

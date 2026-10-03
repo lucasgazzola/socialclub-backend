@@ -5,31 +5,42 @@ a [`DEUDA-TECNICA.md`](DEUDA-TECNICA.md): allá está el detalle por ítem, acá
 estrategia de testing y su secuencia.
 
 - **Equipo:** Nullpointer
-- **Medido el:** 16/09/2026, sobre `socialclub-backend@dev` y `socialclub-frontend@dev`
+- **Medido el:** 01/10/2026, sobre `dev` + las ramas `fix/US-50-Categorias-inactivas-en-inscripcion` (medición anterior: 16/09/2026)
 - **Versión navegable:** <https://claude.ai/code/artifact/b817ba9b-ac31-44c8-9dfb-c72ac923b7a3>
 
 ---
 
-## Estado al 16/09/2026
+## Estado al 03/10/2026
 
 | | Backend | Frontend |
 |---|---|---|
-| Tests | 217 ✅ | 122 ✅ |
-| Cobertura (statements) | 60,8 % | 31,9 % |
-| Cobertura (ramas) | 67,0 % | 31,0 % |
-| Piso configurado | 58 / 64 / 49 / 57 | 28 / 27 / 24 / 28 |
-| Módulos/features sin ningún test | `categorias` | `auditoria`, `cuota-social`, `dashboard`, `disciplinas`, `documentacion` |
+| Tests | 565 ✅ | 412 ✅ |
+| Cobertura (statements) | **77,8 %** ✅ | **70,1 %** ✅ |
+| Cobertura (ramas) | 78,5 % | 69,1 % |
+| Piso configurado (stmts / ramas / funcs / líneas) | 70 / 70 / 61 / 69 (antes 58 / 64 / 49 / 57) | 33 / 33 / 28 / 33 (antes 28 / 27 / 24 / 28) |
+| Módulos/features sin ningún test | `categorias` (categorías de socio) | `auditoria`, `cuota-social`, `dashboard` |
 
 | | Cantidad |
 |---|---|
-| US implementadas (los dos repos) | ~24 |
-| US con casos documentados | 16 |
-| **US sin ningún caso** | **8** |
-| Casos documentados | 107 filas · **107 IDs únicos** (`TC-001`–`TC-107`) |
-| Ejecuciones registradas | 46 (`EJ-01` a `EJ-46`) |
+| US implementadas (los dos repos) | ~40 |
+| US con casos documentados | 26 |
+| Casos documentados | 172 filas (`TC-001`–`TC-172`) |
+| Ejecuciones registradas | 111 (`EJ-01` a `EJ-111`) |
 
-**Objetivo de la DoD: 70 % de cobertura.** Faltan ~10 puntos en el backend y
-~38 en el frontend.
+**Objetivo de la DoD: 70 % de cobertura.** Los dos repos lo superan: backend
+77,8 % y frontend 70,1 % (DT-01, TASK-34).
+
+Últimas incorporaciones (03/10/2026): US-26 (alertas de documentación con aviso
+por email) con 13 casos (`TC-160`–`TC-172`) y su ejecución (`EJ-99`–`EJ-111`):
+el envío se probó con SMTP real local (Mailpit) y con un test de integración
+contra un servidor SMTP en memoria; capturas en `docs/evidencias/US-26/`.
+Falta probarlo con el proveedor gratuito;
+**pendiente la prueba cruzada**.
+
+Anteriores (01/10/2026): US-44 y US-48 a US-51 (categorías de
+disciplina) con 25 casos (`TC-135`–`TC-159`) y su ejecución (`EJ-74`–`EJ-98`,
+ejecutadas por el desarrollador, **pendiente la prueba cruzada**). Se corrigió
+el test intermitente de eventos (DT-38), que cortaba el CI de vez en cuando.
 
 ---
 

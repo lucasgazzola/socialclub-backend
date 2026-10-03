@@ -1,0 +1,85 @@
+# DT-22 — Disparador de las tareas automáticas.
+#
+# La API escala a cero (minReplicas 0), así que un cron dentro de Nest no
+# correría. Este workflow es el único "reloj": según el horario que disparó,
+# llama a POST /api/v1/tareas/<tarea>/programada en cada entorno. La lógica,
+# el lock y el registro de cada ejecución viven en la API (TareasService).
+#
+# Para sumar una tarea: una línea en `schedule`, su caso en "Elegir tareas" y
+# la opción en `workflow_dispatch`. Decisión: docs/decisiones/0002.
+#
+# Secrets de REPOSITORIO (no de environment: `production` tiene aprobación
+# manual y frenaría cada ejecución): TAREAS_API_URL_TEST / _MAIN y
+# TAREAS_TOKEN_TEST / _MAIN (iguales al TAREAS_TOKEN de cada API). Se aceptan
+# los nombres anteriores ALERTAS_API_URL_* / ALERTAS_CRON_TOKEN_* (US-26).
+# GitHub solo ejecuta los `schedule` desde la rama por defecto (main).
+name: Tareas automáticas
+
+on:
+  schedule:
+    - cron: '0 11 * * *' # 08:00 ART · vencimientos-documentacion
+    - cron: '30 */6 * * *' # cada 6 h · reintentar-notificaciones
+    - cron: '0 6 1 * *' # día 1, 03:00 ART · rotacion-cuota-social
+  workflow_dispatch:
+    inputs:
+      tarea:
+        description: Tarea a ejecutar
+        required: true
+        type: choice
+        options:
+          - vencimientos-documentacion
+          - reintentar-notificaciones
+          - rotacion-cuota-social
+
+permissions:
+  contents: read
+
+jobs:
+  elegir:
+    runs-on: ubuntu-latest
+    outputs:
+      tareas: ${{ steps.elegir.outputs.tareas }}
+    steps:
+      - name: Elegir tareas
+        id: elegir
+        env:
+          HORARIO: ${{ github.event.schedule }}
+          MANUAL: ${{ github.event.inputs.tarea }}
+        run: |
+          case "$HORARIO" in
+            '0 11 * * *')   TAREAS='["vencimientos-documentacion"]' ;;
+            '30 */6 * * *') TAREAS='["reintentar-notificaciones"]' ;;
+            '0 6 1 * *')    TAREAS='["rotacion-cuota-social"]' ;;
+            *)              TAREAS="[\"$MANUAL\"]" ;;
+          esac
+          echo "tareas=$TAREAS" >> "$GITHUB_OUTPUT"
+
+  ejecutar:
+    needs: elegir
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        entorno: [TEST, MAIN]
+        tarea: ${{ fromJSON(needs.elegir.outputs.tareas) }}
+    steps:
+      - name: ${{ matrix.tarea }} (${{ matrix.entorno }})
+        env:
+          API_URL: ${{ secrets[format('TAREAS_API_URL_{0}', matrix.entorno)] || secrets[format('ALERTAS_API_URL_{0}', matrix.entorno)] }}
+          TOKEN: ${{ secrets[format('TAREAS_TOKEN_{0}', matrix.entorno)] || secrets[format('ALERTAS_CRON_TOKEN_{0}', matrix.entorno)] }}
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$TOKEN" ]; then
+            echo "::notice::Tareas automáticas sin configurar para ${{ matrix.entorno }}; se omite."
+            exit 0
+          fi
+          # --max-time alto + reintentos: el primer request despierta la réplica (cold start).
+          RESPUESTA=$(curl --fail-with-body -sS --max-time 120 --retry 3 --retry-all-errors --retry-delay 20 \
+            -X POST "$API_URL/api/v1/tareas/${{ matrix.tarea }}/programada" \
+            -H "x-tareas-token: $TOKEN")
+          echo "$RESPUESTA"
+          ESTADO=$(echo "$RESPUESTA" | jq -r '.estado')
+          if [ "$ESTADO" = "FALLIDA" ]; then
+            echo "::error::La tarea ${{ matrix.tarea }} falló en ${{ matrix.entorno }}: $(echo "$RESPUESTA" | jq -r '.error')"
+            exit 1
+          fi
+          echo "::notice::${{ matrix.tarea }} en ${{ matrix.entorno }}: $ESTADO"

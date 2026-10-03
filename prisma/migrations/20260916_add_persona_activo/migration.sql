@@ -6,7 +6,7 @@
 -- la usa: baja (US-07), bloqueo de inscripción y reactivación.
 -- `DEFAULT true` deja activos a todos los existentes: estar sin disciplinas
 -- no es estar dado de baja (la baja es un acto explícito y auditado).
-ALTER TABLE "personas" ADD COLUMN "activo" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "personas" ADD COLUMN IF NOT EXISTS "activo" BOOLEAN NOT NULL DEFAULT true;
 
 -- Índice para filtrar participantes por estado.
-CREATE INDEX "personas_activo_idx" ON "personas"("activo");
+CREATE INDEX IF NOT EXISTS "personas_activo_idx" ON "personas"("activo");

@@ -187,3 +187,87 @@ Tests      177 passed (177)","","Nuevo en esta iteración: la sección pasa a p�
 "EJ-71","4.0","28/09/2026","TC-132","US-22","Colque Condo Luis Alvaro","Aprobado","PASS src/pagos/pagos-deportivos.service.spec.ts — Tests: 15 passed","","registradoPor=null cuando el pago no tiene responsable asociado; no falla."
 "EJ-72","4.0","28/09/2026","TC-133","US-22","Gerbaudo Mateo","Aprobado","PASS src/pagos/pagos-deportivos.roles.spec.ts — control de acceso (ADMIN/COLABORADOR)","","Solo lectura: el módulo expone GET de consulta y el POST de alta (US-21); no hay editar/eliminar."
 "EJ-73","4.0","28/09/2026","TC-134","US-22","Gerbaudo Mateo","Aprobado","PASS src/pagos/pagos-deportivos.roles.spec.ts — control de acceso (ADMIN/COLABORADOR)","","RolesGuard rechaza SOCIO/DELEGADO con 403 en el endpoint de historial."
+"EJ-74","4.0","01/10/2026","TC-135","US-44","Gazzola Lucas","Aprobado","POST /disciplinas → 201; respuesta con 2 requisitos y activa=true
+PASS disciplinas.service.spec.ts — Tests: 17 passed","","Alta con documentación y plazo verificada contra la API real (base temporal con migraciones). Toast y conteo ""2 tipo(s)"" verificados por lectura del componente, no en navegador. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-75","4.0","01/10/2026","TC-136","US-44","Gazzola Lucas","Aprobado","POST /disciplinas → 400 «Seleccioná al menos un documento obligatorio.»
+PASS create-disciplina.dto.spec.ts — Tests: 6 passed
+PASS disciplina.schema.test.ts — Tests 3 passed","","Front: el schema bloquea el envío con «Agregá al menos un tipo de documentación». Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-76","4.0","01/10/2026","TC-137","US-44","Gazzola Lucas","Aprobado","POST /disciplinas → 400 «No se puede repetir un tipo de documento obligatorio.»
+PASS disciplinas.service.spec.ts — Tests: 17 passed","","Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-77","4.0","01/10/2026","TC-138","US-44","Gazzola Lucas","Aprobado","POST /disciplinas (COLABORADOR) → 403 «No tenés permisos suficientes para esta operación»","","El botón «Nueva disciplina» solo se muestra a ADMIN (puedeMutar). Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-78","4.0","01/10/2026","TC-139","US-48","Gazzola Lucas","Aprobado","POST /disciplinas/{id}/categorias → 201
+PASS categorias-disciplina.service.spec.ts — Tests: 25 passed
+PASS CategoriasDisciplinaPage.test.tsx — Tests 4 passed","","Restricciones y documentación adicional guardadas; la tabla los muestra (test de página). Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-79","4.0","01/10/2026","TC-140","US-48","Gazzola Lucas","Aprobado","POST /disciplinas/{id}/categorias («SUB-15») → 409 «Ya existe una categoría con ese nombre en la disciplina»
+PASS categorias-disciplina.service.spec.ts — Tests: 25 passed","","Comparación sin distinguir mayúsculas. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-80","4.0","01/10/2026","TC-141","US-48","Gazzola Lucas","Aprobado","POST /disciplinas/{otra}/categorias («Sub-15») → 201","","Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-81","4.0","01/10/2026","TC-142","US-48","Gazzola Lucas","Aprobado","GET /disciplinas/{id}/categorias → 200 con disciplina.requerimientosDoc=[CERTIFICADO_MEDICO_APTITUD_FISICA]
+PASS CategoriaForm.test.tsx — Tests 7 passed","","Solo lectura y exclusión del selector verificadas en el test del formulario (jsdom), no en navegador. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-82","4.0","01/10/2026","TC-143","US-48","Gazzola Lucas","Aprobado","POST /disciplinas/{id}/categorias → 400 «La disciplina ya exige: Certificado médico de aptitud física.»
+PASS categorias-disciplina.service.spec.ts — Tests: 25 passed","","Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-83","4.0","01/10/2026","TC-144","US-48","Gazzola Lucas","Aprobado","POST /disciplinas/{id}/categorias → 400 «El rango de edad de la categoría debe quedar dentro del de la disciplina (6 a 18 años).»
+PASS restricciones.spec.ts — Tests: 15 passed
+PASS categorias-disciplina.service.spec.ts — Tests: 25 passed","","Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-84","4.0","01/10/2026","TC-145","US-48","Gazzola Lucas","Aprobado","POST /disciplinas/{id}/categorias → 400 «La disciplina es solo para el género Femenino: la categoría no puede definir otro.»
+PASS restricciones.spec.ts — Tests: 15 passed
+PASS CategoriaForm.test.tsx — Tests 7 passed","","El selector de la pantalla solo ofrece heredar el género (test del formulario). Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-85","4.0","01/10/2026","TC-146","US-48","Gazzola Lucas","Aprobado","POST /disciplinas/{inactiva}/categorias → 400 «No se pueden agregar categorías a una disciplina inactiva.»
+PASS CategoriasDisciplinaPage.test.tsx — Tests 4 passed","","Botón deshabilitado y aviso verificados en el test de la página. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-86","4.0","01/10/2026","TC-147","US-48","Gazzola Lucas","Aprobado","PATCH /disciplinas/{id} → 200; la categoría queda solo con SEGURO_COBERTURA_MEDICA
+PASS disciplinas.service.spec.ts — Tests: 17 passed","","Regresión de US-45: la edición de la disciplina no borra los requisitos de sus categorías y quita los que pasan a ser de la disciplina. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-87","4.0","01/10/2026","TC-148","US-49","Gazzola Lucas","Aprobado","PATCH /disciplinas/{id}/categorias/{id} → 200 (Sub-16, 14, 16)
+PASS categorias-disciplina.service.spec.ts — Tests: 25 passed","","Auditoría EDITAR con el detalle del cambio verificada en el spec del servicio. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-88","4.0","01/10/2026","TC-149","US-49","Gazzola Lucas","Aprobado","PATCH /disciplinas/{id}/categorias/{id} («primera») → 409 «Ya existe una categoría con ese nombre en la disciplina»
+PASS categorias-disciplina.service.spec.ts — Tests: 25 passed","","Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-89","4.0","01/10/2026","TC-150","US-49","Gazzola Lucas","Aprobado","PATCH /disciplinas/{id}/categorias/{id} → 400 «La edad máxima no puede ser menor que la edad mínima.»
+PASS categoria.schema.test.ts — Tests 7 passed
+PASS CategoriaForm.test.tsx — Tests 7 passed","","En la pantalla el formulario no se envía (test del formulario). Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-90","4.0","01/10/2026","TC-151","US-49","Gazzola Lucas","Aprobado","PATCH /disciplinas/{id}/categorias/{id} → 200; el requisito existente conserva su creadoEn y el nuevo toma la fecha de la modificación
+PASS categorias-disciplina.service.spec.ts — Tests: 25 passed","","Solo se verifica la fecha de vigencia. La exigencia a los ya inscriptos depende del estado documental (US-25/26), aún no implementado. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-91","4.0","01/10/2026","TC-152","US-50","Gazzola Lucas","Aprobado","DELETE /disciplinas/{id}/categorias/{id} → 200; activo=false e inscripciones=1 conservadas
+PASS categorias-disciplina.service.spec.ts — Tests: 25 passed","","Auditoría BAJA verificada en el spec del servicio. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-92","4.0","01/10/2026","TC-153","US-50","Gazzola Lucas","Aprobado","POST /inscripcion con la categoría inactiva → 400 «La categoría indicada no pertenece a esta disciplina o no está activa»
+PASS inscripcion.service.spec.ts — Tests: 38 passed
+PASS categoriasDisponibles.test.ts — Tests 3 passed","","Fix #96: el selector ya no ofrece categorías inactivas (test de categoriasDisponibles). Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-93","4.0","01/10/2026","TC-154","US-50","Gazzola Lucas","Aprobado","PATCH /inscripcion/{id} (teléfono) con la categoría dada de baja → 200
+PASS inscripcion.service.spec.ts — Tests: 38 passed
+PASS categoriasDisponibles.test.ts — Tests 3 passed","","Fix #96. La etiqueta «(dada de baja)» en la pantalla de edición no se verificó en navegador. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-94","4.0","01/10/2026","TC-155","US-50","Gazzola Lucas","Aprobado","DELETE /disciplinas/{id}/categorias/{id} (ya inactiva) → 409 «La categoría ya se encuentra inactiva»
+PASS categorias-disciplina.service.spec.ts — Tests: 25 passed","","Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-95","4.0","01/10/2026","TC-156","US-51","Gazzola Lucas","Aprobado","GET /disciplinas/{id}/categorias → 200 (2 categorías con requisitos y restricciones)
+PASS CategoriasDisciplinaPage.test.tsx — Tests 4 passed","","Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-96","4.0","01/10/2026","TC-157","US-51","Gazzola Lucas","Aprobado","GET /disciplinas/{id}/categorias?estado=INACTIVA&busqueda=sub → 200 [Sub-16]
+PASS categorias-disciplina.service.spec.ts — Tests: 25 passed
+PASS CategoriasDisciplinaPage.test.tsx — Tests 4 passed","","Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-97","4.0","01/10/2026","TC-158","US-51","Gazzola Lucas","Aprobado","GET /disciplinas/{id}/categorias?busqueda=xyz → 200 (0 ítems)
+PASS CategoriasDisciplinaPage.test.tsx — Tests 4 passed","","La pantalla muestra «No se encontraron resultados» (test de página). Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-98","4.0","01/10/2026","TC-159","US-51","Gazzola Lucas","Aprobado","GET /disciplinas/{id}/categorias (usuario sin rol administrativo) → 403 «No tenés permisos suficientes para esta operación»
+PASS categorias-disciplina.roles.spec.ts — Tests: 24 passed","","Probado con un usuario registrado sin roles; el spec de roles cubre el rol SOCIO. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-99","4.0","03/10/2026","TC-160","US-26","Gazzola Lucas","Aprobado","Login delegado@socialclub.local → Inicio con «Alertas de documentación» (11 alertas, captura a 1600 px)
+PASS DashboardPage.test.tsx · AlertasDocumentacion.test.tsx — Tests: 10 passed
+Captura: docs/evidencias/US-26/01-inicio-delegado.png","","Verificado en navegador (Chrome headless) contra la API local con el seed actual: columnas Participante, Disciplina, Documento, Fecha y Estado. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-100","4.0","03/10/2026","TC-161","US-26","Gazzola Lucas","Aprobado","PASS alertas-documentacion.spec.ts — Tests: 8 passed («incluye el día 10 y deja afuera el 11»)","","Cubierto por test unitario del cálculo. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-101","4.0","03/10/2026","TC-162","US-26","Gazzola Lucas","Aprobado","GET /alertas/documentacion → 200; filas «Falta presentar» con fecha límite (p. ej. Gazzola, Lucas · Fútbol Mayor · DNI)
+PASS alertas-documentacion.spec.ts — Tests: 8 passed
+Captura: docs/evidencias/US-26/01-inicio-delegado.png","","Verificado contra la API real y en el Inicio del delegado. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-102","4.0","03/10/2026","TC-163","US-26","Gazzola Lucas","Aprobado","PASS alertas-documentacion.spec.ts — Tests: 8 passed («marca lo vencido y los plazos terminados, y los pone primero»)","","Cubierto por test unitario; en la API local el «Vencido» aparece primero. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-103","4.0","03/10/2026","TC-164","US-26","Gazzola Lucas","Aprobado","POST /documentacion (delegado, certificado de Demo, Sofía, vence 01/10/2027) → 201; GET /alertas/documentacion pasó de 11 a 10 alertas y ya no lista ese certificado
+PASS AlertasDocumentacion.test.tsx («Ver documentación» abre la documentación del participante)
+Captura: docs/evidencias/US-26/05-alerta-ver-documentacion.png (modal abierto desde la alerta)","","Backend verificado contra la API real y modal abierto desde la alerta en navegador (captura). El refresco del Inicio al cargar se apoya en la invalidación de la query de alertas (useCrearDocumentacion). Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-104","4.0","03/10/2026","TC-165","US-26","Gazzola Lucas","Aprobado","POST /alertas/documentacion/notificar (x-cron-token) → 200 {""alertas"":11,""nuevas"":11,""destinatarios"":1,""enviado"":true}; Mailpit recibió «SocialClub · 11 alertas de documentación» para delegado@socialclub.local (CCO)
+PASS alertas.service.spec.ts — Tests: 8 passed
+Capturas: docs/evidencias/US-26/03-email-bandeja.png y 04-email-abierto.png; respuestas: docs/evidencias/US-26/notificar-api.txt
+PASS alertas.smtp.spec.ts (integración contra un servidor SMTP real en memoria) — Tests: 3 passed","","Probado con SMTP real local (Mailpit) en lugar de Brevo; el envío con el proveedor gratuito queda para el entorno de pruebas. El registro en Auditoría está cubierto por el test del servicio. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-105","4.0","03/10/2026","TC-166","US-26","Gazzola Lucas","Aprobado","Segunda llamada → 200 {""alertas"":11,""nuevas"":0,""destinatarios"":0,""enviado"":false}; Mailpit sin un segundo email
+Respuestas: docs/evidencias/US-26/notificar-api.txt","","Verificado contra la API real con Mailpit. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-106","4.0","03/10/2026","TC-167","US-26","Gazzola Lucas","Aprobado","POST /alertas/documentacion/notificar sin cabecera → 401 y con token incorrecto → 401 «Token de tarea programada inválido»
+PASS alertas.access.spec.ts — Tests: 7 passed
+Respuestas: docs/evidencias/US-26/notificar-api.txt","","Verificado contra la API real. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-107","4.0","03/10/2026","TC-168","US-26","Gazzola Lucas","Aprobado","PASS alertas.access.spec.ts («queda cerrado si el entorno no configuró el token») → ForbiddenException «El envío programado de alertas no está configurado»","","Cubierto por test del guard; no se levantó una API sin el token. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-108","4.0","03/10/2026","TC-169","US-26","Gazzola Lucas","Aprobado","PASS alertas.service.spec.ts («si el SMTP no está configurado no las marca») · mail.service.spec.ts («sin SMTP_HOST no envía y devuelve false»)
+PASS alertas.smtp.spec.ts («sin SMTP_HOST no se conecta a ningún servidor ni marca las alertas»)","","Cubierto por tests unitarios: con SMTP_HOST vacío no hay envío ni marca. La segunda parte (configurar y reenviar) se verificó al borrar las marcas locales y volver a enviar con Mailpit. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-109","4.0","03/10/2026","TC-170","US-26","Gazzola Lucas","Aprobado","GET /alertas/documentacion con colaborador@socialclub.local → 403 «No tenés permisos suficientes para esta operación»
+PASS alertas.access.spec.ts · DashboardPage.test.tsx («el COLABORADOR no ve las alertas»)","","Verificado contra la API real con COLABORADOR; el rol SOCIO por el spec de roles. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-110","4.0","03/10/2026","TC-171","US-26","Gazzola Lucas","Aprobado","PASS DashboardPage.test.tsx («el ADMIN ve las alertas de documentación en el Inicio»)
+Captura: docs/evidencias/US-26/02-inicio-admin.png","","Verificado en navegador (captura) y por test de componente. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."
+"EJ-111","4.0","03/10/2026","TC-172","US-26","Gazzola Lucas","Aprobado","PASS alertas-documentacion.spec.ts — corrida con TZ=America/Argentina/Buenos_Aires y TZ=UTC: «Vence en 4 días (07/10/2026)»","","Regresión del arreglo de fechas en UTC (afecta también los motivos de bloqueo de US-25). Suite completa backend: 526 passed en UTC. Ejecutado por el desarrollador; pendiente prueba cruzada (DoD)."

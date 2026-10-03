@@ -14,6 +14,7 @@ import { InscripcionService } from './inscripcion.service';
 import { CreateInscripcionDto } from './dto/create-inscripcion.dto';
 import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
 import { FindParticipantesQueryDto } from './dto/find-participantes-query.dto';
+import { RequisitosInscripcionQueryDto } from './dto/requisitos-inscripcion-query.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -59,6 +60,19 @@ export class InscripcionController {
   })
   findAll(@Query() query: FindParticipantesQueryDto) {
     return this.inscripcionService.findAll(query);
+  }
+
+  @Get('requisitos')
+  @ApiOperation({
+    summary:
+      'US-05 — Restricciones y documentación exigida para una disciplina/categoría (antes de inscribir)',
+  })
+  requisitos(@Query() query: RequisitosInscripcionQueryDto) {
+    return this.inscripcionService.requisitos(
+      query.disciplinaId,
+      query.categoriaDisciplinaId,
+      query.personaId,
+    );
   }
 
   @Get('persona/:personaId')

@@ -48,4 +48,16 @@ export class CrearEventoDto {
   @IsNumber()
   @Min(0)
   precio?: number;
+
+  @ApiProperty({ example: '2026-10-01T00:00:00Z' })
+  @Type(() => Date)
+  @IsOptional()
+  @IsDate()
+  inicioVenta?: Date;
+
+  @ApiProperty({ example: '2026-12-01T00:00:00Z' })
+  @Type(() => Date)
+  @IsOptional()
+  @IsDate()
+  finVenta?: Date;
 }

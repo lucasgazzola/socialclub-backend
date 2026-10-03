@@ -14,6 +14,12 @@ import {
   FindParticipantesQueryDto,
 } from './dto/find-participantes-query.dto';
 import { AuditoriaService } from '../auditoria/auditoria.service';
+import { EstadoDocumentalService } from '../documentacion/estado-documental.service';
+import {
+  motivosDeIncumplimiento,
+  restriccionesEfectivas,
+  type Restricciones,
+} from '../disciplinas/restricciones';
 
 type InscConRelaciones = Pick<
   Prisma.InscripcionGetPayload<{
@@ -25,6 +31,7 @@ type InscConRelaciones = Pick<
   | 'categoriaDisciplinaId'
   | 'categoriaDisciplina'
   | 'fechaInscripcion'
+  | 'fechaBaja'
   | 'activo'
 >;
 
@@ -37,7 +44,87 @@ export class InscripcionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
+    private readonly estadoDocumental: EstadoDocumentalService,
   ) {}
+
+  /**
+   * DT-39 (US-05/06): el participante tiene que cumplir las restricciones de
+   * género y edad de la categoría o, si no las define, de la disciplina. La
+   * edad es la que cumple en el año (por año de nacimiento).
+   */
+  private validarRestricciones(
+    participante: Parameters<typeof motivosDeIncumplimiento>[0],
+    disciplina: Restricciones & { nombre: string },
+    categoria: (Restricciones & { nombre: string }) | null | undefined,
+  ) {
+    const motivos = motivosDeIncumplimiento(
+      participante,
+      restriccionesEfectivas(disciplina, categoria),
+    );
+    if (motivos.length) {
+      const destino = categoria ? `${disciplina.nombre} · ${categoria.nombre}` : disciplina.nombre;
+      throw new BadRequestException(
+        `El participante no cumple las restricciones de ${destino}. ${motivos.join(' ')}`,
+      );
+    }
+  }
+
+  /**
+   * El email es único por persona: si ya lo tiene OTRA persona se rechaza con
+   * un mensaje claro (antes la base cortaba el alta y el mensaje hablaba del DNI).
+   */
+  private async validarEmailDisponible(
+    email: string | undefined,
+    propia: { id?: number; dni?: string | null },
+  ) {
+    if (!email) return;
+    const conEseEmail = await this.prisma.persona.findUnique({ where: { email } });
+    const esLaMisma =
+      !!conEseEmail &&
+      ((propia.id !== undefined && conEseEmail.id === propia.id) ||
+        (!!propia.dni && conEseEmail.dni === propia.dni));
+    if (conEseEmail && !esLaMisma) {
+      throw new ConflictException('El email ya está registrado por otra persona');
+    }
+  }
+
+  /** Traduce un choque de unicidad de la base al campo que lo provocó. */
+  private mensajeDuplicado(error: PrismaClientKnownRequestError, porDefecto: string) {
+    const campos = JSON.stringify(error.meta?.target ?? '');
+    if (campos.includes('email')) return 'El email ya está registrado por otra persona';
+    if (campos.includes('dni')) return 'Ya existe una persona registrada con ese DNI';
+    return porDefecto;
+  }
+
+  /** US-05/25: estado documental de una inscripción recién creada o editada. */
+  private async estadoDocumentalDe(personaId: number, inscripcionId: number) {
+    const resumen = await this.estadoDocumental.porPersona(personaId);
+    return resumen.inscripciones.find((i) => i.inscripcionId === inscripcionId) ?? null;
+  }
+
+  /**
+   * US-05: requisitos de una inscripción antes de confirmarla — restricciones
+   * que rigen y documentación exigida (con lo que la persona ya presentó).
+   */
+  async requisitos(disciplinaId: number, categoriaDisciplinaId?: number, personaId?: number) {
+    const disciplina = await this.prisma.disciplina.findUnique({
+      where: { id: disciplinaId },
+      include: { categorias: true },
+    });
+    if (!disciplina) throw new NotFoundException('Disciplina no encontrada');
+    const categoria = categoriaDisciplinaId
+      ? disciplina.categorias.find((c) => c.id === categoriaDisciplinaId)
+      : undefined;
+    if (categoriaDisciplinaId && !categoria) {
+      throw new NotFoundException('La categoría no pertenece a esta disciplina');
+    }
+    const documentacion = await this.estadoDocumental.previsualizar(
+      disciplinaId,
+      categoria?.id ?? null,
+      personaId ?? null,
+    );
+    return { restricciones: restriccionesEfectivas(disciplina, categoria), documentacion };
+  }
 
   async create(dto: CreateInscripcionDto, responsableId: number) {
     const disciplina = await this.prisma.disciplina.findUnique({
@@ -53,7 +140,9 @@ export class InscripcionService {
       throw new BadRequestException('Disciplina inactiva');
     }
 
-    const tieneCategorias = disciplina.categorias.length > 0;
+    // US-50: una categoría dada de baja no se ofrece para nuevas inscripciones,
+    // así que solo las activas obligan a elegir categoría.
+    const tieneCategorias = disciplina.categorias.some((c) => c.activo);
 
     if (tieneCategorias && !dto.categoriaDisciplinaId) {
       throw new BadRequestException(
@@ -72,8 +161,10 @@ export class InscripcionService {
       }
     }
 
+    await this.validarEmailDisponible(dto.email, { id: dto.personaId, dni: dto.dni });
+
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const resultado = await this.prisma.$transaction(async (tx) => {
         let persona;
 
         // Modo 1: ya conocemos al participante (lo buscamos por DNI previamente).
@@ -104,11 +195,25 @@ export class InscripcionService {
                 apellido,
                 dni,
                 fechaNacimiento: dto.fechaNacimiento ? new Date(dto.fechaNacimiento) : undefined,
+                genero: dto.genero,
                 email: dto.email,
                 telefono: dto.telefono,
               },
             });
           }
+        }
+
+        // Si la persona ya existía, solo se completan los datos que le faltan
+        // (fecha de nacimiento y género, que piden las restricciones): nunca se
+        // pisan datos cargados.
+        const faltantes = {
+          ...(!persona.fechaNacimiento && dto.fechaNacimiento
+            ? { fechaNacimiento: new Date(dto.fechaNacimiento) }
+            : {}),
+          ...(!persona.genero && dto.genero ? { genero: dto.genero } : {}),
+        };
+        if (Object.keys(faltantes).length) {
+          persona = await tx.persona.update({ where: { id: persona.id }, data: faltantes });
         }
 
         // US-07: un participante dado de baja no puede ser inscripto en ninguna
@@ -120,6 +225,12 @@ export class InscripcionService {
             'El participante está dado de baja: hay que reactivarlo antes de inscribirlo',
           );
         }
+
+        this.validarRestricciones(
+          { genero: persona.genero ?? null, fechaNacimiento: persona.fechaNacimiento ?? null },
+          disciplina,
+          disciplina.categorias.find((c) => c.id === dto.categoriaDisciplinaId),
+        );
 
         const inscripcionExistente = await tx.inscripcion.findUnique({
           where: {
@@ -145,6 +256,8 @@ export class InscripcionService {
             data: {
               activo: true,
               fechaInscripcion: new Date(),
+              fechaBaja: null,
+              requisitosDesde: null,
               categoriaDisciplinaId: dto.categoriaDisciplinaId ?? null,
             },
           });
@@ -183,11 +296,21 @@ export class InscripcionService {
 
         return { persona, inscripcion };
       });
+      // US-05: al confirmar se informa qué documentación falta y hasta cuándo.
+      return {
+        ...resultado,
+        estadoDocumental: await this.estadoDocumentalDe(
+          resultado.persona.id,
+          resultado.inscripcion.id,
+        ),
+      };
     } catch (error) {
       // Si dos requests concurrentes pasan la verificación al mismo tiempo, el
       // constraint único de la DB corta el segundo insert acá.
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException('Ya existe una persona registrada con ese DNI');
+        throw new ConflictException(
+          this.mensajeDuplicado(error, 'El participante ya está inscripto en esta disciplina'),
+        );
       }
       throw error;
     }
@@ -217,7 +340,7 @@ export class InscripcionService {
     if (!disciplinaDestino) throw new NotFoundException('Disciplina destino no encontrada');
     if (!disciplinaDestino.activo) throw new BadRequestException('Disciplina inactiva');
 
-    const tieneCategorias = disciplinaDestino.categorias.length > 0;
+    const tieneCategorias = disciplinaDestino.categorias.some((c) => c.activo);
     const disciplinaCambio = disciplinaIdDestino !== inscripcionActual.disciplinaId;
 
     let categoriaIdDestino: number | null;
@@ -229,11 +352,16 @@ export class InscripcionService {
       categoriaIdDestino = inscripcionActual.categoriaDisciplinaId ?? null;
     }
 
-    if (tieneCategorias && categoriaIdDestino === null) {
+    // US-50: la inscripción conserva su categoría aunque se haya dado de baja;
+    // solo se exige una categoría activa cuando se cambia.
+    const categoriaCambio =
+      disciplinaCambio || categoriaIdDestino !== (inscripcionActual.categoriaDisciplinaId ?? null);
+
+    if (tieneCategorias && categoriaIdDestino === null && categoriaCambio) {
       throw new BadRequestException('Debe seleccionar una categoría para esta disciplina');
     }
 
-    if (categoriaIdDestino) {
+    if (categoriaIdDestino && categoriaCambio) {
       const categoriaValida = disciplinaDestino.categorias.some(
         (c) => c.id === categoriaIdDestino && c.activo,
       );
@@ -242,6 +370,20 @@ export class InscripcionService {
           'La categoría indicada no pertenece a esta disciplina o no está activa',
         );
       }
+    }
+
+    // DT-39: se revalidan las restricciones si cambia algo que las afecta.
+    if (categoriaCambio || dto.fechaNacimiento !== undefined || dto.genero !== undefined) {
+      this.validarRestricciones(
+        {
+          genero: dto.genero ?? inscripcionActual.persona.genero ?? null,
+          fechaNacimiento: dto.fechaNacimiento
+            ? new Date(dto.fechaNacimiento)
+            : (inscripcionActual.persona.fechaNacimiento ?? null),
+        },
+        disciplinaDestino,
+        disciplinaDestino.categorias.find((c) => c.id === categoriaIdDestino),
+      );
     }
 
     const dniNuevo = dto.dni ?? inscripcionActual.persona.dni;
@@ -271,6 +413,10 @@ export class InscripcionService {
     // El DNI nuevo puede pertenecer a OTRA persona que ya esté inscripta y
     // vigente en la disciplina destino. Si el DNI no cambia, el choque contra
     // el unique ya lo cubre la verificación de arriba.
+    if (dto.email && dto.email !== inscripcionActual.persona.email) {
+      await this.validarEmailDisponible(dto.email, { id: inscripcionActual.personaId });
+    }
+
     if (dniCambio && dniNuevo) {
       const personaConMismoDni = await this.prisma.persona.findUnique({
         where: { dni: dniNuevo },
@@ -305,6 +451,7 @@ export class InscripcionService {
             fechaNacimiento: dto.fechaNacimiento
               ? new Date(dto.fechaNacimiento)
               : inscripcionActual.persona.fechaNacimiento,
+            genero: dto.genero ?? inscripcionActual.persona.genero,
             email: dto.email ?? inscripcionActual.persona.email,
             telefono: dto.telefono ?? inscripcionActual.persona.telefono,
           },
@@ -319,6 +466,8 @@ export class InscripcionService {
               data: {
                 activo: true,
                 fechaInscripcion: new Date(),
+                fechaBaja: null,
+                requisitosDesde: null,
                 categoriaDisciplinaId: categoriaIdDestino,
               },
               include: { persona: true, disciplina: true, categoriaDisciplina: true },
@@ -328,12 +477,15 @@ export class InscripcionService {
               data: {
                 disciplinaId: disciplinaIdDestino,
                 categoriaDisciplinaId: categoriaIdDestino,
+                // US-06: al cambiar de categoría/disciplina, el plazo para la
+                // documentación nueva corre desde hoy.
+                ...(categoriaCambio ? { requisitosDesde: new Date() } : {}),
               },
               include: { persona: true, disciplina: true, categoriaDisciplina: true },
             });
 
         if (inscripcionInactivaEnDestino) {
-          await tx.inscripcion.update({ where: { id }, data: { activo: false } });
+          await tx.inscripcion.update({ where: { id }, data: { activo: false, fechaBaja: new Date() } });
 
           await this.auditoria.registrar(
             {
@@ -380,7 +532,9 @@ export class InscripcionService {
       });
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException('Ya existe un participante con ese DNI en esta disciplina');
+        throw new ConflictException(
+          this.mensajeDuplicado(error, 'Ya existe un participante con ese DNI en esta disciplina'),
+        );
       }
       throw error;
     }
@@ -432,7 +586,7 @@ export class InscripcionService {
 
       await tx.inscripcion.updateMany({
         where: { personaId, activo: true },
-        data: { activo: false },
+        data: { activo: false, fechaBaja: new Date() },
       });
 
       // Una fila de auditoría por disciplina: la trazabilidad tiene que
@@ -523,6 +677,7 @@ export class InscripcionService {
       categoriaDisciplinaId: inscripcion.categoriaDisciplinaId ?? null,
       categoriaDisciplina: inscripcion.categoriaDisciplina ?? null,
       fechaInscripcion: inscripcion.fechaInscripcion,
+      fechaBaja: inscripcion.fechaBaja ?? null,
       activo: inscripcion.activo,
       estado: inscripcion.activo ? 'INSCRIPTO' : 'BAJA',
     };
@@ -607,8 +762,25 @@ export class InscripcionService {
       this.prisma.persona.count({ where }),
     ]);
 
+    const estados = await this.estadoDocumental.porPersonas(items.map((p) => p.id));
     return {
-      items: items.map((p) => this.aParticipanteAgrupado(p)),
+      items: items.map((p) => {
+        const fila = this.aParticipanteAgrupado(p);
+        const resumen = estados.get(p.id);
+        return {
+          ...fila,
+          // US-08/25: estado documental del participante (el peor de sus inscripciones).
+          estadoDocumental: resumen?.estado ?? null,
+          disciplinas: fila.disciplinas.map((d) => {
+            const detalle = resumen?.inscripciones.find((i) => i.inscripcionId === d.inscripcionId);
+            return {
+              ...d,
+              estadoDocumental: detalle?.estado ?? null,
+              motivosDocumentacion: detalle?.motivos ?? [],
+            };
+          }),
+        };
+      }),
       total,
       pagina,
       porPagina,
@@ -665,7 +837,7 @@ export class InscripcionService {
     return this.prisma.$transaction(async (tx) => {
       const dadaDeBaja = await tx.inscripcion.update({
         where: { id },
-        data: { activo: false },
+        data: { activo: false, fechaBaja: new Date() },
         include: { persona: true, disciplina: true, categoriaDisciplina: true },
       });
 

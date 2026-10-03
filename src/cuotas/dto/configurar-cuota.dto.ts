@@ -6,9 +6,14 @@ export class ConfigurarCuotaDto {
   @IsInt()
   disciplinaId: number;
 
-  @ApiProperty({ example: 1, description: 'ID de la categoría de socio' })
+  @ApiPropertyOptional({
+    example: 7,
+    description:
+      'Categoría de la disciplina. Si se omite, es la tarifa base de la disciplina; si se indica, reemplaza a la base para esa categoría.',
+  })
+  @IsOptional()
   @IsInt()
-  categoriaId: number;
+  categoriaDisciplinaId?: number;
 
   @ApiProperty({ example: 15000, description: 'Monto mensual de la cuota (mayor a cero)' })
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -26,4 +31,15 @@ export class ConfigurarCuotaDto {
     message: 'periodoAplicacion debe tener el formato YYYY-MM (ej: 2026-09)',
   })
   periodoAplicacion?: string;
+
+  @ApiPropertyOptional({
+    example: 20,
+    default: 0,
+    description: 'Descuento para socios, en porcentaje (0 a 100).',
+  })
+  @IsOptional()
+  @IsInt({ message: 'El descuento para socios debe ser un número entero.' })
+  @Min(0, { message: 'El descuento para socios no puede ser negativo.' })
+  @Max(100, { message: 'El descuento para socios no puede superar el 100 %.' })
+  descuentoSocioPorcentaje?: number;
 }

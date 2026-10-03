@@ -118,10 +118,45 @@ prisma generate → prisma migrate deploy → node prisma/seed.js → node dist/
 | `DATABASE_URL` | **secret** (`secretref:database-url`) | Con `?sslmode=require` |
 | `JWT_SECRET` | **secret** (`secretref:jwt-secret`) | Distinto por entorno |
 | `SEED_ADMIN_PASSWORD` | **secret** (`secretref:seed-admin-password`) | Distinta por entorno |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `MAIL_FROM` | env-var (opcional, US-26) | Emails de alertas. Sin `SMTP_HOST` no se envía nada. `MAIL_FROM` sin espacios (solo el email) |
+| `SMTP_PASS` | **secret** (`secretref:smtp-pass`, opcional) | Clave SMTP del proveedor |
+| `APP_URL` | env-var (opcional) | URL del front para el enlace del email |
+| `TAREAS_TOKEN` | **secret** (`secretref:tareas-token`, opcional) | Mín. 16 caracteres. Sin él, `POST /tareas/:nombre/programada` queda cerrado (403). Se acepta `ALERTAS_CRON_TOKEN`, su nombre de US-26 |
 
 ### 5.2 GitHub Environments (`test` y `production`)
 
 Secrets cargados en cada environment (los consume el CD): `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`.
+
+Opcionales (US-26, DT-36, DT-22; el CD los aplica solo si existen): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `APP_URL`, `TAREAS_TOKEN`.
+
+### 5.2.1 Emails y tareas automáticas (US-26, DT-36, DT-22)
+
+1. **Proveedor SMTP gratuito.** Recomendado: **Brevo** (300 emails/día gratis):
+   crear cuenta → *SMTP & API* → generar clave SMTP → verificar el remitente.
+   `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=587`, `SMTP_USER`=login SMTP,
+   `SMTP_PASS`=clave SMTP, `MAIL_FROM`=remitente verificado. Alternativas:
+   Gmail con contraseña de aplicación (`smtp.gmail.com:465`) o Mailtrap (solo pruebas).
+2. **Token de las tareas automáticas**, uno por entorno: `openssl rand -hex 24`.
+   Cargarlo como `TAREAS_TOKEN` en el environment (`test` / `production`).
+3. **Secrets de repositorio** para `tareas-automaticas.yml` (no de environment:
+   `production` tiene aprobación manual y frenaría cada ejecución):
+   `TAREAS_API_URL_TEST` / `TAREAS_API_URL_MAIN` (URL base de la API, sin `/api/v1`)
+   y `TAREAS_TOKEN_TEST` / `TAREAS_TOKEN_MAIN` (los mismos tokens del paso 2).
+   Si ya estaban cargados con los nombres de US-26 (`ALERTAS_*`), siguen funcionando.
+4. Redesplegar el entorno para que el CD aplique las variables.
+
+Probar a mano: *Actions → Tareas automáticas → Run workflow* y elegir la tarea,
+o desde la app: *Administración → Tareas automáticas → Ejecutar ahora*
+([decisión 0002](docs/decisiones/0002-servicio-de-tareas-automaticas.md)). La
+respuesta es la ejecución registrada (`estado`, `resultado`, `error`); el workflow
+falla si quedó `FALLIDA`. El resultado de `vencimientos-documentacion` es `{"alertas":N,"nuevas":M,"destinatarios":D,"creadas":C,"enviadas":E,"fallidas":0,"pendientes":0}`.
+Cada alerta se avisa **una sola vez** y cada delegado activo recibe su propio email.
+Todo envío queda en la tabla `notificaciones` (outbox, decisión
+[0001](docs/decisiones/0001-servicio-de-notificaciones.md)): si el SMTP falla queda
+FALLIDA con el error, y sin SMTP configurado queda PENDIENTE hasta que se configure.
+
+Para probarlo antes con una casilla real (Gmail o Brevo desde local) o sin
+enviar nada (Mailpit): ver [`docs/evidencias/US-26/README.md`](docs/evidencias/US-26/README.md).
 
 > Los valores reales (JWT, DB, passwords) viven en **Azure Container App secrets** y **GitHub Environment secrets**. No están en el repo.
 >
@@ -142,6 +177,7 @@ Workflows en `.github/workflows/` del backend:
 - **`ci.yml`** — en PRs a `dev`/`test`/`main` y push a `dev`: `npm ci` → `prisma generate` → lint → test → build. **No despliega.**
 - **`cd-test.yml`** — en push a `test`: build imagen (`target prod`) → push a ghcr → login OIDC a Azure → crea/actualiza `ca-socialclub-api-test`.
 - **`cd-main.yml`** — en push a `main`: idem, `environment: production` (**requiere aprobación manual**).
+- **`tareas-automaticas.yml`** — único reloj de las tareas automáticas (DT-22, §5.2.1): según el horario llama a `POST /api/v1/tareas/<tarea>/programada` en test y main (vencimientos de documentación a las 08:00, reintento de notificaciones cada 6 h, rotación de la cuota social el día 1). También se ejecuta a mano eligiendo la tarea. Si faltan sus secrets, se omite. GitHub solo corre los `schedule` desde `main`.
 
 Detalles: usan `docker/setup-buildx-action` (driver `docker-container`, necesario para cache `type=gha`); autenticación a ghcr con `GITHUB_TOKEN`; a Azure con OIDC. Migraciones y seed se aplican solos vía entrypoint.
 

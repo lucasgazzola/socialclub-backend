@@ -28,6 +28,7 @@
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
     "build:seed": "tsc prisma/seed.ts --ignoreConfig --outDir prisma --module nodenext --moduleResolution nodenext --target ES2023 --skipLibCheck --esModuleInterop",
     "db:setup": "prisma migrate dev && npm run prisma:seed",
+    "db:reset": "prisma db push --force-reset --accept-data-loss --skip-generate && npm run prisma:seed",
     "up": "docker compose up --build -d",
     "down": "docker compose down"
   },
@@ -45,6 +46,7 @@
     "class-validator": "0.15.1",
     "cookie-parser": "1.4.7",
     "helmet": "8.2.0",
+    "nodemailer": "10.0.14",
     "passport": "0.7.0",
     "passport-jwt": "4.0.1",
     "prisma": "6.19.3",
@@ -62,6 +64,7 @@
     "@types/jest": "30.0.0",
     "@types/multer": "^2.2.0",
     "@types/node": "^22.10.0",
+    "@types/nodemailer": "8.0.2",
     "@types/passport-jwt": "4.0.1",
     "@types/supertest": "7.2.0",
     "eslint": "10.6.0",
@@ -83,6 +86,8 @@
     "seed": "ts-node --transpile-only prisma/seed.ts"
   },
   "jest": {
+    "maxWorkers": "25%",
+    "workerIdleMemoryLimit": "512MB",
     "moduleFileExtensions": [
       "js",
       "json",
@@ -101,10 +106,10 @@
     "coverageDirectory": "../coverage",
     "coverageThreshold": {
       "global": {
-        "statements": 58,
-        "branches": 64,
-        "functions": 49,
-        "lines": 57
+        "statements": 70,
+        "branches": 70,
+        "functions": 61,
+        "lines": 69
       }
     },
     "testEnvironment": "node"

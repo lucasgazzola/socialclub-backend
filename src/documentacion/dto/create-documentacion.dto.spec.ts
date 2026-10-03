@@ -7,9 +7,9 @@ import { CreateDocumentacionDto } from './create-documentacion.dto';
  * fecha de vencimiento (criterio de aceptación).
  */
 describe('US-24 · CreateDocumentacionDto', () => {
-  it('acepta un documento con tipo, fecha e integrante', async () => {
+  it('acepta un documento con tipo del catálogo, fecha e integrante', async () => {
     const dto = plainToInstance(CreateDocumentacionDto, {
-      tipo: 'Apto físico',
+      tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA',
       fechaVencimiento: '2026-12-31',
       personaId: 1,
     });
@@ -18,7 +18,7 @@ describe('US-24 · CreateDocumentacionDto', () => {
 
   it('rechaza si falta la fecha de vencimiento', async () => {
     const dto = plainToInstance(CreateDocumentacionDto, {
-      tipo: 'Apto físico',
+      tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA',
       personaId: 1,
     });
     const errores = await validate(dto);
@@ -31,6 +31,16 @@ describe('US-24 · CreateDocumentacionDto', () => {
       personaId: 1,
     });
     const errores = await validate(dto);
-    expect(errores.some((e) => e.property === 'tipo')).toBe(true);
+    expect(errores.some((e) => e.property === 'tipoDocumento')).toBe(true);
+  });
+
+  it('rechaza un tipo de texto libre que no está en el catálogo', async () => {
+    const dto = plainToInstance(CreateDocumentacionDto, {
+      tipoDocumento: 'Apto físico',
+      fechaVencimiento: '2026-12-31',
+      personaId: 1,
+    });
+    const errores = await validate(dto);
+    expect(errores.some((e) => e.property === 'tipoDocumento')).toBe(true);
   });
 });
