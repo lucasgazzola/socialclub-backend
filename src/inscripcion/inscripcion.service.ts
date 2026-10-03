@@ -714,14 +714,14 @@ export class InscripcionService {
   async findAll(query: FindParticipantesQueryDto = { pagina: 1, porPagina: 10 }) {
     const { busqueda, disciplinaId, estado, pagina, porPagina } = query;
 
-    const filtros: Prisma.PersonaWhereInput[] = [
+    const filtrosBase: Prisma.PersonaWhereInput[] = [
       // Solo personas que participan en al menos una disciplina.
       { inscripciones: { some: {} } },
     ];
 
     if (busqueda && busqueda.trim()) {
       const termino = busqueda.trim();
-      filtros.push({
+      filtrosBase.push({
         OR: [
           { nombre: { contains: termino, mode: 'insensitive' } },
           { apellido: { contains: termino, mode: 'insensitive' } },
@@ -732,18 +732,25 @@ export class InscripcionService {
     }
 
     if (disciplinaId) {
-      filtros.push({ inscripciones: { some: { disciplinaId } } });
+      filtrosBase.push({ inscripciones: { some: { disciplinaId } } });
     }
 
+    const whereBase: Prisma.PersonaWhereInput = { AND: filtrosBase };
+    const whereInscriptos: Prisma.PersonaWhereInput = {
+      AND: [...filtrosBase, { inscripciones: { some: { activo: true } } }],
+    };
+    const whereBaja: Prisma.PersonaWhereInput = {
+      AND: [...filtrosBase, { inscripciones: { none: { activo: true } } }],
+    };
+
+    let where: Prisma.PersonaWhereInput = whereBase;
     if (estado === EstadoInscripcionFiltro.INSCRIPTO) {
-      filtros.push({ inscripciones: { some: { activo: true } } });
+      where = whereInscriptos;
     } else if (estado === EstadoInscripcionFiltro.BAJA) {
-      filtros.push({ inscripciones: { none: { activo: true } } });
+      where = whereBaja;
     }
 
-    const where: Prisma.PersonaWhereInput = { AND: filtros };
-
-    const [items, total] = await this.prisma.$transaction([
+    const [items, total, totalTodos, totalInscriptos, totalBaja] = await this.prisma.$transaction([
       this.prisma.persona.findMany({
         where,
         include: {
@@ -760,6 +767,9 @@ export class InscripcionService {
         take: porPagina,
       }),
       this.prisma.persona.count({ where }),
+      this.prisma.persona.count({ where: whereBase }),
+      this.prisma.persona.count({ where: whereInscriptos }),
+      this.prisma.persona.count({ where: whereBaja }),
     ]);
 
     const estados = await this.estadoDocumental.porPersonas(items.map((p) => p.id));
@@ -784,6 +794,11 @@ export class InscripcionService {
       total,
       pagina,
       porPagina,
+      counts: {
+        todos: totalTodos,
+        inscriptos: totalInscriptos,
+        baja: totalBaja,
+      },
     };
   }
 
