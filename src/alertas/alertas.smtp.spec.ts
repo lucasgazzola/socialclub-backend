@@ -1,114 +1,26 @@
-import { createServer, type AddressInfo, type Server } from 'node:net';
+import type { AddressInfo, Server } from 'node:net';
+import { Global, Module } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { EstadoDocumentalService } from '../documentacion/estado-documental.service';
-import { MailService } from '../notificaciones/mail.service';
+import { NotificacionesModule } from '../notificaciones/notificaciones.module';
 import { AlertasService } from './alertas.service';
+import { AlertasDocumentacionPlantilla } from './alertas-documentacion.plantilla';
+import {
+  encabezado,
+  parteHtml,
+  servidorSmtp,
+  type MensajeRecibido,
+} from '../../test/utils/servidor-smtp';
 
 /**
- * US-26 · Integración: el aviso sale por SMTP de verdad. Se levanta un
- * servidor SMTP mínimo en memoria (sin dependencias) y se verifica lo que
- * recibe: destinatarios, asunto y contenido del email de alertas.
+ * US-26 · DT-36 · Integración: las alertas salen por el servicio de
+ * notificaciones real (facade, canal de email y proveedor SMTP) hasta un
+ * servidor SMTP en memoria. Solo se simula la base de datos.
  */
-
-interface MensajeRecibido {
-  remitente: string;
-  destinatarios: string[];
-  crudo: string;
-}
-
-/** Servidor SMTP de prueba: acepta todo y guarda cada mensaje. */
-function servidorSmtp(recibidos: MensajeRecibido[]): Server {
-  return createServer((socket) => {
-    let buffer = '';
-    let enDatos = false;
-    let actual: MensajeRecibido = { remitente: '', destinatarios: [], crudo: '' };
-    socket.write('220 smtp-de-prueba\r\n');
-    socket.on('data', (chunk) => {
-      buffer += chunk.toString('utf8');
-      while (true) {
-        if (enDatos) {
-          const fin = buffer.indexOf('\r\n.\r\n');
-          if (fin === -1) return;
-          actual.crudo = buffer.slice(0, fin);
-          recibidos.push(actual);
-          actual = { remitente: '', destinatarios: [], crudo: '' };
-          buffer = buffer.slice(fin + 5);
-          enDatos = false;
-          socket.write('250 OK\r\n');
-          continue;
-        }
-        const nl = buffer.indexOf('\r\n');
-        if (nl === -1) return;
-        const linea = buffer.slice(0, nl);
-        buffer = buffer.slice(nl + 2);
-        const cmd = linea.slice(0, 4).toUpperCase();
-        if (cmd === 'EHLO' || cmd === 'HELO') socket.write('250 smtp-de-prueba\r\n');
-        else if (cmd === 'MAIL') {
-          actual.remitente = /<(.*)>/.exec(linea)?.[1] ?? '';
-          socket.write('250 OK\r\n');
-        } else if (cmd === 'RCPT') {
-          actual.destinatarios.push(/<(.*)>/.exec(linea)?.[1] ?? '');
-          socket.write('250 OK\r\n');
-        } else if (cmd === 'DATA') {
-          enDatos = true;
-          socket.write('354 Fin con <CRLF>.<CRLF>\r\n');
-        } else if (cmd === 'QUIT') {
-          socket.end('221 Chau\r\n');
-          return;
-        } else socket.write('250 OK\r\n');
-      }
-    });
-  });
-}
-
-/** Decodifica quoted-printable (cuerpo) a texto UTF-8. */
-function desdeQuotedPrintable(texto: string): string {
-  const sinCortes = texto.replace(/=\r?\n/g, '');
-  const bytes: number[] = [];
-  for (let i = 0; i < sinCortes.length; i++) {
-    const c = sinCortes[i];
-    if (c === '=' && /^[0-9A-F]{2}$/i.test(sinCortes.slice(i + 1, i + 3))) {
-      bytes.push(parseInt(sinCortes.slice(i + 1, i + 3), 16));
-      i += 2;
-    } else bytes.push(...Buffer.from(c, 'utf8'));
-  }
-  return Buffer.from(bytes).toString('utf8');
-}
-
-/** Decodifica un encabezado RFC 2047 (=?UTF-8?Q?...?=) o lo deja como está. */
-function desdeEncabezado(valor: string): string {
-  return valor.replace(/=\?UTF-8\?([QB])\?(.*?)\?=\s*/gi, (_m, tipo: string, dato: string) =>
-    tipo.toUpperCase() === 'B'
-      ? Buffer.from(dato, 'base64').toString('utf8')
-      : desdeQuotedPrintable(dato.replace(/_/g, ' ')),
-  );
-}
-
-function encabezado(crudo: string, nombre: string): string | undefined {
-  const cabecera = crudo.split(/\r\n\r\n/)[0].replace(/\r\n[ \t]+/g, ' ');
-  const linea = cabecera
-    .split('\r\n')
-    .find((l) => l.toLowerCase().startsWith(`${nombre.toLowerCase()}:`));
-  return linea ? desdeEncabezado(linea.slice(nombre.length + 1).trim()) : undefined;
-}
-
-/** Parte HTML del mensaje multipart, decodificada. */
-function parteHtml(crudo: string): string {
-  const partes = crudo.split(/\r\n--[^\r\n]+/);
-  const html = partes.find((p) => /content-type:\s*text\/html/i.test(p)) ?? '';
-  const [cab, ...cuerpo] = html.split(/\r\n\r\n/);
-  const contenido = cuerpo.join('\r\n\r\n');
-  return /quoted-printable/i.test(cab)
-    ? desdeQuotedPrintable(contenido)
-    : /base64/i.test(cab)
-      ? Buffer.from(contenido.replace(/\s/g, ''), 'base64').toString('utf8')
-      : contenido;
-}
-
-describe('US-26 · Aviso de alertas por SMTP (integración)', () => {
+describe('US-26 · DT-36 · Aviso de alertas por SMTP (integración)', () => {
   const recibidos: MensajeRecibido[] = [];
   let servidor: Server;
   let puerto: number;
@@ -117,7 +29,7 @@ describe('US-26 · Aviso de alertas por SMTP (integración)', () => {
   const prismaMock = {
     persona: { findMany: jest.fn() },
     usuario: { findMany: jest.fn() },
-    alertaDocumentacionNotificada: { findMany: jest.fn(), createMany: jest.fn() },
+    notificacion: { findMany: jest.fn(), update: jest.fn(), createManyAndReturn: jest.fn() },
     $transaction: jest.fn(),
   };
   const estadoMock = { porPersonas: jest.fn() };
@@ -137,6 +49,9 @@ describe('US-26 · Aviso de alertas por SMTP (integración)', () => {
     recibidos.length = 0;
     jest.clearAllMocks();
     prismaMock.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(prismaMock));
+    prismaMock.notificacion.createManyAndReturn.mockImplementation(({ data }: { data: object[] }) =>
+      data.map((d, i) => ({ id: i + 1, ...d })),
+    );
     prismaMock.persona.findMany.mockResolvedValue([{ id: 10, nombre: 'Lola', apellido: 'Gómez' }]);
     estadoMock.porPersonas.mockResolvedValue(
       new Map([
@@ -167,29 +82,40 @@ describe('US-26 · Aviso de alertas por SMTP (integración)', () => {
         ],
       ]),
     );
-    prismaMock.alertaDocumentacionNotificada.findMany.mockResolvedValue([]);
-    prismaMock.usuario.findMany.mockResolvedValue([
-      { email: 'delegado1@club.test' },
-      { email: 'delegada2@club.test' },
-    ]);
+    prismaMock.notificacion.findMany.mockResolvedValue([]);
+    // usuariosConRol y luego los datos de cada destinatario.
+    prismaMock.usuario.findMany
+      .mockResolvedValueOnce([{ id: 4 }, { id: 9 }])
+      .mockResolvedValueOnce([
+        { id: 4, email: 'delegado1@club.test' },
+        { id: 9, email: 'delegada2@club.test' },
+      ]);
   });
 
-  async function servicio(env: Record<string, string>) {
+  async function alertasCon(env: Record<string, string>) {
+    // Lo que en la app proveen los módulos globales (Config, Prisma, Auditoría).
+    const servicios = [
+      { provide: ConfigService, useValue: new ConfigService(env) },
+      { provide: PrismaService, useValue: prismaMock },
+      { provide: AuditoriaService, useValue: auditoriaMock },
+    ];
+    @Global()
+    @Module({ providers: servicios, exports: servicios.map((s) => s.provide) })
+    class GlobalesDePrueba {}
+
     const modulo = await Test.createTestingModule({
+      imports: [GlobalesDePrueba, NotificacionesModule],
       providers: [
         AlertasService,
-        MailService,
-        { provide: ConfigService, useValue: new ConfigService(env) },
-        { provide: PrismaService, useValue: prismaMock },
+        AlertasDocumentacionPlantilla,
         { provide: EstadoDocumentalService, useValue: estadoMock },
-        { provide: AuditoriaService, useValue: auditoriaMock },
       ],
     }).compile();
     return modulo.get(AlertasService);
   }
 
-  it('envía un email a cada delegado (en copia oculta) con las alertas nuevas', async () => {
-    const alertas = await servicio({
+  it('envía un email a cada delegado con las alertas nuevas y los marca enviados', async () => {
+    const alertas = await alertasCon({
       SMTP_HOST: '127.0.0.1',
       SMTP_PORT: String(puerto),
       MAIL_FROM: 'avisos@socialclub.test',
@@ -198,17 +124,22 @@ describe('US-26 · Aviso de alertas por SMTP (integración)', () => {
 
     const r = await alertas.notificar(hoy);
 
-    expect(r).toEqual({ alertas: 1, nuevas: 1, destinatarios: 2, enviado: true });
-    expect(recibidos).toHaveLength(1);
+    expect(r).toEqual({
+      alertas: 1,
+      nuevas: 1,
+      destinatarios: 2,
+      creadas: 2,
+      enviadas: 2,
+      fallidas: 0,
+      pendientes: 0,
+    });
+    expect(recibidos.map((m) => m.destinatarios).sort()).toEqual([
+      ['delegada2@club.test'],
+      ['delegado1@club.test'],
+    ]);
     const [mensaje] = recibidos;
     expect(mensaje.remitente).toBe('avisos@socialclub.test');
-    // El remitente va en "Para" y los delegados en CCO: no ven las direcciones de los demás.
-    expect(mensaje.destinatarios.sort()).toEqual(
-      ['avisos@socialclub.test', 'delegada2@club.test', 'delegado1@club.test'].sort(),
-    );
-    expect(encabezado(mensaje.crudo, 'Bcc')).toBeUndefined();
     expect(encabezado(mensaje.crudo, 'Subject')).toBe('SocialClub · 1 alerta de documentación');
-
     const html = parteHtml(mensaje.crudo);
     expect(html).toContain('<meta charset="utf-8">');
     expect(html).toContain('Gómez, Lola');
@@ -217,24 +148,32 @@ describe('US-26 · Aviso de alertas por SMTP (integración)', () => {
     expect(html).toContain('08/10/2026');
     expect(html).toContain('Por vencer');
     expect(html).toContain('href="https://socialclub.test"');
-
-    expect(prismaMock.alertaDocumentacionNotificada.createMany).toHaveBeenCalled();
+    expect(prismaMock.notificacion.update).toHaveBeenCalledTimes(2);
+    expect(prismaMock.notificacion.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ estado: 'ENVIADA' }) }),
+    );
   });
 
-  it('sin SMTP_HOST no se conecta a ningún servidor ni marca las alertas', async () => {
-    const alertas = await servicio({});
+  it('sin SMTP_HOST no se conecta: las notificaciones quedan pendientes', async () => {
+    const alertas = await alertasCon({});
 
     const r = await alertas.notificar(hoy);
 
-    expect(r.enviado).toBe(false);
+    expect(r).toMatchObject({ creadas: 2, enviadas: 0, pendientes: 2 });
     expect(recibidos).toHaveLength(0);
-    expect(prismaMock.alertaDocumentacionNotificada.createMany).not.toHaveBeenCalled();
+    expect(prismaMock.notificacion.update).not.toHaveBeenCalled();
   });
 
-  it('si el servidor SMTP falla, el error sube y las alertas no quedan marcadas', async () => {
-    const alertas = await servicio({ SMTP_HOST: '127.0.0.1', SMTP_PORT: '1' });
+  it('si el SMTP no responde quedan FALLIDAS con el error, para reintentarlas', async () => {
+    const alertas = await alertasCon({ SMTP_HOST: '127.0.0.1', SMTP_PORT: '1' });
 
-    await expect(alertas.notificar(hoy)).rejects.toThrow();
-    expect(prismaMock.alertaDocumentacionNotificada.createMany).not.toHaveBeenCalled();
+    const r = await alertas.notificar(hoy);
+
+    expect(r).toMatchObject({ creadas: 2, enviadas: 0, fallidas: 2 });
+    expect(prismaMock.notificacion.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ estado: 'FALLIDA', ultimoError: expect.any(String) }),
+      }),
+    );
   });
 });

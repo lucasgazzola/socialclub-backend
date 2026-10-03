@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AlertasController } from './alertas.controller';
 import { AlertasService } from './alertas.service';
+import { AlertasDocumentacionPlantilla } from './alertas-documentacion.plantilla';
 import { CronTokenGuard } from './cron-token.guard';
 import { DocumentacionModule } from '../documentacion/documentacion.module';
 import { NotificacionesModule } from '../notificaciones/notificaciones.module';
@@ -8,6 +9,6 @@ import { NotificacionesModule } from '../notificaciones/notificaciones.module';
 @Module({
   imports: [DocumentacionModule, NotificacionesModule],
   controllers: [AlertasController],
-  providers: [AlertasService, CronTokenGuard],
+  providers: [AlertasService, AlertasDocumentacionPlantilla, CronTokenGuard],
 })
 export class AlertasModule {}

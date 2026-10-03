@@ -1,32 +1,30 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { AuditoriaService } from '../auditoria/auditoria.service';
 import { EstadoDocumentalService } from '../documentacion/estado-documental.service';
-import { MailService } from '../notificaciones/mail.service';
+import { NotificacionesService } from '../notificaciones/notificaciones.service';
+import type { ResumenEnvio } from '../notificaciones/notificaciones.types';
 import {
   alertasDeDocumentacion,
-  fechaReferencia,
   type AlertaDocumentacion,
   type InscripcionConEstado,
 } from './alertas-documentacion';
-import { asuntoAlertas, emailAlertas } from './email-alertas';
+import { AlertasDocumentacionPlantilla } from './alertas-documentacion.plantilla';
 
 /** Rol que recibe las alertas por email (US-26: "como delegado…"). */
 export const ROL_DESTINATARIO = 'DELEGADO';
 
-export interface ResultadoNotificacion {
+export interface ResultadoNotificacion extends ResumenEnvio {
   alertas: number;
   nuevas: number;
   destinatarios: number;
-  enviado: boolean;
 }
 
 /**
  * US-26 — Alertas por vencimiento de documentación.
  *
  * `listar` alimenta el panel del Inicio; `notificar` lo dispara una tarea
- * programada (GitHub Actions) y avisa por email solo lo que todavía no se avisó.
+ * programada y avisa, por el servicio de notificaciones (DT-36), solo lo que
+ * todavía no se avisó.
  */
 @Injectable()
 export class AlertasService {
@@ -35,9 +33,8 @@ export class AlertasService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly estadoDocumental: EstadoDocumentalService,
-    private readonly mail: MailService,
-    private readonly auditoria: AuditoriaService,
-    private readonly config: ConfigService,
+    private readonly notificaciones: NotificacionesService,
+    private readonly plantilla: AlertasDocumentacionPlantilla,
   ) {}
 
   /** Alertas vigentes de todas las inscripciones activas, por urgencia. */
@@ -64,30 +61,27 @@ export class AlertasService {
     return alertasDeDocumentacion(inscripciones, hoy);
   }
 
-  /** Envía por email a los delegados las alertas que todavía no se avisaron. */
+  /** Avisa a los delegados las alertas que todavía no figuran en ninguna notificación. */
   async notificar(hoy = new Date()): Promise<ResultadoNotificacion> {
     const alertas = await this.listar(hoy);
     const resultado: ResultadoNotificacion = {
       alertas: alertas.length,
       nuevas: 0,
       destinatarios: 0,
-      enviado: false,
+      creadas: 0,
+      enviadas: 0,
+      fallidas: 0,
+      pendientes: 0,
     };
-    if (!alertas.length) return resultado;
-
-    const avisadas = await this.prisma.alertaDocumentacionNotificada.findMany({
-      where: { clave: { in: alertas.map((a) => a.clave) } },
-      select: { clave: true },
-    });
-    const yaAvisadas = new Set(avisadas.map((a) => a.clave));
-    const nuevas = alertas.filter((a) => !yaAvisadas.has(a.clave));
+    const claves = await this.notificaciones.filtrarNuevas(
+      this.plantilla.tipo,
+      alertas.map((a) => a.clave),
+    );
+    const nuevas = alertas.filter((a) => claves.includes(a.clave));
     resultado.nuevas = nuevas.length;
     if (!nuevas.length) return resultado;
 
-    const destinatarios = await this.prisma.usuario.findMany({
-      where: { activo: true, roles: { some: { rol: { nombre: ROL_DESTINATARIO } } } },
-      select: { email: true },
-    });
+    const destinatarios = await this.notificaciones.usuariosConRol(ROL_DESTINATARIO);
     resultado.destinatarios = destinatarios.length;
     if (!destinatarios.length) {
       this.logger.warn(
@@ -96,36 +90,12 @@ export class AlertasService {
       return resultado;
     }
 
-    const { texto, html } = emailAlertas(nuevas, this.config.get<string>('APP_URL'));
-    resultado.enviado = await this.mail.enviar({
-      destinatarios: destinatarios.map((d) => d.email),
-      asunto: asuntoAlertas(nuevas),
-      texto,
-      html,
+    const envio = await this.notificaciones.notificar({
+      plantilla: this.plantilla,
+      datos: { alertas: nuevas },
+      destinatarios,
+      referencias: nuevas.map((a) => a.clave),
     });
-    // Sin envío real no se marcan: se avisan cuando el SMTP quede configurado.
-    if (!resultado.enviado) return resultado;
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.alertaDocumentacionNotificada.createMany({
-        data: nuevas.map((a) => ({
-          clave: a.clave,
-          inscripcionId: a.inscripcionId,
-          tipoDocumento: a.tipoDocumento,
-          tipoAlerta: a.tipo,
-          fechaReferencia: fechaReferencia(a),
-        })),
-        skipDuplicates: true,
-      });
-      await this.auditoria.registrar(
-        {
-          accion: 'CREAR',
-          entidad: 'AlertaDocumentacion',
-          detalle: `Se avisaron por email ${nuevas.length} alerta(s) de documentación a ${destinatarios.length} delegado(s)`,
-        },
-        tx,
-      );
-    });
-    return resultado;
+    return { ...resultado, ...envio };
   }
 }
