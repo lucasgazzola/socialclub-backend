@@ -4,6 +4,7 @@ import { CANALES, type Canal } from './canales/canal';
 import { CanalEmail } from './canales/canal-email';
 import { PROVEEDOR_EMAIL } from './proveedores/proveedor-email';
 import { ProveedorSmtp } from './proveedores/proveedor-smtp';
+import { ReintentarNotificacionesTarea } from './reintentar-notificaciones.tarea';
 
 /**
  * Servicio centralizado de notificaciones (DT-36). Solo exporta la facade.
@@ -21,6 +22,7 @@ import { ProveedorSmtp } from './proveedores/proveedor-smtp';
       inject: [CanalEmail],
     },
     NotificacionesService,
+    ReintentarNotificacionesTarea,
   ],
   exports: [NotificacionesService],
 })

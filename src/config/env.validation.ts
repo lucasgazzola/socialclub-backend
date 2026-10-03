@@ -64,7 +64,13 @@ class EnvironmentVariables {
   @IsOptional()
   APP_URL?: string;
 
-  /** Secreto con el que la tarea programada llama a /alertas/documentacion/notificar. */
+  /** Secreto con el que el workflow dispara las tareas automáticas (DT-22). */
+  @IsString()
+  @MinLength(16, { message: 'TAREAS_TOKEN debe tener al menos 16 caracteres.' })
+  @IsOptional()
+  TAREAS_TOKEN?: string;
+
+  /** Nombre anterior de TAREAS_TOKEN (US-26); se acepta mientras se migran los entornos. */
   @IsString()
   @MinLength(16, { message: 'ALERTAS_CRON_TOKEN debe tener al menos 16 caracteres.' })
   @IsOptional()

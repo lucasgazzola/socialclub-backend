@@ -88,6 +88,21 @@ enum EstadoNotificacion {
   FALLIDA
 }
 
+/// Quién disparó una tarea automática (DT-22).
+enum OrigenEjecucion {
+  PROGRAMADA
+  MANUAL
+}
+
+/// Resultado de una ejecución de tarea automática (DT-22).
+enum EstadoEjecucion {
+  EN_CURSO
+  EXITOSA
+  FALLIDA
+  /// No se ejecutó porque la misma tarea ya estaba corriendo.
+  OMITIDA
+}
+
 enum EstadoCompraEntrada {
   APROBADA
 }
@@ -127,6 +142,7 @@ model Usuario {
   comprasEntradas             CompraEntrada[]
   habilitacionesExcepcionales HabilitacionExcepcional[] @relation("responsableHabilitacionExcepcional")
   notificaciones              Notificacion[]
+  ejecucionesTareas           EjecucionTarea[]
 
   @@map("usuarios")
 }
@@ -566,4 +582,26 @@ model Notificacion {
   @@index([estado])
   @@index([referencias], type: Gin)
   @@map("notificaciones")
+}
+
+/// Registro de cada ejecución de una tarea automática (DT-22): cuándo corrió,
+/// quién la disparó y qué hizo. Una ejecución que quedó EN_CURSO porque el
+/// proceso se cortó se marca FALLIDA en la siguiente.
+model EjecucionTarea {
+  id        Int             @id @default(autoincrement())
+  /// Nombre de la tarea, p. ej. vencimientos-documentacion.
+  tarea     String
+  origen    OrigenEjecucion
+  /// Usuario que la ejecutó a mano (null si fue programada).
+  usuarioId Int?
+  usuario   Usuario?        @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  estado    EstadoEjecucion @default(EN_CURSO)
+  inicio    DateTime        @default(now())
+  fin       DateTime?
+  /// Resumen que devuelve la tarea (contadores).
+  resultado Json?
+  error     String?
+
+  @@index([tarea, inicio])
+  @@map("ejecuciones_tareas")
 }

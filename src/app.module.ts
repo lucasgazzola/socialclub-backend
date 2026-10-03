@@ -19,6 +19,8 @@ import { InscripcionModule } from './inscripcion/inscripcion.module';
 import { DocumentacionModule } from './documentacion/documentacion.module';
 import { PagosModule } from './pagos/pagos.module';
 import { AlertasModule } from './alertas/alertas.module';
+import { NotificacionesModule } from './notificaciones/notificaciones.module';
+import { TareasModule } from './tareas/tareas.module';
 
 @Module({
   imports: [
@@ -45,6 +47,9 @@ import { AlertasModule } from './alertas/alertas.module';
     DocumentacionModule,
     PagosModule,
     AlertasModule,
+    // Servicios transversales (DT-36, DT-22)
+    NotificacionesModule,
+    TareasModule,
   ],
   controllers: [AppController],
 })
