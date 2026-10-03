@@ -83,7 +83,7 @@ jobs:
                      JWT_SECRET=secretref:jwt-secret \
                      SEED_ADMIN_PASSWORD=secretref:seed-admin-password"
 
-            # US-26 · Emails y tarea programada de alertas: opcionales. Si el
+            # US-26 / DT-36 / DT-22 · Emails y tareas automáticas: opcionales. Si el
             # entorno no tiene estos secrets, la API arranca igual y no envía emails.
             if [ -n "${{ secrets.SMTP_HOST }}" ]; then
               SECRETS="$SECRETS smtp-pass=${{ secrets.SMTP_PASS }}"
@@ -93,9 +93,11 @@ jobs:
                        MAIL_FROM=${{ secrets.MAIL_FROM }} \
                        SMTP_PASS=secretref:smtp-pass"
             fi
-            if [ -n "${{ secrets.ALERTAS_CRON_TOKEN }}" ]; then
-              SECRETS="$SECRETS alertas-cron-token=${{ secrets.ALERTAS_CRON_TOKEN }}"
-              ENVVARS="$ENVVARS ALERTAS_CRON_TOKEN=secretref:alertas-cron-token"
+            # DT-22 · Token de las tareas automáticas (ALERTAS_CRON_TOKEN es el nombre de US-26).
+            TAREAS_TOKEN="${{ secrets.TAREAS_TOKEN || secrets.ALERTAS_CRON_TOKEN }}"
+            if [ -n "$TAREAS_TOKEN" ]; then
+              SECRETS="$SECRETS tareas-token=$TAREAS_TOKEN"
+              ENVVARS="$ENVVARS TAREAS_TOKEN=secretref:tareas-token"
             fi
             if [ -n "${{ secrets.APP_URL }}" ]; then
               ENVVARS="$ENVVARS APP_URL=${{ secrets.APP_URL }}"
