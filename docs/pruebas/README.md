@@ -32,6 +32,8 @@ pruebas/
 
 ## Flujo al cerrar una historia
 
+0. `npm run docs:comparar-planilla` (o el paso 0 de `/exportar-casos`, que baja
+   la planilla viva de Drive) → confirma que nadie cargó casos por fuera del repo.
 1. `/casos-prueba` → casos de la US (TSV temporal, fuera del repo).
 2. `/exportar-casos` → los agrega a `casos-prueba.csv` con sus IDs.
 3. `/ejecutar-pruebas` → agrega las ejecuciones a `ejecucion.csv` y, si hace

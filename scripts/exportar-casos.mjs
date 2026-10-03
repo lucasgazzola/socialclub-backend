@@ -10,6 +10,8 @@
  *   node scripts/exportar-casos.mjs --casos=nuevos.tsv --csv="docs/pruebas/casos-prueba.csv"
  *   cat nuevos.tsv | node scripts/exportar-casos.mjs --csv="ruta.csv"        (TSV por stdin)
  *   ... --dry-run     (no escribe; solo muestra las filas con su ID)
+ *   ... --planilla=<xlsx>  (la planilla bajada de Drive: toma de ahí el máximo ID y la
+ *                          compara con el repo; sin esta opción usa la copia local, si existe)
  *
  * Columnas destino: ID Caso | US asociada | Objetivo | Precondición | Datos de entrada | Pasos | Resultado Esperado | Prioridad | Tipo | Ejecutor
  */
@@ -52,7 +54,14 @@ const repoRoot = join(here, '..');
 
 let maxId = 0;
 
-const py = spawnSync('python3', [join(here, 'ids-planilla.py'), '--max', '--check'], {
+// Comparación con la planilla (Drive o copia local): informa, nunca frena.
+const planilla = args.planilla ? ['--xlsx', args.planilla] : [];
+const comparacion = spawnSync('python3', [join(here, 'comparar-planilla.py'), ...planilla], {
+  encoding: 'utf8',
+});
+if (comparacion.stdout) console.error(comparacion.stdout.trimEnd());
+
+const py = spawnSync('python3', [join(here, 'ids-planilla.py'), '--max', '--check', ...planilla], {
   encoding: 'utf8',
 });
 if (py.status === 2) {

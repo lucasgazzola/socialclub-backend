@@ -50,6 +50,36 @@ del producto*. Un CSV consolidado por hoja (`casos-prueba.csv`,
 con `npm run docs:para-pegar`) y la evidencia de cada historia
 (`evidencias/US-XX/`).
 
+## Planillas en Drive
+
+Dos planillas siguen vivas en Drive y el equipo las edita ahí. **No hace falta
+descargarlas**: con el conector de Google Drive, Claude las lee en vivo por su ID
+(skills `/backlog` y `/exportar-casos`). Sin el conector, se baja una copia a
+`docs/documentacion/desarrollo-del-producto/` y los mismos scripts la usan; si
+no hay ninguna, avisan y siguen sin fallar.
+
+| Planilla | Archivo en Drive | ID | Hojas | Para qué |
+|---|---|---|---|---|
+| **Product Backlog** | `01 UTN FRVM - PF 2026 – Sprint 0 - Equipo 12 v1.0.xlsx` (carpeta de Lautaro) | `1P3uS233zCk8MnneNW7PWXtdd6eGiVKYk` | *Product Backlog*, *User Story Mapping*, *Cronograma Gantt* | Historias con descripción, **criterios de aceptación**, prioridad, SP, sprint, estado y encargado |
+| **Plan de testing** | `01 UTN FRVM - PF 2026 – Plan de testing del producto - Equipo 12 v1.0.xlsx` (carpeta de Lautaro) | `10D45E7kHWrEoQtNLveRiFosWVPu9pAuY` | *Casos de Prueba*, *Ejecución de Pruebas*, *Defectos*, *Conformidad PO*, *Resumen* | Entregable de testing; su espejo en git es [`pruebas/`](pruebas/README.md) |
+
+Enlaces: [backlog](https://drive.google.com/file/d/1P3uS233zCk8MnneNW7PWXtdd6eGiVKYk/view) ·
+[plan de testing](https://drive.google.com/file/d/10D45E7kHWrEoQtNLveRiFosWVPu9pAuY/view).
+
+| Comando | Qué hace |
+|---|---|
+| `npm run docs:backlog -- --us 26` | Detalle de una US con sus criterios (también `--sprint 5`, `--encargado Gazzola`, `--csv`) |
+| `npm run docs:comparar-planilla` | Compara la planilla de testing con `pruebas/`: casos cargados solo en Drive, faltantes, mismo ID con distinto contenido, duplicados. Con `-- --importar` suma al repo lo que solo está en Drive |
+| `python3 scripts/drive-a-xlsx.py <descarga> <salida.xlsx>` | Convierte una descarga del conector de Drive en `.xlsx` |
+
+Los dos comandos aceptan `-- --xlsx <archivo>` para usar otra copia.
+
+> **Si cambia el ID:** el ID se mantiene mientras se edite el mismo archivo o
+> se suba una versión nueva sobre él (*Administrar versiones*). Si alguien sube
+> otro archivo con el mismo nombre o lo convierte a Google Sheets, el ID cambia:
+> actualizarlo en esta tabla. Hay copias viejas que **no** son las vigentes: un
+> plan de testing en la carpeta de Colque (07/09) y `Cronograma_y_Backlog_SocialClub.xlsx` (junio).
+
 ## Documentación formal (`documentacion/`)
 
 Los entregables de la cátedra (Sprint 0 a 5, plan de testing, seguridad,
@@ -59,5 +89,7 @@ viven en **Google Drive**. Cada integrante puede bajar una copia a
 la carpeta está en `.gitignore` porque son binarios (`.docx`, `.xlsx`, `.pdf`).
 
 Los skills la leen cuando está: `/casos-prueba` toma la plantilla del plan de
-testing y la Definition of Done del documento *03 · Ciclo de vida*;
-`scripts/ids-planilla.py` lee los IDs de la planilla `.xlsx`.
+testing (`.docx`) y la Definition of Done del documento *03 · Ciclo de vida*.
+**Las planillas vivas (backlog y plan de testing) no se bajan:** se leen desde
+Drive (ver *Planillas en Drive*). Una copia local solo hace falta para trabajar
+sin el conector, y los scripts avisan que puede estar desactualizada.
