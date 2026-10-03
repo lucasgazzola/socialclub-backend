@@ -136,14 +136,38 @@ Opcionales (US-26, DT-36, DT-22; el CD los aplica solo si existen): `SMTP_HOST`,
    `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=587`, `SMTP_USER`=login SMTP,
    `SMTP_PASS`=clave SMTP, `MAIL_FROM`=remitente verificado. Alternativas:
    Gmail con contraseña de aplicación (`smtp.gmail.com:465`) o Mailtrap (solo pruebas).
-2. **Token de las tareas automáticas**, uno por entorno: `openssl rand -hex 24`.
-   Cargarlo como `TAREAS_TOKEN` en el environment (`test` / `production`).
-3. **Secrets de repositorio** para `tareas-automaticas.yml` (no de environment:
-   `production` tiene aprobación manual y frenaría cada ejecución):
-   `TAREAS_API_URL_TEST` / `TAREAS_API_URL_MAIN` (URL base de la API, sin `/api/v1`)
-   y `TAREAS_TOKEN_TEST` / `TAREAS_TOKEN_MAIN` (los mismos tokens del paso 2).
-   Si ya estaban cargados con los nombres de US-26 (`ALERTAS_*`), siguen funcionando.
+2. **Token de las tareas automáticas** (`TAREAS_TOKEN`): no lo emite ningún
+   servicio, se genera a mano y es un secreto compartido entre la API y el
+   workflow. Uno **distinto por entorno**, mínimo 16 caracteres:
+   `openssl rand -hex 24` (o `node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"`).
+   Cargarlo como secret del environment (`test` / `production`); el CD se lo pasa
+   a la API.
+3. **Secrets de repositorio** para `tareas-automaticas.yml`. Van a nivel
+   repositorio y no de environment, porque `production` tiene aprobación manual
+   y frenaría cada ejecución. El workflow corre en GitHub, fuera de Azure: con
+   la URL sabe a qué API llamar y con el token se autentica.
+
+   | Secret | Valor |
+   |---|---|
+   | `TAREAS_API_URL_TEST` | `https://ca-socialclub-api-test.agreeablehill-d095161e.brazilsouth.azurecontainerapps.io` |
+   | `TAREAS_API_URL_MAIN` | `https://ca-socialclub-api-main.agreeablehill-d095161e.brazilsouth.azurecontainerapps.io` |
+   | `TAREAS_TOKEN_TEST` | el mismo `TAREAS_TOKEN` del environment `test` |
+   | `TAREAS_TOKEN_MAIN` | el mismo `TAREAS_TOKEN` del environment `production` |
+
+   La URL es la base de la API, **sin** `/api/v1` ni barra final (si cambia:
+   `az containerapp show -g rg-socialclub -n ca-socialclub-api-test --query properties.configuration.ingress.fqdn -o tsv`,
+   o el final del log del CD). Si a un entorno le falta la URL o el token, el
+   workflow lo **saltea con un aviso** y no falla: sirve para dejar main sin
+   tareas mientras su API esté apagada. Los nombres de US-26 (`ALERTAS_*`)
+   siguen funcionando.
 4. Redesplegar el entorno para que el CD aplique las variables.
+
+Comandos y verificación paso a paso: [`docs/RUNBOOK-OPERACIONES.md` §8](docs/RUNBOOK-OPERACIONES.md#8-tareas-automáticas-cargar-los-secrets-y-probar).
+
+> **Estado al 03/10/2026: pendiente de cargar.** Ningún entorno tiene todavía
+> `TAREAS_TOKEN` ni los secrets `TAREAS_*`, así que el workflow se saltea en
+> los dos. La API de test respondía `/health`; la de main no respondió
+> (revisión desactivada o cold start), así que conviene cargar primero solo test.
 
 Probar a mano: *Actions → Tareas automáticas → Run workflow* y elegir la tarea,
 o desde la app: *Administración → Tareas automáticas → Ejecutar ahora*
