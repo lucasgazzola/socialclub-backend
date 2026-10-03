@@ -1,5 +1,10 @@
 # Evidencia · US-26 — Alertas por vencimiento de documentación
 
+> **Desde TASK-35 (DT-36)** los avisos salen por el servicio centralizado de
+> notificaciones: cada delegado recibe **su propio email** (ya no van todos en
+> copia oculta) y el registro de lo avisado está en la tabla `notificaciones`.
+> Las capturas de abajo son de la corrida original de US-26.
+
 Corrida del 03/10/2026 contra la API y el frontend locales (rama
 `feature/US-26-Alertas-vencimiento-documentacion`), con la base local cargada
 por el seed y **Mailpit** como servidor de correo (atrapa los emails y los
@@ -17,11 +22,12 @@ muestra en el navegador; no los entrega a nadie).
 Tests automatizados que respaldan lo anterior (backend):
 
 - `src/alertas/alertas.smtp.spec.ts` — **integración**: levanta un servidor SMTP
-  en memoria y verifica lo que recibe (destinatarios en CCO, asunto, HTML con
-  cada alerta y el enlace), que sin SMTP no se conecta y que si el SMTP falla
-  las alertas no quedan marcadas.
+  en memoria y verifica lo que recibe (un email por delegado, asunto, HTML con
+  cada alerta y el enlace); sin SMTP las notificaciones quedan pendientes y si
+  el SMTP falla quedan FALLIDAS para reintentarse.
 - `alertas-documentacion.spec.ts`, `alertas.service.spec.ts`,
-  `alertas.access.spec.ts`, `email-alertas.spec.ts`, `notificaciones/mail.service.spec.ts`.
+  `alertas.access.spec.ts`, `alertas-documentacion.plantilla.spec.ts` y los de
+  `src/notificaciones/`.
 
 Frontend: `AlertasDocumentacion.test.tsx` y `DashboardPage.test.tsx`.
 
@@ -54,7 +60,7 @@ curl -X POST -H "x-cron-token: token-local-de-prueba-123" \
 ```
 
 El email aparece en <http://localhost:8025>. Para volver a enviar lo mismo,
-vaciar la tabla de avisos: `delete from alertas_documentacion_notificadas;`.
+borrar sus notificaciones: `delete from notificaciones where tipo = 'ALERTAS_DOCUMENTACION';`.
 
 ### 2. A una casilla real, desde local
 

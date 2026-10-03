@@ -40,6 +40,7 @@ está versionado, se lee en GitHub y no depende de que nadie comparta un enlace.
 | [`DEUDA-TECNICA.md`](DEUDA-TECNICA.md) | Registro de la deuda de los dos repos: qué hay, en qué orden atacarla, qué se resolvió y con qué PR. Incluye las **decisiones pendientes del equipo**. | [ver](https://claude.ai/code/artifact/36ba0d37-622d-4197-b9ad-4f24a2c6968d) |
 | [`PLAN-TESTING.md`](PLAN-TESTING.md) | Estado medido de la pata de testing, qué se automatiza con skills, qué hace falta para E2E y la secuencia de pasos. | [ver](https://claude.ai/code/artifact/b817ba9b-ac31-44c8-9dfb-c72ac923b7a3) |
 | [`GUIA-IA-EQUIPO.md`](GUIA-IA-EQUIPO.md) | Cómo usar los skills del equipo. | — |
+| [`decisiones/`](decisiones/README.md) | Registro de decisiones de arquitectura (ADR): contexto, patrones aplicados, alternativas descartadas y consecuencias. | — |
 | [`RUNBOOK-OPERACIONES.md`](RUNBOOK-OPERACIONES.md) | Comandos para operar Azure, GitHub y Vercel (promote `dev → test`, logs, reset de `socialclub_test`, CORS). Complementa [`DESPLIEGUE.md`](../DESPLIEGUE.md). | — |
 
 **Al cerrar un ítem de deuda hay que moverlo a «Deuda resuelta» con su PR y

@@ -13,7 +13,9 @@ Repo hermano: `socialclub-frontend` (SPA React que consume esta API).
 - Tests: **Jest** (unitarios con dependencias mockeadas) + supertest (e2e).
 
 ## Arquitectura y convenciones de código
-- **Un módulo por dominio** (`auth`, `usuarios`, `socios`, `categorias`, `disciplinas`, `cuotas`, `eventos`, `entradas`, `auditoria`). Escalabilidad modular.
+- **Un módulo por dominio** (`auth`, `usuarios`, `socios`, `categorias`, `disciplinas`, `cuotas`, `eventos`, `entradas`, `auditoria`, `alertas`). Escalabilidad modular.
+- **Avisos a usuarios: siempre por `NotificacionesService`** (`src/notificaciones/`, facade + canales + outbox). No enviar emails desde un módulo de dominio: se escribe una plantilla (`PlantillaEmail`) y se llama a `notificar`. Ver `docs/decisiones/0001-servicio-de-notificaciones.md`.
+- Las decisiones de arquitectura se documentan en `docs/decisiones/` (una por archivo).
 - Guards, decorators y filtros compartidos en `src/common/` (`JwtAuthGuard`, `RolesGuard`, `@Roles`, `@CurrentUser`, `HttpExceptionFilter`).
 - DTOs con decoradores de validación; `ValidationPipe` global con `whitelist + forbidNonWhitelisted + transform`.
 - Todas las rutas bajo el prefijo **`/api/v1`**.
