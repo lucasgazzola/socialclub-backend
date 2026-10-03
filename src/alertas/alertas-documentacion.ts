@@ -142,8 +142,3 @@ export function alertasDeDocumentacion(
       x.participante.localeCompare(y.participante, 'es'),
   );
 }
-
-/** Fecha (sin hora) de la alerta, como se guarda en `fechaReferencia`. */
-export function fechaReferencia(alerta: AlertaDocumentacion): Date {
-  return new Date(`${isoDia(alerta.fecha)}T00:00:00.000Z`);
-}

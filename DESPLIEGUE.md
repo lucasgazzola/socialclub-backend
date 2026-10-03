@@ -145,9 +145,11 @@ Opcionales (US-26, el CD los aplica solo si existen): `SMTP_HOST`, `SMTP_PORT`, 
 4. Redesplegar el entorno para que el CD aplique las variables.
 
 Probar a mano: *Actions → Alertas de documentación → Run workflow*. Respuesta
-esperada: `{"alertas":N,"nuevas":M,"destinatarios":D,"enviado":true}`. Cada alerta
-se avisa **una sola vez** (tabla `alertas_documentacion_notificadas`); los destinatarios
-son los usuarios activos con rol `DELEGADO`.
+esperada: `{"alertas":N,"nuevas":M,"destinatarios":D,"creadas":C,"enviadas":E,"fallidas":0,"pendientes":0}`.
+Cada alerta se avisa **una sola vez** y cada delegado activo recibe su propio email.
+Todo envío queda en la tabla `notificaciones` (outbox, decisión
+[0001](docs/decisiones/0001-servicio-de-notificaciones.md)): si el SMTP falla queda
+FALLIDA con el error, y sin SMTP configurado queda PENDIENTE hasta que se configure.
 
 Para probarlo antes con una casilla real (Gmail o Brevo desde local) o sin
 enviar nada (Mailpit): ver [`docs/evidencias/US-26/README.md`](docs/evidencias/US-26/README.md).

@@ -75,6 +75,19 @@ enum EstadoEntrada {
   EXPIRADA
 }
 
+/// Canales por los que sale una notificación (DT-36). Hoy solo email; push y
+/// bandeja interna se suman como valores nuevos sin tocar a quien notifica.
+enum CanalNotificacion {
+  EMAIL
+}
+
+/// Ciclo de vida de una notificación en el outbox (DT-36).
+enum EstadoNotificacion {
+  PENDIENTE
+  ENVIADA
+  FALLIDA
+}
+
 enum EstadoCompraEntrada {
   APROBADA
 }
@@ -113,6 +126,7 @@ model Usuario {
   pagosDeportivos             PagoCuotaDeportiva[]      @relation("responsablePagoDeportivo")
   comprasEntradas             CompraEntrada[]
   habilitacionesExcepcionales HabilitacionExcepcional[] @relation("responsableHabilitacionExcepcional")
+  notificaciones              Notificacion[]
 
   @@map("usuarios")
 }
@@ -424,30 +438,10 @@ model Inscripcion {
   actualizadoEn    DateTime  @updatedAt
 
   habilitacionesExcepcionales HabilitacionExcepcional[]
-  alertasNotificadas          AlertaDocumentacionNotificada[]
 
   @@unique([personaId, disciplinaId])
   @@index([disciplinaId])
   @@map("inscripciones")
-}
-
-/// Alertas de documentación ya avisadas por email (US-26). Las alertas se
-/// calculan en el momento a partir del estado documental; esta tabla solo
-/// recuerda qué se notificó para no repetir el mismo aviso todos los días.
-/// `clave` = inscripción + tipo de documento + tipo de alerta + fecha de
-/// referencia: una renovación o un cambio de estado generan un aviso nuevo.
-model AlertaDocumentacionNotificada {
-  id              Int                         @id @default(autoincrement())
-  clave           String                      @unique
-  inscripcionId   Int
-  inscripcion     Inscripcion                 @relation(fields: [inscripcionId], references: [id], onDelete: Cascade)
-  tipoDocumento   TipoDocumentacionDisciplina
-  tipoAlerta      String
-  fechaReferencia DateTime                    @db.Date
-  notificadaEn    DateTime                    @default(now())
-
-  @@index([inscripcionId])
-  @@map("alertas_documentacion_notificadas")
 }
 
 /// Documentación obligatoria de un participante (US-24). Habilita la
@@ -543,4 +537,33 @@ model PagoCuotaDeportiva {
   @@index([disciplinaId])
   @@index([periodo])
   @@map("pagos_cuota_deportiva")
+}
+
+/// Notificación saliente (DT-36): outbox de todos los avisos del sistema.
+/// Se guarda ANTES de enviarse, con el contenido ya armado, así un envío
+/// fallido o un canal sin configurar se reintenta igual. `referencias` son las
+/// claves de los ítems avisados (p. ej. cada alerta de documentación): un ítem
+/// ya referenciado no se vuelve a avisar.
+model Notificacion {
+  id          Int                @id @default(autoincrement())
+  /// Tipo de aviso, p. ej. ALERTAS_DOCUMENTACION.
+  tipo        String
+  canal       CanalNotificacion
+  usuarioId   Int?
+  usuario     Usuario?           @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  /// Dirección en el canal (el email al momento de crearla).
+  destino     String
+  /// Contenido ya armado por la plantilla (en email: asunto, html y texto).
+  contenido   Json
+  referencias String[]
+  estado      EstadoNotificacion @default(PENDIENTE)
+  intentos    Int                @default(0)
+  ultimoError String?
+  creadaEn    DateTime           @default(now())
+  enviadaEn   DateTime?
+
+  @@index([tipo])
+  @@index([estado])
+  @@index([referencias], type: Gin)
+  @@map("notificaciones")
 }
