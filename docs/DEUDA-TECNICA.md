@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 03/10/2026 (TASK-35)
+- **Última actualización:** 03/10/2026 (TASK-35 y TASK-36)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -37,7 +37,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-10 · La pantalla de Auditoría es interminable](#dt-10--la-pantalla-de-auditoría-es-interminable)
     - [DT-24 · La planilla documenta generación de cuotas que no existe](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe)
     - [DT-25 · La auditoría append-only no está garantizada por la base](#dt-25--la-auditoría-append-only-no-está-garantizada-por-la-base)
-    - [DT-22 · La rotación mensual de la cuota social no tiene quién la dispare](#dt-22--la-rotación-mensual-de-la-cuota-social-no-tiene-quién-la-dispare)
     - [DT-23 · El ratchet de cobertura corta el CI por décimas](#dt-23--el-ratchet-de-cobertura-corta-el-ci-por-décimas)
     - [DT-26 · La documentación de la API no declara respuestas](#dt-26--la-documentación-de-la-api-no-declara-respuestas)
     - [DT-28 · El participante no puede consultar su propia documentación](#dt-28--el-participante-no-puede-consultar-su-propia-documentación)
@@ -73,9 +72,9 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-03, DT-04, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-30, DT-37, DT-38, DT-39, DT-40 |
+| ✅ Resueltas | DT-01, DT-03, DT-04, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-30, DT-37, DT-38, DT-39, DT-40 |
 | 🟠 Altas pendientes | DT-02 (en curso), DT-05, DT-27 (configuración, estado documental y alertas resueltos; restan aprobación/rechazo y habilitación excepcional), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio), DT-41 |
-| 🟡 Medias pendientes | DT-10, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-32, DT-33, DT-34, DT-42 |
+| 🟡 Medias pendientes | DT-10, DT-23, DT-24, DT-25, DT-26, DT-28, DT-32, DT-33, DT-34, DT-42 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
 **Cobertura de tests** (medida el 02/10/2026, objetivo DoD **70 %**):
@@ -390,23 +389,6 @@ credencial— haga `UPDATE` o `DELETE`.
 - **Arreglo:** o se agrega la restricción real en la base (trigger que rechace UPDATE/DELETE, o un rol de aplicación sin esos permisos sobre la tabla), o se corrige el texto de los dos casos para que describan solo la garantía a nivel de servicio.
 - **RNF03 / RF12 dependen de esto**, así que conviene no dejarlo como comentario.
 
-#### DT-22 · La rotación mensual de la cuota social no tiene quién la dispare
-*Nuevo · backend · 2 SP*
-
-`CuotaSocialService.sincronizarVigentes` dice en su comentario «se ejecuta el
-día 1 de cada mes», pero **nada lo ejecuta**: no hay `@nestjs/schedule`, ni
-cron, ni disparador externo documentado. El único camino es que alguien llame a
-mano a `POST /cuota-social/sincronizar`.
-
-Consecuencia: el flag `activo` de las configuraciones queda desfasado de la
-vigencia por fecha hasta que alguien se acuerde. Las consultas por fecha
-(`getVigente`) sí funcionan bien, así que el impacto está acotado a lo que
-dependa del flag.
-
-- **Evidencia:** `src/cuota-social/cuota-social.service.ts:205`
-- **Arreglo:** sumar `@nestjs/schedule` con un cron mensual, o un job externo que llame al endpoint. Ojo con las réplicas: si el Container App escala, el cron corre en todas.
-- **Detectado al escribir los casos de US-16.**
-
 #### DT-23 · El ratchet de cobertura corta el CI por décimas
 *Nuevo · tooling · resuelto por ahora, dejar anotado*
 
@@ -563,6 +545,27 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### TASK-36 · DT-22 · Servicio centralizado de tareas automáticas
+**`issue/TASK-36-DT-22-Servicio-de-tareas-automaticas`** (backend + frontend) · 03/10/2026
+
+- `src/tareas/`: cada automatización es una clase `@Tarea()` en su módulo de
+  dominio; `TareasService` las descubre, las ejecuta con un lock de PostgreSQL
+  por tarea y registra cada ejecución en `ejecuciones_tareas`.
+- Un solo disparador (`POST /tareas/:nombre/programada`, token `TAREAS_TOKEN`)
+  y un solo workflow (`tareas-automaticas.yml`) con el horario de cada tarea.
+  Reemplaza a `/alertas/documentacion/notificar` y `alertas-documentacion.yml`.
+- Tareas: `vencimientos-documentacion` (US-26), `reintentar-notificaciones`
+  (DT-36) y `rotacion-cuota-social`, que **cierra DT-22**: la rotación mensual
+  ya tiene quién la dispare.
+- *Administración → Tareas automáticas*: última ejecución, resultado,
+  historial y «Ejecutar ahora» (auditado).
+- Decisión, patrones y alternativas descartadas:
+  [`decisiones/0002`](decisiones/0002-servicio-de-tareas-automaticas.md).
+
+### DT-22 · La rotación mensual de la cuota social no tenía quién la dispare
+Resuelta por la tarea automática `rotacion-cuota-social` (TASK-36, ver arriba),
+que llama a `CuotaSocialService.sincronizarVigentes` el día 1 de cada mes.
 
 ### TASK-35 · DT-36 · Servicio centralizado de notificaciones
 **`issue/TASK-35-DT-36-Servicio-de-notificaciones`** (backend) · 03/10/2026

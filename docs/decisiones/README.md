@@ -8,6 +8,7 @@ no se borra; se marca como *Reemplazada por* y se escribe la nueva.
 | N.º | Decisión | Estado | Fecha |
 |---|---|---|---|
 | [0001](0001-servicio-de-notificaciones.md) | Servicio centralizado de notificaciones | Aceptada | 03/10/2026 |
+| [0002](0002-servicio-de-tareas-automaticas.md) | Servicio centralizado de tareas automáticas | Aceptada | 03/10/2026 |
 
 ## Formato
 
