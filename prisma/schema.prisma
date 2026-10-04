@@ -456,10 +456,28 @@ model Inscripcion {
   actualizadoEn    DateTime  @updatedAt
 
   habilitacionesExcepcionales HabilitacionExcepcional[]
+  /// DT-41: cada alta y baja de la inscripción. La deuda de cuota deportiva se
+  /// calcula sobre todos los períodos, no solo sobre el último.
+  periodos                    PeriodoInscripcion[]
 
   @@unique([personaId, disciplinaId])
   @@index([disciplinaId])
   @@map("inscripciones")
+}
+
+/// DT-41: un tramo en que la persona estuvo inscripta en la disciplina. Al
+/// reinscribirse se abre uno nuevo y los anteriores conservan su deuda.
+model PeriodoInscripcion {
+  id            Int         @id @default(autoincrement())
+  inscripcionId Int
+  inscripcion   Inscripcion @relation(fields: [inscripcionId], references: [id], onDelete: Cascade)
+  desde         DateTime
+  /// Fecha de baja; null mientras el período está vigente.
+  hasta         DateTime?
+  creadoEn      DateTime    @default(now())
+
+  @@index([inscripcionId])
+  @@map("periodos_inscripcion")
 }
 
 /// Documentación obligatoria de un participante (US-24). Habilita la

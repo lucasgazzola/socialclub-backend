@@ -881,6 +881,20 @@ async function main() {
         fechaBaja: ins.fechaBaja,
       },
     });
+    // DT-41: la deuda deportiva se calcula sobre el historial de períodos.
+    // Se crea el período inicial solo si la inscripción no tiene ninguno.
+    const periodos = await prisma.periodoInscripcion.count({
+      where: { inscripcionId: inscripcion.id },
+    });
+    if (periodos === 0) {
+      await prisma.periodoInscripcion.create({
+        data: {
+          inscripcionId: inscripcion.id,
+          desde: ins.fechaInscripcion,
+          hasta: ins.activo ? null : ins.fechaBaja,
+        },
+      });
+    }
     inscripcionesMap.set(`${ins.personaId}:${ins.disciplinaNombre}`, inscripcion);
   }
   console.log(`  ${inscripcionesMap.size} inscripciones deportivas sincronizadas.`);
