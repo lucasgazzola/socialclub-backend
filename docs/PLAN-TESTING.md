@@ -14,7 +14,7 @@ estrategia de testing y su secuencia.
 
 | | Backend | Frontend |
 |---|---|---|
-| Tests | 565 ✅ | 412 ✅ |
+| Tests | 586 ✅ | 437 ✅ |
 | Cobertura (statements) | **77,8 %** ✅ | **70,1 %** ✅ |
 | Cobertura (ramas) | 78,5 % | 69,1 % |
 | Piso configurado (stmts / ramas / funcs / líneas) | 70 / 70 / 61 / 69 (antes 58 / 64 / 49 / 57) | 33 / 33 / 28 / 33 (antes 28 / 27 / 24 / 28) |
@@ -30,7 +30,13 @@ estrategia de testing y su secuencia.
 **Objetivo de la DoD: 70 % de cobertura.** Los dos repos lo superan: backend
 77,8 % y frontend 70,1 % (DT-01, TASK-34).
 
-Últimas incorporaciones (03/10/2026): US-26 (alertas de documentación con aviso
+Últimas incorporaciones (04/10/2026, TASK-37 y TASK-38): el control de acceso
+con QR (`validarAcceso`, US-31) no tenía ningún test; ahora cubre válida,
+usada, expirada, evento terminado, QR inexistente y doble validación. También
+se testean el fin del evento, la tarea `cierre-de-eventos`, la compra para un
+evento terminado y activar/desactivar tarifas.
+
+Anteriores (03/10/2026): US-26 (alertas de documentación con aviso
 por email) con 13 casos (`TC-160`–`TC-172`) y su ejecución (`EJ-99`–`EJ-111`):
 el envío se probó con SMTP real local (Mailpit) y con un test de integración
 contra un servidor SMTP en memoria; capturas en `docs/pruebas/evidencias/US-26/`.

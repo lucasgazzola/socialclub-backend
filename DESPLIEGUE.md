@@ -201,7 +201,7 @@ Workflows en `.github/workflows/` del backend:
 - **`ci.yml`** — en PRs a `dev`/`test`/`main` y push a `dev`: `npm ci` → `prisma generate` → lint → test → build. **No despliega.**
 - **`cd-test.yml`** — en push a `test`: build imagen (`target prod`) → push a ghcr → login OIDC a Azure → crea/actualiza `ca-socialclub-api-test`.
 - **`cd-main.yml`** — en push a `main`: idem, `environment: production` (**requiere aprobación manual**).
-- **`tareas-automaticas.yml`** — único reloj de las tareas automáticas (DT-22, §5.2.1): según el horario llama a `POST /api/v1/tareas/<tarea>/programada` en test y main (vencimientos de documentación a las 08:00, reintento de notificaciones cada 6 h, rotación de la cuota social el día 1). También se ejecuta a mano eligiendo la tarea. Si faltan sus secrets, se omite. GitHub solo corre los `schedule` desde `main`.
+- **`tareas-automaticas.yml`** — único reloj de las tareas automáticas (DT-22, §5.2.1): según el horario llama a `POST /api/v1/tareas/<tarea>/programada` en test y main (vencimientos de documentación a las 08:00, reintento de notificaciones cada 6 h, rotación de la cuota social el día 1, cierre de eventos y vencimiento de entradas a las 05:00). También se ejecuta a mano eligiendo la tarea. Si faltan sus secrets, se omite. GitHub solo corre los `schedule` desde `main`.
 
 Detalles: usan `docker/setup-buildx-action` (driver `docker-container`, necesario para cache `type=gha`); autenticación a ghcr con `GITHUB_TOKEN`; a Azure con OIDC. Migraciones y seed se aplican solos vía entrypoint.
 
