@@ -708,6 +708,20 @@ async function main() {
     },
   });
 
+  // DT-42: el delegado recibe solo las alertas de sus disciplinas. Se asignan
+  // únicamente si no tiene ninguna, para no pisar lo que configure un admin.
+  const disciplinasDelDelegado = await prisma.delegadoDisciplina.count({
+    where: { usuarioId: usuarioDelegado.id },
+  });
+  if (disciplinasDelDelegado === 0) {
+    await prisma.delegadoDisciplina.createMany({
+      data: ['Fútbol Mayor', 'Fútbol Femenino', 'Natación'].map((nombre) => ({
+        usuarioId: usuarioDelegado.id,
+        disciplinaId: disciplinasMap.get(nombre)!.id,
+      })),
+    });
+  }
+
   // 7.9. Santiago Menor (Socio infantil con Cuota Juvenil)
   let personaSantiago = await prisma.persona.findUnique({ where: { dni: '90000009' } });
   if (!personaSantiago) {

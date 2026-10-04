@@ -143,8 +143,24 @@ model Usuario {
   habilitacionesExcepcionales HabilitacionExcepcional[] @relation("responsableHabilitacionExcepcional")
   notificaciones              Notificacion[]
   ejecucionesTareas           EjecucionTarea[]
+  /// DT-42: disciplinas que gestiona, si tiene el rol DELEGADO.
+  disciplinasDelegadas        DelegadoDisciplina[]
 
   @@map("usuarios")
+}
+
+/// DT-42: disciplinas a cargo de cada delegado. Filtra sus alertas de
+/// documentación (en el Inicio y por email).
+model DelegadoDisciplina {
+  usuarioId    Int
+  usuario      Usuario    @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  disciplinaId Int
+  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
+  creadoEn     DateTime   @default(now())
+
+  @@id([usuarioId, disciplinaId])
+  @@index([disciplinaId])
+  @@map("delegados_disciplinas")
 }
 
 /// Relación N a N entre Usuario y Rol (RF02: múltiples roles simultáneos).
@@ -195,6 +211,7 @@ model Disciplina {
   inscripciones                 Inscripcion[]
   requerimientosDoc             DisciplinaRequerimientoDoc[]
   pagosDeportivos               PagoCuotaDeportiva[]
+  delegados                     DelegadoDisciplina[]
 
   @@map("disciplinas")
 }

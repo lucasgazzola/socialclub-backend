@@ -83,13 +83,15 @@ describe('US-26 · DT-36 · Aviso de alertas por SMTP (integración)', () => {
       ]),
     );
     prismaMock.notificacion.findMany.mockResolvedValue([]);
-    // usuariosConRol y luego los datos de cada destinatario.
+    // Los delegados con sus disciplinas (DT-42) y luego, por cada envío, los
+    // datos de su destinatario.
     prismaMock.usuario.findMany
-      .mockResolvedValueOnce([{ id: 4 }, { id: 9 }])
       .mockResolvedValueOnce([
-        { id: 4, email: 'delegado1@club.test' },
-        { id: 9, email: 'delegada2@club.test' },
-      ]);
+        { id: 4, disciplinasDelegadas: [{ disciplinaId: 1 }] },
+        { id: 9, disciplinasDelegadas: [{ disciplinaId: 1 }] },
+      ])
+      .mockResolvedValueOnce([{ id: 4, email: 'delegado1@club.test' }])
+      .mockResolvedValueOnce([{ id: 9, email: 'delegada2@club.test' }]);
   });
 
   async function alertasCon(env: Record<string, string>) {
@@ -128,6 +130,7 @@ describe('US-26 · DT-36 · Aviso de alertas por SMTP (integración)', () => {
       alertas: 1,
       nuevas: 1,
       destinatarios: 2,
+      sinDelegado: 0,
       creadas: 2,
       enviadas: 2,
       fallidas: 0,

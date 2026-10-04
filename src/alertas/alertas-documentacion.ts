@@ -32,6 +32,7 @@ export interface InscripcionConEstado {
   inscripcionId: number;
   personaId: number;
   participante: string;
+  disciplinaId: number;
   disciplina: string;
   categoria: string | null;
   documentos: EstadoDeDocumento[];
@@ -44,6 +45,7 @@ export interface AlertaDocumentacion {
   inscripcionId: number;
   personaId: number;
   participante: string;
+  disciplinaId: number;
   disciplina: string;
   categoria: string | null;
   tipoDocumento: TipoDocumentacionDisciplina;
@@ -124,6 +126,7 @@ export function alertasDeDocumentacion(
           inscripcionId: insc.inscripcionId,
           personaId: insc.personaId,
           participante: insc.participante,
+          disciplinaId: insc.disciplinaId,
           disciplina: insc.disciplina,
           categoria: insc.categoria,
           tipoDocumento: doc.tipoDocumento,

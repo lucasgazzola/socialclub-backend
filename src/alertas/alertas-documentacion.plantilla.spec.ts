@@ -13,6 +13,7 @@ describe('US-26 · AlertasDocumentacionPlantilla', () => {
     inscripcionId: 5,
     personaId: 10,
     participante: 'Gómez, <Lola>',
+    disciplinaId: 1,
     disciplina: 'Fútbol',
     categoria: 'Sub-15',
     tipoDocumento: 'AUTORIZACION_PADRES_TUTORES',
