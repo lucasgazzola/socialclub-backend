@@ -47,6 +47,10 @@ const mockPrisma: any = {
   registroAuditoria: {
     create: jest.fn(),
   },
+  periodoInscripcion: {
+    create: jest.fn(),
+    updateMany: jest.fn(),
+  },
   $transaction: jest.fn(async (arg: any) =>
     typeof arg === 'function' ? arg(mockPrisma) : Promise.all(arg),
   ),
@@ -1374,6 +1378,93 @@ describe('InscripcionService', () => {
           data: expect.objectContaining({ activo: true, fechaBaja: null }) as object,
         }),
       );
+    });
+  });
+
+  describe('DT-41 · historial de períodos de la inscripción', () => {
+    const disciplina = {
+      id: 1,
+      nombre: 'Fútbol',
+      activo: true,
+      genero: null,
+      edadMinima: null,
+      edadMaxima: null,
+      categorias: [],
+    };
+    const persona = { id: 10, activo: true, genero: null, fechaNacimiento: null };
+
+    beforeEach(() => {
+      mockPrisma.disciplina.findUnique.mockResolvedValue(disciplina);
+      mockPrisma.persona.findUnique.mockResolvedValue(persona);
+    });
+
+    it('la inscripción nueva abre su primer período', async () => {
+      const alta = new Date(2026, 9, 4);
+      mockPrisma.inscripcion.findUnique.mockResolvedValue(null);
+      mockPrisma.inscripcion.create.mockResolvedValue({
+        id: 7,
+        personaId: 10,
+        fechaInscripcion: alta,
+      });
+
+      await service.create({ personaId: 10, disciplinaId: 1 }, 99);
+
+      expect(mockPrisma.periodoInscripcion.create).toHaveBeenCalledWith({
+        data: { inscripcionId: 7, desde: alta },
+      });
+    });
+
+    it('la reinscripción abre un período nuevo desde la misma fecha de inscripción', async () => {
+      mockPrisma.inscripcion.findUnique.mockResolvedValue({ id: 7, activo: false });
+      mockPrisma.inscripcion.update.mockResolvedValue({ id: 7, personaId: 10 });
+
+      await service.create({ personaId: 10, disciplinaId: 1 }, 99);
+
+      const { fechaInscripcion } = mockPrisma.inscripcion.update.mock.calls[0][0].data;
+      expect(mockPrisma.periodoInscripcion.create).toHaveBeenCalledWith({
+        data: { inscripcionId: 7, desde: fechaInscripcion },
+      });
+      expect(mockPrisma.periodoInscripcion.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('dar de baja una disciplina cierra su período vigente', async () => {
+      mockPrisma.inscripcion.findUnique.mockResolvedValue({
+        id: 7,
+        personaId: 10,
+        disciplinaId: 1,
+        activo: true,
+        persona: { id: 10, nombre: 'Juan', apellido: 'Perez', dni: '12345678' },
+        disciplina: { id: 1, nombre: 'Fútbol' },
+        categoriaDisciplina: null,
+      });
+      mockPrisma.inscripcion.update.mockResolvedValue({ id: 7, activo: false });
+
+      await service.remove(7, 99);
+
+      const { fechaBaja } = mockPrisma.inscripcion.update.mock.calls[0][0].data;
+      expect(mockPrisma.periodoInscripcion.updateMany).toHaveBeenCalledWith({
+        where: { inscripcionId: { in: [7] }, hasta: null },
+        data: { hasta: fechaBaja },
+      });
+    });
+
+    it('dar de baja al participante cierra los períodos de todas sus disciplinas', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue({
+        ...persona,
+        nombre: 'Juan',
+        apellido: 'Perez',
+      });
+      mockPrisma.inscripcion.findMany.mockResolvedValue([
+        { id: 7, disciplina: { nombre: 'Fútbol' } },
+        { id: 8, disciplina: { nombre: 'Natación' } },
+      ]);
+
+      await service.darDeBajaParticipante(10, 99);
+
+      expect(mockPrisma.periodoInscripcion.updateMany).toHaveBeenCalledWith({
+        where: { inscripcionId: { in: [7, 8] }, hasta: null },
+        data: { hasta: expect.any(Date) },
+      });
     });
   });
 });
