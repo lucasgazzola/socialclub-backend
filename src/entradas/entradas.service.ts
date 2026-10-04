@@ -10,6 +10,7 @@ import { AuditoriaService } from '../auditoria/auditoria.service';
 import { CrearEntradasDto } from './dto/crear-entradas.dto';
 import { ValidarEntradaDto } from './dto/validar-entrada.dto';
 import { ComprarEntradasDto } from './dto/comprar-entradas.dto';
+import { eventoTerminado } from '../eventos/fin-del-evento';
 
 /**
  * - Cada entrada tiene un token generado por el sistema.
@@ -30,6 +31,13 @@ export class EntradasService {
     const evento = await this.prisma.evento.findUnique({ where: { id: eventoId } });
     if (!evento) {
       throw new NotFoundException('Evento no encontrado');
+    }
+
+    // DT-33: no tiene sentido generar entradas que nacen vencidas o inutilizables.
+    if (evento.estado === 'CANCELADO' || evento.estado === 'FINALIZADO' || eventoTerminado(evento)) {
+      throw new BadRequestException(
+        `No se pueden generar entradas: el evento "${evento.nombre}" ya terminó o fue cancelado.`,
+      );
     }
 
     if (evento.entradasDisponibles === null) {
@@ -114,6 +122,11 @@ export class EntradasService {
 
     if (evento.estado !== 'PUBLICADO') {
       throw new BadRequestException('El evento no está publicado.');
+    }
+
+    // DT-33: aunque la venta no tenga fecha de cierre, no se vende para un evento terminado.
+    if (eventoTerminado(evento, ahora)) {
+      throw new BadRequestException('El evento ya terminó.');
     }
 
     if (evento.entradasDisponibles !== null && evento.entradasDisponibles < dto.cantidad) {
@@ -210,6 +223,16 @@ export class EntradasService {
 
     if (!entrada) {
       throw new NotFoundException('Entrada no encontrada. El código QR no es válido.');
+    }
+
+    // DT-33: si el evento ya terminó, la entrada venció aunque la tarea de
+    // cierre todavía no la haya marcado. Se marca acá para que quede registrado.
+    if (entrada.estado === 'VALIDA' && eventoTerminado(entrada.evento)) {
+      await this.prisma.entrada.updateMany({
+        where: { id: entrada.id, estado: 'VALIDA' },
+        data: { estado: 'EXPIRADA' },
+      });
+      throw new BadRequestException(`Entrada expirada para el evento "${entrada.evento.nombre}".`);
     }
 
     if (entrada.estado === 'EXPIRADA') {

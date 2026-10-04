@@ -11,6 +11,7 @@ import { CrearEventoDto } from './dto/crear-evento.dto';
 import { ActualizarEventoDto } from './dto/actualizar-evento.dto';
 import { FiltrarEventosDto } from './dto/filtrar-eventos.dto';
 import { mapEventoResponse } from './eventos.mapper';
+import { filtroEventoTerminado } from './fin-del-evento';
 
 @Injectable()
 export class EventosService {
@@ -374,5 +375,25 @@ export class EventosService {
         );
       }
     }
+  }
+
+  /**
+   * DT-33 — Cierre de los eventos que ya terminaron: los publicados pasan a
+   * FINALIZADO y sus entradas sin usar, a EXPIRADA. Lo dispara la tarea
+   * automática `cierre-de-eventos`; correrlo dos veces no cambia nada.
+   */
+  async cerrarTerminados(ahora = new Date()) {
+    const terminado = filtroEventoTerminado(ahora);
+    const [entradas, eventos] = await this.prisma.$transaction([
+      this.prisma.entrada.updateMany({
+        where: { estado: 'VALIDA', evento: terminado },
+        data: { estado: 'EXPIRADA' },
+      }),
+      this.prisma.evento.updateMany({
+        where: { estado: EstadoEvento.PUBLICADO, ...terminado },
+        data: { estado: EstadoEvento.FINALIZADO },
+      }),
+    ]);
+    return { eventosFinalizados: eventos.count, entradasExpiradas: entradas.count };
   }
 }
