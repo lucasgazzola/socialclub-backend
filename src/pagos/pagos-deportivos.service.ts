@@ -59,7 +59,11 @@ export class PagosDeportivosService {
       where: { id: personaId },
       include: {
         inscripciones: {
-          include: { disciplina: true, categoriaDisciplina: true },
+          include: {
+            disciplina: true,
+            categoriaDisciplina: true,
+            periodos: { orderBy: { desde: 'asc' } },
+          },
           orderBy: { disciplina: { nombre: 'asc' } },
         },
         membresias: {
@@ -101,17 +105,27 @@ export class PagosDeportivosService {
   }
 
   /**
-   * Períodos que se le cobran a una inscripción: desde el mes de la
-   * inscripción hasta el actual o, si se dio de baja, hasta el mes de la baja
-   * (ambos meses completos).
+   * Períodos que se le cobran a una inscripción: los meses de cada tramo en
+   * que estuvo inscripta (DT-41), desde el alta hasta la baja o hasta hoy
+   * (ambos meses completos). Si se reinscribió, los tramos anteriores siguen
+   * contando. Sin historial (datos viejos) se usa el alta y la baja actuales.
    */
   private periodosDe(inscripcion: {
     fechaInscripcion: Date;
     fechaBaja: Date | null;
     activo: boolean;
+    periodos?: { desde: Date; hasta: Date | null }[];
   }) {
-    const hasta = !inscripcion.activo && inscripcion.fechaBaja ? inscripcion.fechaBaja : new Date();
-    return periodosEntre(inscripcion.fechaInscripcion, hasta);
+    const tramos = inscripcion.periodos?.length
+      ? inscripcion.periodos
+      : [
+          {
+            desde: inscripcion.fechaInscripcion,
+            hasta: !inscripcion.activo ? inscripcion.fechaBaja : null,
+          },
+        ];
+    const meses = new Set(tramos.flatMap((t) => periodosEntre(t.desde, t.hasta ?? new Date())));
+    return [...meses].sort();
   }
 
   /**
@@ -208,19 +222,28 @@ export class PagosDeportivosService {
       );
     }
 
-    // Solo los meses en que estuvo inscripto (desde la inscripción hasta la baja).
-    const cobrables = new Set(this.periodosDe(inscripcion));
-    const periodoInscripcion = aPeriodo(inscripcion.fechaInscripcion);
+    // Solo los meses en que estuvo inscripto (cada tramo, de la inscripción a la baja).
+    const meses = this.periodosDe(inscripcion);
+    const cobrables = new Set(meses);
+    const periodoInscripcion = meses[0] ?? aPeriodo(inscripcion.fechaInscripcion);
     const previos = dto.periodos.filter((p) => p < periodoInscripcion);
     if (previos.length > 0) {
       throw new BadRequestException(
         `No se permite registrar pagos anteriores a la inscripción (${periodoInscripcion}): ${previos.join(', ')}`,
       );
     }
-    const posterioresBaja = dto.periodos.filter((p) => !cobrables.has(p));
+    const ultimoMes = meses[meses.length - 1];
+    const posterioresBaja = dto.periodos.filter((p) => !cobrables.has(p) && p > ultimoMes);
     if (posterioresBaja.length > 0) {
       throw new BadRequestException(
         `No se permite registrar pagos posteriores a la baja de la disciplina: ${posterioresBaja.join(', ')}`,
+      );
+    }
+    // DT-41: meses entre una baja y la reinscripción siguiente.
+    const sinInscripcion = dto.periodos.filter((p) => !cobrables.has(p));
+    if (sinInscripcion.length > 0) {
+      throw new BadRequestException(
+        `No se permite registrar pagos de meses en que no estuvo inscripto en la disciplina: ${sinInscripcion.join(', ')}`,
       );
     }
 

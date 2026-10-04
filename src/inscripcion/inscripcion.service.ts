@@ -23,6 +23,7 @@ import {
 import { ETIQUETA_TIPO_DOCUMENTO } from '../disciplinas/requerimientos-doc';
 import { periodoActual } from '../cuotas/cuotas.service';
 import { tarifaVigente, montoACobrar } from '../cuotas/tarifas';
+import { abrirPeriodo, cerrarPeriodos } from './periodos-inscripcion';
 
 type InscConRelaciones = Pick<
   Prisma.InscripcionGetPayload<{
@@ -252,16 +253,20 @@ export class InscripcionService {
 
         let inscripcionFinal;
         if (inscripcionExistente) {
+          const ahora = new Date();
           const reactivada = await tx.inscripcion.update({
             where: { id: inscripcionExistente.id },
             data: {
               activo: true,
-              fechaInscripcion: new Date(),
+              fechaInscripcion: ahora,
               fechaBaja: null,
               requisitosDesde: null,
               categoriaDisciplinaId: dto.categoriaDisciplinaId ?? null,
             },
           });
+          // DT-41: la reinscripción abre un período nuevo; los anteriores
+          // conservan su deuda.
+          await abrirPeriodo(tx, reactivada.id, ahora);
 
           await this.auditoria.registrar(
             {
@@ -283,6 +288,7 @@ export class InscripcionService {
               categoriaDisciplinaId: dto.categoriaDisciplinaId ?? null,
             },
           });
+          await abrirPeriodo(tx, inscripcion.id, inscripcion.fechaInscripcion ?? new Date());
 
           await tx.registroAuditoria.create({
             data: {
@@ -577,12 +583,13 @@ export class InscripcionService {
         // Traslado a una disciplina donde el participante ya tuvo una
         // inscripción: se reactiva esa fila y la actual queda dada de baja. La
         // inscripción resultante cambia de id.
+        const ahora = new Date();
         const inscripcionActualizada = inscripcionInactivaEnDestino
           ? await tx.inscripcion.update({
               where: { id: inscripcionInactivaEnDestino.id },
               data: {
                 activo: true,
-                fechaInscripcion: new Date(),
+                fechaInscripcion: ahora,
                 fechaBaja: null,
                 requisitosDesde: null,
                 categoriaDisciplinaId: categoriaIdDestino,
@@ -602,7 +609,11 @@ export class InscripcionService {
             });
 
         if (inscripcionInactivaEnDestino) {
-          await tx.inscripcion.update({ where: { id }, data: { activo: false, fechaBaja: new Date() } });
+          await tx.inscripcion.update({ where: { id }, data: { activo: false, fechaBaja: ahora } });
+          // DT-41: se cierra el período de la disciplina de origen y se abre
+          // uno nuevo en la de destino.
+          await cerrarPeriodos(tx, [id], ahora);
+          await abrirPeriodo(tx, inscripcionInactivaEnDestino.id, ahora);
 
           await this.auditoria.registrar(
             {
@@ -701,10 +712,16 @@ export class InscripcionService {
     await this.prisma.$transaction(async (tx) => {
       await tx.persona.update({ where: { id: personaId }, data: { activo: false } });
 
+      const ahora = new Date();
       await tx.inscripcion.updateMany({
         where: { personaId, activo: true },
-        data: { activo: false, fechaBaja: new Date() },
+        data: { activo: false, fechaBaja: ahora },
       });
+      await cerrarPeriodos(
+        tx,
+        inscripcionesActivas.map((i) => i.id),
+        ahora,
+      );
 
       // Una fila de auditoría por disciplina: la trazabilidad tiene que
       // permitir ver qué inscripción se dio de baja, no sólo que hubo una.
@@ -952,11 +969,13 @@ export class InscripcionService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const ahora = new Date();
       const dadaDeBaja = await tx.inscripcion.update({
         where: { id },
-        data: { activo: false, fechaBaja: new Date() },
+        data: { activo: false, fechaBaja: ahora },
         include: { persona: true, disciplina: true, categoriaDisciplina: true },
       });
+      await cerrarPeriodos(tx, [id], ahora);
 
       await this.auditoria.registrar(
         {
