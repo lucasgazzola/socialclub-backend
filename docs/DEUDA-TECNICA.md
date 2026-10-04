@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 04/10/2026 (Task-E8, TASK-37 y TASK-38)
+- **Última actualización:** 04/10/2026 (TASK-39 a TASK-42: DT-42, DT-25, DT-41 y DT-26)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -32,15 +32,12 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-29 · No existe solicitud de inscripción con aprobación](#dt-29--no-existe-solicitud-de-inscripción-con-aprobación)
     - [DT-31 · No existe compra real de entradas](#dt-31--no-existe-compra-real-de-entradas)
     - [DT-35 · El pago implementado solo cubre la cuota social](#dt-35--el-pago-implementado-solo-cubre-la-cuota-social)
-    - [DT-41 · Reinscribirse en la misma disciplina pierde la deuda de la inscripción anterior](#dt-41--reinscribirse-en-la-misma-disciplina-pierde-la-deuda-de-la-inscripción-anterior)
   - [🟡 Medias](#-medias)
-    - [DT-42 · Los delegados no están asociados a disciplinas](#dt-42--los-delegados-no-están-asociados-a-disciplinas)
     - [DT-43 · El DNI no debe requerir fecha de vencimiento](#dt-43--el-dni-no-debe-requerir-fecha-de-vencimiento)
+    - [DT-44 · Las fechas guardadas a las 00:00 UTC corren la deuda deportiva un mes](#dt-44--las-fechas-guardadas-a-las-0000-utc-corren-la-deuda-deportiva-un-mes)
     - [DT-10 · La pantalla de Auditoría es interminable](#dt-10--la-pantalla-de-auditoría-es-interminable)
     - [DT-24 · La planilla documenta generación de cuotas que no existe](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe)
-    - [DT-25 · La auditoría append-only no está garantizada por la base](#dt-25--la-auditoría-append-only-no-está-garantizada-por-la-base)
     - [DT-23 · El ratchet de cobertura corta el CI por décimas](#dt-23--el-ratchet-de-cobertura-corta-el-ci-por-décimas)
-    - [DT-26 · La documentación de la API no declara respuestas](#dt-26--la-documentación-de-la-api-no-declara-respuestas)
     - [DT-28 · El participante no puede consultar su propia documentación](#dt-28--el-participante-no-puede-consultar-su-propia-documentación)
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
   - [⚪ Bajas](#-bajas)
@@ -72,9 +69,9 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-03, DT-04, DT-05, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40 |
-| 🟠 Altas pendientes | DT-02 (en curso), DT-27 (configuración, estado documental y alertas resueltos; restan aprobación/rechazo y habilitación excepcional), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio), DT-41 |
-| 🟡 Medias pendientes | DT-10, DT-23, DT-24, DT-25, DT-26, DT-28, DT-34, DT-42, DT-43 |
+| ✅ Resueltas | DT-01, DT-03, DT-04, DT-05, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42 |
+| 🟠 Altas pendientes | DT-02 (en curso), DT-27 (configuración, estado documental y alertas resueltos; restan aprobación/rechazo y habilitación excepcional), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio) |
+| 🟡 Medias pendientes | DT-10, DT-23, DT-24, DT-28, DT-34, DT-43, DT-44 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
 **Cobertura de tests** (medida el 02/10/2026, objetivo DoD **70 %**):
@@ -302,32 +299,7 @@ deportiva.
 - **Relacionado:** [DT-24](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe), [DT-06](#dt-06--historias-de-usuario-para-sumar-al-backlog).
 - **Detectado en el análisis funcional de dominio (22/09/2026); cobro implementado en US-21 (26/09/2026).**
 
-#### DT-41 · Reinscribirse en la misma disciplina pierde la deuda de la inscripción anterior
-*Nuevo · backend · detectado en TASK-33*
-
-`Inscripcion` es única por persona y disciplina: al reinscribir a alguien
-que se había dado de baja, se reactiva la misma fila y `fechaInscripcion` se
-reemplaza. La deuda de cuota deportiva se calcula desde esa fecha, así que
-los meses impagos de la inscripción anterior (entre el alta vieja y la baja)
-dejan de aparecer.
-
-**Arreglo:** guardar el historial de períodos de inscripción (tabla
-`PeriodoInscripcion` con alta y baja) y calcular la deuda sobre todos ellos.
-
 ### 🟡 Medias
-
-#### DT-42 · Los delegados no están asociados a disciplinas
-*Nuevo · backend + frontend · detectado en US-26*
-
-Un usuario `DELEGADO` no tiene relación con las disciplinas que gestiona, así
-que las alertas de documentación (US-26) le llegan **de todo el club**, en el
-Inicio y por email. Con varios delegados, cada uno recibe las de todos.
-
-**Arreglo:** relación `Usuario`–`Disciplina` (tabla `delegados_disciplinas`),
-ABM en Usuarios y filtro por disciplina en `AlertasService.listar` y en los
-destinatarios de `notificar`. Mismo filtro para el listado de participantes.
-
-- **Rama sugerida:** `issue/TASK-39-DT-42-Delegado-por-disciplina`
 
 #### DT-43 · El DNI no debe requerir fecha de vencimiento
 *Nuevo · backend + frontend · detectado en US-05*
@@ -344,8 +316,24 @@ en el DTO/frontend) cuando el tipo de documento sea permanente o de identidad (`
 y adaptar la lógica de cálculo de vigencia en `EstadoDocumentalService` para que no
 trate un documento permanente sin vencimiento como vencido o por vencer.
 
-- **Rama sugerida:** `issue/TASK-38-DT-43-Dni-sin-vencimiento`
+- **Rama sugerida:** `issue/TASK-<n>-DT-43-Dni-sin-vencimiento` (TASK-38 ya se usó para DT-05)
 
+
+#### DT-44 · Las fechas guardadas a las 00:00 UTC corren la deuda deportiva un mes
+*Nuevo · backend · detectado en DT-41*
+
+`periodosEntre` (`src/cuotas/tarifas.ts`) toma el mes con `getMonth()`, en la
+hora del servidor. Una fecha de inscripción guardada a las 00:00 UTC del día 1
+(como las del seed, `new Date('2025-06-01')`) en hora argentina es el 31 del mes
+anterior, así que la deuda empieza un mes antes: una alta del 01/06/2025 cobra
+desde 2025-05. En Azure el servidor corre en UTC y no pasa; en local sí. Es el
+mismo problema que resolvió `fix[US-25]` para la documentación.
+
+**Arreglo:** calcular el período con la fecha en UTC (`getUTCFullYear` /
+`getUTCMonth`) o normalizar las fechas de alta y baja al día, como
+`estado-documental.ts`. Sumar un test con `TZ=America/Argentina/Buenos_Aires`.
+
+- **Evidencia:** `docs/pruebas/evidencias/US-21/dt41-api.txt`.
 
 #### DT-10 · La pantalla de Auditoría es interminable
 *frontend · 2 SP*
@@ -379,22 +367,6 @@ DT-06) o si se corrigen los casos para que describan lo que el sistema hace.
   tampoco cubre esa cuota una vez que exista) y
   [DT-06](#dt-06--historias-de-usuario-para-sumar-al-backlog).
 
-#### DT-25 · La auditoría append-only no está garantizada por la base
-*Nuevo · backend · 2 SP*
-
-`TC-024` (US-07) y `TC-074` (US-32) esperan que un UPDATE o DELETE sobre
-`registros_auditoria` sea **«rechazado a nivel de servicio/base de datos (tabla
-append-only)»**. La mitad del servicio ahora está cubierta y es cierta
-(`AuditoriaService` solo expone `registrar`, `listarPorEntidad` y
-`listarTodos`, y hay un test que falla si alguien agrega otro método de
-escritura). **La mitad de la base de datos no:** no hay trigger, ni `REVOKE`,
-ni regla en ninguna migración. Nada impide que otro código —o alguien con la
-credencial— haga `UPDATE` o `DELETE`.
-
-- **Evidencia:** ninguna migración contiene `TRIGGER`, `REVOKE`, `GRANT` ni `RULE`; el único respaldo es el comentario del `schema.prisma`.
-- **Arreglo:** o se agrega la restricción real en la base (trigger que rechace UPDATE/DELETE, o un rol de aplicación sin esos permisos sobre la tabla), o se corrige el texto de los dos casos para que describan solo la garantía a nivel de servicio.
-- **RNF03 / RF12 dependen de esto**, así que conviene no dejarlo como comentario.
-
 #### DT-23 · El ratchet de cobertura corta el CI por décimas
 *Nuevo · tooling · resuelto por ahora, dejar anotado*
 
@@ -403,34 +375,6 @@ dejó en 57,85 %: **el CI de `dev` quedó en rojo por 0,15 puntos** sin que nadi
 hiciera nada mal. Se resolvió dejando ~3 puntos de margen, pero conviene
 revisarlo si vuelve a pasar. La alternativa de fondo es exigir tests por PR
 (regla de equipo) en lugar de apretar el número global.
-
-#### DT-26 · La documentación de la API no declara respuestas
-*Nuevo · backend · 3 SP*
-
-Swagger está bien montado y al día en lo estructural: **56 de 56 operaciones
-tienen `summary`** (la única excepción es `GET /health`), los 14 tags están
-completos y los 22 DTO de request generan su schema. El problema está del lado
-de las respuestas:
-
-- **Ninguna de las 56 operaciones declara un solo código de error.** El spec
-  solo trae el `200`/`201` que Nest infiere, así que en la UI no figura que
-  `POST /cuota-social` puede responder 400 por período inválido, 403 sin rol
-  ADMIN o 404 si la categoría no existe. Toda esa información existe y está
-  verificada (son los casos `TC-091` a `TC-107`), pero no llega al contrato.
-- **Ninguna declara el tipo de su respuesta** (`0 de 56` tienen `content`), así
-  que el spec no dice qué forma tiene lo que devuelve. Las descripciones
-  también están vacías (`"description": ""`).
-
-Consecuencia práctica: el frontend no puede generar tipos ni clientes desde el
-spec, y quien consume la API tiene que leer el código para saber qué esperar.
-Para un proyecto donde Swagger es el entregable de documentación técnica, el
-contrato queda a medias.
-
-- **Evidencia:** `GET /api/v1/docs-json` — todas las operaciones con `responses: {"20x": {"description": ""}}`.
-- **Arreglo:** `@ApiResponse` (o los atajos `@ApiOkResponse`, `@ApiBadRequestResponse`, `@ApiForbiddenResponse`, `@ApiNotFoundResponse`) por operación, y DTOs de respuesta para los tipos de retorno. Conviene hacerlo **módulo por módulo, apoyándose en los casos de prueba ya documentados**: los códigos y mensajes reales ya están relevados ahí, así que no hay que investigarlos de nuevo.
-- **Empezar por** `auth`, `usuarios` e `inscripcion`, que son los que el frontend consume más y los que tienen reglas de permisos.
-- **Detectado al revisar Swagger sobre la instancia local.**
-- **Rama sugerida:** `issue/TASK-<n>-DT-26-Documentar-respuestas-api`
 
 #### DT-28 · El participante no puede consultar su propia documentación
 *Nuevo · funcional · backend + frontend*
@@ -523,6 +467,88 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### TASK-42 · DT-26 · La API declara sus respuestas en Swagger
+**`issue/TASK-42-DT-26-Documentar-respuestas-api`** (backend) · 04/10/2026
+
+- `ErrorRespuestaDto` describe el formato común de error de `HttpExceptionFilter`
+  y `@ApiErrores` (`src/common/swagger/respuestas.ts`) documenta cada código con
+  los **mensajes reales** que devuelve el servicio, como ejemplos.
+- Las **85 operaciones** declaran su respuesta exitosa con descripción, el 400
+  de validación (body, query o parámetros), el 401/403 de los guards y los
+  400/404/409 de negocio. Los errores se relevaron del código de cada servicio
+  (incluidos los auxiliares que llama), no a mano.
+- **Tipos de respuesta** en auth (`SesionRespuestaDto`, `PerfilRespuestaDto`),
+  usuarios (`UsuarioRespuestaDto`, `UsuariosPaginadosDto`) y alertas
+  (`AlertaDocumentacionDto`).
+- `respuestas.spec.ts` arma el documento Swagger real y falla si una operación
+  queda sin respuesta exitosa o sin errores declarados.
+- **Resta** declarar el tipo de respuesta del resto de los módulos (socios,
+  inscripción, cuotas, pagos, eventos, entradas, documentación). Conviene
+  sumarlo módulo por módulo cuando se toque cada uno.
+- Se apiló sobre DT-42 (comparten el endpoint de alertas): mergear DT-42 antes.
+
+### TASK-41 · DT-41 · Historial de períodos de inscripción
+**`issue/TASK-41-DT-41-Historial-de-periodos-de-inscripcion`** (backend) · 04/10/2026
+
+- Tabla `periodos_inscripcion` (desde/hasta). Cada alta y reinscripción abre un
+  período; cada baja (de una disciplina, del participante o por traslado) lo
+  cierra. La migración crea un período por cada inscripción existente.
+- La deuda de cuota deportiva se calcula sobre **todos** los períodos: al
+  reinscribirse se conservan los meses impagos anteriores a la baja, y los
+  meses entre la baja y la reinscripción no se cobran (nuevo rechazo «No se
+  permite registrar pagos de meses en que no estuvo inscripto…»).
+- Los tramos anteriores a esta migración que ya se habían pisado no se pueden
+  recuperar.
+- **Límites:** la tarifa de los períodos viejos usa la categoría actual de la
+  inscripción, y el traslado *sin* inscripción previa en la disciplina destino
+  sigue cambiando la disciplina de la misma fila (comportamiento anterior).
+- Casos TC-178 y TC-179 (US-21).
+
+### TASK-40 · DT-25 · La auditoría es inalterable también en la base
+**`issue/TASK-40-DT-25-Auditoria-inalterable-en-la-base`** (backend) · 04/10/2026
+
+- Triggers sobre `registros_auditoria` que rechazan UPDATE, DELETE y TRUNCATE
+  («La auditoría es inalterable: no se permite … sobre registros_auditoria»).
+- Consecuencia buscada: un usuario con registros de auditoría no se puede
+  borrar físicamente (la FK pondría su `responsableId` en NULL). Los usuarios ya
+  se dan de baja lógica.
+- `auditoria.inalterable.spec.ts` lo prueba contra Postgres real. El CI crea
+  una base de integración con `migrate deploy` y la pasa en
+  `DB_INTEGRACION_URL`; sin esa variable, la suite se saltea.
+- Límite: el dueño de la base puede deshabilitar los triggers
+  (`ALTER TABLE … DISABLE TRIGGER`). Separar un rol de aplicación sin esos
+  permisos queda para la infraestructura.
+- Nueva ejecución de TC-024 y TC-074 a nivel base.
+
+### TASK-39 · DT-42 · Cada delegado, solo sus disciplinas
+**`issue/TASK-39-DT-42-Delegado-por-disciplina`** (backend + frontend) · 04/10/2026
+
+- Tabla `delegados_disciplinas`. En Usuarios se puede elegir el rol
+  **DELEGADO** (el formulario solo ofrecía ADMIN y COLABORADOR) y sus
+  disciplinas a cargo; un delegado necesita al menos una. Si deja de ser
+  delegado, pierde las disciplinas.
+- Las alertas del Inicio y el email de vencimientos se filtran por las
+  disciplinas del delegado (el ADMIN sigue viendo todo). Un delegado sin
+  disciplinas no ve alertas. Las alertas de una disciplina sin delegado no se
+  marcan como avisadas: salen cuando se asigne uno.
+- El seed asigna Fútbol Mayor, Fútbol Femenino y Natación al delegado de
+  prueba si no tiene ninguna.
+- **Queda afuera** el filtro del listado de Participantes por disciplina
+  (área de US-08): se puede sumar con `AlertasService.disciplinasVisibles`.
+- Casos TC-173 a TC-177 (US-26).
+
+### DT-42 · Los delegados no estaban asociados a disciplinas
+Ver TASK-39 arriba.
+
+### DT-25 · La auditoría append-only no estaba garantizada por la base
+Ver TASK-40 arriba.
+
+### DT-41 · Reinscribirse perdía la deuda de la inscripción anterior
+Ver TASK-41 arriba.
+
+### DT-26 · La documentación de la API no declaraba respuestas
+Ver TASK-42 arriba.
 
 ### TASK-38 · DT-05 · Activar y desactivar la cuota deportiva
 **`issue/TASK-38-DT-05-Activar-desactivar-cuota-deportiva`** (frontend) · 04/10/2026
@@ -629,7 +655,7 @@ que llama a `CuotaSocialService.sincronizarVigentes` el día 1 de cada mes.
   guardadas (00:00 UTC) en hora local: en Argentina un vencimiento del 10/01
   se mostraba como 09/01 en los motivos de bloqueo. En Azure no se veía (el
   contenedor corre en UTC). Ahora se leen en UTC y "hoy" en hora local.
-- Detectado: [DT-42](#dt-42--los-delegados-no-están-asociados-a-disciplinas).
+- Detectado: [DT-42](#task-39--dt-42--cada-delegado-solo-sus-disciplinas).
 
 
 ### DT-01 · Cobertura de testing frontend alcanzada (70 % DoD)
@@ -990,8 +1016,8 @@ Lo que ya usa el equipo, aplicado a la deuda técnica:
 
 - **Ramas:** `issue/TASK-<n>-DT-<nn>-<Descripcion-en-kebab>` para deuda
   identificada; `fix/<Descripcion>` para arreglos de configuración o tooling.
-  El número `TASK` es correlativo y global. **Último usado: TASK-38**
-  (03/10/2026).
+  El número `TASK` es correlativo y global. **Último usado: TASK-42**
+  (04/10/2026).
 - **Commits:** `<prefijo>[scope]: <descripción en minúscula>`, con el ID de la
   deuda como scope — `refactor[DT-03]: …`, `test[DT-01]: …`, `ci[lint]: …`.
   Prefijos válidos: `feat`, `fix`, `docs`, `test`, `ci`, `chore`, `refactor`.
