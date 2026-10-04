@@ -32,7 +32,10 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-29 · No existe solicitud de inscripción con aprobación](#dt-29--no-existe-solicitud-de-inscripción-con-aprobación)
     - [DT-31 · No existe compra real de entradas](#dt-31--no-existe-compra-real-de-entradas)
     - [DT-35 · El pago implementado solo cubre la cuota social](#dt-35--el-pago-implementado-solo-cubre-la-cuota-social)
+    - [DT-41 · Reinscribirse en la misma disciplina pierde la deuda de la inscripción anterior](#dt-41--reinscribirse-en-la-misma-disciplina-pierde-la-deuda-de-la-inscripción-anterior)
   - [🟡 Medias](#-medias)
+    - [DT-42 · Los delegados no están asociados a disciplinas](#dt-42--los-delegados-no-están-asociados-a-disciplinas)
+    - [DT-43 · El DNI no debe requerir fecha de vencimiento](#dt-43--el-dni-no-debe-requerir-fecha-de-vencimiento)
     - [DT-10 · La pantalla de Auditoría es interminable](#dt-10--la-pantalla-de-auditoría-es-interminable)
     - [DT-24 · La planilla documenta generación de cuotas que no existe](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe)
     - [DT-25 · La auditoría append-only no está garantizada por la base](#dt-25--la-auditoría-append-only-no-está-garantizada-por-la-base)
@@ -71,7 +74,7 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
 | ✅ Resueltas | DT-01, DT-03, DT-04, DT-05, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40 |
 | 🟠 Altas pendientes | DT-02 (en curso), DT-27 (configuración, estado documental y alertas resueltos; restan aprobación/rechazo y habilitación excepcional), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio), DT-41 |
-| 🟡 Medias pendientes | DT-10, DT-23, DT-24, DT-25, DT-26, DT-28, DT-34, DT-42 |
+| 🟡 Medias pendientes | DT-10, DT-23, DT-24, DT-25, DT-26, DT-28, DT-34, DT-42, DT-43 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
 **Cobertura de tests** (medida el 02/10/2026, objetivo DoD **70 %**):
@@ -325,6 +328,23 @@ ABM en Usuarios y filtro por disciplina en `AlertasService.listar` y en los
 destinatarios de `notificar`. Mismo filtro para el listado de participantes.
 
 - **Rama sugerida:** `issue/TASK-39-DT-42-Delegado-por-disciplina`
+
+#### DT-43 · El DNI no debe requerir fecha de vencimiento
+*Nuevo · backend + frontend · detectado en US-05*
+
+Actualmente, el modelo de datos `Documentacion` (`Documentacion.fechaVencimiento`)
+y el DTO `CreateDocumentacionDto` (`fechaVencimiento: string` / `IsDateString`) exigen
+obligatoriamente una fecha de vencimiento para todos los tipos de documentación del
+catálogo. Sin embargo, el **DNI** es un documento de identidad que no requiere fecha
+de caducidad para los trámites y habilitaciones deportivas en el club. Al exigir
+vencimiento, se fuerza a registrar fechas ficticias en el sistema o en la UI.
+
+**Arreglo:** hacer opcional `fechaVencimiento` (nullable en la base de datos y opcional
+en el DTO/frontend) cuando el tipo de documento sea permanente o de identidad (`DNI`),
+y adaptar la lógica de cálculo de vigencia en `EstadoDocumentalService` para que no
+trate un documento permanente sin vencimiento como vencido o por vencer.
+
+- **Rama sugerida:** `issue/TASK-38-DT-43-Dni-sin-vencimiento`
 
 
 #### DT-10 · La pantalla de Auditoría es interminable
