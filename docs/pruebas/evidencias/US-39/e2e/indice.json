@@ -1,0 +1,30 @@
+{
+  "TC-085": {
+    "titulo": "Iniciar sesión con credenciales válidas",
+    "fecha": "04/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "sesion-y-usuarios.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-085-01.jpg",
+        "titulo": "1. Abrir la pantalla de inicio de sesión"
+      },
+      {
+        "archivo": "TC-085-02.jpg",
+        "titulo": "2. Ingresar email y contraseña válidos"
+      }
+    ]
+  },
+  "TC-086": {
+    "titulo": "Rechazar inicio de sesión con credenciales inválidas",
+    "fecha": "04/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "sesion-y-usuarios.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-086-01.jpg",
+        "titulo": "1. Ingresar una contraseña incorrecta"
+      }
+    ]
+  }
+}
