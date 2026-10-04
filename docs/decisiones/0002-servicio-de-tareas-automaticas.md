@@ -75,6 +75,7 @@ CLI / Container Apps Job (a futuro) ──────────────�
   | `vencimientos-documentacion` | `0 11 * * *` | Todos los días a las 08:00 |
   | `reintentar-notificaciones` | `30 */6 * * *` | Cada 6 horas |
   | `rotacion-cuota-social` | `0 6 1 * *` | Día 1 de cada mes a las 03:00 |
+  | `cierre-de-eventos` (DT-33, TASK-37) | `0 8 * * *` | Todos los días a las 05:00 |
 
 - **Compatibilidad con US-26:** `POST /alertas/documentacion/notificar` se
   elimina (lo reemplaza la tarea `vencimientos-documentacion`). Mientras se

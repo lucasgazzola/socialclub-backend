@@ -9,6 +9,15 @@ import { EntradasService } from './entradas.service';
  * Dependencias mockeadas (mismo patrón que el resto de los services).
  */
 describe('US-30 · EntradasService', () => {
+  // Evento publicado que todavía no ocurrió (DT-33: no se generan entradas de eventos terminados).
+  const eventoVigente = {
+    id: 1,
+    nombre: 'Peña',
+    estado: 'PUBLICADO',
+    fechaEvento: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    fechaFin: null,
+  };
+
   let service: EntradasService;
 
   const txMock = {
@@ -50,8 +59,7 @@ describe('US-30 · EntradasService', () => {
 
     it('rechaza si no hay suficientes entradas disponibles', async () => {
       prismaMock.evento.findUnique.mockResolvedValue({
-        id: 1,
-        nombre: 'Peña',
+        ...eventoVigente,
         entradasDisponibles: 1,
       });
 
@@ -63,8 +71,7 @@ describe('US-30 · EntradasService', () => {
 
     it('genera N entradas, decrementa el stock de forma atómica y audita CREAR', async () => {
       prismaMock.evento.findUnique.mockResolvedValue({
-        id: 1,
-        nombre: 'Peña',
+        ...eventoVigente,
         entradasDisponibles: 10,
       });
       txMock.evento.updateMany.mockResolvedValue({ count: 1 });
@@ -98,8 +105,7 @@ describe('US-30 · EntradasService', () => {
 
     it('aborta si el stock cambió durante la venta (updateMany afecta 0 filas)', async () => {
       prismaMock.evento.findUnique.mockResolvedValue({
-        id: 1,
-        nombre: 'Peña',
+        ...eventoVigente,
         entradasDisponibles: 10,
       });
       txMock.evento.updateMany.mockResolvedValue({ count: 0 });
@@ -154,6 +160,8 @@ describe('US-30 · EntradasService', () => {
       inicioVenta: new Date(Date.now() - 60_000),
       finVenta: new Date(Date.now() + 60_000),
       entradasDisponibles: 10,
+      fechaEvento: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      fechaFin: null,
     };
 
     it('rechaza un evento fuera de la ventana de venta sin tocar stock', async () => {

@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 03/10/2026 (TASK-35 y TASK-36)
+- **Última actualización:** 04/10/2026 (Task-E8, TASK-37 y TASK-38)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -28,7 +28,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 - [Deuda pendiente](#deuda-pendiente)
   - [🟠 Altas](#-altas)
     - [DT-02 · Faltan los casos de prueba de las historias ya implementadas (backend)](#dt-02--faltan-los-casos-de-prueba-de-las-historias-ya-implementadas-backend)
-    - [DT-05 · Falta activar/desactivar la cuota deportiva](#dt-05--falta-activardesactivar-la-cuota-deportiva)
     - [DT-27 · Documentación por disciplina: requisitos, estados y vigencia](#dt-27--documentación-por-disciplina-requisitos-estados-y-vigencia)
     - [DT-29 · No existe solicitud de inscripción con aprobación](#dt-29--no-existe-solicitud-de-inscripción-con-aprobación)
     - [DT-31 · No existe compra real de entradas](#dt-31--no-existe-compra-real-de-entradas)
@@ -40,8 +39,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-23 · El ratchet de cobertura corta el CI por décimas](#dt-23--el-ratchet-de-cobertura-corta-el-ci-por-décimas)
     - [DT-26 · La documentación de la API no declara respuestas](#dt-26--la-documentación-de-la-api-no-declara-respuestas)
     - [DT-28 · El participante no puede consultar su propia documentación](#dt-28--el-participante-no-puede-consultar-su-propia-documentación)
-    - [DT-32 · Los eventos no tienen fecha ni horario](#dt-32--los-eventos-no-tienen-fecha-ni-horario)
-    - [DT-33 · Las entradas no pueden expirar correctamente](#dt-33--las-entradas-no-pueden-expirar-correctamente)
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
   - [⚪ Bajas](#-bajas)
     - [DT-08 · Las entradas con QR no se pueden descargar en PDF](#dt-08--las-entradas-con-qr-no-se-pueden-descargar-en-pdf)
@@ -72,9 +69,9 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-03, DT-04, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-30, DT-37, DT-38, DT-39, DT-40 |
-| 🟠 Altas pendientes | DT-02 (en curso), DT-05, DT-27 (configuración, estado documental y alertas resueltos; restan aprobación/rechazo y habilitación excepcional), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio), DT-41 |
-| 🟡 Medias pendientes | DT-10, DT-23, DT-24, DT-25, DT-26, DT-28, DT-32, DT-33, DT-34, DT-42 |
+| ✅ Resueltas | DT-01, DT-03, DT-04, DT-05, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40 |
+| 🟠 Altas pendientes | DT-02 (en curso), DT-27 (configuración, estado documental y alertas resueltos; restan aprobación/rechazo y habilitación excepcional), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio), DT-41 |
+| 🟡 Medias pendientes | DT-10, DT-23, DT-24, DT-25, DT-26, DT-28, DT-34, DT-42 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
 **Cobertura de tests** (medida el 02/10/2026, objetivo DoD **70 %**):
@@ -173,17 +170,6 @@ es lo que pide la DoD y lo que se entrega.
 
 - **Orden sugerido para lo que queda:** US-01/02/03 (permisos), US-20, US-29/30/31, US-24, socios.
 - **Rama sugerida:** `issue/TASK-<n>-DT-02-Casos-<US>`
-
-#### DT-05 · Falta activar/desactivar la cuota deportiva
-*frontend · 1 SP*
-
-El backend ya está listo: `ConfiguracionCuotaDeportiva.activo` existe,
-`ActualizarCuotaDto` acepta `activo`, el service lo persiste y audita, el tipo
-del front lo declara y la tabla ya muestra el badge Activo/Inactivo. **Falta
-solo el botón** que mande `{ activo: false }`.
-
-- **Evidencia:** `actualizar-cuota.dto.ts:14` · `cuotas.service.ts` (`actualizar`) · `CuotasTable.tsx`
-- **Rama sugerida:** `issue/TASK-16-DT-05-Activar-desactivar-cuota-deportiva`
 
 #### DT-27 · Documentación por disciplina: requisitos, estados y vigencia
 *Nuevo · funcional · backend + frontend*
@@ -338,7 +324,7 @@ Inicio y por email. Con varios delegados, cada uno recibe las de todos.
 ABM en Usuarios y filtro por disciplina en `AlertasService.listar` y en los
 destinatarios de `notificar`. Mismo filtro para el listado de participantes.
 
-- **Rama sugerida:** `issue/TASK-37-DT-42-Delegado-por-disciplina`
+- **Rama sugerida:** `issue/TASK-39-DT-42-Delegado-por-disciplina`
 
 
 #### DT-10 · La pantalla de Auditoría es interminable
@@ -441,34 +427,6 @@ que el propio usuario consulte la documentación de su persona; permitir que
 - **Detectado en el análisis funcional de dominio (22/09/2026).**
 - **Rama sugerida:** `issue/TASK-23-DT-28-Consulta-documentacion-participante`
 
-#### DT-32 · Los eventos no tienen fecha ni horario
-*Nuevo · funcional · backend + frontend*
-
-`Evento` solo tiene nombre, descripción y cantidad de entradas. No se puede
-saber cuándo ocurre, si ya pasó, ni cuándo empieza o termina la venta de
-entradas.
-
-**Arreglo:** agregar `fechaInicio`, `fechaFin`, `inicioVenta`, `finVenta`,
-ubicación y estado del evento.
-
-- **Relacionado:** [DT-09](#dt-09--imágenes-en-eventos) (mismo módulo de eventos).
-- **Detectado en el análisis funcional de dominio (22/09/2026).**
-- **Rama sugerida:** `issue/TASK-25-DT-32-Fecha-y-horario-de-eventos`
-
-#### DT-33 · Las entradas no pueden expirar correctamente
-*Nuevo · funcional · backend*
-
-Existe el estado `EXPIRADA`, pero `Entrada` no tiene fecha de vencimiento y
-el servicio nunca las expira automáticamente.
-
-**Arreglo:** derivar el vencimiento desde el evento (DT-32) o guardar
-`fechaVencimiento` en la propia entrada; rechazar compras fuera del período
-de venta; correr un proceso que marque entradas vencidas.
-
-- **Depende de:** [DT-32](#dt-32--los-eventos-no-tienen-fecha-ni-horario).
-- **Detectado en el análisis funcional de dominio (22/09/2026).**
-- **Rama sugerida:** `issue/TASK-26-DT-33-Expiracion-de-entradas`
-
 #### DT-34 · No hay cancelación, devolución ni transferencia de entradas
 *Nuevo · funcional · backend + frontend*
 
@@ -545,6 +503,55 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### TASK-38 · DT-05 · Activar y desactivar la cuota deportiva
+**`issue/TASK-38-DT-05-Activar-desactivar-cuota-deportiva`** (frontend) · 04/10/2026
+
+- Cada tarifa de *Cuotas deportivas* ofrece «Desactivar» o «Activar», con
+  confirmación. El diálogo explica el efecto: una tarifa inactiva no se usa
+  para calcular la cuota (rige la anterior del mismo alcance o, si es de una
+  categoría, la de la disciplina; si no hay ninguna, esos meses quedan sin
+  tarifa). Usa `PATCH /cuotas/:id` con `{ activo }`, que ya existía y audita.
+
+### TASK-37 · DT-33 · Vencimiento de las entradas
+**`issue/TASK-37-DT-33-Expiracion-de-entradas`** (backend + frontend) · 04/10/2026
+
+- Una entrada vence cuando termina su evento: `fechaFin` o, si no tiene,
+  **12 horas después del inicio** (`src/eventos/fin-del-evento.ts`).
+  - El control de acceso rechaza las de eventos terminados («Entrada
+    expirada») y las marca EXPIRADAS, aunque la tarea todavía no haya corrido.
+  - No se generan entradas para eventos terminados, cancelados o finalizados,
+    y no se venden para un evento terminado aunque la venta no tenga cierre.
+  - Tarea automática **`cierre-de-eventos`** (todos los días a las 05:00):
+    finaliza los eventos publicados que terminaron y expira sus entradas sin
+    usar. Es idempotente.
+- Front: sin `fechaFin`, la tarjeta del evento usa la misma regla de 12 horas
+  (antes lo mostraba «Finalizado» apenas empezaba, con las entradas todavía
+  válidas).
+- `validarAcceso` (US-31) no tenía tests: ahora los tiene
+  (`expiracion-entradas.spec.ts`).
+- Se integró sobre el rediseño de eventos de Task-E8: la primera versión de
+  TASK-37 también resolvía DT-32 y rehacía el alta, pero Task-E8 lo resolvió
+  antes y se usó lo suyo.
+
+### Task-E8 · DT-32 · Fecha, fin y reglas de los eventos
+**`issue/Task-E8-Fix-Pantalla-Modal-Eventos`** (backend #77, frontend #127) · 04/10/2026
+
+- `Evento.fechaFin`, eventos sin entrada (`requiereEntrada`), descuento para
+  socios, capacidad y período de venta opcionales; validación de fechas al
+  crear y editar (`EventosService.validarFechas`) y edición de eventos.
+- Front: alta y edición con todos los datos y vista en tarjetas con el estado
+  del evento. Arregló además el alta, que hasta entonces respondía 400 porque
+  el formulario no enviaba los campos obligatorios.
+
+### DT-32 · Los eventos no tenían fecha ni horario completo
+Ver Task-E8 arriba.
+
+### DT-33 · Las entradas no podían expirar
+Ver TASK-37 arriba.
+
+### DT-05 · Faltaba activar/desactivar la cuota deportiva
+Ver TASK-38 arriba.
 
 ### TASK-36 · DT-22 · Servicio centralizado de tareas automáticas
 **`issue/TASK-36-DT-22-Servicio-de-tareas-automaticas`** (backend + frontend) · 03/10/2026
@@ -963,9 +970,8 @@ Lo que ya usa el equipo, aplicado a la deuda técnica:
 
 - **Ramas:** `issue/TASK-<n>-DT-<nn>-<Descripcion-en-kebab>` para deuda
   identificada; `fix/<Descripcion>` para arreglos de configuración o tooling.
-  El número `TASK` es correlativo y global. **Último usado: TASK-36**
-  (03/10/2026; TASK-35 y TASK-36 son los servicios de notificaciones y de
-  tareas automáticas).
+  El número `TASK` es correlativo y global. **Último usado: TASK-38**
+  (03/10/2026).
 - **Commits:** `<prefijo>[scope]: <descripción en minúscula>`, con el ID de la
   deuda como scope — `refactor[DT-03]: …`, `test[DT-01]: …`, `ci[lint]: …`.
   Prefijos válidos: `feat`, `fix`, `docs`, `test`, `ci`, `chore`, `refactor`.

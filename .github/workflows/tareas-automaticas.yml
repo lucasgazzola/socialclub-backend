@@ -20,6 +20,7 @@ on:
     - cron: '0 11 * * *' # 08:00 ART · vencimientos-documentacion
     - cron: '30 */6 * * *' # cada 6 h · reintentar-notificaciones
     - cron: '0 6 1 * *' # día 1, 03:00 ART · rotacion-cuota-social
+    - cron: '0 8 * * *' # 05:00 ART · cierre-de-eventos
   workflow_dispatch:
     inputs:
       tarea:
@@ -30,6 +31,7 @@ on:
           - vencimientos-documentacion
           - reintentar-notificaciones
           - rotacion-cuota-social
+          - cierre-de-eventos
 
 permissions:
   contents: read
@@ -50,6 +52,7 @@ jobs:
             '0 11 * * *')   TAREAS='["vencimientos-documentacion"]' ;;
             '30 */6 * * *') TAREAS='["reintentar-notificaciones"]' ;;
             '0 6 1 * *')    TAREAS='["rotacion-cuota-social"]' ;;
+            '0 8 * * *')    TAREAS='["cierre-de-eventos"]' ;;
             *)              TAREAS="[\"$MANUAL\"]" ;;
           esac
           echo "tareas=$TAREAS" >> "$GITHUB_OUTPUT"
