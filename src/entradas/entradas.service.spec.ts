@@ -19,6 +19,7 @@ describe('US-30 · EntradasService', () => {
   const prismaMock = {
     evento: { findUnique: jest.fn() },
     entrada: { findMany: jest.fn() },
+    usuario: { findUnique: jest.fn().mockResolvedValue(null) },
     // $transaction ejecuta el callback con el cliente transaccional simulado.
     $transaction: jest.fn((cb: (tx: typeof txMock) => unknown) => cb(txMock)),
   };
@@ -148,6 +149,7 @@ describe('US-30 · EntradasService', () => {
       id: 1,
       nombre: 'Peña',
       precio: 1500,
+      requiereEntrada: true,
       estado: 'PUBLICADO',
       inicioVenta: new Date(Date.now() - 60_000),
       finVenta: new Date(Date.now() + 60_000),

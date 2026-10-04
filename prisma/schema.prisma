@@ -331,16 +331,18 @@ model Evento {
   id                  Int             @id @default(autoincrement())
   nombre              String
   descripcion         String?
-  capacidadMaxima     Int
-  cierreInscripcion   DateTime
+  requiereEntrada     Boolean         @default(true)
+  capacidadMaxima     Int?
+  entradasDisponibles Int?
+  precio              Decimal         @default(0) @db.Decimal(12, 2)
+  descuentoSocio      Int             @default(0)
   estado              EstadoEvento    @default(BORRADOR)
   fechaEvento         DateTime
+  fechaFin            DateTime?
   imagen              String?
   lugarAcreditacion   String
-  precio              Decimal         @default(0) @db.Decimal(12, 2)
-  inicioVenta         DateTime        @default(now())
-  finVenta            DateTime        @default(now())
-  entradasDisponibles Int             @default(0)
+  inicioVenta         DateTime?
+  finVenta            DateTime?
   entradas            Entrada[]
   compras             CompraEntrada[]
   creadoEn            DateTime        @default(now())
