@@ -29,6 +29,9 @@ describe('UsuariosService', () => {
     rol: {
       findMany: jest.fn(),
     },
+    disciplina: {
+      findMany: jest.fn(),
+    },
     $transaction: jest.fn((cb: any) =>
       typeof cb === 'function' ? cb(prismaMock) : Promise.all(cb),
     ),
@@ -194,6 +197,8 @@ describe('UsuariosService', () => {
       persona: { id: 88, dni: '12345678' },
       email: 'admin@socialclub.local',
       passwordHash: 'hash-de-12345678',
+      roles: [{ rol: { nombre: 'ADMIN' } }],
+      _count: { disciplinasDelegadas: 0 },
       nombre: 'Admin',
       apellido: 'Existente',
       activo: true,
@@ -301,6 +306,8 @@ describe('UsuariosService', () => {
       dni: '12345678',
       email: 'secretario@socialclub.local',
       passwordHash: 'hash-de-12345678',
+      roles: [{ rol: { nombre: 'ADMIN' } }],
+      _count: { disciplinasDelegadas: 0 },
       nombre: 'Secretario',
       apellido: 'Usuario',
       activo: true,
@@ -444,6 +451,8 @@ describe('UsuariosService', () => {
         dni: '12345678',
         email: 'admin@socialclub.local',
         passwordHash: 'hash-de-12345678',
+        roles: [{ rol: { nombre: 'ADMIN' } }],
+        _count: { disciplinasDelegadas: 0 },
         nombre: 'Admin',
         apellido: 'Gestor',
         activo: true,
@@ -627,6 +636,132 @@ describe('UsuariosService', () => {
     it('lanza NotFoundException si no existe', async () => {
       prismaMock.usuario.findUnique.mockResolvedValue(null);
       await expect(service.findOne(999)).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('DT-42: disciplinas a cargo de un delegado', () => {
+    const alta = {
+      dni: '30111222',
+      email: 'delegado@socialclub.local',
+      password: 'Delegado123!',
+      nombre: 'Dana',
+      apellido: 'Delegada',
+      roles: ['DELEGADO'],
+    };
+    const usuarioCreado = (data: any) => ({
+      id: 20,
+      email: data.email,
+      nombre: data.nombre,
+      apellido: data.apellido,
+      activo: true,
+      personaId: data.personaId,
+      persona: { dni: '30111222' },
+      roles: [{ rol: { id: 3, nombre: 'DELEGADO' } }],
+      disciplinasDelegadas: data.disciplinasDelegadas.create.map((d: any) => ({
+        disciplina: { id: d.disciplinaId, nombre: d.disciplinaId === 1 ? 'Fútbol' : 'Básquet' },
+      })),
+    });
+    const existente = (rol: string, disciplinas: number) => ({
+      id: 20,
+      personaId: 88,
+      persona: { id: 88, dni: '30111222' },
+      passwordHash: 'hash',
+      roles: [{ rol: { nombre: rol } }],
+      _count: { disciplinasDelegadas: disciplinas },
+    });
+
+    beforeEach(() => {
+      prismaMock.usuario.findFirst.mockResolvedValue(null);
+      prismaMock.rol.findMany.mockImplementation(async ({ where }: any) =>
+        where.nombre.in.map((nombre: string, i: number) => ({ id: i + 3, nombre })),
+      );
+      prismaMock.disciplina.findMany.mockImplementation(async ({ where }: any) =>
+        where.id.in.map((id: number) => ({ id })),
+      );
+      prismaMock.usuario.create.mockImplementation(async ({ data }: any) => usuarioCreado(data));
+      prismaMock.usuario.update.mockResolvedValue({
+        id: 20,
+        persona: { dni: '30111222' },
+        roles: [],
+        disciplinasDelegadas: [],
+      });
+    });
+
+    it('crea un delegado con sus disciplinas y las devuelve', async () => {
+      const usuario = await service.create({ ...alta, disciplinasIds: [1, 2] }, 99);
+
+      expect(prismaMock.disciplina.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: { in: [1, 2] }, activo: true } }),
+      );
+      expect(prismaMock.usuario.create.mock.calls[0][0].data.disciplinasDelegadas).toEqual({
+        create: [{ disciplinaId: 1 }, { disciplinaId: 2 }],
+      });
+      expect(usuario?.disciplinas).toEqual([
+        { id: 1, nombre: 'Fútbol' },
+        { id: 2, nombre: 'Básquet' },
+      ]);
+    });
+
+    it('rechaza disciplinas para un usuario que no es delegado', async () => {
+      await expect(
+        service.create({ ...alta, roles: ['ADMIN'], disciplinasIds: [1] }, 99),
+      ).rejects.toThrow(
+        new BadRequestException(
+          'Solo los usuarios con rol DELEGADO pueden tener disciplinas a cargo.',
+        ),
+      );
+      expect(prismaMock.usuario.create).not.toHaveBeenCalled();
+    });
+
+    it('rechaza disciplinas inexistentes o inactivas', async () => {
+      prismaMock.disciplina.findMany.mockResolvedValue([{ id: 1 }]);
+
+      await expect(service.create({ ...alta, disciplinasIds: [1, 99] }, 99)).rejects.toThrow(
+        new NotFoundException('Una o más disciplinas indicadas no existen o están inactivas'),
+      );
+      expect(prismaMock.usuario.create).not.toHaveBeenCalled();
+    });
+
+    it('al editar reemplaza las disciplinas a cargo', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(existente('DELEGADO', 1));
+
+      await service.update(20, { disciplinasIds: [2] }, 99);
+
+      expect(prismaMock.usuario.update.mock.calls[0][0].data.disciplinasDelegadas).toEqual({
+        deleteMany: {},
+        create: [{ disciplinaId: 2 }],
+      });
+    });
+
+    it('al editar con una lista vacía le quita todas las disciplinas', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(existente('DELEGADO', 2));
+
+      await service.update(20, { disciplinasIds: [] }, 99);
+
+      expect(prismaMock.usuario.update.mock.calls[0][0].data.disciplinasDelegadas).toEqual({
+        deleteMany: {},
+        create: [],
+      });
+    });
+
+    it('si deja de ser delegado pierde las disciplinas a cargo', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(existente('DELEGADO', 2));
+
+      await service.update(20, { roles: ['COLABORADOR'] }, 99);
+
+      expect(prismaMock.usuario.update.mock.calls[0][0].data.disciplinasDelegadas).toEqual({
+        deleteMany: {},
+      });
+    });
+
+    it('editar otros datos no toca las disciplinas', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(existente('DELEGADO', 2));
+
+      await service.update(20, { nombre: 'Dana' }, 99);
+
+      expect(prismaMock.usuario.update.mock.calls[0][0].data).not.toHaveProperty(
+        'disciplinasDelegadas',
+      );
     });
   });
 });
