@@ -32,6 +32,12 @@ export class EntradasService {
       throw new NotFoundException('Evento no encontrado');
     }
 
+    if (evento.entradasDisponibles === null) {
+      throw new BadRequestException(
+        'El evento no tiene un cupo de entradas definido para generar entradas.',
+      );
+    }
+
     if (evento.entradasDisponibles < cantidad) {
       throw new BadRequestException(
         `No hay suficientes entradas disponibles. Quedan ${evento.entradasDisponibles}.`,
@@ -101,20 +107,62 @@ export class EntradasService {
     const ahora = new Date();
     const evento = await this.prisma.evento.findUnique({ where: { id: dto.eventoId } });
     if (!evento) throw new NotFoundException('Evento no encontrado');
-    if (evento.estado !== 'PUBLICADO' || ahora < evento.inicioVenta || ahora > evento.finVenta) {
-      throw new BadRequestException('El evento no está habilitado para la venta de entradas.');
+
+    if (!evento.requiereEntrada) {
+      throw new BadRequestException('El evento es de acceso libre y no requiere compra de entradas.');
     }
 
+    if (evento.estado !== 'PUBLICADO') {
+      throw new BadRequestException('El evento no está publicado.');
+    }
+
+    if (evento.entradasDisponibles !== null && evento.entradasDisponibles < dto.cantidad) {
+      throw new BadRequestException('No hay suficientes entradas disponibles.');
+    }
+
+    if (evento.inicioVenta && ahora < evento.inicioVenta) {
+      throw new BadRequestException('La venta de entradas aún no ha comenzado.');
+    }
+
+    if (evento.finVenta && ahora > evento.finVenta) {
+      throw new BadRequestException('La venta de entradas para este evento ha finalizado.');
+    }
+
+    // Verificar si el usuario es SOCIO para aplicar el descuento
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      include: {
+        roles: { include: { rol: true } },
+        persona: { include: { membresias: { where: { fechaBaja: null } } } },
+      },
+    });
+
+    const esSocio =
+      (usuario?.roles.some((r) => r.rol.nombre === 'SOCIO') ?? false) ||
+      (usuario?.persona?.membresias.length ?? 0) > 0;
+
+    const descuentoAplicable = esSocio ? (evento.descuentoSocio ?? 0) : 0;
+    const precioBase = Number(evento.precio);
+    const precioUnitario = Math.max(0, precioBase * (1 - descuentoAplicable / 100));
+    const montoTotal = precioUnitario * dto.cantidad;
+
     const tokens = Array.from({ length: dto.cantidad }, () => randomUUID());
-    const montoTotal = Number(evento.precio) * dto.cantidad;
 
     return this.prisma.$transaction(async (tx) => {
-      const stock = await tx.evento.updateMany({
-        where: { id: dto.eventoId, estado: 'PUBLICADO', entradasDisponibles: { gte: dto.cantidad } },
-        data: { entradasDisponibles: { decrement: dto.cantidad } },
-      });
-      if (stock.count === 0) {
-        throw new BadRequestException('Las entradas se agotaron. Actualizá la página e intentá nuevamente.');
+      if (evento.entradasDisponibles !== null) {
+        const stock = await tx.evento.updateMany({
+          where: {
+            id: dto.eventoId,
+            estado: 'PUBLICADO',
+            entradasDisponibles: { gte: dto.cantidad },
+          },
+          data: { entradasDisponibles: { decrement: dto.cantidad } },
+        });
+        if (stock.count === 0) {
+          throw new BadRequestException(
+            'Las entradas se agotaron. Actualizá la página e intentá nuevamente.',
+          );
+        }
       }
 
       const compra = await tx.compraEntrada.create({
@@ -122,7 +170,7 @@ export class EntradasService {
           usuarioId,
           eventoId: dto.eventoId,
           cantidad: dto.cantidad,
-          precioUnitario: evento.precio,
+          precioUnitario,
           montoTotal,
         },
       });
