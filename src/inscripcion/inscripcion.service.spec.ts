@@ -31,6 +31,19 @@ const mockPrisma: any = {
   categoriaDisciplina: {
     findUnique: jest.fn(),
   },
+  documentacion: {
+    create: jest.fn(),
+    findMany: jest.fn(),
+  },
+  disciplinaRequerimientoDoc: {
+    findMany: jest.fn(),
+  },
+  configuracionCuotaDeportiva: {
+    findMany: jest.fn(),
+  },
+  membresia: {
+    findFirst: jest.fn(),
+  },
   registroAuditoria: {
     create: jest.fn(),
   },
@@ -56,6 +69,11 @@ describe('InscripcionService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockPrisma.documentacion.findMany.mockResolvedValue([]);
+    mockPrisma.documentacion.create.mockResolvedValue({ id: 1, tipo: 'Documento' });
+    mockPrisma.disciplinaRequerimientoDoc.findMany.mockResolvedValue([]);
+    mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([]);
+    mockPrisma.membresia.findFirst.mockResolvedValue(null);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InscripcionService,
@@ -1076,6 +1094,123 @@ describe('InscripcionService', () => {
       expect(mockPrisma.persona.create).toHaveBeenCalledWith({
         data: expect.objectContaining({ genero: 'FEMENINO' }) as object,
       });
+    });
+
+    it('Criterio 7 y 9: inscribe adjuntando documentos faltantes en el alta y queda HABILITADO', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(lola);
+      mockPrisma.disciplinaRequerimientoDoc.findMany.mockResolvedValue([
+        { tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA' },
+      ]);
+      mockPrisma.documentacion.create.mockResolvedValue({
+        id: 101,
+        tipo: 'Certificado médico de aptitud física',
+      });
+      mockEstadoDocumental.porPersona.mockResolvedValueOnce({
+        personaId: 20,
+        inscripciones: [{ inscripcionId: 99, estado: 'HABILITADO', motivos: [] }],
+      });
+
+      const res = await service.create(
+        {
+          personaId: 20,
+          disciplinaId: 1,
+          categoriaDisciplinaId: 7,
+          documentos: [
+            {
+              tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA' as any,
+              fechaVencimiento: `${anio + 1}-12-31`,
+            },
+          ],
+        },
+        99,
+      );
+
+      expect(mockPrisma.documentacion.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA',
+          personaId: 20,
+        }),
+      });
+      expect(res.estadoDocumental?.estado).toBe('HABILITADO');
+    });
+
+    it('Criterio 7: rechaza adjuntar documento con fecha de vencimiento anterior a hoy', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(lola);
+      mockPrisma.disciplinaRequerimientoDoc.findMany.mockResolvedValue([
+        { tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA' },
+      ]);
+
+      await expect(
+        service.create(
+          {
+            personaId: 20,
+            disciplinaId: 1,
+            categoriaDisciplinaId: 7,
+            documentos: [
+              {
+                tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA' as any,
+                fechaVencimiento: '2020-01-01',
+              },
+            ],
+          },
+          99,
+        ),
+      ).rejects.toThrow('La fecha de vencimiento no puede ser anterior a la fecha actual.');
+    });
+
+    it('Criterio 7: rechaza adjuntar documento no exigido por la disciplina/categoría', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(lola);
+      mockPrisma.disciplinaRequerimientoDoc.findMany.mockResolvedValue([
+        { tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA' },
+      ]);
+
+      await expect(
+        service.create(
+          {
+            personaId: 20,
+            disciplinaId: 1,
+            categoriaDisciplinaId: 7,
+            documentos: [
+              {
+                tipoDocumento: 'FICHA_TECNICA_NATACION' as any,
+                fechaVencimiento: `${anio + 1}-12-31`,
+              },
+            ],
+          },
+          99,
+        ),
+      ).rejects.toThrow('Ninguna disciplina o categoría de la inscripción exige');
+    });
+
+    it('Criterio 10: genera y devuelve la cuota correspondiente a la disciplina en el período actual', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(lola);
+      mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([
+        {
+          id: 1,
+          disciplinaId: 1,
+          categoriaDisciplinaId: 7,
+          periodoAplicacion: '2020-01',
+          monto: 10000,
+          descuentoSocioPorcentaje: 10,
+          activo: true,
+        },
+      ]);
+      mockPrisma.membresia.findFirst.mockResolvedValue({ id: 5, personaId: 20, activo: true });
+      mockEstadoDocumental.porPersona.mockResolvedValueOnce({
+        personaId: 20,
+        inscripciones: [{ inscripcionId: 99, estado: 'PENDIENTE', motivos: [] }],
+      });
+
+      const res = await service.create(
+        { personaId: 20, disciplinaId: 1, categoriaDisciplinaId: 7 },
+        99,
+      );
+
+      expect(res.cuotaGenerada).toBeDefined();
+      expect(res.cuotaGenerada?.monto).toBe(9000);
+      expect(res.cuotaGenerada?.esSocio).toBe(true);
+      expect(res.cuotaGenerada?.descuentoSocioPorcentaje).toBe(10);
+      expect(res.cuotaGenerada?.sinTarifa).toBe(false);
     });
   });
 
