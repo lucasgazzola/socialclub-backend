@@ -16,6 +16,9 @@ import { GetUsuariosQueryDto } from './dto/get-usuarios-query.dto';
 
 const SALT_ROUNDS = 10;
 
+/** DT-42: único rol que puede tener disciplinas a cargo. */
+const ROL_DELEGADO = 'DELEGADO';
+
 /** Campos que se exponen del usuario (nunca el passwordHash). */
 const SELECT_PUBLICO = {
   id: true,
@@ -29,6 +32,10 @@ const SELECT_PUBLICO = {
   personaId: true,
   persona: { select: { dni: true } },
   roles: { select: { rol: { select: { id: true, nombre: true } } } },
+  disciplinasDelegadas: {
+    select: { disciplina: { select: { id: true, nombre: true } } },
+    orderBy: { disciplina: { nombre: 'asc' } },
+  },
 } satisfies Prisma.UsuarioSelect;
 
 type UsuarioPublico = Prisma.UsuarioGetPayload<{ select: typeof SELECT_PUBLICO }>;
@@ -42,10 +49,11 @@ export class UsuariosService {
 
   private aUsuarioDto(usuario: UsuarioPublico | null) {
     if (!usuario) return null;
-    const { persona, ...resto } = usuario;
+    const { persona, disciplinasDelegadas, ...resto } = usuario;
     return {
       ...resto,
       dni: persona?.dni ?? null,
+      disciplinas: (disciplinasDelegadas ?? []).map((d) => d.disciplina),
     };
   }
 
@@ -81,6 +89,7 @@ export class UsuariosService {
     await this.validarUnicidad({ email, dni }, undefined, personaExistente?.id);
 
     const rolesIds = await this.resolverRoles(dto.roles);
+    const disciplinasIds = await this.resolverDisciplinas(dto.roles, dto.disciplinasIds);
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
 
     let usuario;
@@ -119,6 +128,9 @@ export class UsuariosService {
             apellido: dto.apellido,
             personaId: persona.id,
             roles: { create: rolesIds.map((rolId) => ({ rolId })) },
+            disciplinasDelegadas: {
+              create: disciplinasIds.map((disciplinaId) => ({ disciplinaId })),
+            },
           },
           select: SELECT_PUBLICO,
         });
@@ -218,7 +230,11 @@ export class UsuariosService {
   async update(id: number, dto: UpdateUsuarioPasswordDto, responsableId: number) {
     const usuarioExistente = await this.prisma.usuario.findUnique({
       where: { id },
-      include: { persona: true },
+      include: {
+        persona: true,
+        roles: { select: { rol: { select: { nombre: true } } } },
+        _count: { select: { disciplinasDelegadas: true } },
+      },
     });
     if (!usuarioExistente) {
       throw new NotFoundException('Usuario no encontrado');
@@ -260,6 +276,22 @@ export class UsuariosService {
       throw new BadRequestException(
         'La contraseña nueva es obligatoria si ingresas la contraseña actual.',
       );
+    }
+
+    // DT-42: las disciplinas se validan contra los roles con los que queda el
+    // usuario. Si deja de ser delegado, pierde las disciplinas a cargo.
+    const rolesFinales = dto.roles ?? usuarioExistente.roles.map((r) => r.rol.nombre);
+    if (dto.disciplinasIds !== undefined) {
+      const disciplinasIds = await this.resolverDisciplinas(rolesFinales, dto.disciplinasIds);
+      data.disciplinasDelegadas = {
+        deleteMany: {},
+        create: disciplinasIds.map((disciplinaId) => ({ disciplinaId })),
+      };
+    } else if (
+      !rolesFinales.includes(ROL_DELEGADO) &&
+      usuarioExistente._count.disciplinasDelegadas > 0
+    ) {
+      data.disciplinasDelegadas = { deleteMany: {} };
     }
 
     if (dto.roles) {
@@ -361,6 +393,27 @@ export class UsuariosService {
       throw new NotFoundException('Uno o más roles indicados no existen');
     }
     return roles.map((rol) => rol.id);
+  }
+
+  /**
+   * DT-42: valida las disciplinas a cargo. Solo un delegado puede tenerlas, y
+   * tienen que existir y estar activas.
+   */
+  private async resolverDisciplinas(roles: string[], ids: number[] = []): Promise<number[]> {
+    if (!ids.length) return [];
+    if (!roles.includes(ROL_DELEGADO)) {
+      throw new BadRequestException(
+        'Solo los usuarios con rol DELEGADO pueden tener disciplinas a cargo.',
+      );
+    }
+    const disciplinas = await this.prisma.disciplina.findMany({
+      where: { id: { in: ids }, activo: true },
+      select: { id: true },
+    });
+    if (disciplinas.length !== new Set(ids).size) {
+      throw new NotFoundException('Una o más disciplinas indicadas no existen o están inactivas');
+    }
+    return disciplinas.map((d) => d.id);
   }
 
   private async validarUnicidad(

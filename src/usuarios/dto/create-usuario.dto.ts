@@ -1,8 +1,11 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayNotEmpty,
+  ArrayUnique,
   IsArray,
   IsEmail,
+  IsInt,
+  IsOptional,
   IsString,
   MinLength,
   Length,
@@ -58,4 +61,15 @@ export class CreateUsuarioDto {
   @ArrayNotEmpty()
   @IsString({ each: true })
   roles: string[];
+
+  @ApiPropertyOptional({
+    example: [1, 3],
+    description:
+      'DT-42: disciplinas a cargo del usuario. Solo para el rol DELEGADO; recibe las alertas de documentación de esas disciplinas.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsInt({ each: true })
+  disciplinasIds?: number[];
 }
