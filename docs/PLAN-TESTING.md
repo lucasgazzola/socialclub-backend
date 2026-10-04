@@ -5,30 +5,51 @@ a [`DEUDA-TECNICA.md`](DEUDA-TECNICA.md): allá está el detalle por ítem, acá
 estrategia de testing y su secuencia.
 
 - **Equipo:** Nullpointer
-- **Medido el:** 01/10/2026, sobre `dev` + las ramas `fix/US-50-Categorias-inactivas-en-inscripcion` (medición anterior: 16/09/2026)
+- **Medido el:** 04/10/2026, sobre `dev` + TASK-43 (medición anterior: 01/10/2026)
 - **Versión navegable:** <https://claude.ai/code/artifact/b817ba9b-ac31-44c8-9dfb-c72ac923b7a3>
 
 ---
 
-## Estado al 03/10/2026
+## Estado al 04/10/2026
 
 | | Backend | Frontend |
 |---|---|---|
-| Tests | 586 ✅ | 437 ✅ |
-| Cobertura (statements) | **77,8 %** ✅ | **70,1 %** ✅ |
-| Cobertura (ramas) | 78,5 % | 69,1 % |
-| Piso configurado (stmts / ramas / funcs / líneas) | 70 / 70 / 61 / 69 (antes 58 / 64 / 49 / 57) | 33 / 33 / 28 / 33 (antes 28 / 27 / 24 / 28) |
+| Tests unitarios | 651 ✅ (+5 contra Postgres) | 458 ✅ |
+| Pruebas E2E (Playwright, sistema real) | — | **22 casos ✅** en 5 flujos |
+| Cobertura (statements) | **87,7 %** ✅ | **70,5 %** ✅ |
+| Cobertura (ramas) | 76,6 % | 69,3 % |
+| Piso configurado (stmts / ramas / funcs / líneas) | 70 / 70 / 61 / 69 | 67 / 66 / 57 / 68 |
 | Módulos/features sin ningún test | `categorias` (categorías de socio) | `auditoria`, `cuota-social`, `dashboard` |
 
 | | Cantidad |
 |---|---|
 | US implementadas (los dos repos) | ~40 |
-| US con casos documentados | 26 |
-| Casos documentados | 179 filas (`TC-001`–`TC-179`) |
-| Ejecuciones registradas | 120 (`EJ-01` a `EJ-120`) |
+| US con casos documentados | 27 |
+| Casos documentados | 181 filas (`TC-001`–`TC-181`) |
+| Ejecuciones registradas | 142 (`EJ-01` a `EJ-142`) |
+| Casos con ejecución E2E automática | 22 (`EJ-121` a `EJ-142`) |
 
 **Objetivo de la DoD: 70 % de cobertura.** Los dos repos lo superan: backend
-77,8 % y frontend 70,1 % (DT-01, TASK-34).
+87,7 % y frontend 70,5 %.
+
+**04/10/2026 · TASK-43 — Pruebas E2E con evidencia.** Hasta acá todos los
+tests usaban mocks: ninguno probaba que front, API y base funcionaran juntos.
+Ahora 22 casos de la planilla corren en el navegador contra el sistema real y
+dejan una captura por paso (ver [Pruebas E2E](#pruebas-e2e)). **En la primera
+pasada encontraron cuatro bugs que los tests con mocks no veían**, ya
+corregidos:
+- El **delegado no podía inscribir a nadie**: `GET /disciplinas` le respondía
+  403 y el selector de disciplina quedaba vacío (US-05).
+- **Secretaría no podía cobrar la cuota deportiva**: `GET /personas/dni/:dni`
+  le respondía 403 al COLABORADOR (US-21).
+- **No se podían comprar entradas de un evento sin período de venta**, que es
+  opcional desde Task-E8: la página lo exigía (US-52).
+- El **control de acceso nunca mostraba «Entrada ya utilizada» ni «Entrada
+  expirada»**: leía el código HTTP de un lugar donde el cliente no lo deja
+  (US-31, DT-33). El test unitario simulaba el error de axios y pasaba.
+
+Además, los 17 tests de `*.e2e-spec.ts` del backend (auth, socios y usuarios)
+no los ejecutaba ninguna configuración de Jest; ahora corren con la suite.
 
 Últimas incorporaciones (04/10/2026, TASK-39 a TASK-42):
 - **Primer test contra Postgres real** (DT-25): `auditoria.inalterable.spec.ts`
@@ -111,32 +132,42 @@ DoD) y la **conformidad del PO**.
 
 ## Pruebas E2E
 
-Recomendación: **Playwright** sobre Cypress — paraleliza mejor, corre los tres
-motores con un solo binario, y su trace viewer hace que un fallo en CI sea
-diagnosticable sin reproducirlo en local, que es donde estos frameworks se
-abandonan.
+**Hecho en TASK-43** con **Playwright** (paraleliza mejor que Cypress y su
+trace viewer permite diagnosticar un fallo del CI sin reproducirlo).
 
-### Qué hace falta antes del primer flujo
+### Cómo funcionan
 
-1. **Datos por corrida.** Ya hay `docker compose` y seed; falta que cada corrida arranque de un estado conocido (reset + seed).
-2. **Selectores estables.** Sin `data-testid` en los puntos que los tests interrogan, los E2E se rompen con cada ajuste de copy y el equipo los empieza a ignorar. Ya nos pasó con un test unitario esta semana.
-3. **Job de CI aparte**, con Postgres y la API levantadas. Conviene que corra sobre `dev` y no que bloquee cada PR, por el tiempo que suma.
+- Viven en `socialclub-frontend/e2e/`. Cada corrida levanta la API de este
+  repo contra una base propia (`socialclub_e2e`, migraciones + seed) y el front
+  apuntando a ella. Los datos de cada test se crean con DNI y emails únicos.
+- **Cada test es un caso de la planilla**: el título empieza con su `TC-XXX` y
+  la US va como tag. Sus pasos son los de la columna *Pasos*, y cada uno deja
+  una captura con lo verificado resaltado.
+- `scripts/evidencia-e2e.mjs` (front) convierte la corrida al formato del
+  equipo: capturas en `docs/pruebas/evidencias/<US>/e2e/` y filas `EJ-NN` con
+  Ejecutor «CI (Playwright)». Ver [`pruebas/README.md`](pruebas/README.md).
+- **CI:** workflow *E2E* del front, en cada push a `dev` y a mano (eligiendo la
+  rama del backend). No bloquea los PR. Publica el reporte HTML (capturas,
+  video y trace) y la evidencia como artifacts.
 
-### Los cuatro flujos que valen el esfuerzo
+### Flujos cubiertos
 
-Cruzan módulos, y los tests unitarios con mocks no dicen nada sobre si las
-piezas encajan entre sí.
-
-| Flujo | US | Por qué |
+| Flujo | Casos | US |
 |---|---|---|
-| Crear evento → generar entradas con QR → validar acceso → rechazar reingreso | US-29 / 30 / 31 | Es el ciclo completo del producto y hoy no se prueba entero |
-| Inscribir → documentación obligatoria → baja lógica → re-inscripción | US-05 / 24 / 07 | Toca la lógica más delicada del backend, hoy solo cubierta con mocks |
-| Crear usuario → login → 403 en endpoints ajenos → baja → login bloqueado | US-01 / 03 / 39 | Los permisos por rol son el agujero que ya nos encontró DT-16 |
-| Configurar cuota social del período siguiente → verificar que no rige → rotación | US-16 | La vigencia por período es puramente temporal y frágil |
+| Inscripción con documentación faltante → alerta al delegado de esa disciplina | TC-017, TC-162, TC-176, TC-173 | 05, 26 |
+| Sesión y ciclo de vida de un usuario (alta, baja, login bloqueado, logout) | TC-085, TC-086, TC-001, TC-013, TC-014, TC-088, TC-089 | 39, 01, 03, 40 |
+| Evento → compra de entradas con QR → validación en la puerta → reingreso rechazado | TC-059, TC-069, TC-180, TC-181 | 29, 30, 52, 31 |
+| Cuota social del período siguiente y cobro de la cuota deportiva hasta «al día» | TC-091, TC-117, TC-110, TC-116 | 16, 21 |
+| Alta y baja de un socio | TC-026, TC-039, TC-043 | 12, 14 |
 
-**Costo:** ~1 sprint de armado y 1-2 días por flujo.
+**Duración:** ~1,5 minutos los 22 casos (más el arranque de la API).
 
----
+### Próximos flujos que conviene sumar
+
+- Cobro de la cuota social desde la ficha del socio y autoservicio «Mis cuotas» (US-17, US-10).
+- Edición de participante con cambio de categoría y nueva documentación exigida (US-06).
+- Baja y reinscripción en una disciplina, verificando la deuda anterior (DT-41).
+- Carga de documentación con archivo y la alerta que desaparece (US-24, US-26).
 
 ## Lo que sostiene la vara
 
@@ -171,7 +202,7 @@ Dos decisiones que quedaron tomadas y son reversibles:
 | **1** | Renumerar la planilla (DT-18) | 2 SP | ✅ hecho — PRs backend #39 y frontend #68 |
 | **2** | Skills `/auditar-planilla` y `/cobertura-por-us` | 3 SP | hacen que el paso 3 cueste un tercio |
 | **3** | Barrido por historia: las 8 US sin casos + los 5 features en cero | 8-13 SP | |
-| **4** | E2E con Playwright: armado + los 4 flujos | 8 SP | va al final a propósito |
+| **4** | E2E con Playwright: armado + los flujos principales | 8 SP | ✅ hecho — TASK-43 (5 flujos, 22 casos) |
 
 El paso 1 ya está hecho: los IDs son secuenciales y únicos, y `/exportar-casos`
 es el único asignador. El paso 2 es el que hace que el 3 cueste un tercio. El
