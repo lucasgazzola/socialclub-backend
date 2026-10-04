@@ -110,11 +110,17 @@ export class EntradasService {
 
     return this.prisma.$transaction(async (tx) => {
       const stock = await tx.evento.updateMany({
-        where: { id: dto.eventoId, estado: 'PUBLICADO', entradasDisponibles: { gte: dto.cantidad } },
+        where: {
+          id: dto.eventoId,
+          estado: 'PUBLICADO',
+          entradasDisponibles: { gte: dto.cantidad },
+        },
         data: { entradasDisponibles: { decrement: dto.cantidad } },
       });
       if (stock.count === 0) {
-        throw new BadRequestException('Las entradas se agotaron. Actualizá la página e intentá nuevamente.');
+        throw new BadRequestException(
+          'Las entradas se agotaron. Actualizá la página e intentá nuevamente.',
+        );
       }
 
       const compra = await tx.compraEntrada.create({

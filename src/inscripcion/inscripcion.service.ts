@@ -485,7 +485,10 @@ export class InscripcionService {
             });
 
         if (inscripcionInactivaEnDestino) {
-          await tx.inscripcion.update({ where: { id }, data: { activo: false, fechaBaja: new Date() } });
+          await tx.inscripcion.update({
+            where: { id },
+            data: { activo: false, fechaBaja: new Date() },
+          });
 
           await this.auditoria.registrar(
             {

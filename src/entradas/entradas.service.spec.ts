@@ -175,15 +175,21 @@ describe('US-30 · EntradasService', () => {
 
       const resultado = await service.comprar(dto, 7);
 
-      expect(txMock.evento.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-        where: { id: 1, estado: 'PUBLICADO', entradasDisponibles: { gte: 2 } },
-      }));
-      expect(txMock.compraEntrada.create).toHaveBeenCalledWith(expect.objectContaining({
-        data: expect.objectContaining({ usuarioId: 7, montoTotal: 3000 }),
-      }));
-      expect(txMock.entrada.createManyAndReturn).toHaveBeenCalledWith(expect.objectContaining({
-        data: expect.arrayContaining([expect.objectContaining({ compraId: 25 })]),
-      }));
+      expect(txMock.evento.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1, estado: 'PUBLICADO', entradasDisponibles: { gte: 2 } },
+        }),
+      );
+      expect(txMock.compraEntrada.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ usuarioId: 7, montoTotal: 3000 }),
+        }),
+      );
+      expect(txMock.entrada.createManyAndReturn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.arrayContaining([expect.objectContaining({ compraId: 25 })]),
+        }),
+      );
       expect(auditoriaMock.registrar).toHaveBeenCalledWith(
         expect.objectContaining({ entidad: 'CompraEntrada', idEntidad: 25 }),
         txMock,
