@@ -218,11 +218,12 @@ disciplina real (DT-30) para poder configurar estos requisitos.
   (catálogo; los documentos viejos con texto libre se mapearon cuando
   coincidían y el resto quedó en null), `Inscripcion.requisitosDesde` (US-6) y
   la tabla `habilitaciones_excepcionales` (US-28).
-- **Estado documental resuelto en TASK-31 (01/10/2026):**
+- **Estado documental resuelto en US-25 / TASK-31 (01/10/2026 - 05/10/2026):**
   `EstadoDocumentalService` calcula en el momento, por cada inscripción activa,
   el estado de cada documento exigido (Vigente / Por vencer / Vencido / Faltante
   con fecha límite) y el estado general (Habilitado / Pendiente de documentación
-  / Bloqueado), con los motivos en texto. Al ser un cálculo, el bloqueo por
+  / Bloqueado), con los motivos en texto. Cubierto por casos `TC-180` a `TC-185` y
+  ejecuciones `EJ-121` a `EJ-126`. Al ser un cálculo, el bloqueo por
   vencimiento (US-27) no necesita jobs. Lo usan: el alta de inscripción
   (`GET /inscripcion/requisitos` y la respuesta del alta), el listado de
   participantes y `GET /documentacion/persona/:id/estado`. La documentación se
