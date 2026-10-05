@@ -76,7 +76,7 @@ describe('EstadoDocumentalService', () => {
     ]);
   });
 
-  it('exige lo de la disciplina más lo adicional de la categoría (no lo de otras categorías)', async () => {
+  it('US-25 · TC-180: exige lo de la disciplina más lo adicional de la categoría (no lo de otras categorías)', async () => {
     const r = await service.porPersona(10, hoy);
 
     expect(r.inscripciones).toHaveLength(1);
