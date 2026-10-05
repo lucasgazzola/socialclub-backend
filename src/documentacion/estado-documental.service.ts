@@ -63,6 +63,36 @@ export class EstadoDocumentalService {
     return resumen;
   }
 
+  /**
+   * US-27: Estado documental y evaluación de bloqueo de una inscripción puntual.
+   * Devuelve el estado de habilitación ('HABILITADO' | 'PENDIENTE' | 'BLOQUEADO'),
+   * si está bloqueada ('bloqueada: boolean') y los motivos específicos en español.
+   */
+  async porInscripcion(inscripcionId: number, hoy = new Date()) {
+    const inscripcion = await this.prisma.inscripcion.findUnique({
+      where: { id: inscripcionId },
+      select: { id: true, personaId: true },
+    });
+    if (!inscripcion) throw new NotFoundException('Inscripción no encontrada');
+
+    const resumen = await this.porPersona(inscripcion.personaId, hoy);
+    const detalle = resumen.inscripciones.find((i) => i.inscripcionId === inscripcionId);
+    if (!detalle) throw new NotFoundException('Inscripción no encontrada o inactiva');
+
+    return {
+      ...detalle,
+      bloqueada: detalle.estado === 'BLOQUEADO',
+    };
+  }
+
+  /**
+   * US-27: Verifica si una inscripción se encuentra bloqueada por documentación.
+   */
+  async estaBloqueada(inscripcionId: number, hoy = new Date()): Promise<boolean> {
+    const detalle = await this.porInscripcion(inscripcionId, hoy);
+    return detalle.bloqueada;
+  }
+
   /** Estado resumido de varias personas a la vez (listado de participantes, US-08). */
   async porPersonas(personaIds: number[], hoy = new Date()) {
     const resumenes = personaIds.length ? await this.calcular(personaIds, hoy) : [];
