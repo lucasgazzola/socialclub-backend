@@ -9,7 +9,7 @@ import {
  * US-25 (base de US-05/08/24/26/27/28) · Estado documental de una inscripción:
  * cruza lo exigido por disciplina + categoría con lo presentado.
  */
-describe('estado documental de una inscripción', () => {
+describe('US-25 · estado documental de una inscripción', () => {
   const hoy = new Date(2026, 9, 1); // 01/10/2026
   const inscripcion = { fechaInscripcion: new Date(2026, 8, 20), requisitosDesde: null };
   const apto: RequisitoExigido = {
@@ -51,7 +51,7 @@ describe('estado documental de una inscripción', () => {
     );
   });
 
-  it('marca "Por vencer" un documento que vence dentro de los próximos 30 días, sin bloquear', () => {
+  it('US-25 · TC-181: marca "Por vencer" un documento que vence dentro de los próximos 30 días, sin bloquear', () => {
     const r = estadoDeInscripcion(
       inscripcion,
       [apto],
@@ -75,7 +75,7 @@ describe('estado documental de una inscripción', () => {
     expect(r.estado).toBe('HABILITADO');
   });
 
-  it('queda pendiente si falta un documento y el plazo no venció, con la fecha límite', () => {
+  it('US-25 · TC-182: queda pendiente si falta un documento y el plazo no venció, con la fecha límite', () => {
     const r = estadoDeInscripcion(inscripcion, [apto], [], [], hoy);
     expect(r.estado).toBe('PENDIENTE');
     expect(r.documentos[0].estado).toBe('FALTANTE');
@@ -85,7 +85,7 @@ describe('estado documental de una inscripción', () => {
     ]);
   });
 
-  it('bloquea si el plazo de presentación venció sin el documento', () => {
+  it('US-25 · TC-183: bloquea si el plazo de presentación venció sin el documento', () => {
     const r = estadoDeInscripcion(inscripcion, [autorizacion], [], [], hoy);
     expect(r.estado).toBe('BLOQUEADO');
     expect(r.documentos[0].origen).toBe('CATEGORIA');
@@ -105,7 +105,7 @@ describe('estado documental de una inscripción', () => {
     expect(r.estado).toBe('PENDIENTE');
   });
 
-  it('bloquea con un documento vencido e indica cuál', () => {
+  it('US-25 · TC-183: bloquea con un documento vencido e indica cuál', () => {
     const r = estadoDeInscripcion(
       inscripcion,
       [apto],

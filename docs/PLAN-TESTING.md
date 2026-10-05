@@ -23,14 +23,21 @@ estrategia de testing y su secuencia.
 | | Cantidad |
 |---|---|
 | US implementadas (los dos repos) | ~40 |
-| US con casos documentados | 26 |
-| Casos documentados | 179 filas (`TC-001`–`TC-179`) |
-| Ejecuciones registradas | 120 (`EJ-01` a `EJ-120`) |
+| US con casos documentados | 27 |
+| Casos documentados | 185 filas (`TC-001`–`TC-185`) |
+| Ejecuciones registradas | 126 (`EJ-01` a `EJ-126`) |
 
 **Objetivo de la DoD: 70 % de cobertura.** Los dos repos lo superan: backend
 77,8 % y frontend 70,1 % (DT-01, TASK-34).
 
-Últimas incorporaciones (04/10/2026, TASK-39 a TASK-42):
+Últimas incorporaciones (05/10/2026, US-25):
+- **US-25 (Estado documental de un integrante)**: casos `TC-180`–`TC-185` y ejecuciones
+  `EJ-121`–`EJ-126`. Cubre los 5 criterios de aceptación: exigidos por disciplina/categoría,
+  los cuatro estados de documentos, umbral de 30 días para "Por vencer", fecha límite en faltantes,
+  estado general de inscripción (Habilitado/Pendiente/Bloqueado), control de acceso por roles y
+  visualización expandida en la tabla de participantes. Ejecutadas por el desarrollador; **pendiente la prueba cruzada**.
+
+Anteriores (04/10/2026, TASK-39 a TASK-42):
 - **Primer test contra Postgres real** (DT-25): `auditoria.inalterable.spec.ts`
   verifica los triggers que vuelven inalterable la auditoría. El CI crea una
   base de integración con `prisma migrate deploy` y la pasa en
