@@ -100,3 +100,20 @@ Seguir `DESPLIEGUE.md` §5.2.1 (secrets del environment `test` y de
 repositorio), redesplegar y ejecutar *Actions → Tareas automáticas →
 Run workflow* (tarea `vencimientos-documentacion`). El log del job muestra la
 ejecución registrada; el delegado del entorno recibe el email.
+
+## DT-42 · Cada delegado, solo sus disciplinas (04/10/2026)
+
+Corrida contra la API y el frontend locales (ramas
+`issue/TASK-39-DT-42-Delegado-por-disciplina`), con una base nueva con todas
+las migraciones y el seed (el delegado de prueba queda a cargo de Fútbol Mayor,
+Fútbol Femenino y Natación).
+
+| Archivo | Qué muestra | Casos |
+|---|---|---|
+| `06-dt42-usuarios-disciplinas-a-cargo.png` | Grilla de Usuarios: el delegado con sus disciplinas a cargo bajo el rol | TC-176 |
+| `07-dt42-editar-delegado.png` | Modal «Editar usuario»: rol DELEGADO y «Disciplinas a cargo» | TC-176 |
+| `dt42-api.txt` | Respuestas reales: alertas que ve el delegado según sus disciplinas y los rechazos 400/404 | TC-173, TC-174, TC-177 |
+
+Tests: `src/alertas/alertas.service.spec.ts` y `src/usuarios/usuarios.service.spec.ts`
+(bloques «DT-42») en el backend; `UsuarioForm.spec.tsx` y `UsuariosPage.spec.tsx`
+en el frontend.

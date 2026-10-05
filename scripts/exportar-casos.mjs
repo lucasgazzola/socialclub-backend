@@ -7,9 +7,11 @@
  * Los IDs los asigna SOLO este script (DT-18). No numerar a mano.
  *
  * Uso:
- *   node scripts/exportar-casos.mjs --casos=nuevos.tsv --csv="docs/exportables/casos-prueba.csv"
+ *   node scripts/exportar-casos.mjs --casos=nuevos.tsv --csv="docs/pruebas/casos-prueba.csv"
  *   cat nuevos.tsv | node scripts/exportar-casos.mjs --csv="ruta.csv"        (TSV por stdin)
  *   ... --dry-run     (no escribe; solo muestra las filas con su ID)
+ *   ... --planilla=<xlsx>  (la planilla bajada de Drive: toma de ahí el máximo ID y la
+ *                          compara con el repo; sin esta opción usa la copia local, si existe)
  *
  * Columnas destino: ID Caso | US asociada | Objetivo | Precondición | Datos de entrada | Pasos | Resultado Esperado | Prioridad | Tipo | Ejecutor
  */
@@ -52,11 +54,18 @@ const repoRoot = join(here, '..');
 
 let maxId = 0;
 
-const py = spawnSync('python3', [join(here, 'ids-planilla.py'), '--max', '--check'], {
+// Comparación con la planilla (Drive o copia local): informa, nunca frena.
+const planilla = args.planilla ? ['--xlsx', args.planilla] : [];
+const comparacion = spawnSync('python3', [join(here, 'comparar-planilla.py'), ...planilla], {
+  encoding: 'utf8',
+});
+if (comparacion.stdout) console.error(comparacion.stdout.trimEnd());
+
+const py = spawnSync('python3', [join(here, 'ids-planilla.py'), '--max', '--check', ...planilla], {
   encoding: 'utf8',
 });
 if (py.status === 2) {
-  console.error('Aviso: no se encontró el .xlsx; se calcula el máximo desde los CSV de exportables.');
+  console.error('Aviso: no se encontró el .xlsx; se calcula el máximo desde los CSV de docs/pruebas.');
 } else if (py.status === 1) {
   console.error(py.stderr || py.stdout);
   console.error('La planilla tiene IDs duplicados. No se asignan IDs nuevos hasta resolverlo.');
@@ -68,11 +77,11 @@ if (py.status === 2) {
   process.exit(1);
 }
 
-const exportables = join(repoRoot, 'docs/exportables');
-if (existsSync(exportables)) {
-  for (const name of readdirSync(exportables)) {
+const pruebas = join(repoRoot, 'docs/pruebas');
+if (existsSync(pruebas)) {
+  for (const name of readdirSync(pruebas)) {
     if (!name.endsWith('.csv')) continue;
-    maxId = Math.max(maxId, maxFromText(readFileSync(join(exportables, name), 'utf8')));
+    maxId = Math.max(maxId, maxFromText(readFileSync(join(pruebas, name), 'utf8')));
   }
 }
 if (existsSync(args.csv)) {
@@ -113,3 +122,4 @@ appendFileSync(args.csv, nuevas.join('\n') + '\n');
 console.error(
   `${nuevas.length} caso(s) agregados a ${args.csv} (${nuevas[0].split(',')[0]}…${nuevas.at(-1).split(',')[0]}).`,
 );
+console.error('Regenerá el TSV para pegar en Drive: npm run docs:para-pegar');

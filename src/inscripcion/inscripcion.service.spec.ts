@@ -31,8 +31,25 @@ const mockPrisma: any = {
   categoriaDisciplina: {
     findUnique: jest.fn(),
   },
+  documentacion: {
+    create: jest.fn(),
+    findMany: jest.fn(),
+  },
+  disciplinaRequerimientoDoc: {
+    findMany: jest.fn(),
+  },
+  configuracionCuotaDeportiva: {
+    findMany: jest.fn(),
+  },
+  membresia: {
+    findFirst: jest.fn(),
+  },
   registroAuditoria: {
     create: jest.fn(),
+  },
+  periodoInscripcion: {
+    create: jest.fn(),
+    updateMany: jest.fn(),
   },
   $transaction: jest.fn(async (arg: any) =>
     typeof arg === 'function' ? arg(mockPrisma) : Promise.all(arg),
@@ -56,6 +73,11 @@ describe('InscripcionService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockPrisma.documentacion.findMany.mockResolvedValue([]);
+    mockPrisma.documentacion.create.mockResolvedValue({ id: 1, tipo: 'Documento' });
+    mockPrisma.disciplinaRequerimientoDoc.findMany.mockResolvedValue([]);
+    mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([]);
+    mockPrisma.membresia.findFirst.mockResolvedValue(null);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InscripcionService,
@@ -1083,6 +1105,123 @@ describe('InscripcionService', () => {
         data: expect.objectContaining({ genero: 'FEMENINO' }) as object,
       });
     });
+
+    it('Criterio 7 y 9: inscribe adjuntando documentos faltantes en el alta y queda HABILITADO', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(lola);
+      mockPrisma.disciplinaRequerimientoDoc.findMany.mockResolvedValue([
+        { tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA' },
+      ]);
+      mockPrisma.documentacion.create.mockResolvedValue({
+        id: 101,
+        tipo: 'Certificado médico de aptitud física',
+      });
+      mockEstadoDocumental.porPersona.mockResolvedValueOnce({
+        personaId: 20,
+        inscripciones: [{ inscripcionId: 99, estado: 'HABILITADO', motivos: [] }],
+      });
+
+      const res = await service.create(
+        {
+          personaId: 20,
+          disciplinaId: 1,
+          categoriaDisciplinaId: 7,
+          documentos: [
+            {
+              tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA' as any,
+              fechaVencimiento: `${anio + 1}-12-31`,
+            },
+          ],
+        },
+        99,
+      );
+
+      expect(mockPrisma.documentacion.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA',
+          personaId: 20,
+        }),
+      });
+      expect(res.estadoDocumental?.estado).toBe('HABILITADO');
+    });
+
+    it('Criterio 7: rechaza adjuntar documento con fecha de vencimiento anterior a hoy', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(lola);
+      mockPrisma.disciplinaRequerimientoDoc.findMany.mockResolvedValue([
+        { tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA' },
+      ]);
+
+      await expect(
+        service.create(
+          {
+            personaId: 20,
+            disciplinaId: 1,
+            categoriaDisciplinaId: 7,
+            documentos: [
+              {
+                tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA' as any,
+                fechaVencimiento: '2020-01-01',
+              },
+            ],
+          },
+          99,
+        ),
+      ).rejects.toThrow('La fecha de vencimiento no puede ser anterior a la fecha actual.');
+    });
+
+    it('Criterio 7: rechaza adjuntar documento no exigido por la disciplina/categoría', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(lola);
+      mockPrisma.disciplinaRequerimientoDoc.findMany.mockResolvedValue([
+        { tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA' },
+      ]);
+
+      await expect(
+        service.create(
+          {
+            personaId: 20,
+            disciplinaId: 1,
+            categoriaDisciplinaId: 7,
+            documentos: [
+              {
+                tipoDocumento: 'FICHA_TECNICA_NATACION' as any,
+                fechaVencimiento: `${anio + 1}-12-31`,
+              },
+            ],
+          },
+          99,
+        ),
+      ).rejects.toThrow('Ninguna disciplina o categoría de la inscripción exige');
+    });
+
+    it('Criterio 10: genera y devuelve la cuota correspondiente a la disciplina en el período actual', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(lola);
+      mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([
+        {
+          id: 1,
+          disciplinaId: 1,
+          categoriaDisciplinaId: 7,
+          periodoAplicacion: '2020-01',
+          monto: 10000,
+          descuentoSocioPorcentaje: 10,
+          activo: true,
+        },
+      ]);
+      mockPrisma.membresia.findFirst.mockResolvedValue({ id: 5, personaId: 20, activo: true });
+      mockEstadoDocumental.porPersona.mockResolvedValueOnce({
+        personaId: 20,
+        inscripciones: [{ inscripcionId: 99, estado: 'PENDIENTE', motivos: [] }],
+      });
+
+      const res = await service.create(
+        { personaId: 20, disciplinaId: 1, categoriaDisciplinaId: 7 },
+        99,
+      );
+
+      expect(res.cuotaGenerada).toBeDefined();
+      expect(res.cuotaGenerada?.monto).toBe(9000);
+      expect(res.cuotaGenerada?.esSocio).toBe(true);
+      expect(res.cuotaGenerada?.descuentoSocioPorcentaje).toBe(10);
+      expect(res.cuotaGenerada?.sinTarifa).toBe(false);
+    });
   });
 
   describe('TASK-31 · requisitos antes de inscribir', () => {
@@ -1245,6 +1384,93 @@ describe('InscripcionService', () => {
           data: expect.objectContaining({ activo: true, fechaBaja: null }) as object,
         }),
       );
+    });
+  });
+
+  describe('DT-41 · historial de períodos de la inscripción', () => {
+    const disciplina = {
+      id: 1,
+      nombre: 'Fútbol',
+      activo: true,
+      genero: null,
+      edadMinima: null,
+      edadMaxima: null,
+      categorias: [],
+    };
+    const persona = { id: 10, activo: true, genero: null, fechaNacimiento: null };
+
+    beforeEach(() => {
+      mockPrisma.disciplina.findUnique.mockResolvedValue(disciplina);
+      mockPrisma.persona.findUnique.mockResolvedValue(persona);
+    });
+
+    it('la inscripción nueva abre su primer período', async () => {
+      const alta = new Date(2026, 9, 4);
+      mockPrisma.inscripcion.findUnique.mockResolvedValue(null);
+      mockPrisma.inscripcion.create.mockResolvedValue({
+        id: 7,
+        personaId: 10,
+        fechaInscripcion: alta,
+      });
+
+      await service.create({ personaId: 10, disciplinaId: 1 }, 99);
+
+      expect(mockPrisma.periodoInscripcion.create).toHaveBeenCalledWith({
+        data: { inscripcionId: 7, desde: alta },
+      });
+    });
+
+    it('la reinscripción abre un período nuevo desde la misma fecha de inscripción', async () => {
+      mockPrisma.inscripcion.findUnique.mockResolvedValue({ id: 7, activo: false });
+      mockPrisma.inscripcion.update.mockResolvedValue({ id: 7, personaId: 10 });
+
+      await service.create({ personaId: 10, disciplinaId: 1 }, 99);
+
+      const { fechaInscripcion } = mockPrisma.inscripcion.update.mock.calls[0][0].data;
+      expect(mockPrisma.periodoInscripcion.create).toHaveBeenCalledWith({
+        data: { inscripcionId: 7, desde: fechaInscripcion },
+      });
+      expect(mockPrisma.periodoInscripcion.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('dar de baja una disciplina cierra su período vigente', async () => {
+      mockPrisma.inscripcion.findUnique.mockResolvedValue({
+        id: 7,
+        personaId: 10,
+        disciplinaId: 1,
+        activo: true,
+        persona: { id: 10, nombre: 'Juan', apellido: 'Perez', dni: '12345678' },
+        disciplina: { id: 1, nombre: 'Fútbol' },
+        categoriaDisciplina: null,
+      });
+      mockPrisma.inscripcion.update.mockResolvedValue({ id: 7, activo: false });
+
+      await service.remove(7, 99);
+
+      const { fechaBaja } = mockPrisma.inscripcion.update.mock.calls[0][0].data;
+      expect(mockPrisma.periodoInscripcion.updateMany).toHaveBeenCalledWith({
+        where: { inscripcionId: { in: [7] }, hasta: null },
+        data: { hasta: fechaBaja },
+      });
+    });
+
+    it('dar de baja al participante cierra los períodos de todas sus disciplinas', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue({
+        ...persona,
+        nombre: 'Juan',
+        apellido: 'Perez',
+      });
+      mockPrisma.inscripcion.findMany.mockResolvedValue([
+        { id: 7, disciplina: { nombre: 'Fútbol' } },
+        { id: 8, disciplina: { nombre: 'Natación' } },
+      ]);
+
+      await service.darDeBajaParticipante(10, 99);
+
+      expect(mockPrisma.periodoInscripcion.updateMany).toHaveBeenCalledWith({
+        where: { inscripcionId: { in: [7, 8] }, hasta: null },
+        data: { hasta: expect.any(Date) },
+      });
     });
   });
 });

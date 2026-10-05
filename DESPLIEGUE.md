@@ -136,14 +136,38 @@ Opcionales (US-26, DT-36, DT-22; el CD los aplica solo si existen): `SMTP_HOST`,
    `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=587`, `SMTP_USER`=login SMTP,
    `SMTP_PASS`=clave SMTP, `MAIL_FROM`=remitente verificado. Alternativas:
    Gmail con contraseña de aplicación (`smtp.gmail.com:465`) o Mailtrap (solo pruebas).
-2. **Token de las tareas automáticas**, uno por entorno: `openssl rand -hex 24`.
-   Cargarlo como `TAREAS_TOKEN` en el environment (`test` / `production`).
-3. **Secrets de repositorio** para `tareas-automaticas.yml` (no de environment:
-   `production` tiene aprobación manual y frenaría cada ejecución):
-   `TAREAS_API_URL_TEST` / `TAREAS_API_URL_MAIN` (URL base de la API, sin `/api/v1`)
-   y `TAREAS_TOKEN_TEST` / `TAREAS_TOKEN_MAIN` (los mismos tokens del paso 2).
-   Si ya estaban cargados con los nombres de US-26 (`ALERTAS_*`), siguen funcionando.
+2. **Token de las tareas automáticas** (`TAREAS_TOKEN`): no lo emite ningún
+   servicio, se genera a mano y es un secreto compartido entre la API y el
+   workflow. Uno **distinto por entorno**, mínimo 16 caracteres:
+   `openssl rand -hex 24` (o `node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"`).
+   Cargarlo como secret del environment (`test` / `production`); el CD se lo pasa
+   a la API.
+3. **Secrets de repositorio** para `tareas-automaticas.yml`. Van a nivel
+   repositorio y no de environment, porque `production` tiene aprobación manual
+   y frenaría cada ejecución. El workflow corre en GitHub, fuera de Azure: con
+   la URL sabe a qué API llamar y con el token se autentica.
+
+   | Secret | Valor |
+   |---|---|
+   | `TAREAS_API_URL_TEST` | `https://ca-socialclub-api-test.agreeablehill-d095161e.brazilsouth.azurecontainerapps.io` |
+   | `TAREAS_API_URL_MAIN` | `https://ca-socialclub-api-main.agreeablehill-d095161e.brazilsouth.azurecontainerapps.io` |
+   | `TAREAS_TOKEN_TEST` | el mismo `TAREAS_TOKEN` del environment `test` |
+   | `TAREAS_TOKEN_MAIN` | el mismo `TAREAS_TOKEN` del environment `production` |
+
+   La URL es la base de la API, **sin** `/api/v1` ni barra final (si cambia:
+   `az containerapp show -g rg-socialclub -n ca-socialclub-api-test --query properties.configuration.ingress.fqdn -o tsv`,
+   o el final del log del CD). Si a un entorno le falta la URL o el token, el
+   workflow lo **saltea con un aviso** y no falla: sirve para dejar main sin
+   tareas mientras su API esté apagada. Los nombres de US-26 (`ALERTAS_*`)
+   siguen funcionando.
 4. Redesplegar el entorno para que el CD aplique las variables.
+
+Comandos y verificación paso a paso: [`docs/RUNBOOK-OPERACIONES.md` §8](docs/RUNBOOK-OPERACIONES.md#8-tareas-automáticas-cargar-los-secrets-y-probar).
+
+> **Estado al 03/10/2026: pendiente de cargar.** Ningún entorno tiene todavía
+> `TAREAS_TOKEN` ni los secrets `TAREAS_*`, así que el workflow se saltea en
+> los dos. La API de test respondía `/health`; la de main no respondió
+> (revisión desactivada o cold start), así que conviene cargar primero solo test.
 
 Probar a mano: *Actions → Tareas automáticas → Run workflow* y elegir la tarea,
 o desde la app: *Administración → Tareas automáticas → Ejecutar ahora*
@@ -156,7 +180,7 @@ Todo envío queda en la tabla `notificaciones` (outbox, decisión
 FALLIDA con el error, y sin SMTP configurado queda PENDIENTE hasta que se configure.
 
 Para probarlo antes con una casilla real (Gmail o Brevo desde local) o sin
-enviar nada (Mailpit): ver [`docs/evidencias/US-26/README.md`](docs/evidencias/US-26/README.md).
+enviar nada (Mailpit): ver [`docs/pruebas/evidencias/US-26/README.md`](docs/pruebas/evidencias/US-26/README.md).
 
 > Los valores reales (JWT, DB, passwords) viven en **Azure Container App secrets** y **GitHub Environment secrets**. No están en el repo.
 >
@@ -174,10 +198,10 @@ enviar nada (Mailpit): ver [`docs/evidencias/US-26/README.md`](docs/evidencias/U
 
 Workflows en `.github/workflows/` del backend:
 
-- **`ci.yml`** — en PRs a `dev`/`test`/`main` y push a `dev`: `npm ci` → `prisma generate` → lint → test → build. **No despliega.**
+- **`ci.yml`** — en PRs a `dev`/`test`/`main` y push a `dev`: `npm ci` → `prisma generate` → chequeo de drift → lint → base de integración (`migrate deploy` sobre el Postgres efímero, DT-25) → test → build. **No despliega.**
 - **`cd-test.yml`** — en push a `test`: build imagen (`target prod`) → push a ghcr → login OIDC a Azure → crea/actualiza `ca-socialclub-api-test`.
 - **`cd-main.yml`** — en push a `main`: idem, `environment: production` (**requiere aprobación manual**).
-- **`tareas-automaticas.yml`** — único reloj de las tareas automáticas (DT-22, §5.2.1): según el horario llama a `POST /api/v1/tareas/<tarea>/programada` en test y main (vencimientos de documentación a las 08:00, reintento de notificaciones cada 6 h, rotación de la cuota social el día 1). También se ejecuta a mano eligiendo la tarea. Si faltan sus secrets, se omite. GitHub solo corre los `schedule` desde `main`.
+- **`tareas-automaticas.yml`** — único reloj de las tareas automáticas (DT-22, §5.2.1): según el horario llama a `POST /api/v1/tareas/<tarea>/programada` en test y main (vencimientos de documentación a las 08:00, reintento de notificaciones cada 6 h, rotación de la cuota social el día 1, cierre de eventos y vencimiento de entradas a las 05:00). También se ejecuta a mano eligiendo la tarea. Si faltan sus secrets, se omite. GitHub solo corre los `schedule` desde `main`.
 
 Detalles: usan `docker/setup-buildx-action` (driver `docker-container`, necesario para cache `type=gha`); autenticación a ghcr con `GITHUB_TOKEN`; a Azure con OIDC. Migraciones y seed se aplican solos vía entrypoint.
 

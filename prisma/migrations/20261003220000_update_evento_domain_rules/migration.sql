@@ -1,0 +1,11 @@
+-- AlterTable
+ALTER TABLE "eventos"
+ADD COLUMN "requiereEntrada" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN "descuentoSocio" INTEGER NOT NULL DEFAULT 0,
+ALTER COLUMN "capacidadMaxima" DROP NOT NULL,
+ALTER COLUMN "entradasDisponibles" DROP NOT NULL,
+ALTER COLUMN "entradasDisponibles" DROP DEFAULT,
+ALTER COLUMN "inicioVenta" DROP NOT NULL,
+ALTER COLUMN "inicioVenta" DROP DEFAULT,
+ALTER COLUMN "finVenta" DROP NOT NULL,
+ALTER COLUMN "finVenta" DROP DEFAULT;

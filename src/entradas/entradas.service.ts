@@ -10,6 +10,7 @@ import { AuditoriaService } from '../auditoria/auditoria.service';
 import { CrearEntradasDto } from './dto/crear-entradas.dto';
 import { ValidarEntradaDto } from './dto/validar-entrada.dto';
 import { ComprarEntradasDto } from './dto/comprar-entradas.dto';
+import { eventoTerminado } from '../eventos/fin-del-evento';
 
 /**
  * - Cada entrada tiene un token generado por el sistema.
@@ -30,6 +31,19 @@ export class EntradasService {
     const evento = await this.prisma.evento.findUnique({ where: { id: eventoId } });
     if (!evento) {
       throw new NotFoundException('Evento no encontrado');
+    }
+
+    // DT-33: no tiene sentido generar entradas que nacen vencidas o inutilizables.
+    if (evento.estado === 'CANCELADO' || evento.estado === 'FINALIZADO' || eventoTerminado(evento)) {
+      throw new BadRequestException(
+        `No se pueden generar entradas: el evento "${evento.nombre}" ya terminó o fue cancelado.`,
+      );
+    }
+
+    if (evento.entradasDisponibles === null) {
+      throw new BadRequestException(
+        'El evento no tiene un cupo de entradas definido para generar entradas.',
+      );
     }
 
     if (evento.entradasDisponibles < cantidad) {
@@ -101,26 +115,67 @@ export class EntradasService {
     const ahora = new Date();
     const evento = await this.prisma.evento.findUnique({ where: { id: dto.eventoId } });
     if (!evento) throw new NotFoundException('Evento no encontrado');
-    if (evento.estado !== 'PUBLICADO' || ahora < evento.inicioVenta || ahora > evento.finVenta) {
-      throw new BadRequestException('El evento no está habilitado para la venta de entradas.');
+
+    if (!evento.requiereEntrada) {
+      throw new BadRequestException('El evento es de acceso libre y no requiere compra de entradas.');
     }
 
+    if (evento.estado !== 'PUBLICADO') {
+      throw new BadRequestException('El evento no está publicado.');
+    }
+
+    // DT-33: aunque la venta no tenga fecha de cierre, no se vende para un evento terminado.
+    if (eventoTerminado(evento, ahora)) {
+      throw new BadRequestException('El evento ya terminó.');
+    }
+
+    if (evento.entradasDisponibles !== null && evento.entradasDisponibles < dto.cantidad) {
+      throw new BadRequestException('No hay suficientes entradas disponibles.');
+    }
+
+    if (evento.inicioVenta && ahora < evento.inicioVenta) {
+      throw new BadRequestException('La venta de entradas aún no ha comenzado.');
+    }
+
+    if (evento.finVenta && ahora > evento.finVenta) {
+      throw new BadRequestException('La venta de entradas para este evento ha finalizado.');
+    }
+
+    // Verificar si el usuario es SOCIO para aplicar el descuento
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      include: {
+        roles: { include: { rol: true } },
+        persona: { include: { membresias: { where: { fechaBaja: null } } } },
+      },
+    });
+
+    const esSocio =
+      (usuario?.roles.some((r) => r.rol.nombre === 'SOCIO') ?? false) ||
+      (usuario?.persona?.membresias.length ?? 0) > 0;
+
+    const descuentoAplicable = esSocio ? (evento.descuentoSocio ?? 0) : 0;
+    const precioBase = Number(evento.precio);
+    const precioUnitario = Math.max(0, precioBase * (1 - descuentoAplicable / 100));
+    const montoTotal = precioUnitario * dto.cantidad;
+
     const tokens = Array.from({ length: dto.cantidad }, () => randomUUID());
-    const montoTotal = Number(evento.precio) * dto.cantidad;
 
     return this.prisma.$transaction(async (tx) => {
-      const stock = await tx.evento.updateMany({
-        where: {
-          id: dto.eventoId,
-          estado: 'PUBLICADO',
-          entradasDisponibles: { gte: dto.cantidad },
-        },
-        data: { entradasDisponibles: { decrement: dto.cantidad } },
-      });
-      if (stock.count === 0) {
-        throw new BadRequestException(
-          'Las entradas se agotaron. Actualizá la página e intentá nuevamente.',
-        );
+      if (evento.entradasDisponibles !== null) {
+        const stock = await tx.evento.updateMany({
+          where: {
+            id: dto.eventoId,
+            estado: 'PUBLICADO',
+            entradasDisponibles: { gte: dto.cantidad },
+          },
+          data: { entradasDisponibles: { decrement: dto.cantidad } },
+        });
+        if (stock.count === 0) {
+          throw new BadRequestException(
+            'Las entradas se agotaron. Actualizá la página e intentá nuevamente.',
+          );
+        }
       }
 
       const compra = await tx.compraEntrada.create({
@@ -128,7 +183,7 @@ export class EntradasService {
           usuarioId,
           eventoId: dto.eventoId,
           cantidad: dto.cantidad,
-          precioUnitario: evento.precio,
+          precioUnitario,
           montoTotal,
         },
       });
@@ -168,6 +223,16 @@ export class EntradasService {
 
     if (!entrada) {
       throw new NotFoundException('Entrada no encontrada. El código QR no es válido.');
+    }
+
+    // DT-33: si el evento ya terminó, la entrada venció aunque la tarea de
+    // cierre todavía no la haya marcado. Se marca acá para que quede registrado.
+    if (entrada.estado === 'VALIDA' && eventoTerminado(entrada.evento)) {
+      await this.prisma.entrada.updateMany({
+        where: { id: entrada.id, estado: 'VALIDA' },
+        data: { estado: 'EXPIRADA' },
+      });
+      throw new BadRequestException(`Entrada expirada para el evento "${entrada.evento.nombre}".`);
     }
 
     if (entrada.estado === 'EXPIRADA') {

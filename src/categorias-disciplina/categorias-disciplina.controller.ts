@@ -10,7 +10,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCookieAuth,
+  ApiOperation,
+  ApiTags,
+  ApiCreatedResponse,
+  ApiOkResponse,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -20,6 +26,7 @@ import { CategoriasDisciplinaService } from './categorias-disciplina.service';
 import { CreateCategoriaDisciplinaDto } from './dto/create-categoria-disciplina.dto';
 import { UpdateCategoriaDisciplinaDto } from './dto/update-categoria-disciplina.dto';
 import { FindCategoriasDisciplinaQueryDto } from './dto/find-categorias-disciplina-query.dto';
+import { ApiErrores, VALIDACION } from '../common/swagger/respuestas';
 
 @ApiTags('categorias-disciplina')
 @ApiCookieAuth()
@@ -31,6 +38,18 @@ export class CategoriasDisciplinaController {
   @Post()
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Agregar categoría a una disciplina (US-48)' })
+  @ApiCreatedResponse({ description: 'Categoría creada' })
+  @ApiErrores({
+    400: [
+      VALIDACION,
+      'La disciplina ya exige: ….',
+      'No se pueden agregar categorías a una disciplina inactiva.',
+    ],
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: ['Categoría no encontrada', 'Disciplina no encontrada'],
+    409: 'Ya existe una categoría con ese nombre en la disciplina',
+  })
   create(
     @Param('disciplinaId', ParseIntPipe) disciplinaId: number,
     @Body() dto: CreateCategoriaDisciplinaDto,
@@ -42,6 +61,13 @@ export class CategoriasDisciplinaController {
   @Get()
   @Roles('ADMIN', 'COLABORADOR', 'DELEGADO')
   @ApiOperation({ summary: 'Listar categorías de una disciplina (US-51)' })
+  @ApiOkResponse({ description: 'Categorías de la disciplina' })
+  @ApiErrores({
+    400: VALIDACION,
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: 'Disciplina no encontrada',
+  })
   findAll(
     @Param('disciplinaId', ParseIntPipe) disciplinaId: number,
     @Query() query: FindCategoriasDisciplinaQueryDto,
@@ -52,6 +78,13 @@ export class CategoriasDisciplinaController {
   @Get(':id')
   @Roles('ADMIN', 'COLABORADOR', 'DELEGADO')
   @ApiOperation({ summary: 'Obtener una categoría de la disciplina' })
+  @ApiOkResponse({ description: 'Categoría' })
+  @ApiErrores({
+    400: VALIDACION,
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: 'Categoría no encontrada',
+  })
   findOne(
     @Param('disciplinaId', ParseIntPipe) disciplinaId: number,
     @Param('id', ParseIntPipe) id: number,
@@ -62,6 +95,14 @@ export class CategoriasDisciplinaController {
   @Patch(':id')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Editar categoría (US-49)' })
+  @ApiOkResponse({ description: 'Categoría actualizada' })
+  @ApiErrores({
+    400: [VALIDACION, 'La disciplina ya exige: ….'],
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: ['Categoría no encontrada', 'Disciplina no encontrada'],
+    409: 'Ya existe una categoría con ese nombre en la disciplina',
+  })
   update(
     @Param('disciplinaId', ParseIntPipe) disciplinaId: number,
     @Param('id', ParseIntPipe) id: number,
@@ -74,6 +115,14 @@ export class CategoriasDisciplinaController {
   @Patch(':id/reactivar')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Reactivar categoría' })
+  @ApiOkResponse({ description: 'Categoría reactivada' })
+  @ApiErrores({
+    400: VALIDACION,
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: 'Categoría no encontrada',
+    409: 'La categoría ya se encuentra activa',
+  })
   reactivate(
     @Param('disciplinaId', ParseIntPipe) disciplinaId: number,
     @Param('id', ParseIntPipe) id: number,
@@ -85,6 +134,14 @@ export class CategoriasDisciplinaController {
   @Delete(':id')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Dar de baja categoría (baja lógica, US-50)' })
+  @ApiOkResponse({ description: 'Categoría dada de baja' })
+  @ApiErrores({
+    400: VALIDACION,
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: 'Categoría no encontrada',
+    409: 'La categoría ya se encuentra inactiva',
+  })
   deactivate(
     @Param('disciplinaId', ParseIntPipe) disciplinaId: number,
     @Param('id', ParseIntPipe) id: number,

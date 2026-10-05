@@ -9,7 +9,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCookieAuth,
+  ApiOperation,
+  ApiTags,
+  ApiCreatedResponse,
+  ApiOkResponse,
+} from '@nestjs/swagger';
 import { CuotasService } from './cuotas.service';
 import { ConfigurarCuotaDto } from './dto/configurar-cuota.dto';
 import { ActualizarCuotaDto } from './dto/actualizar-cuota.dto';
@@ -19,6 +25,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
+import { ApiErrores, VALIDACION } from '../common/swagger/respuestas';
 
 @ApiTags('cuotas')
 @ApiCookieAuth()
@@ -33,6 +40,13 @@ export class CuotasController {
     summary:
       'Configurar cuota deportiva por disciplina y categoría (aplica desde el período siguiente)',
   })
+  @ApiCreatedResponse({ description: 'Tarifa de cuota deportiva configurada' })
+  @ApiErrores({
+    400: VALIDACION,
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: ['Disciplina no encontrada', 'La categoría no pertenece a esta disciplina'],
+  })
   configurar(@Body() dto: ConfigurarCuotaDto, @CurrentUser() user: AuthenticatedUser) {
     return this.cuotasService.configurar(dto, user.id);
   }
@@ -42,6 +56,12 @@ export class CuotasController {
   @ApiOperation({
     summary: 'Listar configuraciones de cuota (filtros por disciplina, categoría y período)',
   })
+  @ApiOkResponse({ description: 'Tarifas de cuota deportiva' })
+  @ApiErrores({
+    400: VALIDACION,
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+  })
   findAll(@Query() query: FindCuotasQueryDto) {
     return this.cuotasService.findAll(query);
   }
@@ -49,6 +69,13 @@ export class CuotasController {
   @Get(':id')
   @Roles('ADMIN', 'COLABORADOR')
   @ApiOperation({ summary: 'Obtener una configuración de cuota por id' })
+  @ApiOkResponse({ description: 'Tarifa de cuota deportiva' })
+  @ApiErrores({
+    400: VALIDACION,
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: 'Configuración de cuota no encontrada',
+  })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.cuotasService.findOne(id);
   }
@@ -56,6 +83,13 @@ export class CuotasController {
   @Patch(':id')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Actualizar monto o estado de una configuración de cuota' })
+  @ApiOkResponse({ description: 'Tarifa actualizada' })
+  @ApiErrores({
+    400: VALIDACION,
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: 'Configuración de cuota no encontrada',
+  })
   actualizar(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: ActualizarCuotaDto,

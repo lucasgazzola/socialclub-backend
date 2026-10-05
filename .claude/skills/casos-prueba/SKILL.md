@@ -19,7 +19,8 @@ al **comportamiento real del código**, no inventados.
 
 ## Entrada
 La US a cubrir: **título + criterios de aceptación**. Si el usuario no los pega,
-pedírselos o leerlos del issue de GitHub de esa US. Confirmar en qué repo vive la
+leerlos del backlog de Drive con el skill `/backlog` (criterios vigentes); si no
+hay conector de Drive, pedírselos o leerlos del issue de GitHub de esa US. Confirmar en qué repo vive la
 funcionalidad (back/front) para revisar el código real.
 
 ## Columnas de salida (EXACTAS, en este orden)
@@ -39,21 +40,26 @@ funcionalidad (back/front) para revisar el código real.
   (p. ej. `Gazzola Lucas`).
 
 ## Formato de entrega (por defecto)
-Un archivo **CSV con todas las celdas entre comillas** (`QUOTE_ALL`) y BOM
-(`utf-8-sig`), en `docs/exportables/casos-prueba-<US>.csv`, con las 10 columnas
-y una fila por caso. Ese CSV es el dump (saltos reales en `Pasos`). **Para
-pegar en Drive** hay un TSV aparte (`casos-prueba-para-pegar.tsv`): una fila =
-una fila, pasos unidos con ` / `. No pegar el CSV ni un TSV con saltos de
-línea dentro de la celda.
+Las filas nuevas se **agregan al consolidado** `docs/pruebas/casos-prueba.csv`
+(con `/exportar-casos`, que asigna los IDs): CSV con todas las celdas entre
+comillas (`QUOTE_ALL`), BOM (`utf-8-sig`), las 10 columnas y saltos de línea
+reales en `Pasos`. **No se crean archivos por US**: el consolidado es la única
+fuente.
+
+**Para pegar en Drive:** `npm run docs:para-pegar` regenera
+`docs/pruebas/para-pegar/casos-prueba.tsv` (una fila = una fila, saltos de línea
+unidos con ` / `). Pegar desde **A2**. No pegar el CSV: las celdas multilínea
+parten filas en Sheets.
 
 ## De dónde sale el próximo `ID Caso`
 **No numerar a mano.** Los `TC-XXX` los asigna únicamente `/exportar-casos`
 (`scripts/exportar-casos.mjs`), que lee el máximo de la planilla `.xlsx` y de
-`docs/exportables/*.csv`.
+`docs/pruebas/*.csv`.
 
-- Planilla: `docs/documentacion/desarrollo-del-producto/01 ... Plan de testing del producto ... .xlsx`
-- Dump versionado: `docs/exportables/casos-prueba.csv` (`TC-001` a `TC-127`). El próximo ID libre es **`TC-128`**.
-- Para pegar en Drive: `docs/exportables/casos-prueba-para-pegar.tsv` (desde A2). No pegar el CSV.
+- Planilla: `docs/documentacion/desarrollo-del-producto/01 ... Plan de testing del producto ... .xlsx` (local, no versionada).
+- Consolidado versionado: `docs/pruebas/casos-prueba.csv`. Para ver el último ID:
+  `node scripts/exportar-casos.mjs --casos=<tsv> --csv=docs/pruebas/casos-prueba.csv --dry-run`.
+- Para pegar en Drive: `docs/pruebas/para-pegar/casos-prueba.tsv` (desde A2).
 
 El `.xlsx` es un ZIP de XML y se puede leer con `python3 scripts/ids-planilla.py`
 (sin instalar nada). Si ese script reporta duplicados, **no asignar IDs nuevos**

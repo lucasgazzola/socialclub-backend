@@ -92,4 +92,5 @@ npm run prisma:check-drift   # falla si el schema no coincide con las migracione
 - Documentación (DoD, convenciones, plantillas, PMBOK): `docs/` — ver `docs/README.md`.
 - **Deuda técnica** (estado, prioridades y plan): `docs/DEUDA-TECNICA.md`. Actualizalo al cerrar o detectar un ítem.
 - **Plan de testing** (estado medido, skills, E2E y secuencia): `docs/PLAN-TESTING.md`.
+- **Casos, ejecuciones y evidencias de prueba**: `docs/pruebas/` (un CSV consolidado por hoja; ver `docs/pruebas/README.md`). Los TSV para Drive se regeneran con `npm run docs:para-pegar`.
 - Despliegue e infraestructura: [`DESPLIEGUE.md`](DESPLIEGUE.md). Operar entornos (Azure/GitHub/Vercel): [`docs/RUNBOOK-OPERACIONES.md`](docs/RUNBOOK-OPERACIONES.md).

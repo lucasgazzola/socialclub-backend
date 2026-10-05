@@ -41,6 +41,7 @@ describe('US-26 · alertasDeDocumentacion', () => {
     inscripcionId: id,
     personaId: 10,
     participante,
+    disciplinaId: 1,
     disciplina: 'Fútbol',
     categoria: 'Sub-15',
     documentos,

@@ -14,7 +14,7 @@ estrategia de testing y su secuencia.
 
 | | Backend | Frontend |
 |---|---|---|
-| Tests | 565 ✅ | 412 ✅ |
+| Tests | 586 ✅ | 437 ✅ |
 | Cobertura (statements) | **77,8 %** ✅ | **70,1 %** ✅ |
 | Cobertura (ramas) | 78,5 % | 69,1 % |
 | Piso configurado (stmts / ramas / funcs / líneas) | 70 / 70 / 61 / 69 (antes 58 / 64 / 49 / 57) | 33 / 33 / 28 / 33 (antes 28 / 27 / 24 / 28) |
@@ -24,16 +24,35 @@ estrategia de testing y su secuencia.
 |---|---|
 | US implementadas (los dos repos) | ~40 |
 | US con casos documentados | 26 |
-| Casos documentados | 172 filas (`TC-001`–`TC-172`) |
-| Ejecuciones registradas | 111 (`EJ-01` a `EJ-111`) |
+| Casos documentados | 179 filas (`TC-001`–`TC-179`) |
+| Ejecuciones registradas | 120 (`EJ-01` a `EJ-120`) |
 
 **Objetivo de la DoD: 70 % de cobertura.** Los dos repos lo superan: backend
 77,8 % y frontend 70,1 % (DT-01, TASK-34).
 
-Últimas incorporaciones (03/10/2026): US-26 (alertas de documentación con aviso
+Últimas incorporaciones (04/10/2026, TASK-39 a TASK-42):
+- **Primer test contra Postgres real** (DT-25): `auditoria.inalterable.spec.ts`
+  verifica los triggers que vuelven inalterable la auditoría. El CI crea una
+  base de integración con `prisma migrate deploy` y la pasa en
+  `DB_INTEGRACION_URL`; sin esa variable la suite se saltea. Es la base para
+  los tests de integración de abajo.
+- **Contrato de Swagger** (DT-26): `respuestas.spec.ts` arma el documento real
+  y falla si una operación queda sin respuesta exitosa o sin errores.
+- DT-42 (alertas por disciplina del delegado) y DT-41 (deuda deportiva sobre
+  todos los períodos de inscripción): casos `TC-173`–`TC-179` y ejecuciones
+  `EJ-112`–`EJ-120`, que incluyen una nueva de `TC-024` y `TC-074` a nivel base.
+  Ejecutadas por el desarrollador; **pendiente la prueba cruzada**.
+
+Anteriores (04/10/2026, TASK-37 y TASK-38): el control de acceso
+con QR (`validarAcceso`, US-31) no tenía ningún test; ahora cubre válida,
+usada, expirada, evento terminado, QR inexistente y doble validación. También
+se testean el fin del evento, la tarea `cierre-de-eventos`, la compra para un
+evento terminado y activar/desactivar tarifas.
+
+Anteriores (03/10/2026): US-26 (alertas de documentación con aviso
 por email) con 13 casos (`TC-160`–`TC-172`) y su ejecución (`EJ-99`–`EJ-111`):
 el envío se probó con SMTP real local (Mailpit) y con un test de integración
-contra un servidor SMTP en memoria; capturas en `docs/evidencias/US-26/`.
+contra un servidor SMTP en memoria; capturas en `docs/pruebas/evidencias/US-26/`.
 Falta probarlo con el proveedor gratuito;
 **pendiente la prueba cruzada**.
 
@@ -68,6 +87,14 @@ convierte en tests → `/ejecutar-pruebas` corre la suite y exporta la evidencia
 > Los cuatro estaban con el **formato equivocado** (8 columnas en vez de 10,
 > tipos que no existen en la planilla, TSV en lugar de CSV). Corregidos contra
 > el `.xlsx` real el 16/09.
+
+**Con la planilla viva de Drive (03/10):** `/exportar-casos` baja el plan de
+testing por su ID y `scripts/comparar-planilla.py` lo contrasta con
+`docs/pruebas/`: detecta casos cargados en Drive sin pasar por el repo (y los
+importa con `--importar`), filas con el mismo ID y distinto contenido, e IDs
+duplicados. El próximo ID sale de la planilla real. `/backlog` lee los criterios
+de aceptación vigentes del backlog. Sin conector de Drive, los dos usan la copia
+local o se omiten: no frenan. Ver `docs/README.md` § *Planillas en Drive*.
 
 ### Falta escribir
 

@@ -420,4 +420,111 @@ describe('PagosDeportivosService · US-21', () => {
       expect(res.montoTotal).toBe(5000);
     });
   });
+
+  describe('DT-41 · reinscribirse no pierde la deuda anterior', () => {
+    const anio = new Date().getFullYear();
+    const mesActual = new Date().getMonth();
+    /** Inscripto ene–mar del año pasado, baja, y reinscripto hace dos meses. */
+    const reinscripta = () =>
+      participanteBase({
+        membresias: [],
+        inscripciones: [
+          inscripcion({
+            activo: true,
+            fechaInscripcion: new Date(anio, mesActual - 2, 5),
+            fechaBaja: null,
+            periodos: [
+              { desde: new Date(anio - 1, 0, 15), hasta: new Date(anio - 1, 2, 3) },
+              { desde: new Date(anio, mesActual - 2, 5), hasta: null },
+            ],
+          }),
+        ],
+      });
+    const mes = (offset: number) => {
+      const d = new Date(anio, mesActual + offset, 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    };
+
+    beforeEach(() => {
+      mockPrisma.pagoCuotaDeportiva.findMany.mockResolvedValue([]);
+      mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([tarifa()]);
+    });
+
+    it('la deuda suma los meses de cada período, sin los meses entre la baja y la reinscripción', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(reinscripta());
+
+      const res = await service.getPendientesPorPersona(50);
+
+      expect(res.cuotasPendientes.map((c) => c.periodo)).toEqual([
+        `${anio - 1}-01`,
+        `${anio - 1}-02`,
+        `${anio - 1}-03`,
+        mes(-2),
+        mes(-1),
+        mes(0),
+      ]);
+      expect(res.totalAdeudado).toBe(6 * 5000);
+    });
+
+    it('un mes que cae en dos períodos (baja y reinscripción el mismo mes) se cobra una sola vez', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(
+        participanteBase({
+          membresias: [],
+          inscripciones: [
+            inscripcion({
+              periodos: [
+                { desde: new Date(anio, mesActual, 1), hasta: new Date(anio, mesActual, 2) },
+                { desde: new Date(anio, mesActual, 20), hasta: null },
+              ],
+            }),
+          ],
+        }),
+      );
+
+      const res = await service.getPendientesPorPersona(50);
+
+      expect(res.cuotasPendientes.map((c) => c.periodo)).toEqual([mes(0)]);
+    });
+
+    it('permite cobrar un mes del período anterior a la reinscripción', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(reinscripta());
+      mockPrisma.pagoCuotaDeportiva.create.mockResolvedValue({
+        id: 9,
+        periodo: `${anio - 1}-02`,
+        monto: 5000,
+        fechaPago: new Date(),
+        metodoPago: 'EFECTIVO',
+      });
+
+      const res = await service.registrarPago(
+        50,
+        { disciplinaId: 3, periodos: [`${anio - 1}-02`] },
+        1,
+      );
+
+      expect(res.montoTotal).toBe(5000);
+    });
+
+    it('rechaza cobrar un mes en que no estuvo inscripto, entre la baja y la reinscripción', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(reinscripta());
+
+      await expect(
+        service.registrarPago(50, { disciplinaId: 3, periodos: [`${anio - 1}-06`] }, 1),
+      ).rejects.toThrow(
+        new BadRequestException(
+          `No se permite registrar pagos de meses en que no estuvo inscripto en la disciplina: ${anio - 1}-06`,
+        ),
+      );
+    });
+
+    it('rechaza cobrar antes del primer período, aunque la reinscripción sea reciente', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(reinscripta());
+
+      await expect(
+        service.registrarPago(50, { disciplinaId: 3, periodos: [`${anio - 2}-12`] }, 1),
+      ).rejects.toThrow(
+        `No se permite registrar pagos anteriores a la inscripción (${anio - 1}-01)`,
+      );
+    });
+  });
 });

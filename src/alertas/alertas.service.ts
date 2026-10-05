@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EstadoDocumentalService } from '../documentacion/estado-documental.service';
 import { NotificacionesService } from '../notificaciones/notificaciones.service';
 import type { ResumenEnvio } from '../notificaciones/notificaciones.types';
+import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import {
   alertasDeDocumentacion,
   type AlertaDocumentacion,
@@ -17,6 +18,8 @@ export interface ResultadoNotificacion extends ResumenEnvio {
   alertas: number;
   nuevas: number;
   destinatarios: number;
+  /** DT-42: alertas nuevas de disciplinas sin delegado (quedan para la próxima corrida). */
+  sinDelegado: number;
 }
 
 /**
@@ -37,10 +40,31 @@ export class AlertasService {
     private readonly plantilla: AlertasDocumentacionPlantilla,
   ) {}
 
-  /** Alertas vigentes de todas las inscripciones activas, por urgencia. */
-  async listar(hoy = new Date()): Promise<AlertaDocumentacion[]> {
+  /**
+   * DT-42: disciplinas cuyas alertas ve el usuario. `null` = todas (ADMIN);
+   * un delegado ve solo las que tiene a cargo.
+   */
+  async disciplinasVisibles(usuario: AuthenticatedUser): Promise<number[] | null> {
+    if (usuario.roles.includes('ADMIN')) return null;
+    const asignadas = await this.prisma.delegadoDisciplina.findMany({
+      where: { usuarioId: usuario.id },
+      select: { disciplinaId: true },
+    });
+    return asignadas.map((a) => a.disciplinaId);
+  }
+
+  /**
+   * Alertas vigentes de las inscripciones activas, por urgencia. Con
+   * `disciplinasIds` (DT-42) se limitan a esas disciplinas.
+   */
+  async listar(
+    hoy = new Date(),
+    disciplinasIds: number[] | null = null,
+  ): Promise<AlertaDocumentacion[]> {
+    if (disciplinasIds && !disciplinasIds.length) return [];
+    const enDisciplinas = disciplinasIds ? { disciplinaId: { in: disciplinasIds } } : {};
     const personas = await this.prisma.persona.findMany({
-      where: { inscripciones: { some: { activo: true } } },
+      where: { inscripciones: { some: { activo: true, ...enDisciplinas } } },
       select: { id: true, nombre: true, apellido: true },
     });
     if (!personas.length) return [];
@@ -49,25 +73,33 @@ export class AlertasService {
       hoy,
     );
     const inscripciones: InscripcionConEstado[] = personas.flatMap((p) =>
-      (estados.get(p.id)?.inscripciones ?? []).map((i) => ({
-        inscripcionId: i.inscripcionId,
-        personaId: p.id,
-        participante: `${p.apellido}, ${p.nombre}`,
-        disciplina: i.disciplina.nombre,
-        categoria: i.categoriaDisciplina?.nombre ?? null,
-        documentos: i.documentos,
-      })),
+      (estados.get(p.id)?.inscripciones ?? [])
+        .filter((i) => !disciplinasIds || disciplinasIds.includes(i.disciplina.id))
+        .map((i) => ({
+          inscripcionId: i.inscripcionId,
+          personaId: p.id,
+          participante: `${p.apellido}, ${p.nombre}`,
+          disciplinaId: i.disciplina.id,
+          disciplina: i.disciplina.nombre,
+          categoria: i.categoriaDisciplina?.nombre ?? null,
+          documentos: i.documentos,
+        })),
     );
     return alertasDeDocumentacion(inscripciones, hoy);
   }
 
-  /** Avisa a los delegados las alertas que todavía no figuran en ninguna notificación. */
+  /**
+   * Avisa las alertas que todavía no figuran en ninguna notificación. Cada
+   * delegado recibe solo las de sus disciplinas (DT-42); las de disciplinas
+   * sin delegado no se marcan como avisadas y salen cuando se asigne uno.
+   */
   async notificar(hoy = new Date()): Promise<ResultadoNotificacion> {
     const alertas = await this.listar(hoy);
     const resultado: ResultadoNotificacion = {
       alertas: alertas.length,
       nuevas: 0,
       destinatarios: 0,
+      sinDelegado: 0,
       creadas: 0,
       enviadas: 0,
       fallidas: 0,
@@ -81,21 +113,35 @@ export class AlertasService {
     resultado.nuevas = nuevas.length;
     if (!nuevas.length) return resultado;
 
-    const destinatarios = await this.notificaciones.usuariosConRol(ROL_DESTINATARIO);
-    resultado.destinatarios = destinatarios.length;
-    if (!destinatarios.length) {
-      this.logger.warn(
-        'Hay alertas de documentación nuevas pero ningún delegado activo para avisar.',
-      );
-      return resultado;
+    const delegados = await this.prisma.usuario.findMany({
+      where: { activo: true, roles: { some: { rol: { nombre: ROL_DESTINATARIO } } } },
+      select: { id: true, disciplinasDelegadas: { select: { disciplinaId: true } } },
+    });
+    const conDelegado = new Set<number>();
+    for (const delegado of delegados) {
+      const propias = new Set(delegado.disciplinasDelegadas.map((d) => d.disciplinaId));
+      const suyas = nuevas.filter((a) => propias.has(a.disciplinaId));
+      if (!suyas.length) continue;
+      suyas.forEach((a) => conDelegado.add(a.disciplinaId));
+      const envio = await this.notificaciones.notificar({
+        plantilla: this.plantilla,
+        datos: { alertas: suyas },
+        destinatarios: [delegado.id],
+        referencias: suyas.map((a) => a.clave),
+      });
+      resultado.destinatarios++;
+      resultado.creadas += envio.creadas;
+      resultado.enviadas += envio.enviadas;
+      resultado.fallidas += envio.fallidas;
+      resultado.pendientes += envio.pendientes;
     }
 
-    const envio = await this.notificaciones.notificar({
-      plantilla: this.plantilla,
-      datos: { alertas: nuevas },
-      destinatarios,
-      referencias: nuevas.map((a) => a.clave),
-    });
-    return { ...resultado, ...envio };
+    resultado.sinDelegado = nuevas.filter((a) => !conDelegado.has(a.disciplinaId)).length;
+    if (resultado.sinDelegado) {
+      this.logger.warn(
+        `Hay ${resultado.sinDelegado} alerta(s) de documentación de disciplinas sin delegado activo.`,
+      );
+    }
+    return resultado;
   }
 }

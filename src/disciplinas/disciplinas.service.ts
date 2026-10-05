@@ -15,7 +15,14 @@ import { sincronizarRequerimientos, validarTiposSinRepetir } from './requerimien
 const DISCIPLINA_INCLUDE = {
   categorias: {
     orderBy: { nombre: 'asc' as const },
-    select: { id: true, nombre: true, activo: true },
+    select: {
+      id: true,
+      nombre: true,
+      activo: true,
+      genero: true,
+      edadMinima: true,
+      edadMaxima: true,
+    },
   },
   // Solo los requisitos de la disciplina; los adicionales de cada categoría
   // se exponen desde /disciplinas/:id/categorias (US-48/51).

@@ -143,8 +143,24 @@ model Usuario {
   habilitacionesExcepcionales HabilitacionExcepcional[] @relation("responsableHabilitacionExcepcional")
   notificaciones              Notificacion[]
   ejecucionesTareas           EjecucionTarea[]
+  /// DT-42: disciplinas que gestiona, si tiene el rol DELEGADO.
+  disciplinasDelegadas        DelegadoDisciplina[]
 
   @@map("usuarios")
+}
+
+/// DT-42: disciplinas a cargo de cada delegado. Filtra sus alertas de
+/// documentación (en el Inicio y por email).
+model DelegadoDisciplina {
+  usuarioId    Int
+  usuario      Usuario    @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  disciplinaId Int
+  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
+  creadoEn     DateTime   @default(now())
+
+  @@id([usuarioId, disciplinaId])
+  @@index([disciplinaId])
+  @@map("delegados_disciplinas")
 }
 
 /// Relación N a N entre Usuario y Rol (RF02: múltiples roles simultáneos).
@@ -195,6 +211,7 @@ model Disciplina {
   inscripciones                 Inscripcion[]
   requerimientosDoc             DisciplinaRequerimientoDoc[]
   pagosDeportivos               PagoCuotaDeportiva[]
+  delegados                     DelegadoDisciplina[]
 
   @@map("disciplinas")
 }
@@ -331,16 +348,18 @@ model Evento {
   id                  Int             @id @default(autoincrement())
   nombre              String
   descripcion         String?
-  capacidadMaxima     Int
-  cierreInscripcion   DateTime
+  requiereEntrada     Boolean         @default(true)
+  capacidadMaxima     Int?
+  entradasDisponibles Int?
+  precio              Decimal         @default(0) @db.Decimal(12, 2)
+  descuentoSocio      Int             @default(0)
   estado              EstadoEvento    @default(BORRADOR)
   fechaEvento         DateTime
+  fechaFin            DateTime?
   imagen              String?
   lugarAcreditacion   String
-  precio              Decimal         @default(0) @db.Decimal(12, 2)
-  inicioVenta         DateTime        @default(now())
-  finVenta            DateTime        @default(now())
-  entradasDisponibles Int             @default(0)
+  inicioVenta         DateTime?
+  finVenta            DateTime?
   entradas            Entrada[]
   compras             CompraEntrada[]
   creadoEn            DateTime        @default(now())
@@ -392,6 +411,8 @@ model CompraEntrada {
 /// Registro de auditoría inalterable (RF12 / RNF03 / RNF11).
 /// IMPORTANTE: esta tabla SOLO admite INSERT desde la aplicación.
 /// No debe ejecutarse UPDATE ni DELETE sobre ella (ver AuditoriaService).
+/// DT-25: la base lo garantiza con triggers que rechazan UPDATE, DELETE y
+/// TRUNCATE (migración 20261004210000_auditoria_inalterable).
 model RegistroAuditoria {
   id            Int             @id @default(autoincrement())
   fechaHora     DateTime        @default(now())
@@ -454,10 +475,28 @@ model Inscripcion {
   actualizadoEn    DateTime  @updatedAt
 
   habilitacionesExcepcionales HabilitacionExcepcional[]
+  /// DT-41: cada alta y baja de la inscripción. La deuda de cuota deportiva se
+  /// calcula sobre todos los períodos, no solo sobre el último.
+  periodos                    PeriodoInscripcion[]
 
   @@unique([personaId, disciplinaId])
   @@index([disciplinaId])
   @@map("inscripciones")
+}
+
+/// DT-41: un tramo en que la persona estuvo inscripta en la disciplina. Al
+/// reinscribirse se abre uno nuevo y los anteriores conservan su deuda.
+model PeriodoInscripcion {
+  id            Int         @id @default(autoincrement())
+  inscripcionId Int
+  inscripcion   Inscripcion @relation(fields: [inscripcionId], references: [id], onDelete: Cascade)
+  desde         DateTime
+  /// Fecha de baja; null mientras el período está vigente.
+  hasta         DateTime?
+  creadoEn      DateTime    @default(now())
+
+  @@index([inscripcionId])
+  @@map("periodos_inscripcion")
 }
 
 /// Documentación obligatoria de un participante (US-24). Habilita la

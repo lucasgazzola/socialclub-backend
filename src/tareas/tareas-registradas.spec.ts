@@ -1,6 +1,8 @@
 import { VencimientosDocumentacionTarea } from '../alertas/vencimientos-documentacion.tarea';
 import { ReintentarNotificacionesTarea } from '../notificaciones/reintentar-notificaciones.tarea';
 import { RotacionCuotaSocialTarea } from '../cuota-social/rotacion-cuota-social.tarea';
+import { CierreDeEventosTarea } from '../eventos/cierre-de-eventos.tarea';
+import type { EventosService } from '../eventos/eventos.service';
 import type { AlertasService } from '../alertas/alertas.service';
 import type { NotificacionesService } from '../notificaciones/notificaciones.service';
 import type { CuotaSocialService } from '../cuota-social/cuota-social.service';
@@ -42,5 +44,15 @@ describe('DT-22 · Tareas automáticas registradas', () => {
     expect(tarea.nombre).toBe('rotacion-cuota-social');
     await expect(tarea.ejecutar({ hoy })).resolves.toEqual(resumen);
     expect(cuotaSocial.sincronizarVigentes).toHaveBeenCalledWith(hoy);
+  });
+
+  it('cierre-de-eventos finaliza los eventos terminados y expira sus entradas (DT-33)', async () => {
+    const resumen = { eventosFinalizados: 2, entradasExpiradas: 7 };
+    const eventos = { cerrarTerminados: jest.fn().mockResolvedValue(resumen) };
+    const tarea = new CierreDeEventosTarea(eventos as unknown as EventosService);
+
+    expect(tarea.nombre).toBe('cierre-de-eventos');
+    await expect(tarea.ejecutar({ hoy })).resolves.toEqual(resumen);
+    expect(eventos.cerrarTerminados).toHaveBeenCalledWith(hoy);
   });
 });
