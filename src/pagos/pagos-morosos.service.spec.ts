@@ -2,11 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { PagosService } from './pagos.service';
-import {
-  CriterioOrdenMorosos,
-  FindMorososQueryDto,
-  SentidoOrden,
-} from './dto/find-morosos-query.dto';
+import { CriterioOrdenMorosos, SentidoOrden } from './dto/find-morosos-query.dto';
 
 describe('PagosService · US-19 · getMorososCuotaSocial', () => {
   let service: PagosService;
@@ -134,7 +130,9 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
         nombre: 'Socio Menor Deuda',
         apellido: 'Uno',
         dni: '111',
-        membresias: [{ activo: true, fechaAlta: haceUnMes, categoriaId: 1, categoria: { nombre: 'General' } }],
+        membresias: [
+          { activo: true, fechaAlta: haceUnMes, categoriaId: 1, categoria: { nombre: 'General' } },
+        ],
         pagos: [], // 2 períodos
       },
       {
@@ -142,7 +140,14 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
         nombre: 'Socio Mayor Deuda',
         apellido: 'Dos',
         dni: '222',
-        membresias: [{ activo: true, fechaAlta: haceTresMeses, categoriaId: 1, categoria: { nombre: 'General' } }],
+        membresias: [
+          {
+            activo: true,
+            fechaAlta: haceTresMeses,
+            categoriaId: 1,
+            categoria: { nombre: 'General' },
+          },
+        ],
         pagos: [], // 4 períodos
       },
     ]);
@@ -177,7 +182,9 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
         nombre: 'A',
         apellido: 'A',
         dni: '1',
-        membresias: [{ activo: true, fechaAlta: haceUnMes, categoriaId: 1, categoria: { nombre: 'General' } }],
+        membresias: [
+          { activo: true, fechaAlta: haceUnMes, categoriaId: 1, categoria: { nombre: 'General' } },
+        ],
         pagos: [], // 2 períodos
       },
       {
@@ -185,7 +192,14 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
         nombre: 'B',
         apellido: 'B',
         dni: '2',
-        membresias: [{ activo: true, fechaAlta: haceDosMeses, categoriaId: 1, categoria: { nombre: 'General' } }],
+        membresias: [
+          {
+            activo: true,
+            fechaAlta: haceDosMeses,
+            categoriaId: 1,
+            categoria: { nombre: 'General' },
+          },
+        ],
         pagos: [], // 3 períodos
       },
     ]);
