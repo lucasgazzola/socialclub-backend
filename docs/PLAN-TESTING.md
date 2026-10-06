@@ -23,14 +23,22 @@ estrategia de testing y su secuencia.
 | | Cantidad |
 |---|---|
 | US implementadas (los dos repos) | ~40 |
-| US con casos documentados | 28 |
-| Casos documentados | 190 filas (`TC-001`–`TC-190`) |
-| Ejecuciones registradas | 131 (`EJ-01` a `EJ-131`) |
+| US con casos documentados | 29 |
+| Casos documentados | 197 filas (`TC-001`–`TC-197`) |
+| Ejecuciones registradas | 138 (`EJ-01` a `EJ-138`) |
 
 **Objetivo de la DoD: 70 % de cobertura.** Los dos repos lo superan: backend
 77,8 % y frontend 70,1 % (DT-01, TASK-34).
 
-Últimas incorporaciones (05/10/2026, US-27):
+Últimas incorporaciones (06/10/2026, US-19):
+- **US-19 (Ver morosos de cuota social)**: casos `TC-191`–`TC-197` y ejecuciones
+  `EJ-132`–`EJ-138`. Cubre los 7 criterios de aceptación: listado de morosos con detalle de períodos y deuda total,
+  ordenamiento por mayor monto o más períodos atrasados, búsqueda por datos de socio y filtro por categoría,
+  cálculo retrospectivo con tarifa histórica según período adeudado, exclusión automática de socios al día,
+  mensaje informativo ante listado sin morosos, y acción de cobro integrada mediante modal de secretaría.
+  Ejecutadas por el desarrollador; **pendiente la prueba cruzada**.
+
+Anteriores (05/10/2026, US-27):
 - **US-27 (Bloquear participante ante documentación vencida)**: casos `TC-186`–`TC-190` y ejecuciones
   `EJ-127`–`EJ-131`. Cubre los 4 criterios de aceptación: bloqueo automático ante vencimiento de documento
   o vencimiento de plazo de tolerancia sin entrega, aislamiento del bloqueo limitándolo a la disciplina/categoría
