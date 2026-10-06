@@ -13,7 +13,7 @@ describe('EstadoDocumentalService', () => {
 
   const prismaMock = {
     persona: { findUnique: jest.fn() },
-    inscripcion: { findMany: jest.fn() },
+    inscripcion: { findUnique: jest.fn(), findMany: jest.fn() },
     disciplinaRequerimientoDoc: { findMany: jest.fn() },
     documentacion: { findMany: jest.fn() },
   };
@@ -167,5 +167,34 @@ describe('EstadoDocumentalService', () => {
     expect(prismaMock.documentacion.findMany).not.toHaveBeenCalled();
     expect(r.documentos[0].estado).toBe('FALTANTE');
     expect(r.estado).toBe('PENDIENTE');
+  });
+
+  describe('US-27 · evaluación de bloqueo por inscripción', () => {
+    it('porInscripcion devuelve el detalle y si la inscripción está bloqueada', async () => {
+      prismaMock.inscripcion.findUnique.mockResolvedValue({ id: 5, personaId: 10 });
+      const r = await service.porInscripcion(5, hoy);
+      expect(r.inscripcionId).toBe(5);
+      expect(r.bloqueada).toBe(false);
+    });
+
+    it('estaBloqueada devuelve true cuando el estado es BLOQUEADO', async () => {
+      prismaMock.inscripcion.findUnique.mockResolvedValue({ id: 5, personaId: 10 });
+      prismaMock.documentacion.findMany.mockResolvedValue([
+        {
+          id: 3,
+          personaId: 10,
+          tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA',
+          fechaVencimiento: new Date(2026, 8, 20),
+          creadoEn: new Date(2026, 8, 1),
+        },
+      ]);
+      const bloqueada = await service.estaBloqueada(5, hoy);
+      expect(bloqueada).toBe(true);
+    });
+
+    it('lanza 404 si la inscripción no existe', async () => {
+      prismaMock.inscripcion.findUnique.mockResolvedValue(null);
+      await expect(service.porInscripcion(999, hoy)).rejects.toBeInstanceOf(NotFoundException);
+    });
   });
 });
