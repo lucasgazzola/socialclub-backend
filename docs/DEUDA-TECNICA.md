@@ -229,11 +229,16 @@ disciplina real (DT-30) para poder configurar estos requisitos.
   participantes y `GET /documentacion/persona/:id/estado`. La documentación se
   carga con un tipo del catálogo, solo entre los exigidos al participante; un
   documento nuevo del mismo tipo renueva al anterior.
+- **Bloqueo por documentación resuelto en US-27 (05/10/2026):**
+  Cubierto por casos `TC-186` a `TC-190` y ejecuciones `EJ-127` a `EJ-131`. El sistema bloquea automáticamente
+  el día en que vence el documento o al cumplirse el plazo de tolerancia sin entrega, aísla el bloqueo a la disciplina/categoría
+  afectada sin impactar en las restantes, expone los motivos detallados en sistema y UI, y levanta automáticamente por renovación vigente
+  o manualmente por habilitación excepcional.
 - **Alertas resueltas en US-26 (03/10/2026):** ver [Resuelta](#us-26--alertas-por-vencimiento-de-documentación-con-aviso-por-email).
 - **Pendiente:** aprobación/rechazo de documentos (estados
   `PENDIENTE`/`APROBADA`/`RECHAZADA` de este ítem), habilitación excepcional
-  (US-28, la tabla ya existe), filtro del listado por estado de habilitación
-  (US-08) y que la inscripción bloqueada impida operar (US-27).
+  (US-28, la tabla ya existe) y filtro del listado por estado de habilitación
+  (US-08).
 - **Rama sugerida:** `issue/TASK-19-DT-27-Documentacion-por-disciplina`
 
 #### DT-29 · No existe solicitud de inscripción con aprobación

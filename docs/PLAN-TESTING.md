@@ -23,14 +23,21 @@ estrategia de testing y su secuencia.
 | | Cantidad |
 |---|---|
 | US implementadas (los dos repos) | ~40 |
-| US con casos documentados | 27 |
-| Casos documentados | 185 filas (`TC-001`–`TC-185`) |
-| Ejecuciones registradas | 126 (`EJ-01` a `EJ-126`) |
+| US con casos documentados | 28 |
+| Casos documentados | 190 filas (`TC-001`–`TC-190`) |
+| Ejecuciones registradas | 131 (`EJ-01` a `EJ-131`) |
 
 **Objetivo de la DoD: 70 % de cobertura.** Los dos repos lo superan: backend
 77,8 % y frontend 70,1 % (DT-01, TASK-34).
 
-Últimas incorporaciones (05/10/2026, US-25):
+Últimas incorporaciones (05/10/2026, US-27):
+- **US-27 (Bloquear participante ante documentación vencida)**: casos `TC-186`–`TC-190` y ejecuciones
+  `EJ-127`–`EJ-131`. Cubre los 4 criterios de aceptación: bloqueo automático ante vencimiento de documento
+  o vencimiento de plazo de tolerancia sin entrega, aislamiento del bloqueo limitándolo a la disciplina/categoría
+  que lo exige, exposición de motivos detallados en sistema/UI, y levantamiento automático por renovación vigente
+  o manual por habilitación excepcional administrativa. Ejecutadas por el desarrollador; **pendiente la prueba cruzada**.
+
+Anteriores (05/10/2026, US-25):
 - **US-25 (Estado documental de un integrante)**: casos `TC-180`–`TC-185` y ejecuciones
   `EJ-121`–`EJ-126`. Cubre los 5 criterios de aceptación: exigidos por disciplina/categoría,
   los cuatro estados de documentos, umbral de 30 días para "Por vencer", fecha límite en faltantes,
