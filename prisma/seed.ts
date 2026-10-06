@@ -795,7 +795,50 @@ async function main() {
     },
   });
 
-  console.log('  10 combinaciones de Persona, Usuario y Membresía sembradas exitosamente.');
+  // 7.11. Roberto Moroso (Socio con 10 meses de morosidad de cuota social - US-19)
+  const emailRoberto = 'roberto.moroso@socialclub.local';
+  let personaRoberto = await prisma.persona.findUnique({ where: { dni: '70000011' } });
+  if (!personaRoberto) {
+    personaRoberto = await prisma.persona.create({
+      data: {
+        nombre: 'Roberto',
+        apellido: 'MorosoDiezMeses',
+        dni: '70000011',
+        email: emailRoberto,
+        genero: GeneroDisciplina.MASCULINO,
+        fechaNacimiento: new Date('1985-06-20'),
+        membresias: {
+          create: {
+            categoriaId: categoriasMap.get('Cuota General')!.id,
+            activo: true,
+            fechaAlta: new Date('2025-01-01'),
+          },
+        },
+      },
+    });
+  } else {
+    personaRoberto = await prisma.persona.update({
+      where: { id: personaRoberto.id },
+      data: {
+        genero: GeneroDisciplina.MASCULINO,
+        fechaNacimiento: new Date('1985-06-20'),
+      },
+    });
+  }
+  await prisma.usuario.upsert({
+    where: { email: emailRoberto },
+    update: { personaId: personaRoberto.id },
+    create: {
+      email: emailRoberto,
+      passwordHash,
+      nombre: 'Roberto',
+      apellido: 'MorosoDiezMeses',
+      personaId: personaRoberto.id,
+      roles: { create: [{ rolId: rolSocio.id }] },
+    },
+  });
+
+  console.log('  11 combinaciones de Persona, Usuario y Membresía sembradas exitosamente.');
 
   // ── 8. Inscripciones (US-07 · fechaBaja / US-08 · categoría) ───────────────
   const inscripcionesData = [
@@ -1082,6 +1125,7 @@ async function main() {
     { persona: personaSocioSinCuenta, desde: '2025-01', hasta: '2026-08' }, // Debe 2026-09 (1 cuota)
     { persona: personaLucia, desde: '2025-03', hasta: '2026-07' }, // Debe 2026-08 y 2026-09 (2 cuotas)
     { persona: personaMartin, desde: '2024-06', hasta: '2026-06' }, // Debe 2026-07, 2026-08 y 2026-09 (3 cuotas)
+    { persona: personaRoberto, desde: '2025-01', hasta: '2025-11' }, // Debe desde 2025-12 hasta 2026-09 (10 cuotas adeudadas)
   ];
 
   for (const plan of planPagosSociales) {
@@ -1101,7 +1145,7 @@ async function main() {
       });
     }
   }
-  console.log('  Pagos sociales y morosidad sembrados (socios al día y con 1, 2 y 3 cuotas adeudadas).');
+  console.log('  Pagos sociales y morosidad sembrados (socios al día y con 1, 2, 3 y 10 cuotas adeudadas).');
 
   // ── 12. Pagos de Cuota Deportiva (US-21) ───────────────────────────────────
   const pagosDeportivosData = [
