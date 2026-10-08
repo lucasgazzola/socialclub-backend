@@ -764,4 +764,26 @@ describe('UsuariosService', () => {
       );
     });
   });
+
+  describe('getRoles', () => {
+    it('retorna la lista de roles ordenados por id', async () => {
+      const rolesMock = [
+        { id: 1, nombre: 'ADMIN', descripcion: 'Acceso completo' },
+        { id: 2, nombre: 'COLABORADOR', descripcion: 'Acceso operativo' },
+      ];
+      prismaMock.rol.findMany.mockResolvedValue(rolesMock);
+
+      const resultado = await service.getRoles();
+
+      expect(prismaMock.rol.findMany).toHaveBeenCalledWith({
+        select: {
+          id: true,
+          nombre: true,
+          descripcion: true,
+        },
+        orderBy: { id: 'asc' },
+      });
+      expect(resultado).toEqual(rolesMock);
+    });
+  });
 });

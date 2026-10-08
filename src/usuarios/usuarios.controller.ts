@@ -75,6 +75,17 @@ export class UsuariosController {
     return this.usuariosService.findAll(query);
   }
 
+  @Get('roles')
+  @ApiOperation({ summary: 'Listar roles del sistema para asignación y filtros' })
+  @ApiOkResponse({ description: 'Listado de roles del sistema' })
+  @ApiErrores({
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+  })
+  getRoles() {
+    return this.usuariosService.getRoles();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Obtener un usuario por id' })
   @ApiOkResponse({ description: 'Usuario', type: UsuarioRespuestaDto })

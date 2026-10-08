@@ -13,6 +13,7 @@ const mockUsuariosService = {
   update: jest.fn(),
   deactivate: jest.fn(),
   activate: jest.fn(),
+  getRoles: jest.fn(),
 };
 
 describe('UsuariosController', () => {
@@ -151,6 +152,21 @@ describe('UsuariosController', () => {
 
       expect(mockUsuariosService.activate).toHaveBeenCalledWith(1, 99);
       expect(result).toEqual(expectedResult);
+    });
+  });
+
+  describe('getRoles', () => {
+    it('debe delegar la obtención de roles al servicio', async () => {
+      const rolesEsperados = [
+        { id: 1, nombre: 'ADMIN', descripcion: 'Acceso total' },
+        { id: 2, nombre: 'COLABORADOR', descripcion: 'Acceso operativo' },
+      ];
+      mockUsuariosService.getRoles.mockResolvedValue(rolesEsperados);
+
+      const resultado = await controller.getRoles();
+
+      expect(mockUsuariosService.getRoles).toHaveBeenCalled();
+      expect(resultado).toEqual(rolesEsperados);
     });
   });
 });
