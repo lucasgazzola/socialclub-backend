@@ -8,6 +8,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { RegistrarPagoDto } from './dto/registrar-pago.dto';
 import { RegistrarPagoSocioDto } from './dto/registrar-pago-socio.dto';
+import {
+  CriterioOrdenMorosos,
+  FindMorososQueryDto,
+  SentidoOrden,
+} from './dto/find-morosos-query.dto';
 
 export type EstadoFinancieroSocio = 'AL_DIA' | 'MOROSO';
 
@@ -345,4 +350,151 @@ export class PagosService {
     const { persona } = await this.getPersonaYSocio(usuarioId);
     return this.getHistorialPagosPorSocio(persona.id);
   }
+
+  /**
+   * US-19: Obtener listado de socios morosos de cuota social con deuda retroactiva, ordenamiento y filtros.
+   * Criterios:
+   * CA 1: Nombre completo, períodos adeudados y monto total de deuda.
+   * CA 2: Ordenar por monto de deuda o cantidad de períodos atrasados.
+   * CA 3: Buscar por nombre, apellido o DNI, y filtrar por categoría de socio.
+   * CA 4: Cálculo de deuda con tarifa histórica vigente por período.
+   * CA 5: Excluir automáticamente socios al día.
+   * CA 6: Mensaje / listado vacío si no hay morosos.
+   */
+  async getMorososCuotaSocial(query: FindMorososQueryDto = {}) {
+    const {
+      busqueda,
+      categoriaId,
+      ordenarPor = CriterioOrdenMorosos.MONTO,
+      orden = SentidoOrden.DESC,
+    } = query;
+
+    // Buscar personas con membresía (socios o ex-socios)
+    // Filtro inicial por categoría o texto si fue provisto
+    const wherePersona: any = {
+      membresias: {
+        some: categoriaId ? { categoriaId } : {},
+      },
+    };
+
+    if (busqueda && busqueda.trim()) {
+      const termino = busqueda.trim();
+      wherePersona.AND = [
+        {
+          OR: [
+            { nombre: { contains: termino, mode: 'insensitive' } },
+            { apellido: { contains: termino, mode: 'insensitive' } },
+            { dni: { contains: termino, mode: 'insensitive' } },
+          ],
+        },
+      ];
+    }
+
+    const personas = await this.prisma.persona.findMany({
+      where: wherePersona,
+      include: {
+        membresias: {
+          include: { categoria: true },
+          orderBy: { fechaAlta: 'desc' },
+        },
+        pagos: {
+          orderBy: { fechaPago: 'desc' },
+        },
+      },
+    });
+
+    // Cache de tarifas históricas por categoría y período para optimizar consultas
+    const tarifasCache = new Map<string, number>();
+    const getTarifaConCache = async (catId: number, periodo: string): Promise<number> => {
+      const key = `${catId}:${periodo}`;
+      if (tarifasCache.has(key)) {
+        return tarifasCache.get(key)!;
+      }
+      const monto = await this.getMontoCuotaSocial(catId, periodo);
+      tarifasCache.set(key, monto);
+      return monto;
+    };
+
+    const morosos = [];
+
+    for (const persona of personas) {
+      if (!persona.membresias || persona.membresias.length === 0) continue;
+
+      const membresiaActiva = persona.membresias.find((m) => m.activo);
+      const ultimaMembresia = persona.membresias[0];
+      const membresia = membresiaActiva ?? ultimaMembresia;
+
+      // Si se filtró por categoría, verificar que la membresía seleccionada coincida
+      if (categoriaId && membresia.categoriaId !== categoriaId) {
+        continue;
+      }
+
+      // Períodos desde fechaAlta hasta fechaBaja (o mes actual)
+      const fechaFin = membresia.fechaBaja ?? new Date();
+      const periodosTotales = this.generarPeriodosHasta(membresia.fechaAlta, fechaFin);
+      const pagosRealizados = new Set(persona.pagos.map((p) => p.periodo));
+
+      const cuotasPendientes: CuotaPendienteDto[] = [];
+      let totalAdeudado = 0;
+
+      for (const periodo of periodosTotales) {
+        if (!pagosRealizados.has(periodo)) {
+          const monto = await getTarifaConCache(membresia.categoriaId, periodo);
+          cuotasPendientes.push({
+            periodo,
+            monto,
+            categoriaNombre: membresia.categoria?.nombre ?? '',
+          });
+          totalAdeudado += monto;
+        }
+      }
+
+      // CA 5: Excluir socios que estén al día
+      if (cuotasPendientes.length > 0) {
+        morosos.push({
+          personaId: persona.id,
+          nombreCompleto: `${persona.nombre} ${persona.apellido}`.trim(),
+          nombre: persona.nombre,
+          apellido: persona.apellido,
+          dni: persona.dni,
+          email: persona.email,
+          telefono: persona.telefono,
+          categoriaId: membresia.categoriaId,
+          categoria: membresia.categoria?.nombre ?? '',
+          socioActivo: Boolean(membresiaActiva),
+          periodosAdeudados: cuotasPendientes.map((c) => c.periodo),
+          cantidadPeriodos: cuotasPendientes.length,
+          montoTotalDeuda: totalAdeudado,
+          cuotasPendientes,
+        });
+      }
+    }
+
+    // CA 2: Ordenar por monto de deuda o cantidad de períodos
+    morosos.sort((a, b) => {
+      let valorA: number;
+      let valorB: number;
+
+      if (ordenarPor === CriterioOrdenMorosos.PERIODOS) {
+        valorA = a.cantidadPeriodos;
+        valorB = b.cantidadPeriodos;
+      } else {
+        // Por defecto: MONTO
+        valorA = a.montoTotalDeuda;
+        valorB = b.montoTotalDeuda;
+      }
+
+      if (orden === SentidoOrden.ASC) {
+        return valorA - valorB;
+      }
+      return valorB - valorA;
+    });
+
+    return {
+      total: morosos.length,
+      deudaTotalClub: morosos.reduce((sum, m) => sum + m.montoTotalDeuda, 0),
+      items: morosos,
+    };
+  }
 }
+

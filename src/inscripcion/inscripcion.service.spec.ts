@@ -1473,4 +1473,35 @@ describe('InscripcionService', () => {
       });
     });
   });
+
+  describe('US-27 · findOne con estado documental', () => {
+    it('findOne incluye el estado documental de la inscripción cuando está activa', async () => {
+      mockPrisma.inscripcion.findUnique.mockResolvedValue({
+        id: 7,
+        personaId: 10,
+        disciplinaId: 1,
+        activo: true,
+        persona: { id: 10, nombre: 'Juan', apellido: 'Perez', dni: '12345678' },
+        disciplina: { id: 1, nombre: 'Fútbol' },
+        categoriaDisciplina: null,
+      });
+      mockEstadoDocumental.porPersona.mockResolvedValueOnce({
+        personaId: 10,
+        inscripciones: [
+          {
+            inscripcionId: 7,
+            estado: 'BLOQUEADO',
+            motivos: ['Certificado médico de aptitud física: vencido el 30/09/2026'],
+          },
+        ],
+      });
+
+      const res = await service.findOne(7);
+      expect(res.estadoDocumental).toEqual({
+        inscripcionId: 7,
+        estado: 'BLOQUEADO',
+        motivos: ['Certificado médico de aptitud física: vencido el 30/09/2026'],
+      });
+    });
+  });
 });

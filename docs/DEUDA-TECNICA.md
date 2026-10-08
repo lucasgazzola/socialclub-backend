@@ -218,21 +218,27 @@ disciplina real (DT-30) para poder configurar estos requisitos.
   (catálogo; los documentos viejos con texto libre se mapearon cuando
   coincidían y el resto quedó en null), `Inscripcion.requisitosDesde` (US-6) y
   la tabla `habilitaciones_excepcionales` (US-28).
-- **Estado documental resuelto en TASK-31 (01/10/2026):**
+- **Estado documental resuelto en US-25 / TASK-31 (01/10/2026 - 05/10/2026):**
   `EstadoDocumentalService` calcula en el momento, por cada inscripción activa,
   el estado de cada documento exigido (Vigente / Por vencer / Vencido / Faltante
   con fecha límite) y el estado general (Habilitado / Pendiente de documentación
-  / Bloqueado), con los motivos en texto. Al ser un cálculo, el bloqueo por
+  / Bloqueado), con los motivos en texto. Cubierto por casos `TC-180` a `TC-185` y
+  ejecuciones `EJ-121` a `EJ-126`. Al ser un cálculo, el bloqueo por
   vencimiento (US-27) no necesita jobs. Lo usan: el alta de inscripción
   (`GET /inscripcion/requisitos` y la respuesta del alta), el listado de
   participantes y `GET /documentacion/persona/:id/estado`. La documentación se
   carga con un tipo del catálogo, solo entre los exigidos al participante; un
   documento nuevo del mismo tipo renueva al anterior.
+- **Bloqueo por documentación resuelto en US-27 (05/10/2026):**
+  Cubierto por casos `TC-186` a `TC-190` y ejecuciones `EJ-127` a `EJ-131`. El sistema bloquea automáticamente
+  el día en que vence el documento o al cumplirse el plazo de tolerancia sin entrega, aísla el bloqueo a la disciplina/categoría
+  afectada sin impactar en las restantes, expone los motivos detallados en sistema y UI, y levanta automáticamente por renovación vigente
+  o manualmente por habilitación excepcional.
 - **Alertas resueltas en US-26 (03/10/2026):** ver [Resuelta](#us-26--alertas-por-vencimiento-de-documentación-con-aviso-por-email).
 - **Pendiente:** aprobación/rechazo de documentos (estados
   `PENDIENTE`/`APROBADA`/`RECHAZADA` de este ítem), habilitación excepcional
-  (US-28, la tabla ya existe), filtro del listado por estado de habilitación
-  (US-08) y que la inscripción bloqueada impida operar (US-27).
+  (US-28, la tabla ya existe) y filtro del listado por estado de habilitación
+  (US-08).
 - **Rama sugerida:** `issue/TASK-19-DT-27-Documentacion-por-disciplina`
 
 #### DT-29 · No existe solicitud de inscripción con aprobación

@@ -100,10 +100,10 @@ export class InscripcionService {
     return porDefecto;
   }
 
-  /** US-05/25: estado documental de una inscripción recién creada o editada. */
+  /** US-05/25/27: estado documental de una inscripción recién creada o consultada. */
   private async estadoDocumentalDe(personaId: number, inscripcionId: number) {
     const resumen = await this.estadoDocumental.porPersona(personaId);
-    return resumen.inscripciones.find((i) => i.inscripcionId === inscripcionId) ?? null;
+    return resumen?.inscripciones?.find((i) => i.inscripcionId === inscripcionId) ?? null;
   }
 
   /**
@@ -967,7 +967,14 @@ export class InscripcionService {
     if (!inscripcion) {
       throw new NotFoundException('Inscripción no encontrada');
     }
-    return inscripcion;
+    const estadoDocumental = inscripcion.activo
+      ? await this.estadoDocumentalDe(inscripcion.personaId, inscripcion.id)
+      : null;
+
+    return {
+      ...inscripcion,
+      estadoDocumental,
+    };
   }
 
   /**

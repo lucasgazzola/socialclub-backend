@@ -38,7 +38,7 @@ describe('US-24/25 · DocumentacionController · control de acceso', () => {
       expect(guard.canActivate(contextoPara(handler, [rol]))).toBe(true);
     });
 
-    it.each(['COLABORADOR', 'SOCIO'])('rechaza a un %s', (rol) => {
+    it.each(['COLABORADOR', 'SOCIO'])('US-25 · TC-184: rechaza a un %s', (rol) => {
       expect(() => guard.canActivate(contextoPara(handler, [rol]))).toThrow(ForbiddenException);
     });
   });

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiCookieAuth,
   ApiOperation,
@@ -9,6 +9,7 @@ import {
 import { PagosService } from './pagos.service';
 import { RegistrarPagoDto } from './dto/registrar-pago.dto';
 import { RegistrarPagoSocioDto } from './dto/registrar-pago-socio.dto';
+import { FindMorososQueryDto } from './dto/find-morosos-query.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -23,7 +24,22 @@ import { ApiErrores, VALIDACION } from '../common/swagger/respuestas';
 export class PagosController {
   constructor(private readonly pagosService: PagosService) {}
 
-  // ── Endpoints de Secretaría (US-17) ──────────────────────────────────────────
+  // ── Endpoints de Secretaría (US-19 & US-17) ─────────────────────────────────
+
+  @Get('morosos')
+  @Roles('ADMIN', 'COLABORADOR')
+  @ApiOperation({
+    summary: 'US-19 — Visualizar listado de socios morosos de cuota social para gestión de cobranza',
+  })
+  @ApiOkResponse({ description: 'Listado de socios morosos con deuda acumulada y cuotas adeudadas' })
+  @ApiErrores({
+    400: [VALIDACION],
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+  })
+  getMorosos(@Query() query: FindMorososQueryDto) {
+    return this.pagosService.getMorososCuotaSocial(query);
+  }
 
   @Get('socio/:id/cuotas-pendientes')
   @Roles('ADMIN', 'COLABORADOR')
