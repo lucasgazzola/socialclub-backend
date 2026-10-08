@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AccionAuditoria, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { FindAuditoriaQueryDto } from './dto/find-auditoria-query.dto'; // Asegúrate de que esta ruta sea la correcta
+import { FindAuditoriaQueryDto, PeriodoAuditoria } from './dto/find-auditoria-query.dto';
 
 interface RegistrarParams {
   accion: AccionAuditoria;
@@ -55,18 +55,35 @@ export class AuditoriaService {
       responsableId,
       fechaDesde,
       fechaHasta,
+      periodo,
+      rango,
       pagina = 1,
       porPagina = 20,
     } = query;
+
+    const periodoFiltro = periodo ?? rango;
+    let fechaDesdeCalculada = fechaDesde ? new Date(fechaDesde) : undefined;
+    const fechaHastaCalculada = fechaHasta ? new Date(fechaHasta) : undefined;
+
+    if (periodoFiltro && periodoFiltro !== PeriodoAuditoria.PERSONALIZADO) {
+      const ahora = new Date();
+      if (periodoFiltro === PeriodoAuditoria.ULTIMA_HORA) {
+        fechaDesdeCalculada = new Date(ahora.getTime() - 60 * 60 * 1000);
+      } else if (periodoFiltro === PeriodoAuditoria.ULTIMAS_24H) {
+        fechaDesdeCalculada = new Date(ahora.getTime() - 24 * 60 * 60 * 1000);
+      } else if (periodoFiltro === PeriodoAuditoria.ULTIMOS_7D) {
+        fechaDesdeCalculada = new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000);
+      }
+    }
 
     const where: Prisma.RegistroAuditoriaWhereInput = {
       ...(accion && { accion }),
       ...(entidad && { entidad }),
       ...(responsableId && { responsableId }),
-      ...((fechaDesde || fechaHasta) && {
+      ...((fechaDesdeCalculada || fechaHastaCalculada) && {
         fechaHora: {
-          ...(fechaDesde && { gte: new Date(fechaDesde) }),
-          ...(fechaHasta && { lte: new Date(fechaHasta) }),
+          ...(fechaDesdeCalculada && { gte: fechaDesdeCalculada }),
+          ...(fechaHastaCalculada && { lte: fechaHastaCalculada }),
         },
       }),
     };

@@ -630,7 +630,13 @@ describe('InscripcionService', () => {
 
       const result = await service.findAll({ busqueda: 'zzz', pagina: 1, porPagina: 10 });
 
-      expect(result).toEqual({ items: [], total: 0, pagina: 1, porPagina: 10 });
+      expect(result).toEqual({
+        items: [],
+        total: 0,
+        pagina: 1,
+        porPagina: 10,
+        counts: { todos: 0, inscriptos: 0, baja: 0 },
+      });
     });
 
     it('TC-0808: sin filtros lista personas paginado y respeta skip/take', async () => {
