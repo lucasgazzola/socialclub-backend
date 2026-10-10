@@ -1,0 +1,74 @@
+US-35 · API local (http://localhost:3102/api/v1), 10/10/2026, base de pruebas con el seed
+
+# GET /reportes/estado-financiero?desde=2026-07&hasta=2026-09 (colaborador)
+{
+ "totales": {
+  "recaudado": 111400,
+  "adeudado": 241450,
+  "morosos": 7,
+  "porcentajeCobranza": 31.6,
+  "ingresadoPorFechaDeCobro": 111400
+ },
+ "porConcepto": [
+  {
+   "concepto": "CUOTA_SOCIAL",
+   "recaudado": 60000,
+   "adeudado": 52000,
+   "morosos": 3,
+   "porcentajeCobranza": 53.6
+  },
+  {
+   "concepto": "CUOTA_DEPORTIVA",
+   "recaudado": 51400,
+   "adeudado": 189450,
+   "morosos": 6,
+   "porcentajeCobranza": 21.3
+  }
+ ]
+}
+
+# … &disciplinaId=4 (Natación): solo su cuota deportiva
+{
+ "totales": {
+  "recaudado": 0,
+  "adeudado": 97150,
+  "morosos": 3,
+  "porcentajeCobranza": 0,
+  "ingresadoPorFechaDeCobro": 0
+ },
+ "porConcepto": [
+  {
+   "concepto": "CUOTA_DEPORTIVA",
+   "recaudado": 0,
+   "adeudado": 97150,
+   "morosos": 3,
+   "porcentajeCobranza": 0
+  }
+ ]
+}
+
+# desde posterior a hasta
+{
+ "statusCode": 400,
+ "message": "El período «desde» no puede ser posterior a «hasta»."
+}
+
+# más de 36 meses
+{
+ "statusCode": 400,
+ "message": "El reporte abarca como máximo 36 meses."
+}
+
+# formato inválido
+{
+ "statusCode": 400,
+ "message": [
+  "El período «desde» debe tener formato AAAA-MM"
+ ]
+}
+
+# delegado
+{
+ "statusCode": 403,
+ "message": "No tenés permisos suficientes para esta operación"
+}

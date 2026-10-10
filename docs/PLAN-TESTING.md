@@ -15,7 +15,7 @@ estrategia de testing y su secuencia.
 | | Backend | Frontend |
 |---|---|---|
 | Tests unitarios | 651 ✅ (+5 contra Postgres) | 458 ✅ |
-| Pruebas E2E (Playwright, sistema real) | — | **26 casos ✅** en 6 flujos |
+| Pruebas E2E (Playwright, sistema real) | — | **31 casos ✅** en 7 flujos |
 | Cobertura (statements) | **87,7 %** ✅ | **70,5 %** ✅ |
 | Cobertura (ramas) | 76,6 % | 69,3 % |
 | Piso configurado (stmts / ramas / funcs / líneas) | 70 / 70 / 61 / 69 | 67 / 66 / 57 / 68 |
@@ -24,10 +24,10 @@ estrategia de testing y su secuencia.
 | | Cantidad |
 |---|---|
 | US implementadas (los dos repos) | ~40 |
-| US con casos documentados | 31 |
-| Casos documentados | 211 filas (`TC-001`–`TC-211`) |
-| Ejecuciones registradas | 176 (`EJ-01` a `EJ-176`) |
-| Casos con ejecución E2E automática | 26 (`EJ-139` a `EJ-160` y `EJ-173` a `EJ-176`) |
+| US con casos documentados | 32 |
+| Casos documentados | 220 filas (`TC-001`–`TC-220`) |
+| Ejecuciones registradas | 185 (`EJ-01` a `EJ-185`) |
+| Casos con ejecución E2E automática | 31 (`EJ-139`–`EJ-160`, `EJ-173`–`EJ-181`) |
 
 **Objetivo de la DoD: 70 % de cobertura.** Los dos repos lo superan: backend
 87,7 % y frontend 70,5 %.
@@ -51,7 +51,19 @@ corregidos:
 Además, los 17 tests de `*.e2e-spec.ts` del backend (auth, socios y usuarios)
 no los ejecutaba ninguna configuración de Jest; ahora corren con la suite.
 
-Últimas incorporaciones (10/10/2026, US-23):
+Últimas incorporaciones (10/10/2026, US-35):
+- **US-35 (Reporte de estado financiero)**: casos `TC-212`–`TC-220` y ejecuciones
+  `EJ-177`–`EJ-185` (5 de ellas E2E). Cubre los 3 criterios: total recaudado,
+  total adeudado, morosos y porcentaje de cobranza; período por mes, trimestre o
+  rango (con validación del rango); filtro por disciplina. TC-219 es una prueba
+  de integración E2E: el adeudado del reporte coincide con el listado de
+  morosos. La regla del vencimiento se prueba con fechas fijas. Ejecutadas por
+  el desarrollador; **pendiente la prueba cruzada**.
+- **Infraestructura E2E:** el front de las pruebas se sirve compilado
+  (`vite build` + `vite preview`); el servidor de desarrollo recargaba la página
+  en medio de una prueba de forma intermitente.
+
+Anteriores (10/10/2026, US-23):
 - **US-23 (Ver morosos de cuota deportiva)**: casos `TC-200`–`TC-211` y ejecuciones
   `EJ-161`–`EJ-172` (los IDs `TC-198`/`TC-199` y `EJ-139`–`EJ-160` son de TASK-43),
   más un flujo E2E (`e2e/morosos-cuota-deportiva.spec.ts`: TC-201, TC-208, TC-210
@@ -195,6 +207,7 @@ trace viewer permite diagnosticar un fallo del CI sin reproducirlo).
 | Cuota social del período siguiente y cobro de la cuota deportiva hasta «al día» | TC-091, TC-117, TC-110, TC-116 | 16, 21 |
 | Alta y baja de un socio | TC-026, TC-039, TC-043 | 12, 14 |
 | Morosos de cuota deportiva: listado, detalle por disciplina, cobro desde el moroso y acceso restringido | TC-201, TC-208, TC-211, TC-210 | 23 |
+| Estado financiero: indicadores, mes/trimestre/rango, filtro por disciplina, coincidencia con los morosos y acceso restringido | TC-212, TC-215, TC-217, TC-219, TC-220 | 35 |
 
 **Duración:** ~1,5 minutos los 22 casos (más el arranque de la API).
 
