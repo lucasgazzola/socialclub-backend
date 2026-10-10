@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 10/10/2026 (US-23: vencimiento de la cuota deportiva y DT-48; antes TASK-43)
+- **Última actualización:** 10/10/2026 (US-35: cálculo del estado financiero; antes US-23 y TASK-43)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -736,6 +736,23 @@ Se implementó la suite completa de tests unitarios y de integración de compone
 - **Funciones:** **60,51 %** (567 / 937).
 - Se cubrieron exhaustivamente los módulos sin tests previos o con cobertura insuficiente (`auditoria`, `auth`, `cuota-social`, `cuotas`, `dashboard`, `disciplinas`, `documentacion`, `entradas`, `inscripcion`, `pagos`, `socios`, `usuarios`, `routes` y componentes comunes de UI).
 - Se elevó el ratchet en `vitest.config.ts` a `statements: 67, branches: 66, functions: 57, lines: 68` conservando los ~3 puntos de margen acordados.
+
+### Decisión · Cómo se calcula el estado financiero (US-35)
+**`feature/US-35-Reporte-estado-financiero`** · 10/10/2026
+
+- El reporte se calcula sobre **las cuotas de los meses del período**:
+  recaudado (lo cobrado de esas cuotas), adeudado (vencidas el día 10 e
+  impagas), morosos y porcentaje de cobranza = recaudado / (recaudado +
+  adeudado), que siempre cierra. Lo ingresado por fecha de cobro (caja) se
+  informa aparte.
+- Usa la **misma regla de vencimiento para las dos cuotas** (día 10). Dentro
+  del reporte la cuota social ya la respeta; la pantalla de morosos de US-19
+  todavía no (DT-48).
+- Con disciplina, solo su cuota deportiva: la cuota social no pertenece a
+  ninguna disciplina.
+- La deuda sale de los mismos cálculos que los listados de morosos (US-19 y
+  US-23); hay un E2E que verifica que coinciden (TC-219).
+- Acceso: ADMIN y COLABORADOR (no hay rol de tesorero).
 
 ### Decisión · La cuota deportiva vence el día 10 de su mes (US-23)
 **`feature/US-23-Ver-morosos-cuota-deportiva`** · 10/10/2026
