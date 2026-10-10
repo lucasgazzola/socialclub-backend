@@ -1,22 +1,37 @@
-US-23 · API local (http://localhost:3102/api/v1), 10/10/2026, base con el seed
+US-23 · API local (http://localhost:3102/api/v1), 10/10/2026, base de pruebas con el seed
+Datos agregados para la evidencia: Valeria (60000006) inscripta además en Natación y Gimnasio
+desde el 01/08/2026, para mostrar a alguien que debe en más de dos disciplinas.
 
 # GET /pagos-deportivos/morosos  (colaborador@socialclub.local)
-total 6 · deudaTotal 515000 · diaVencimiento 10
-  Valeria Historica 60000006 · 10 períodos · $107.600
-      Fútbol Femenino: 8 períodos (… 2026-08, 2026-09)
-      Pelota Paleta:   2 períodos (2026-01, 2026-02)  [inscripción dada de baja]
-  Lucía Registrada 30000003 · 7 períodos · $89.600  — Natación
-  Santiago Menor 90000009 · 8 períodos · $88.400   — Natación
-  Esteban Gimnasio 50000005 · 8 períodos · $88.000 — Gimnasio (… 2026-07, 2026-09: agosto pagado)
+total 6 · deudaTotal $557.100 · diaVencimiento 10
+  Valeria Historica 60000006 · 14 períodos · $149.700
+      Fútbol Femenino: 8 períodos (…2026-08, 2026-09) $89.600
+      Gimnasio: 2 períodos (…2026-08, 2026-09) $16.500
+      Natación: 2 períodos (…2026-08, 2026-09) $25.600
+      Pelota Paleta: 2 períodos (…2026-01, 2026-02) $18.000  [inscripción dada de baja]
+  Lucía Registrada 30000003 · 7 períodos · $89.600
+      Natación: 7 períodos (…2026-08, 2026-09) $89.600
+  Santiago Menor 90000009 · 8 períodos · $88.400
+      Natación: 8 períodos (…2026-08, 2026-09) $88.400
+  Esteban Gimnasio 50000005 · 8 períodos · $88.000
+      Gimnasio: 8 períodos (…2026-07, 2026-09) $88.000
+  Camila Futbolista 90000010 · 7 períodos · $78.400
+      Fútbol Femenino: 7 períodos (…2026-06, 2026-07) $78.400
+  Carlos SinCuenta 20000002 · 7 períodos · $63.000
+      Fútbol Mayor: 7 períodos (…2026-06, 2026-07) $63.000
   (octubre no figura: hoy es 10/10 y vence el 10)
 
 # GET /pagos-deportivos/morosos?disciplinaId=<Natación>&ordenarPor=periodos&orden=asc
-total 2
-  Lucía Registrada 7 ['Natación']
-  Santiago Menor 8 ['Natación']
+total 3 · deudaTotal $203.600 · diaVencimiento 10
+  Valeria Historica 60000006 · 2 períodos · $25.600
+      Natación: 2 períodos (…2026-08, 2026-09) $25.600
+  Lucía Registrada 30000003 · 7 períodos · $89.600
+      Natación: 7 períodos (…2026-08, 2026-09) $89.600
+  Santiago Menor 90000009 · 8 períodos · $88.400
+      Natación: 8 períodos (…2026-08, 2026-09) $88.400
 
 # Como delegado@socialclub.local
-{"statusCode":403,"path":"/api/v1/pagos-deportivos/morosos","message":"No tenés permisos suficientes para esta operación"}
+{"statusCode": 403, "message": "No tenés permisos suficientes para esta operación"}
 
 # GET /pagos-deportivos/morosos?ordenarPor=x
-{"statusCode":400,"message":["ordenarPor must be one of the following values: monto, periodos"]}
+{"statusCode": 400, "message": ["ordenarPor must be one of the following values: monto, periodos"]}
