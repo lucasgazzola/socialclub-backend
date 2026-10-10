@@ -19,6 +19,7 @@ describe('US-21 · PagosDeportivosController · control de acceso', () => {
   }
 
   const endpoints = {
+    'GET /pagos-deportivos/morosos (US-23)': PagosDeportivosController.prototype.getMorosos,
     'GET /pagos-deportivos/persona/:id/pendientes':
       PagosDeportivosController.prototype.getPendientes,
     'POST /pagos-deportivos/persona/:id': PagosDeportivosController.prototype.registrarPago,
