@@ -51,7 +51,8 @@ export class DisciplinasController {
   }
 
   @Get()
-  @Roles('ADMIN', 'COLABORADOR')
+  // El DELEGADO inscribe participantes (US-05): necesita elegir la disciplina.
+  @Roles('ADMIN', 'COLABORADOR', 'DELEGADO')
   @ApiOperation({ summary: 'Listar disciplinas deportivas' })
   @ApiOkResponse({ description: 'Página de disciplinas' })
   @ApiErrores({
@@ -64,7 +65,7 @@ export class DisciplinasController {
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'COLABORADOR')
+  @Roles('ADMIN', 'COLABORADOR', 'DELEGADO')
   @ApiOperation({ summary: 'Obtener una disciplina por id' })
   @ApiOkResponse({ description: 'Disciplina con sus categorías y requisitos' })
   @ApiErrores({

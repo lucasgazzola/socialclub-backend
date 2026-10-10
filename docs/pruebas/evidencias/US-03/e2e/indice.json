@@ -1,0 +1,34 @@
+{
+  "TC-013": {
+    "titulo": "Dar de baja correctamente a un integrante",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "sesion-y-usuarios.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-013-01.jpg",
+        "titulo": "1. Como administrador, buscar al usuario en Usuarios"
+      },
+      {
+        "archivo": "TC-013-02.jpg",
+        "titulo": "2. Elegir «Desactivar» y confirmar"
+      },
+      {
+        "archivo": "TC-013-03.jpg",
+        "titulo": "3. El usuario queda inactivo"
+      }
+    ]
+  },
+  "TC-014": {
+    "titulo": "Verificar que un integrante dado de baja no pueda iniciar sesión",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "sesion-y-usuarios.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-014-01.jpg",
+        "titulo": "1. Intentar iniciar sesión con el usuario dado de baja"
+      }
+    ]
+  }
+}

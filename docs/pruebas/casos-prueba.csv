@@ -412,6 +412,12 @@ Disciplina: Natación (inactiva)","1. Ingresar al registro.
 "TC-197","US-19","Abrir directamente la acción de cobro para saldar las cuotas pendientes del socio seleccionado","Secretario logueado visualizando a un socio en el listado de morosos","Click en botón 'Cobrar' de la fila del socio","1. Presionar el botón 'Cobrar' en una fila de socio moroso
 2. Seleccionar períodos, método de pago y confirmar cobro en el modal","El sistema abre el modal de cobro de secretaría precargado con el socio, registra el cobro y actualiza el listado de morosos reflejando la cancelación","Alta","Funcional","Rodriguez Gonzalo"
 
+"TC-198","US-31","Validar el acceso con una entrada válida","Colaborador logueado; evento publicado con una entrada comprada (estado VALIDA)","Token de la entrada","1. Abrir Validar QR
+2. Elegir el evento
+3. Ingresar el token en «Ingreso Manual»","El sistema muestra «¡ACCESO PERMITIDO!» y la entrada queda USADA","Alta","Funcional","Guajardo Lautaro"
+"TC-199","US-31","Rechazar una entrada ya utilizada","La entrada ya se validó una vez (estado USADA)","Token de la misma entrada","1. Abrir Validar QR
+2. Elegir el evento
+3. Ingresar otra vez el token","El sistema muestra «¡ENTRADA YA UTILIZADA!» con el aviso «Posible intento de reingreso no autorizado.» y no permite el acceso","Alta","Funcional","Guajardo Lautaro"
 "TC-200","US-23","Listar solo a quienes tienen al menos una cuota deportiva vencida e impaga","Participantes inscriptos: uno con cuotas vencidas sin pagar y otro con todas pagas","Usuario COLABORADOR","1. Iniciar sesión como colaborador
 2. Abrir «Morosos cuota deportiva»","El listado muestra solo al participante con cuotas vencidas impagas; el que está al día no aparece","Alta","Funcional","Guajardo Lautaro"
 "TC-201","US-23","Mostrar por moroso nombre completo, DNI, disciplina, períodos adeudados y monto total","Un participante con 3 cuotas vencidas impagas en Fútbol","Usuario COLABORADOR","1. Abrir «Morosos cuota deportiva»

@@ -55,6 +55,8 @@ Fuente: `docs/documentacion/gestion-del-proyecto/03 ... Ciclo de vida ...` §3.9
 ## Testing
 - Patrón de test unitario: mockear `PrismaService` y `AuditoriaService`; probar la lógica del service. Ver `*.service.spec.ts` como referencia.
 - Al implementar una US: sumar tests (camino feliz + rechazos/validaciones) y cargar los casos en la matriz de pruebas con el skill **`/casos-prueba`** (tipos válidos: Unitaria, Integral, Funcional, Regresión, Aceptación, No funcional).
+- **Contra Postgres real:** los specs que necesitan la base (p. ej. `auditoria.inalterable.spec.ts`) corren si existe `DB_INTEGRACION_URL`; el CI la crea con `migrate deploy`. Sin la variable se saltean.
+- **E2E (TASK-43):** viven en `socialclub-frontend/e2e/` (Playwright) y levantan esta API contra la base `socialclub_e2e` (puerto 3101). Si cambiás roles, endpoints o mensajes de un flujo cubierto, corré `npm run e2e` en el front. La evidencia (capturas por paso + filas EJ) se exporta a `docs/pruebas/evidencias/<US>/e2e/` (ver `docs/pruebas/README.md`).
 
 ## Comandos
 ```bash

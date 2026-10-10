@@ -1,0 +1,34 @@
+{
+  "TC-088": {
+    "titulo": "Cerrar sesión correctamente",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "sesion-y-usuarios.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-088-01.jpg",
+        "titulo": "1. Iniciar sesión como administrador"
+      },
+      {
+        "archivo": "TC-088-02.jpg",
+        "titulo": "2. Elegir «Cerrar sesión»: vuelve a la pantalla de ingreso"
+      }
+    ]
+  },
+  "TC-089": {
+    "titulo": "Bloquear el acceso a secciones protegidas tras cerrar sesión",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "sesion-y-usuarios.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-089-01.jpg",
+        "titulo": "1. Iniciar sesión y cerrarla"
+      },
+      {
+        "archivo": "TC-089-02.jpg",
+        "titulo": "2. Abrir Usuarios por URL: redirige al ingreso"
+      }
+    ]
+  }
+}
