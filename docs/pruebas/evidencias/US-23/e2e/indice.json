@@ -1,0 +1,66 @@
+{
+  "TC-201": {
+    "titulo": "Mostrar por moroso nombre completo, DNI, disciplina, períodos adeudados y monto total",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "morosos-cuota-deportiva.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-201-01.jpg",
+        "titulo": "1. Como colaborador, abrir «Morosos cuota deportiva»"
+      },
+      {
+        "archivo": "TC-201-02.jpg",
+        "titulo": "2. Ubicar al moroso: nombre, DNI, deuda por disciplina, períodos y total"
+      }
+    ]
+  },
+  "TC-208": {
+    "titulo": "Identificar por separado la deuda de cada disciplina",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "morosos-cuota-deportiva.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-208-01.jpg",
+        "titulo": "1. Como colaborador, abrir el detalle del moroso"
+      },
+      {
+        "archivo": "TC-208-02.jpg",
+        "titulo": "2. Cada disciplina lista sus cuotas vencidas con vencimiento, importe y estado"
+      }
+    ]
+  },
+  "TC-211": {
+    "titulo": "Abrir el cobro de la cuota deportiva desde un moroso",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "morosos-cuota-deportiva.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-211-01.jpg",
+        "titulo": "1. Como colaborador, elegir «Cobrar» en la fila del moroso"
+      },
+      {
+        "archivo": "TC-211-02.jpg",
+        "titulo": "2. Se abre el cobro con el DNI cargado y las cuotas del moroso"
+      }
+    ]
+  },
+  "TC-210": {
+    "titulo": "Restringir el listado a los roles que gestionan la cobranza",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "morosos-cuota-deportiva.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-210-01.jpg",
+        "titulo": "1. Como delegado, abrir el listado por URL"
+      },
+      {
+        "archivo": "TC-210-02.jpg",
+        "titulo": "2. La API también lo rechaza (403)"
+      }
+    ]
+  }
+}
