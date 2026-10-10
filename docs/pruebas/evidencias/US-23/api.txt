@@ -1,0 +1,22 @@
+US-23 · API local (http://localhost:3102/api/v1), 10/10/2026, base con el seed
+
+# GET /pagos-deportivos/morosos  (colaborador@socialclub.local)
+total 6 · deudaTotal 515000 · diaVencimiento 10
+  Valeria Historica 60000006 · 10 períodos · $107.600
+      Fútbol Femenino: 8 períodos (… 2026-08, 2026-09)
+      Pelota Paleta:   2 períodos (2026-01, 2026-02)  [inscripción dada de baja]
+  Lucía Registrada 30000003 · 7 períodos · $89.600  — Natación
+  Santiago Menor 90000009 · 8 períodos · $88.400   — Natación
+  Esteban Gimnasio 50000005 · 8 períodos · $88.000 — Gimnasio (… 2026-07, 2026-09: agosto pagado)
+  (octubre no figura: hoy es 10/10 y vence el 10)
+
+# GET /pagos-deportivos/morosos?disciplinaId=<Natación>&ordenarPor=periodos&orden=asc
+total 2
+  Lucía Registrada 7 ['Natación']
+  Santiago Menor 8 ['Natación']
+
+# Como delegado@socialclub.local
+{"statusCode":403,"path":"/api/v1/pagos-deportivos/morosos","message":"No tenés permisos suficientes para esta operación"}
+
+# GET /pagos-deportivos/morosos?ordenarPor=x
+{"statusCode":400,"message":["ordenarPor must be one of the following values: monto, periodos"]}

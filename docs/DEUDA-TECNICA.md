@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 04/10/2026 (TASK-39 a TASK-42: DT-42, DT-25, DT-41 y DT-26)
+- **Última actualización:** 10/10/2026 (US-23: vencimiento de la cuota deportiva y DT-48)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -35,6 +35,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
   - [🟡 Medias](#-medias)
     - [DT-43 · El DNI no debe requerir fecha de vencimiento](#dt-43--el-dni-no-debe-requerir-fecha-de-vencimiento)
     - [DT-44 · Las fechas guardadas a las 00:00 UTC corren la deuda deportiva un mes](#dt-44--las-fechas-guardadas-a-las-0000-utc-corren-la-deuda-deportiva-un-mes)
+    - [DT-48 · Morosos de cuota social cuenta cuotas que todavía no vencieron](#dt-48--morosos-de-cuota-social-cuenta-cuotas-que-todavía-no-vencieron)
     - [DT-10 · La pantalla de Auditoría es interminable](#dt-10--la-pantalla-de-auditoría-es-interminable)
     - [DT-24 · La planilla documenta generación de cuotas que no existe](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe)
     - [DT-23 · El ratchet de cobertura corta el CI por décimas](#dt-23--el-ratchet-de-cobertura-corta-el-ci-por-décimas)
@@ -71,7 +72,7 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
 | ✅ Resueltas | DT-01, DT-03, DT-04, DT-05, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42 |
 | 🟠 Altas pendientes | DT-02 (en curso), DT-27 (configuración, estado documental y alertas resueltos; restan aprobación/rechazo y habilitación excepcional), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio) |
-| 🟡 Medias pendientes | DT-10, DT-23, DT-24, DT-28, DT-34, DT-43, DT-44 |
+| 🟡 Medias pendientes | DT-10, DT-23, DT-24, DT-28, DT-34, DT-43, DT-44, DT-48 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
 **Cobertura de tests** (medida el 02/10/2026, objetivo DoD **70 %**):
@@ -340,6 +341,16 @@ mismo problema que resolvió `fix[US-25]` para la documentación.
 `estado-documental.ts`. Sumar un test con `TZ=America/Argentina/Buenos_Aires`.
 
 - **Evidencia:** `docs/pruebas/evidencias/US-21/dt41-api.txt`.
+
+#### DT-48 · Morosos de cuota social cuenta cuotas que todavía no vencieron
+*Nuevo · backend · detectado en US-23*
+
+US-23 definió que la cuota deportiva de un mes **vence el día 10** y que
+recién desde el 11 es deuda (`src/pagos/vencimiento-cuota-deportiva.ts`). El
+listado de morosos de cuota social (US-19, `PagosService.getMorososCuotaSocial`)
+cuenta el mes en curso desde el día 1: un socio que paga el 5 figura como moroso
+del 1 al 5. Conviene alinear las dos con la misma regla (o una constante propia
+para la cuota social, si el club la cobra distinto). Decisión del equipo.
 
 #### DT-10 · La pantalla de Auditoría es interminable
 *frontend · 2 SP*
@@ -676,6 +687,17 @@ Se implementó la suite completa de tests unitarios y de integración de compone
 - **Funciones:** **60,51 %** (567 / 937).
 - Se cubrieron exhaustivamente los módulos sin tests previos o con cobertura insuficiente (`auditoria`, `auth`, `cuota-social`, `cuotas`, `dashboard`, `disciplinas`, `documentacion`, `entradas`, `inscripcion`, `pagos`, `socios`, `usuarios`, `routes` y componentes comunes de UI).
 - Se elevó el ratchet en `vitest.config.ts` a `statements: 67, branches: 66, functions: 57, lines: 68` conservando los ~3 puntos de margen acordados.
+
+### Decisión · La cuota deportiva vence el día 10 de su mes (US-23)
+**`feature/US-23-Ver-morosos-cuota-deportiva`** · 10/10/2026
+
+- Ningún documento del proyecto definía cuándo vence una cuota, y US-23 pide no
+  contar como deuda las que todavía no vencieron. Se decidió el **día 10**: la
+  cuota de octubre se puede pagar sin mora hasta el 10/10 inclusive y es deuda
+  desde el 11. Constante única `DIA_VENCIMIENTO_CUOTA_DEPORTIVA`.
+- Afecta solo al listado de morosos. El cobro (US-21) sigue mostrando todo lo
+  pendiente, incluido el mes en curso, porque se puede pagar por adelantado.
+- La cuota social (US-19) todavía no usa esta regla: ver DT-48.
 
 ### Decisión · Cuota deportiva por disciplina y categoría, con descuento para socios (US-20)
 **`issue/TASK-33-US-20-Cuota-deportiva-por-disciplina`** · 02/10/2026

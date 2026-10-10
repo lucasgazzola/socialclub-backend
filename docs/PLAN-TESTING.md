@@ -30,7 +30,18 @@ estrategia de testing y su secuencia.
 **Objetivo de la DoD: 70 % de cobertura.** Los dos repos lo superan: backend
 77,8 % y frontend 70,1 % (DT-01, TASK-34).
 
-Últimas incorporaciones (06/10/2026, US-19):
+Últimas incorporaciones (10/10/2026, US-23):
+- **US-23 (Ver morosos de cuota deportiva)**: casos `TC-200`–`TC-211` y ejecuciones
+  `EJ-161`–`EJ-172` (los IDs `TC-198`/`TC-199` y `EJ-139`–`EJ-160` son de TASK-43).
+  Cubre los 12 criterios de aceptación: solo cuotas vencidas e impagas (vencen el
+  día 10 de su mes), nombre, DNI, deuda por disciplina, detalle de cada período
+  con vencimiento, importe y estado, total con descuento de socio, filtro por
+  disciplina, búsqueda, orden, deuda separada por disciplina y acceso solo para
+  ADMIN y COLABORADOR. La regla del vencimiento se prueba con fechas fijas.
+  Capturas en `docs/pruebas/evidencias/US-23/`. Ejecutadas por el desarrollador;
+  **pendiente la prueba cruzada**.
+
+Anteriores (06/10/2026, US-19):
 - **US-19 (Ver morosos de cuota social)**: casos `TC-191`–`TC-197` y ejecuciones
   `EJ-132`–`EJ-138`. Cubre los 7 criterios de aceptación: listado de morosos con detalle de períodos y deuda total,
   ordenamiento por mayor monto o más períodos atrasados, búsqueda por datos de socio y filtro por categoría,
