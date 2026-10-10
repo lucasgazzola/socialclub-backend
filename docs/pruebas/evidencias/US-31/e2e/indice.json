@@ -1,0 +1,38 @@
+{
+  "TC-198": {
+    "titulo": "Validar el acceso con una entrada válida",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "eventos-y-entradas.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-198-01.jpg",
+        "titulo": "1. Como colaborador, abrir Validar QR y elegir el evento"
+      },
+      {
+        "archivo": "TC-198-02.jpg",
+        "titulo": "2. Ingresar el token de la entrada manualmente"
+      },
+      {
+        "archivo": "TC-198-03.jpg",
+        "titulo": "3. El sistema permite el acceso"
+      }
+    ]
+  },
+  "TC-199": {
+    "titulo": "Rechazar una entrada ya utilizada",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "eventos-y-entradas.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-199-01.jpg",
+        "titulo": "1. Como colaborador, volver a validar la misma entrada"
+      },
+      {
+        "archivo": "TC-199-02.jpg",
+        "titulo": "2. El sistema rechaza el reingreso"
+      }
+    ]
+  }
+}

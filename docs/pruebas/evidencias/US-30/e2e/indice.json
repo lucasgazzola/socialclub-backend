@@ -1,0 +1,22 @@
+{
+  "TC-069": {
+    "titulo": "Verificar que la compra de varias entradas genera múltiples QRs individuales",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "eventos-y-entradas.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-069-01.jpg",
+        "titulo": "1. Como socio, abrir el evento y elegir 2 entradas"
+      },
+      {
+        "archivo": "TC-069-02.jpg",
+        "titulo": "2. Pagar con la pasarela de prueba"
+      },
+      {
+        "archivo": "TC-069-03.jpg",
+        "titulo": "3. Confirmar: se generan dos entradas, cada una con su QR y su token"
+      }
+    ]
+  }
+}

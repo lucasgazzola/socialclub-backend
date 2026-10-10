@@ -1,0 +1,50 @@
+{
+  "TC-117": {
+    "titulo": "Visualizar las cuotas deportivas pendientes por disciplina",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "cuotas.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-117-01.jpg",
+        "titulo": "1. Como colaborador, abrir «Cobrar cuota deportiva»"
+      },
+      {
+        "archivo": "TC-117-02.jpg",
+        "titulo": "2. Buscar al participante por DNI: muestra Natación con el mes en curso"
+      }
+    ]
+  },
+  "TC-110": {
+    "titulo": "Cambiar el estado del integrante a «al día» al saldar todos los períodos",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "cuotas.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-110-01.jpg",
+        "titulo": "1. Como colaborador, buscar al participante y marcar el período adeudado"
+      },
+      {
+        "archivo": "TC-110-02.jpg",
+        "titulo": "2. Registrar el cobro: el participante queda «Al día»"
+      }
+    ]
+  },
+  "TC-116": {
+    "titulo": "Impedir el acceso al cobro sin rol autorizado",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "cuotas.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-116-01.jpg",
+        "titulo": "1. Como delegado, abrir «Cobrar cuota deportiva» por URL"
+      },
+      {
+        "archivo": "TC-116-02.jpg",
+        "titulo": "2. La API también lo rechaza (403)"
+      }
+    ]
+  }
+}
