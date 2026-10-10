@@ -4,9 +4,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { RegistrarPagoDeportivoDto } from './dto/registrar-pago-deportivo.dto';
+import { FindMorososDeportivosQueryDto } from './dto/find-morosos-deportivos-query.dto';
+import { CriterioOrdenMorosos, SentidoOrden } from './dto/find-morosos-query.dto';
+import {
+  cuotaVencida,
+  DIA_VENCIMIENTO_CUOTA_DEPORTIVA,
+  fechaVencimiento,
+} from './vencimiento-cuota-deportiva';
 import {
   aPeriodo,
   eraSocioEn,
@@ -34,6 +42,28 @@ export interface CuotaDeportivaPendiente {
   /** false si la deuda es de una disciplina ya dada de baja. */
   inscripcionActiva: boolean;
 }
+
+/** US-23 — Una cuota deportiva vencida e impaga. */
+export interface CuotaDeportivaVencida {
+  periodo: string;
+  /** "AAAA-MM-DD": día de vencimiento de la cuota de ese mes. */
+  fechaVencimiento: string;
+  monto: number;
+  estado: 'VENCIDA';
+}
+
+/** US-23 — La deuda vencida de un moroso en una disciplina. */
+export interface DeudaPorDisciplina {
+  disciplinaId: number;
+  disciplinaNombre: string;
+  categoriaNombre: string | null;
+  inscripcionActiva: boolean;
+  cuotas: CuotaDeportivaVencida[];
+  cantidadPeriodos: number;
+  montoAdeudado: number;
+}
+
+const redondear = (n: number) => Math.round(n * 100) / 100;
 
 /** Período "YYYY-MM" actual. */
 export function periodoActualDeportivo(now = new Date()): string {
@@ -140,7 +170,49 @@ export class PagosDeportivosService {
       ...new Set(persona.inscripciones.map((i) => i.disciplinaId)),
     ]);
     const pagos = await this.prisma.pagoCuotaDeportiva.findMany({ where: { personaId } });
+    const pendientes = this.cuotasPendientes(persona, tarifas, pagos);
 
+    const cobrables = pendientes.filter((p) => p.monto !== null);
+    const totalAdeudado = Math.round(cobrables.reduce((s, p) => s + (p.monto ?? 0), 0) * 100) / 100;
+    // Moroso = hay meses con tarifa sin pagar. Los meses sin tarifa no se pueden cobrar.
+    const estadoDeuda: EstadoDeudaDeportiva = cobrables.length === 0 ? 'AL_DIA' : 'MOROSO';
+
+    return {
+      personaId: persona.id,
+      participanteNombre: `${persona.nombre} ${persona.apellido}`.trim(),
+      dni: persona.dni,
+      esSocio: !!membresiaActiva,
+      categoria: membresiaActiva?.categoria?.nombre ?? null,
+      categoriaId: membresiaActiva?.categoriaId ?? null,
+      estadoDeuda,
+      cuotasPendientes: pendientes,
+      totalAdeudado,
+    };
+  }
+
+  /**
+   * Cuotas impagas de una persona: por cada inscripción (activa o dada de
+   * baja), los meses de sus períodos sin pago, con la tarifa vigente
+   * (disciplina o categoría) y el descuento de socio si lo era ese mes. Lo
+   * usan el cobro (US-21) y el listado de morosos (US-23).
+   */
+  private cuotasPendientes(
+    persona: {
+      membresias: Parameters<typeof eraSocioEn>[0];
+      inscripciones: {
+        disciplinaId: number;
+        categoriaDisciplinaId: number | null;
+        fechaInscripcion: Date;
+        fechaBaja: Date | null;
+        activo: boolean;
+        periodos?: { desde: Date; hasta: Date | null }[];
+        disciplina: { nombre: string };
+        categoriaDisciplina: { nombre: string } | null;
+      }[];
+    },
+    tarifas: Map<number, TarifaDeportiva[]>,
+    pagos: { disciplinaId: number; periodo: string }[],
+  ): CuotaDeportivaPendiente[] {
     const pendientes: CuotaDeportivaPendiente[] = [];
     for (const inscripcion of persona.inscripciones) {
       const pagados = new Set(
@@ -168,22 +240,123 @@ export class PagosDeportivosService {
         });
       }
     }
+    return pendientes;
+  }
 
-    const cobrables = pendientes.filter((p) => p.monto !== null);
-    const totalAdeudado = Math.round(cobrables.reduce((s, p) => s + (p.monto ?? 0), 0) * 100) / 100;
-    // Moroso = hay meses con tarifa sin pagar. Los meses sin tarifa no se pueden cobrar.
-    const estadoDeuda: EstadoDeudaDeportiva = cobrables.length === 0 ? 'AL_DIA' : 'MOROSO';
+  /**
+   * US-23 — Morosos de cuota deportiva: personas con al menos una cuota
+   * vencida (después del día DIA_VENCIMIENTO_CUOTA_DEPORTIVA de su mes) e
+   * impaga, con la deuda separada por disciplina. Los meses sin tarifa no se
+   * pueden cobrar y no cuentan como deuda.
+   */
+  async getMorosos(query: FindMorososDeportivosQueryDto = {}, hoy = new Date()) {
+    const {
+      busqueda,
+      disciplinaId,
+      ordenarPor = CriterioOrdenMorosos.MONTO,
+      orden = SentidoOrden.DESC,
+    } = query;
+
+    const where: Prisma.PersonaWhereInput = {
+      inscripciones: { some: disciplinaId ? { disciplinaId } : {} },
+    };
+    const termino = busqueda?.trim();
+    if (termino) {
+      where.OR = [
+        { nombre: { contains: termino, mode: 'insensitive' } },
+        { apellido: { contains: termino, mode: 'insensitive' } },
+        { dni: { contains: termino } },
+      ];
+    }
+
+    const personas = await this.prisma.persona.findMany({
+      where,
+      include: {
+        inscripciones: {
+          where: disciplinaId ? { disciplinaId } : undefined,
+          include: {
+            disciplina: true,
+            categoriaDisciplina: true,
+            periodos: { orderBy: { desde: 'asc' } },
+          },
+          orderBy: { disciplina: { nombre: 'asc' } },
+        },
+        membresias: true,
+      },
+    });
+    if (!personas.length) {
+      return {
+        total: 0,
+        deudaTotal: 0,
+        diaVencimiento: DIA_VENCIMIENTO_CUOTA_DEPORTIVA,
+        items: [],
+      };
+    }
+
+    const tarifas = await this.getTarifas([
+      ...new Set(personas.flatMap((p) => p.inscripciones.map((i) => i.disciplinaId))),
+    ]);
+    const pagos = await this.prisma.pagoCuotaDeportiva.findMany({
+      where: { personaId: { in: personas.map((p) => p.id) } },
+      select: { personaId: true, disciplinaId: true, periodo: true },
+    });
+
+    const items = personas.flatMap((persona) => {
+      const vencidas = this.cuotasPendientes(
+        persona,
+        tarifas,
+        pagos.filter((p) => p.personaId === persona.id),
+      ).filter((c) => c.monto !== null && cuotaVencida(c.periodo, hoy));
+      if (!vencidas.length) return [];
+
+      const porDisciplina = new Map<number, DeudaPorDisciplina>();
+      for (const c of vencidas) {
+        const deuda = porDisciplina.get(c.disciplinaId) ?? {
+          disciplinaId: c.disciplinaId,
+          disciplinaNombre: c.disciplinaNombre,
+          categoriaNombre: c.categoriaNombre,
+          inscripcionActiva: c.inscripcionActiva,
+          cuotas: [],
+          cantidadPeriodos: 0,
+          montoAdeudado: 0,
+        };
+        deuda.cuotas.push({
+          periodo: c.periodo,
+          fechaVencimiento: fechaVencimiento(c.periodo),
+          monto: c.monto as number,
+          estado: 'VENCIDA',
+        });
+        deuda.cantidadPeriodos += 1;
+        deuda.montoAdeudado = redondear(deuda.montoAdeudado + (c.monto as number));
+        porDisciplina.set(c.disciplinaId, deuda);
+      }
+      const disciplinas = [...porDisciplina.values()];
+
+      return [
+        {
+          personaId: persona.id,
+          nombreCompleto: `${persona.nombre} ${persona.apellido}`.trim(),
+          nombre: persona.nombre,
+          apellido: persona.apellido,
+          dni: persona.dni,
+          email: persona.email,
+          telefono: persona.telefono,
+          disciplinas,
+          cantidadPeriodos: vencidas.length,
+          montoTotalDeuda: redondear(disciplinas.reduce((s, d) => s + d.montoAdeudado, 0)),
+        },
+      ];
+    });
+
+    const clave = (m: (typeof items)[number]) =>
+      ordenarPor === CriterioOrdenMorosos.PERIODOS ? m.cantidadPeriodos : m.montoTotalDeuda;
+    items.sort((a, b) => (orden === SentidoOrden.ASC ? clave(a) - clave(b) : clave(b) - clave(a)));
 
     return {
-      personaId: persona.id,
-      participanteNombre: `${persona.nombre} ${persona.apellido}`.trim(),
-      dni: persona.dni,
-      esSocio: !!membresiaActiva,
-      categoria: membresiaActiva?.categoria?.nombre ?? null,
-      categoriaId: membresiaActiva?.categoriaId ?? null,
-      estadoDeuda,
-      cuotasPendientes: pendientes,
-      totalAdeudado,
+      total: items.length,
+      deudaTotal: redondear(items.reduce((s, m) => s + m.montoTotalDeuda, 0)),
+      diaVencimiento: DIA_VENCIMIENTO_CUOTA_DEPORTIVA,
+      items,
     };
   }
 

@@ -9,6 +9,7 @@ import {
 import { PagosDeportivosService } from './pagos-deportivos.service';
 import { RegistrarPagoDeportivoDto } from './dto/registrar-pago-deportivo.dto';
 import { HistorialDeportivoQueryDto } from './dto/historial-deportivo-query.dto';
+import { FindMorososDeportivosQueryDto } from './dto/find-morosos-deportivos-query.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -27,6 +28,24 @@ import { ApiErrores, VALIDACION } from '../common/swagger/respuestas';
 @Controller('pagos-deportivos')
 export class PagosDeportivosController {
   constructor(private readonly pagosDeportivosService: PagosDeportivosService) {}
+
+  @Get('morosos')
+  @Roles('ADMIN', 'COLABORADOR')
+  @ApiOperation({
+    summary:
+      'US-23 — Morosos de cuota deportiva: cuotas vencidas (después del día 10 de su mes) e impagas, por disciplina',
+  })
+  @ApiOkResponse({
+    description: 'Morosos con su deuda vencida separada por disciplina, y la deuda total',
+  })
+  @ApiErrores({
+    400: VALIDACION,
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+  })
+  getMorosos(@Query() query: FindMorososDeportivosQueryDto) {
+    return this.pagosDeportivosService.getMorosos(query);
+  }
 
   @Get('persona/:id/pendientes')
   @Roles('ADMIN', 'COLABORADOR')
