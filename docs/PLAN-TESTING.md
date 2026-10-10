@@ -24,10 +24,10 @@ estrategia de testing y su secuencia.
 | | Cantidad |
 |---|---|
 | US implementadas (los dos repos) | ~40 |
-| US con casos documentados | 27 |
-| Casos documentados | 181 filas (`TC-001`–`TC-181`) |
-| Ejecuciones registradas | 142 (`EJ-01` a `EJ-142`) |
-| Casos con ejecución E2E automática | 22 (`EJ-121` a `EJ-142`) |
+| US con casos documentados | 30 |
+| Casos documentados | 199 filas (`TC-001`–`TC-199`) |
+| Ejecuciones registradas | 160 (`EJ-01` a `EJ-160`) |
+| Casos con ejecución E2E automática | 22 (`EJ-139` a `EJ-160`) |
 
 **Objetivo de la DoD: 70 % de cobertura.** Los dos repos lo superan: backend
 87,7 % y frontend 70,5 %.
@@ -51,7 +51,29 @@ corregidos:
 Además, los 17 tests de `*.e2e-spec.ts` del backend (auth, socios y usuarios)
 no los ejecutaba ninguna configuración de Jest; ahora corren con la suite.
 
-Últimas incorporaciones (04/10/2026, TASK-39 a TASK-42):
+Últimas incorporaciones (06/10/2026, US-19):
+- **US-19 (Ver morosos de cuota social)**: casos `TC-191`–`TC-197` y ejecuciones
+  `EJ-132`–`EJ-138`. Cubre los 7 criterios de aceptación: listado de morosos con detalle de períodos y deuda total,
+  ordenamiento por mayor monto o más períodos atrasados, búsqueda por datos de socio y filtro por categoría,
+  cálculo retrospectivo con tarifa histórica según período adeudado, exclusión automática de socios al día,
+  mensaje informativo ante listado sin morosos, y acción de cobro integrada mediante modal de secretaría.
+  Ejecutadas por el desarrollador; **pendiente la prueba cruzada**.
+
+Anteriores (05/10/2026, US-27):
+- **US-27 (Bloquear participante ante documentación vencida)**: casos `TC-186`–`TC-190` y ejecuciones
+  `EJ-127`–`EJ-131`. Cubre los 4 criterios de aceptación: bloqueo automático ante vencimiento de documento
+  o vencimiento de plazo de tolerancia sin entrega, aislamiento del bloqueo limitándolo a la disciplina/categoría
+  que lo exige, exposición de motivos detallados en sistema/UI, y levantamiento automático por renovación vigente
+  o manual por habilitación excepcional administrativa. Ejecutadas por el desarrollador; **pendiente la prueba cruzada**.
+
+Anteriores (05/10/2026, US-25):
+- **US-25 (Estado documental de un integrante)**: casos `TC-180`–`TC-185` y ejecuciones
+  `EJ-121`–`EJ-126`. Cubre los 5 criterios de aceptación: exigidos por disciplina/categoría,
+  los cuatro estados de documentos, umbral de 30 días para "Por vencer", fecha límite en faltantes,
+  estado general de inscripción (Habilitado/Pendiente/Bloqueado), control de acceso por roles y
+  visualización expandida en la tabla de participantes. Ejecutadas por el desarrollador; **pendiente la prueba cruzada**.
+
+Anteriores (04/10/2026, TASK-39 a TASK-42):
 - **Primer test contra Postgres real** (DT-25): `auditoria.inalterable.spec.ts`
   verifica los triggers que vuelven inalterable la auditoría. El CI crea una
   base de integración con `prisma migrate deploy` y la pasa en
@@ -156,7 +178,7 @@ trace viewer permite diagnosticar un fallo del CI sin reproducirlo).
 |---|---|---|
 | Inscripción con documentación faltante → alerta al delegado de esa disciplina | TC-017, TC-162, TC-176, TC-173 | 05, 26 |
 | Sesión y ciclo de vida de un usuario (alta, baja, login bloqueado, logout) | TC-085, TC-086, TC-001, TC-013, TC-014, TC-088, TC-089 | 39, 01, 03, 40 |
-| Evento → compra de entradas con QR → validación en la puerta → reingreso rechazado | TC-059, TC-069, TC-180, TC-181 | 29, 30, 52, 31 |
+| Evento → compra de entradas con QR → validación en la puerta → reingreso rechazado | TC-059, TC-069, TC-198, TC-199 | 29, 30, 52, 31 |
 | Cuota social del período siguiente y cobro de la cuota deportiva hasta «al día» | TC-091, TC-117, TC-110, TC-116 | 16, 21 |
 | Alta y baja de un socio | TC-026, TC-039, TC-043 | 12, 14 |
 

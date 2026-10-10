@@ -20,6 +20,7 @@ describe('US-17 & US-10 · PagosController · control de acceso', () => {
   }
 
   const adminYColaborador = {
+    'GET /pagos/morosos': PagosController.prototype.getMorosos,
     'GET /pagos/socio/:id/cuotas-pendientes': PagosController.prototype.getCuotasPendientesSocio,
     'POST /pagos/socio/:id': PagosController.prototype.registrarPagoSocio,
     'GET /pagos/socio/:id/historial': PagosController.prototype.getHistorialSocio,

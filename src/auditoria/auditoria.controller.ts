@@ -16,7 +16,7 @@ export class AuditoriaController {
 
   @Get()
   @Roles('ADMIN')
-  @ApiOperation({ summary: 'US-32 — Consultar log de operaciones' })
+  @ApiOperation({ summary: 'US-33 — Consultar log de operaciones' })
   @ApiOkResponse({ description: 'Página de registros de auditoría con los filtros aplicados' })
   @ApiErrores({
     400: VALIDACION,
