@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 04/10/2026 (TASK-39 a TASK-42: DT-42, DT-25, DT-41 y DT-26)
+- **Última actualización:** 04/10/2026 (TASK-43: pruebas E2E con evidencia y los bugs que encontraron)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -41,6 +41,9 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-28 · El participante no puede consultar su propia documentación](#dt-28--el-participante-no-puede-consultar-su-propia-documentación)
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
   - [⚪ Bajas](#-bajas)
+    - [DT-45 · La tarjeta del evento ofrece comprar fuera del período de venta](#dt-45--la-tarjeta-del-evento-ofrece-comprar-fuera-del-período-de-venta)
+    - [DT-46 · El alta de usuario no muestra el error en el formulario](#dt-46--el-alta-de-usuario-no-muestra-el-error-en-el-formulario)
+    - [DT-47 · El DNI se muestra con formatos distintos](#dt-47--el-dni-se-muestra-con-formatos-distintos)
     - [DT-08 · Las entradas con QR no se pueden descargar en PDF](#dt-08--las-entradas-con-qr-no-se-pueden-descargar-en-pdf)
     - [DT-09 · Imágenes en eventos](#dt-09--imágenes-en-eventos)
     - [DT-06 · Historias de usuario para sumar al backlog](#dt-06--historias-de-usuario-para-sumar-al-backlog)
@@ -72,7 +75,7 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | ✅ Resueltas | DT-01, DT-03, DT-04, DT-05, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42 |
 | 🟠 Altas pendientes | DT-02 (en curso), DT-27 (configuración, estado documental y alertas resueltos; restan aprobación/rechazo y habilitación excepcional), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio) |
 | 🟡 Medias pendientes | DT-10, DT-23, DT-24, DT-28, DT-34, DT-43, DT-44 |
-| ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
+| ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-45, DT-46, DT-47, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
 **Cobertura de tests** (medida el 02/10/2026, objetivo DoD **70 %**):
 
@@ -414,6 +417,30 @@ quién reembolsar.
 
 ### ⚪ Bajas
 
+#### DT-45 · La tarjeta del evento ofrece comprar fuera del período de venta
+*Nuevo · frontend · detectado en TASK-43*
+
+`puedeComprar` (`features/eventos/helpers.ts`), que decide si la tarjeta
+muestra «Comprar entradas», no mira el período de venta. Antes o después del
+período la tarjeta ofrece el botón y la página de compra dice «La venta no está
+habilitada». Usar `ventaAbierta` (TASK-43) también en la tarjeta.
+
+#### DT-46 · El alta de usuario no muestra el error en el formulario
+*Nuevo · frontend · detectado en TASK-43*
+
+Si la API rechaza el alta (p. ej. «El apellido contiene caracteres
+inválidos»), el error aparece solo como toast durante unos segundos y el modal
+queda abierto sin indicar qué falló; además la promesa queda sin capturar
+(*Unhandled rejection* en la consola). Capturar el error en
+`UsuarioFormModal.handleSubmit` y mostrarlo en el formulario, como hace el alta
+de participante.
+
+#### DT-47 · El DNI se muestra con formatos distintos
+*Nuevo · frontend · detectado en TASK-43*
+
+Usuarios muestra el DNI agrupado (`30.111.222`) y Socios sin agrupar
+(`30111222`). Unificar con el mismo helper de formato.
+
 #### DT-08 · Las entradas con QR no se pueden descargar en PDF
 *frontend · 2 SP*
 
@@ -473,6 +500,28 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### TASK-43 · Pruebas E2E con evidencia automática
+**`issue/TASK-43-Testing-E2E-con-evidencia`** (backend + frontend) · 04/10/2026
+
+- Playwright en `socialclub-frontend/e2e/`: 22 casos de la planilla en 5 flujos
+  (inscripción y alertas, sesión y usuarios, eventos y entradas, cuotas,
+  socios) contra el sistema real, con una captura por paso. Workflow *E2E* en
+  el front y `scripts/evidencia-e2e.mjs` para llevar la evidencia a
+  `docs/pruebas`. Ver [`PLAN-TESTING.md`](PLAN-TESTING.md#pruebas-e2e).
+- **Bugs que encontró y se corrigieron:**
+  - El delegado no podía inscribir: `GET /disciplinas` le respondía 403
+    (`fix[US-05]`, backend).
+  - Secretaría no podía cobrar la cuota deportiva: `GET /personas/dni/:dni`
+    le respondía 403 al COLABORADOR (`fix[US-21]`, backend).
+  - No se podían comprar entradas de un evento sin período de venta
+    (`fix[US-52]`, frontend).
+  - El control de acceso nunca mostraba «Entrada ya utilizada» ni «Entrada
+    expirada» (`fix[US-31]`, frontend).
+- Los 17 tests `*.e2e-spec.ts` del backend no los corría ninguna
+  configuración de Jest; ahora entran en la suite.
+- Detectó además DT-45, DT-46 y DT-47 (pendientes, bajas).
+
 
 ### TASK-42 · DT-26 · La API declara sus respuestas en Swagger
 **`issue/TASK-42-DT-26-Documentar-respuestas-api`** (backend) · 04/10/2026
@@ -1022,7 +1071,7 @@ Lo que ya usa el equipo, aplicado a la deuda técnica:
 
 - **Ramas:** `issue/TASK-<n>-DT-<nn>-<Descripcion-en-kebab>` para deuda
   identificada; `fix/<Descripcion>` para arreglos de configuración o tooling.
-  El número `TASK` es correlativo y global. **Último usado: TASK-42**
+  El número `TASK` es correlativo y global. **Último usado: TASK-43**
   (04/10/2026).
 - **Commits:** `<prefijo>[scope]: <descripción en minúscula>`, con el ID de la
   deuda como scope — `refactor[DT-03]: …`, `test[DT-01]: …`, `ci[lint]: …`.

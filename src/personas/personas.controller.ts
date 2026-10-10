@@ -17,7 +17,8 @@ export class PersonasController {
   constructor(private readonly personasService: PersonasService) {}
 
   @Get('dni/:dni')
-  @Roles('ADMIN', 'DELEGADO')
+  // Secretaría (COLABORADOR) busca al participante para cobrarle la cuota deportiva (US-21).
+  @Roles('ADMIN', 'DELEGADO', 'COLABORADOR')
   @ApiOperation({ summary: 'US — Buscar participante por DNI (flujo de inscripción)' })
   @ApiOkResponse({ description: 'Participante con sus inscripciones' })
   @ApiErrores({
