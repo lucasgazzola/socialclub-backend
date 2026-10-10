@@ -28,6 +28,12 @@ que se puede pagar por adelantado; en morosos no, porque todavía no venció.
 (socialclub-backend#89), `GET /personas/dni/:dni` responde 403 al COLABORADOR y
 el cobro no encuentra al participante. Por eso la captura 06 es como ADMIN.
 
+**E2E (Playwright, sistema real):** `socialclub-frontend/e2e/morosos-cuota-deportiva.spec.ts`
+corre TC-201, TC-208, TC-210 y TC-211 contra el front, la API y Postgres con el
+seed, ya con el permiso de búsqueda por DNI de TASK-43: «Cobrar» funciona como
+COLABORADOR. Capturas por paso en [`e2e/`](e2e/README.md); ejecuciones
+EJ-173 a EJ-176.
+
 Tests automatizados: `src/pagos/pagos-deportivos-morosos.service.spec.ts`,
 `src/pagos/vencimiento-cuota-deportiva.spec.ts` y
 `src/pagos/pagos-deportivos.roles.spec.ts` (backend);

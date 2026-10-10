@@ -15,7 +15,7 @@ estrategia de testing y su secuencia.
 | | Backend | Frontend |
 |---|---|---|
 | Tests unitarios | 651 ✅ (+5 contra Postgres) | 458 ✅ |
-| Pruebas E2E (Playwright, sistema real) | — | **22 casos ✅** en 5 flujos |
+| Pruebas E2E (Playwright, sistema real) | — | **26 casos ✅** en 6 flujos |
 | Cobertura (statements) | **87,7 %** ✅ | **70,5 %** ✅ |
 | Cobertura (ramas) | 76,6 % | 69,3 % |
 | Piso configurado (stmts / ramas / funcs / líneas) | 70 / 70 / 61 / 69 | 67 / 66 / 57 / 68 |
@@ -24,10 +24,10 @@ estrategia de testing y su secuencia.
 | | Cantidad |
 |---|---|
 | US implementadas (los dos repos) | ~40 |
-| US con casos documentados | 30 |
-| Casos documentados | 199 filas (`TC-001`–`TC-199`) |
-| Ejecuciones registradas | 160 (`EJ-01` a `EJ-160`) |
-| Casos con ejecución E2E automática | 22 (`EJ-139` a `EJ-160`) |
+| US con casos documentados | 31 |
+| Casos documentados | 211 filas (`TC-001`–`TC-211`) |
+| Ejecuciones registradas | 176 (`EJ-01` a `EJ-176`) |
+| Casos con ejecución E2E automática | 26 (`EJ-139` a `EJ-160` y `EJ-173` a `EJ-176`) |
 
 **Objetivo de la DoD: 70 % de cobertura.** Los dos repos lo superan: backend
 87,7 % y frontend 70,5 %.
@@ -53,7 +53,9 @@ no los ejecutaba ninguna configuración de Jest; ahora corren con la suite.
 
 Últimas incorporaciones (10/10/2026, US-23):
 - **US-23 (Ver morosos de cuota deportiva)**: casos `TC-200`–`TC-211` y ejecuciones
-  `EJ-161`–`EJ-172` (los IDs `TC-198`/`TC-199` y `EJ-139`–`EJ-160` son de TASK-43).
+  `EJ-161`–`EJ-172` (los IDs `TC-198`/`TC-199` y `EJ-139`–`EJ-160` son de TASK-43),
+  más un flujo E2E (`e2e/morosos-cuota-deportiva.spec.ts`: TC-201, TC-208, TC-210
+  y TC-211) con sus ejecuciones `EJ-173`–`EJ-176`.
   Cubre los 12 criterios de aceptación: solo cuotas vencidas e impagas (vencen el
   día 10 de su mes), nombre, DNI, deuda por disciplina, detalle de cada período
   con vencimiento, importe y estado, total con descuento de socio, filtro por
@@ -192,6 +194,7 @@ trace viewer permite diagnosticar un fallo del CI sin reproducirlo).
 | Evento → compra de entradas con QR → validación en la puerta → reingreso rechazado | TC-059, TC-069, TC-198, TC-199 | 29, 30, 52, 31 |
 | Cuota social del período siguiente y cobro de la cuota deportiva hasta «al día» | TC-091, TC-117, TC-110, TC-116 | 16, 21 |
 | Alta y baja de un socio | TC-026, TC-039, TC-043 | 12, 14 |
+| Morosos de cuota deportiva: listado, detalle por disciplina, cobro desde el moroso y acceso restringido | TC-201, TC-208, TC-211, TC-210 | 23 |
 
 **Duración:** ~1,5 minutos los 22 casos (más el arranque de la API).
 
