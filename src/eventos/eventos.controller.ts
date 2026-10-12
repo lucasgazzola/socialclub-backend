@@ -18,6 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { EventosService } from './eventos.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CrearEventoDto } from './dto/crear-evento.dto';
@@ -28,14 +29,14 @@ import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { ApiErrores, VALIDACION } from '../common/swagger/respuestas';
 
 @ApiTags('eventos')
-@ApiCookieAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('eventos')
 export class EventosController {
   constructor(private readonly eventosService: EventosService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
+  @ApiCookieAuth()
   @ApiOperation({ summary: 'US-29 — Crear evento' })
   @ApiCreatedResponse({ description: 'Evento creado' })
   @ApiErrores({
@@ -64,7 +65,9 @@ export class EventosController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
+  @ApiCookieAuth()
   @ApiOperation({ summary: 'US-29 — Editar evento' })
   @ApiOkResponse({ description: 'Evento actualizado' })
   @ApiErrores({
@@ -99,20 +102,23 @@ export class EventosController {
   }
 
   @Get()
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({
-    summary: 'Listar eventos paginados con filtros opcionales (?search=, ?pagina=, ?porPagina=)',
+    summary:
+      'US-53 — Consultar eventos paginados con filtros opcionales (?search=, ?fechaDesde=, ?fechaHasta=, ?pagina=, ?porPagina=)',
   })
   @ApiOkResponse({ description: 'Eventos visibles para el usuario' })
-  @ApiErrores({ 400: VALIDACION, 401: 'Unauthorized' })
+  @ApiErrores({ 400: VALIDACION })
   findAll(@Query() filtros: FiltrarEventosDto, @CurrentUser() user: AuthenticatedUser) {
     const esAdmin = user?.roles?.includes('ADMIN') ?? false;
     return this.eventosService.findAll(filtros, esAdmin);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Obtener un evento por id' })
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({ summary: 'US-53 — Obtener detalle de un evento por id' })
   @ApiOkResponse({ description: 'Evento' })
-  @ApiErrores({ 400: VALIDACION, 401: 'Unauthorized', 404: 'Evento no encontrado' })
+  @ApiErrores({ 400: VALIDACION, 404: 'Evento no encontrado' })
   findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
     const esAdmin = user?.roles?.includes('ADMIN') ?? false;
     return this.eventosService.findOne(id, esAdmin);
