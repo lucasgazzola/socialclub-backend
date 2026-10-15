@@ -9,6 +9,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateInscripcionDto } from './dto/create-inscripcion.dto';
 import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
+import { CrearHabilitacionExcepcionalDto } from './dto/crear-habilitacion-excepcional.dto';
 import {
   EstadoInscripcionFiltro,
   FindParticipantesQueryDto,
@@ -311,7 +312,9 @@ export class InscripcionService {
                   disciplinaId: dto.disciplinaId,
                   OR: [
                     { categoriaDisciplinaId: null },
-                    ...(dto.categoriaDisciplinaId ? [{ categoriaDisciplinaId: dto.categoriaDisciplinaId }] : []),
+                    ...(dto.categoriaDisciplinaId
+                      ? [{ categoriaDisciplinaId: dto.categoriaDisciplinaId }]
+                      : []),
                   ],
                 },
               })
@@ -348,7 +351,10 @@ export class InscripcionService {
               const docCreado = await tx.documentacion.create({
                 data: {
                   tipoDocumento: doc.tipoDocumento,
-                  tipo: doc.tipo?.trim() || ETIQUETA_TIPO_DOCUMENTO[doc.tipoDocumento] || doc.tipoDocumento,
+                  tipo:
+                    doc.tipo?.trim() ||
+                    ETIQUETA_TIPO_DOCUMENTO[doc.tipoDocumento] ||
+                    doc.tipoDocumento,
                   fechaVencimiento,
                   personaId: persona.id,
                   archivoNombre: doc.archivoNombre ?? null,
@@ -1011,6 +1017,104 @@ export class InscripcionService {
       );
 
       return dadaDeBaja;
+    });
+  }
+
+  /**
+   * US-28: Habilitar participante con documentación vencida o faltante (levantamiento manual excepcional).
+   * Registra el motivo justificado y la vigencia en días otorgada por un administrador.
+   */
+  async habilitarExcepcional(
+    inscripcionId: number,
+    dto: CrearHabilitacionExcepcionalDto,
+    responsableId: number,
+  ) {
+    const inscripcion = await this.prisma.inscripcion.findUnique({
+      where: { id: inscripcionId },
+      include: {
+        persona: true,
+        disciplina: true,
+        categoriaDisciplina: true,
+      },
+    });
+
+    if (!inscripcion) {
+      throw new NotFoundException('Inscripción no encontrada');
+    }
+
+    if (!inscripcion.activo) {
+      throw new BadRequestException(
+        'La inscripción está dada de baja: no puede recibir habilitaciones excepcionales',
+      );
+    }
+
+    if (!inscripcion.persona.activo) {
+      throw new BadRequestException(
+        'El participante está dado de baja: hay que reactivarlo antes de otorgar una excepción',
+      );
+    }
+
+    const estadoDetalle = await this.estadoDocumental.porInscripcion(inscripcionId);
+    if (!estadoDetalle.bloqueada) {
+      throw new BadRequestException('La inscripción no se encuentra bloqueada por documentación');
+    }
+
+    const hoy = new Date();
+    // Se calcula la fecha límite de vigencia hasta las 23:59:59.999 UTC del día resultante
+    const fechaHasta = new Date(
+      Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + dto.dias, 23, 59, 59, 999),
+    );
+
+    return this.prisma.$transaction(async (tx) => {
+      const habilitacion = await tx.habilitacionExcepcional.create({
+        data: {
+          inscripcionId,
+          motivo: dto.motivo,
+          hasta: fechaHasta,
+          responsableId,
+        },
+        include: {
+          responsable: {
+            select: { id: true, nombre: true, apellido: true, email: true },
+          },
+        },
+      });
+
+      const formatoFecha = `${String(fechaHasta.getUTCDate()).padStart(2, '0')}/${String(fechaHasta.getUTCMonth() + 1).padStart(2, '0')}/${fechaHasta.getUTCFullYear()}`;
+
+      await this.auditoria.registrar(
+        {
+          accion: 'CREAR',
+          entidad: 'HabilitacionExcepcional',
+          idEntidad: habilitacion.id,
+          detalle: `Habilitación excepcional concedida a ${inscripcion.persona.apellido} ${inscripcion.persona.nombre} (DNI ${inscripcion.persona.dni}) en ${inscripcion.disciplina.nombre} por ${dto.dias} días (hasta el ${formatoFecha}). Motivo: ${dto.motivo}`,
+          responsableId,
+        },
+        tx,
+      );
+
+      return habilitacion;
+    });
+  }
+
+  /**
+   * Listar las habilitaciones excepcionales registradas para una inscripción (US-28).
+   */
+  async listarHabilitacionesExcepcionales(inscripcionId: number) {
+    const inscripcion = await this.prisma.inscripcion.findUnique({
+      where: { id: inscripcionId },
+      select: { id: true },
+    });
+    if (!inscripcion) throw new NotFoundException('Inscripción no encontrada');
+
+    return this.prisma.habilitacionExcepcional.findMany({
+      where: { inscripcionId },
+      orderBy: { creadoEn: 'desc' },
+      include: {
+        responsable: {
+          select: { id: true, nombre: true, apellido: true, email: true },
+        },
+      },
     });
   }
 }
