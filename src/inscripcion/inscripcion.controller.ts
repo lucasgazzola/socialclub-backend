@@ -15,6 +15,7 @@ import { CreateInscripcionDto } from './dto/create-inscripcion.dto';
 import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
 import { FindParticipantesQueryDto } from './dto/find-participantes-query.dto';
 import { RequisitosInscripcionQueryDto } from './dto/requisitos-inscripcion-query.dto';
+import { CrearHabilitacionExcepcionalDto } from './dto/crear-habilitacion-excepcional.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -213,5 +214,47 @@ export class InscripcionController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.inscripcionService.activarParticipante(personaId, user.id);
+  }
+
+  @Post(':id/habilitacion-excepcional')
+  @Roles('ADMIN')
+  @ApiOperation({
+    summary:
+      'US-28 — Habilitar participante con documentación vencida (levantamiento manual excepcional)',
+  })
+  @ApiCreatedResponse({ description: 'Habilitación excepcional registrada y bloqueo levantado' })
+  @ApiErrores({
+    400: [
+      VALIDACION,
+      'La inscripción no se encuentra bloqueada por documentación',
+      'La inscripción está dada de baja: no puede recibir habilitaciones excepcionales',
+      'El participante está dado de baja: hay que reactivarlo antes de otorgar una excepción',
+    ],
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: 'Inscripción no encontrada',
+  })
+  habilitarExcepcional(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CrearHabilitacionExcepcionalDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.inscripcionService.habilitarExcepcional(id, dto, user.id);
+  }
+
+  @Get(':id/habilitaciones-excepcionales')
+  @Roles('ADMIN', 'DELEGADO')
+  @ApiOperation({
+    summary: 'US-28 — Listar historial de habilitaciones excepcionales de una inscripción',
+  })
+  @ApiOkResponse({ description: 'Historial de habilitaciones excepcionales' })
+  @ApiErrores({
+    400: VALIDACION,
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: 'Inscripción no encontrada',
+  })
+  listarHabilitacionesExcepcionales(@Param('id', ParseIntPipe) id: number) {
+    return this.inscripcionService.listarHabilitacionesExcepcionales(id);
   }
 }

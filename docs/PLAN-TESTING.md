@@ -51,7 +51,15 @@ corregidos:
 Además, los 17 tests de `*.e2e-spec.ts` del backend (auth, socios y usuarios)
 no los ejecutaba ninguna configuración de Jest; ahora corren con la suite.
 
-Últimas incorporaciones (10/10/2026, US-23):
+Últimas incorporaciones (15/10/2026, US-28):
+- **US-28 (Habilitar participante con documentación vencida)**: casos `TC-220`–`TC-224` y ejecuciones
+  `EJ-185`–`EJ-189`. Cubre los criterios de aceptación de la US: validación obligatoria de motivo escrito antes de
+  confirmar el levantamiento, indicación de la cantidad de días de habilitación excepcional con cálculo dinámico
+  de fecha límite, restricción de acceso exclusiva a usuarios con rol ADMIN, verificación de que la inscripción
+  se encuentre previamente bloqueada por documentación, levantamiento efectivo a estado HABILITADO y registro
+  inalterable de auditoría (`HabilitacionExcepcional`). Ejecutadas por el desarrollador; **pendiente la prueba cruzada**.
+
+Anteriores (10/10/2026, US-23):
 - **US-23 (Ver morosos de cuota deportiva)**: casos `TC-200`–`TC-211` y ejecuciones
   `EJ-161`–`EJ-172` (los IDs `TC-198`/`TC-199` y `EJ-139`–`EJ-160` son de TASK-43),
   más un flujo E2E (`e2e/morosos-cuota-deportiva.spec.ts`: TC-201, TC-208, TC-210

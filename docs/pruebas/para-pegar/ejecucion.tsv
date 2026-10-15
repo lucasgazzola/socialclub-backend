@@ -182,3 +182,8 @@ EJ-181	5.0	12/10/2026	TC-216	US-53	Guajardo Lautaro	Aprobado	PASS EventoDetalleM
 EJ-182	5.0	12/10/2026	TC-217	US-53	Guajardo Lautaro	Aprobado	PASS EventoDetalleModal.test.tsx («indica claramente cuando un evento es gratuito») y EventosPage.test.tsx («Gratis»)		Identificación de eventos gratuitos comprobada.
 EJ-183	5.0	12/10/2026	TC-218	US-53	Guajardo Lautaro	Aprobado	PASS EventosPage.test.tsx («crea el evento y cierra el modal al confirmar», «abre el alta de evento…», «cierra el modal con Escape…»)		Regresión de alta y edición operativa garantizada.
 EJ-184	5.0	12/10/2026	TC-219	US-53	Guajardo Lautaro	Aprobado	OptionalJwtAuthGuard integrado en GET /eventos y GET /eventos/:id; AppRouter público para /eventos verificado en AppLayout.test.tsx		Acceso público sin 401 Unauthorized confirmado.
+EJ-185	TC-220	Pasó	404/400 retornado correctamente ante inscripción o participante inactivo/inexistente	Jest	Automática
+EJ-186	TC-221	Pasó	Validación de motivo obligatorio rechaza strings vacíos y sin caracteres válidos	Jest	Automática
+EJ-187	TC-222	Pasó	Habilitación creada con vigencia calculada a 15 días corridos	Jest	Automática
+EJ-188	TC-223	Pasó	Rechazo 400 ante intento de habilitar inscripción que no está bloqueada	Jest	Automática
+EJ-189	TC-224	Pasó	Auditoría inalterable registrada con acción CREAR y entidad HabilitacionExcepcional	Jest	Automática
