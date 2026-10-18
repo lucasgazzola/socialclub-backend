@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 18/10/2026 (TASK-44 · DT-43 y TASK-45 · DT-44; antes US-23 y TASK-43)
+- **Última actualización:** 18/10/2026 (TASK-46 · DT-02, TASK-44 · DT-43 y TASK-45 · DT-44)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -27,7 +27,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
   - [🟠 Estandarización del código a inglés](#estandarización-del-código-a-inglés---costo-creciente)
 - [Deuda pendiente](#deuda-pendiente)
   - [🟠 Altas](#-altas)
-    - [DT-02 · Faltan los casos de prueba de las historias ya implementadas (backend)](#dt-02--faltan-los-casos-de-prueba-de-las-historias-ya-implementadas-backend)
     - [DT-27 · Documentación por disciplina: requisitos, estados y vigencia](#dt-27--documentación-por-disciplina-requisitos-estados-y-vigencia)
     - [DT-29 · No existe solicitud de inscripción con aprobación](#dt-29--no-existe-solicitud-de-inscripción-con-aprobación)
     - [DT-31 · No existe compra real de entradas](#dt-31--no-existe-compra-real-de-entradas)
@@ -71,17 +70,17 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-03, DT-04, DT-05, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44 |
-| 🟠 Altas pendientes | DT-02 (en curso), DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio) |
+| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44 |
+| 🟠 Altas pendientes | DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio) |
 | 🟡 Medias pendientes | DT-10, DT-23, DT-24, DT-28, DT-34, DT-48 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-45, DT-46, DT-47, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
-**Cobertura de tests** (medida el 02/10/2026, objetivo DoD **70 %**):
+**Cobertura de tests** (medida el 18/10/2026, objetivo DoD **70 %**):
 
 | Repo | Statements | Piso configurado |
 |---|---|---|
-| Frontend (Vitest) | **70,13 %** ✅ | 67 % |
-| Backend (Jest) | **76,8 %** ✅ | 70 % |
+| Frontend (Vitest) | **70,5 %** ✅ | 67 % |
+| Backend (Jest) | **88,3 %** ✅ | 70 % |
 
 Los dos repos tenían además el **CI en rojo** por configuración de lint, no por
 código: ver [Extra](#extra--ci-del-frontend-en-rojo-desde-el-0709) al final.
@@ -143,35 +142,6 @@ decidir tiene un costo que sube solo.
 ## Deuda pendiente
 
 ### 🟠 Altas
-
-#### DT-02 · Faltan los casos de prueba de las historias ya implementadas (backend)
-*backend · en curso*
-
-Esto **no es «falta cobertura»**: de las **22 US implementadas en el backend,
-solo 5 tienen casos cargados** en la planilla (US-07, US-08, US-38, US-39,
-US-40). Las otras se mergearon sin documentar un solo caso, y la cobertura baja
-es la consecuencia, no la causa.
-
-Por eso se ataca **por historia y no por módulo**: se generan los casos con
-`/casos-prueba`, se automatizan con `/casos-a-tests` y la cobertura sube como
-efecto. Así los tests cubren requisitos y quedan trazables US → TC → test, que
-es lo que pide la DoD y lo que se entrega.
-
-| US implementada | Módulo | Cobertura | Casos |
-|---|---|---|---|
-| ~~US-16 Configurar cuota social~~ | `cuota-social` | **90 %** | ✅ 10 casos |
-| ~~US-32 Registrar logs de operaciones~~ | `auditoria` | **92 %** | ✅ 9 casos |
-| US-24 Documentación obligatoria | `documentacion` | 41 % | pendiente |
-| US-30 / US-31 Entradas y QR | `entradas` | 50 % | pendiente |
-| US-29 Crear evento | `eventos` | 51 % | pendiente |
-| US-09/11/12/13/14/15 Socios | `socios` | 54 % | pendiente |
-| US-20 Configurar cuotas deportivas | `cuotas` | 56 % | pendiente |
-| US-01 / US-02 / US-03 Usuarios | `usuarios` | 61 % | pendiente |
-| US-05 / US-06 Participantes | `inscripcion` | 75 % | pendiente |
-| — | `categorias` | 0 % | sin US asociada |
-
-- **Orden sugerido para lo que queda:** US-01/02/03 (permisos), US-20, US-29/30/31, US-24, socios.
-- **Rama sugerida:** `issue/TASK-<n>-DT-02-Casos-<US>`
 
 #### DT-27 · Documentación por disciplina: requisitos, estados y vigencia
 *Nuevo · funcional · backend + frontend*
@@ -475,6 +445,14 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### TASK-46 · DT-02 · Casos de prueba y cobertura de las historias implementadas (backend)
+**`issue/TASK-46-DT-02-Casos-y-cobertura-backend`** (backend) · 18/10/2026
+
+- Documentados y exportados los 24 casos faltantes de las historias implementadas en el backend (`TC-225`–`TC-248` para `US-06`, `US-08`, `US-09`, `US-11` y `US-24`) en `docs/pruebas/casos-prueba.csv`.
+- Cubierto al 100 % el módulo `src/categorias` (`categorias.service.spec.ts` y `categorias.controller.spec.ts`), dejando al backend con 0 módulos sin tests (62 suites, 721 tests unitarios, 88,3 % statements).
+- Etiquetada la trazabilidad `TC-XXX` en las suites de `inscripcion`, `socios`, `categorias` y `documentacion`.
+- Normalizadas las filas `EJ-185`–`EJ-189` al esquema de 10 columnas y registradas las ejecuciones `EJ-190`–`EJ-262` en `docs/pruebas/ejecucion.csv`, logrando que el 100 % de los 248 casos documentados (`TC-001`–`TC-248`) cuente con registro de ejecución (`EJ-01`–`EJ-262`).
 
 ### TASK-45 · DT-44 · Las fechas guardadas a las 00:00 UTC no corren la deuda deportiva un mes
 **`issue/TASK-45-DT-44-Periodos-deportivos-en-utc`** (backend) · 18/10/2026
@@ -1080,8 +1058,8 @@ Lo que ya usa el equipo, aplicado a la deuda técnica:
 
 - **Ramas:** `issue/TASK-<n>-DT-<nn>-<Descripcion-en-kebab>` para deuda
   identificada; `fix/<Descripcion>` para arreglos de configuración o tooling.
-  El número `TASK` es correlativo y global. **Último usado: TASK-43**
-  (04/10/2026).
+  El número `TASK` es correlativo y global. **Último usado: TASK-46**
+  (18/10/2026).
 - **Commits:** `<prefijo>[scope]: <descripción en minúscula>`, con el ID de la
   deuda como scope — `refactor[DT-03]: …`, `test[DT-01]: …`, `ci[lint]: …`.
   Prefijos válidos: `feat`, `fix`, `docs`, `test`, `ci`, `chore`, `refactor`.
