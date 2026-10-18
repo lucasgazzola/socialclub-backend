@@ -12,7 +12,9 @@ import {
   IsArray,
   ValidateNested,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
+import { requiereVencimiento } from '../../disciplinas/requerimientos-doc';
 
 /**
  * Documentación opcional que se adjunta durante la misma operación de alta (US-05, Criterio 7).
@@ -23,9 +25,15 @@ export class CreateInscripcionDocumentoDto {
   })
   tipoDocumento: TipoDocumentacionDisciplina;
 
+  @ValidateIf(
+    (o: CreateInscripcionDocumentoDto) =>
+      !o.tipoDocumento ||
+      requiereVencimiento(o.tipoDocumento) ||
+      (o.fechaVencimiento !== undefined && o.fechaVencimiento !== ''),
+  )
   @IsNotEmpty({ message: 'La fecha de vencimiento es obligatoria.' })
   @IsDateString({}, { message: 'La fecha de vencimiento debe ser una fecha válida.' })
-  fechaVencimiento: string;
+  fechaVencimiento?: string;
 
   @IsOptional()
   @IsString()
@@ -106,4 +114,3 @@ export class CreateInscripcionDto {
   @Type(() => CreateInscripcionDocumentoDto)
   documentos?: CreateInscripcionDocumentoDto[];
 }
-

@@ -21,7 +21,7 @@ import {
   restriccionesEfectivas,
   type Restricciones,
 } from '../disciplinas/restricciones';
-import { ETIQUETA_TIPO_DOCUMENTO } from '../disciplinas/requerimientos-doc';
+import { ETIQUETA_TIPO_DOCUMENTO, requiereVencimiento } from '../disciplinas/requerimientos-doc';
 import { periodoActual } from '../cuotas/cuotas.service';
 import { tarifaVigente, montoACobrar } from '../cuotas/tarifas';
 import { abrirPeriodo, cerrarPeriodos } from './periodos-inscripcion';
@@ -331,20 +331,28 @@ export class InscripcionService {
               );
             }
 
-            const soloFecha = /^(\d{4})-(\d{2})-(\d{2})/.exec(doc.fechaVencimiento);
-            const fechaVencimiento = soloFecha
-              ? new Date(Number(soloFecha[1]), Number(soloFecha[2]) - 1, Number(soloFecha[3]))
-              : new Date(doc.fechaVencimiento);
+            const rawFecha = doc.fechaVencimiento?.trim();
+            if (!rawFecha && requiereVencimiento(doc.tipoDocumento)) {
+              throw new BadRequestException('La fecha de vencimiento es obligatoria.');
+            }
 
-            const diaVencimiento = new Date(
-              fechaVencimiento.getFullYear(),
-              fechaVencimiento.getMonth(),
-              fechaVencimiento.getDate(),
-            );
-            if (diaVencimiento < hoy) {
-              throw new BadRequestException(
-                'La fecha de vencimiento no puede ser anterior a la fecha actual.',
+            let fechaVencimiento: Date | null = null;
+            if (rawFecha) {
+              const soloFecha = /^(\d{4})-(\d{2})-(\d{2})/.exec(rawFecha);
+              fechaVencimiento = soloFecha
+                ? new Date(Number(soloFecha[1]), Number(soloFecha[2]) - 1, Number(soloFecha[3]))
+                : new Date(rawFecha);
+
+              const diaVencimiento = new Date(
+                fechaVencimiento.getFullYear(),
+                fechaVencimiento.getMonth(),
+                fechaVencimiento.getDate(),
               );
+              if (diaVencimiento < hoy) {
+                throw new BadRequestException(
+                  'La fecha de vencimiento no puede ser anterior a la fecha actual.',
+                );
+              }
             }
 
             if (tx.documentacion) {

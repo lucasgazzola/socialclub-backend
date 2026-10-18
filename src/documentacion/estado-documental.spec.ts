@@ -26,7 +26,7 @@ describe('US-25 · estado documental de una inscripción', () => {
   };
   const doc = (
     tipoDocumento: DocumentoPresentado['tipoDocumento'],
-    vence: Date,
+    vence: Date | null,
     id = 1,
     creadoEn = new Date(2026, 8, 25),
   ): DocumentoPresentado => ({ id, tipoDocumento, fechaVencimiento: vence, creadoEn });
@@ -176,6 +176,26 @@ describe('US-25 · estado documental de una inscripción', () => {
   it('ignora documentos sin tipo del catálogo (cargados antes del catálogo)', () => {
     const r = estadoDeInscripcion(inscripcion, [apto], [doc(null, new Date(2027, 0, 1))], [], hoy);
     expect(r.documentos[0].estado).toBe('FALTANTE');
+  });
+
+  it('DT-43: un documento permanente sin fecha de vencimiento (DNI) se evalúa como VIGENTE', () => {
+    const reqDni: RequisitoExigido = {
+      tipoDocumento: 'DNI',
+      plazoDiasTolerancia: 0,
+      creadoEn: new Date(2026, 0, 1),
+      categoriaDisciplinaId: null,
+    };
+    const r = estadoDeInscripcion(inscripcion, [reqDni], [doc('DNI', null, 5)], [], hoy);
+    expect(r.estado).toBe('HABILITADO');
+    expect(r.documentos[0]).toEqual(
+      expect.objectContaining({
+        tipoDocumento: 'DNI',
+        estado: 'VIGENTE',
+        documentoId: 5,
+        fechaVencimiento: null,
+        fechaLimite: null,
+      }),
+    );
   });
 
   it('el estado del participante es el peor de sus inscripciones', () => {
