@@ -9,13 +9,14 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
+import { requiereVencimiento } from '../../disciplinas/requerimientos-doc';
 
 /**
  * US-24 — Cargar documentación obligatoria de un participante.
  * Cada documento requiere tipo (del catálogo de documentación obligatoria),
- * fecha de vencimiento e integrante (Persona). La fecha de vencimiento es
- * OBLIGATORIA (no se puede guardar sin ella).
+ * fecha de vencimiento (opcional para DNI, DT-43) e integrante (Persona).
  */
 export class CreateDocumentacionDto {
   @ApiProperty({
@@ -37,10 +38,19 @@ export class CreateDocumentacionDto {
   @MaxLength(80)
   tipo?: string;
 
-  @ApiProperty({ example: '2026-12-31', description: 'Fecha de vencimiento (ISO 8601)' })
+  @ApiPropertyOptional({
+    example: '2026-12-31',
+    description: 'Fecha de vencimiento (ISO 8601). Opcional cuando el tipo es DNI (DT-43).',
+  })
+  @ValidateIf(
+    (o: CreateDocumentacionDto) =>
+      !o.tipoDocumento ||
+      requiereVencimiento(o.tipoDocumento) ||
+      (o.fechaVencimiento !== undefined && o.fechaVencimiento !== ''),
+  )
   @IsNotEmpty({ message: 'La fecha de vencimiento es obligatoria.' })
   @IsDateString({}, { message: 'La fecha de vencimiento debe ser una fecha válida.' })
-  fechaVencimiento: string;
+  fechaVencimiento?: string;
 
   @ApiProperty({ example: 1, description: 'ID del integrante (Persona) asociado' })
   @Type(() => Number) // en multipart el campo llega como string

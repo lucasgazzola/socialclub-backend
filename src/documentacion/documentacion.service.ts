@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { CreateDocumentacionDto } from './dto/create-documentacion.dto';
 import { getStorageDir, type ArchivoSubido } from './storage.config';
-import { ETIQUETA_TIPO_DOCUMENTO } from '../disciplinas/requerimientos-doc';
+import { ETIQUETA_TIPO_DOCUMENTO, requiereVencimiento } from '../disciplinas/requerimientos-doc';
 import { EstadoDocumentalService } from './estado-documental.service';
 
 @Injectable()
@@ -20,8 +20,8 @@ export class DocumentacionService {
    * US-24: Carga un documento obligatorio para un participante.
    * Reglas:
    * - El integrante (Persona) debe existir.
-   * - La fecha de vencimiento es obligatoria (validada en el DTO).
-   * - La fecha de vencimiento no puede ser anterior a la fecha actual.
+   * - La fecha de vencimiento es obligatoria salvo para el DNI (DT-43).
+   * - Si se indica fecha de vencimiento, no puede ser anterior a la fecha actual.
    * - El tipo es del catálogo y tiene que estar exigido por alguna disciplina o
    *   categoría en la que el participante esté inscripto. Un documento nuevo
    *   del mismo tipo reemplaza al anterior para la habilitación (renovación);
@@ -33,24 +33,32 @@ export class DocumentacionService {
       throw new NotFoundException('Participante no encontrado');
     }
 
-    // Una fecha "YYYY-MM-DD" se interpreta en horario LOCAL (si se parsea como
-    // UTC, en zonas negativas "hoy" se corre un día y rompe la comparación).
-    const soloFecha = /^(\d{4})-(\d{2})-(\d{2})/.exec(dto.fechaVencimiento);
-    const fechaVencimiento = soloFecha
-      ? new Date(Number(soloFecha[1]), Number(soloFecha[2]) - 1, Number(soloFecha[3]))
-      : new Date(dto.fechaVencimiento);
+    const rawFecha = dto.fechaVencimiento?.trim();
+    if (!rawFecha && requiereVencimiento(dto.tipoDocumento)) {
+      throw new BadRequestException('La fecha de vencimiento es obligatoria.');
+    }
 
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0); // se compara por día: un documento que vence hoy es válido.
-    const diaVencimiento = new Date(
-      fechaVencimiento.getFullYear(),
-      fechaVencimiento.getMonth(),
-      fechaVencimiento.getDate(),
-    );
-    if (diaVencimiento < hoy) {
-      throw new BadRequestException(
-        'La fecha de vencimiento no puede ser anterior a la fecha actual.',
+    let fechaVencimiento: Date | null = null;
+    if (rawFecha) {
+      // Una fecha "YYYY-MM-DD" se interpreta en horario LOCAL (si se parsea como
+      // UTC, en zonas negativas "hoy" se corre un día y rompe la comparación).
+      const soloFecha = /^(\d{4})-(\d{2})-(\d{2})/.exec(rawFecha);
+      fechaVencimiento = soloFecha
+        ? new Date(Number(soloFecha[1]), Number(soloFecha[2]) - 1, Number(soloFecha[3]))
+        : new Date(rawFecha);
+
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0); // se compara por día: un documento que vence hoy es válido.
+      const diaVencimiento = new Date(
+        fechaVencimiento.getFullYear(),
+        fechaVencimiento.getMonth(),
+        fechaVencimiento.getDate(),
       );
+      if (diaVencimiento < hoy) {
+        throw new BadRequestException(
+          'La fecha de vencimiento no puede ser anterior a la fecha actual.',
+        );
+      }
     }
 
     const exigidos = await this.estadoDocumental.tiposExigidos(dto.personaId);

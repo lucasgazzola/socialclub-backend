@@ -27,7 +27,7 @@ export interface RequisitoExigido {
 export interface DocumentoPresentado {
   id: number;
   tipoDocumento: TipoDocumentacionDisciplina | null;
-  fechaVencimiento: Date;
+  fechaVencimiento: Date | null;
   creadoEn: Date;
 }
 
@@ -123,6 +123,15 @@ export function estadoDeInscripcion(
         documentoId: null,
         fechaVencimiento: null,
         fechaLimite: sumarDias(desde, req.plazoDiasTolerancia),
+      };
+    }
+    if (!doc.fechaVencimiento) {
+      return {
+        ...base,
+        estado: 'VIGENTE' as const,
+        documentoId: doc.id,
+        fechaVencimiento: null,
+        fechaLimite: null,
       };
     }
     const diasRestantes = (dia(doc.fechaVencimiento) - hoyDia) / MS_DIA;
