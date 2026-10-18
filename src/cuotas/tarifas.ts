@@ -26,19 +26,23 @@ export interface MembresiaPeriodo {
   activo: boolean;
 }
 
-/** Período "YYYY-MM" de una fecha (hora local). */
+/**
+ * Período "YYYY-MM" de una fecha. Se lee en UTC para que las fechas guardadas
+ * a las 00:00 UTC del día 1 no caigan en el mes anterior en Argentina (UTC-3)
+ * (DT-44).
+ */
 export function aPeriodo(fecha: Date): string {
-  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+  return `${fecha.getUTCFullYear()}-${String(fecha.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 /** Períodos "YYYY-MM" desde `desde` hasta `hasta`, ambos inclusive. */
 export function periodosEntre(desde: Date, hasta: Date): string[] {
   const periodos: string[] = [];
-  const actual = new Date(desde.getFullYear(), desde.getMonth(), 1);
-  const fin = new Date(hasta.getFullYear(), hasta.getMonth(), 1);
+  const actual = new Date(Date.UTC(desde.getUTCFullYear(), desde.getUTCMonth(), 1));
+  const fin = new Date(Date.UTC(hasta.getUTCFullYear(), hasta.getUTCMonth(), 1));
   while (actual <= fin) {
     periodos.push(aPeriodo(actual));
-    actual.setMonth(actual.getMonth() + 1);
+    actual.setUTCMonth(actual.getUTCMonth() + 1);
   }
   return periodos;
 }
@@ -76,12 +80,9 @@ export function tarifaVigente(
 
 /** ¿Tenía la persona una membresía activa en algún momento de ese mes? */
 export function eraSocioEn(membresias: MembresiaPeriodo[], periodo: string): boolean {
-  const [anio, mes] = periodo.split('-').map(Number);
-  const inicio = new Date(anio, mes - 1, 1);
-  const fin = new Date(anio, mes, 0, 23, 59, 59, 999);
   return membresias.some((m) => {
-    if (m.fechaAlta > fin) return false;
-    if (m.fechaBaja) return m.fechaBaja >= inicio;
+    if (aPeriodo(m.fechaAlta) > periodo) return false;
+    if (m.fechaBaja) return aPeriodo(m.fechaBaja) >= periodo;
     return m.activo;
   });
 }
