@@ -43,4 +43,12 @@ describe('US-24 · CreateDocumentacionDto', () => {
     const errores = await validate(dto);
     expect(errores.some((e) => e.property === 'tipoDocumento')).toBe(true);
   });
+
+  it('DT-43: acepta un DNI sin fecha de vencimiento', async () => {
+    const dto = plainToInstance(CreateDocumentacionDto, {
+      tipoDocumento: 'DNI',
+      personaId: 1,
+    });
+    expect(await validate(dto)).toHaveLength(0);
+  });
 });

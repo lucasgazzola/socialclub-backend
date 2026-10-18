@@ -155,4 +155,45 @@ describe('US-24 · DocumentacionService', () => {
       expect.objectContaining({ data: expect.objectContaining({ tipo: 'DNI tarjeta' }) }),
     );
   });
+
+  describe('DT-43 · El DNI no requiere fecha de vencimiento', () => {
+    it('permite cargar un DNI sin fecha de vencimiento (guarda fechaVencimiento = null)', async () => {
+      prismaMock.persona.findUnique.mockResolvedValue({ id: 1 });
+      prismaMock.documentacion.create.mockResolvedValue({ id: 15, tipo: 'DNI', personaId: 1 });
+
+      const res = await service.create(
+        {
+          tipoDocumento: 'DNI',
+          personaId: 1,
+        },
+        7,
+      );
+
+      expect(res.id).toBe(15);
+      expect(prismaMock.documentacion.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tipoDocumento: 'DNI',
+            fechaVencimiento: null,
+            personaId: 1,
+          }),
+        }),
+      );
+    });
+
+    it('rechaza cargar un documento que no sea DNI sin fecha de vencimiento', async () => {
+      prismaMock.persona.findUnique.mockResolvedValue({ id: 1 });
+
+      await expect(
+        service.create(
+          {
+            tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA',
+            personaId: 1,
+          },
+          7,
+        ),
+      ).rejects.toThrow('La fecha de vencimiento es obligatoria.');
+      expect(prismaMock.documentacion.create).not.toHaveBeenCalled();
+    });
+  });
 });
