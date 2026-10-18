@@ -96,10 +96,14 @@ describe('DT-16 · InscripcionController · control de acceso', () => {
     });
   });
 
-  it('US-07: el COLABORADOR puede listar participantes pero no darlos de baja ni reactivarlos', () => {
+  it('US-06 · TC-229 / US-07 · TC-025: el COLABORADOR puede listar participantes pero no editarlos, darlos de baja ni reactivarlos', () => {
     expect(
       guard.canActivate(contextoPara(InscripcionController.prototype.findAll, ['COLABORADOR'])),
     ).toBe(true);
+
+    expect(() =>
+      guard.canActivate(contextoPara(InscripcionController.prototype.update, ['COLABORADOR'])),
+    ).toThrow(ForbiddenException);
 
     expect(() =>
       guard.canActivate(

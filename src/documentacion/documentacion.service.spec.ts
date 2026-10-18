@@ -49,7 +49,7 @@ describe('US-24 · DocumentacionService', () => {
     ]);
   });
 
-  it('carga el documento con fecha futura y audita CREAR', async () => {
+  it('TC-244: carga el documento con fecha futura y audita CREAR', async () => {
     prismaMock.persona.findUnique.mockResolvedValue({ id: 1, nombre: 'Juan' });
     prismaMock.documentacion.create.mockResolvedValue({
       id: 10,
@@ -82,7 +82,7 @@ describe('US-24 · DocumentacionService', () => {
     );
   });
 
-  it('acepta un documento que vence hoy (no es anterior a la fecha actual)', async () => {
+  it('TC-244: acepta un documento que vence hoy (no es anterior a la fecha actual)', async () => {
     prismaMock.persona.findUnique.mockResolvedValue({ id: 1 });
     prismaMock.documentacion.create.mockResolvedValue({ id: 11 });
 
@@ -91,7 +91,7 @@ describe('US-24 · DocumentacionService', () => {
     ).resolves.toBeDefined();
   });
 
-  it('rechaza una fecha de vencimiento anterior a hoy', async () => {
+  it('TC-246: rechaza una fecha de vencimiento anterior a hoy', async () => {
     prismaMock.persona.findUnique.mockResolvedValue({ id: 1 });
 
     await expect(
@@ -107,7 +107,7 @@ describe('US-24 · DocumentacionService', () => {
     expect(prismaMock.documentacion.create).not.toHaveBeenCalled();
   });
 
-  it('rechaza cargar documentación para un participante inexistente', async () => {
+  it('TC-247: rechaza cargar documentación para un participante inexistente', async () => {
     prismaMock.persona.findUnique.mockResolvedValue(null);
 
     await expect(
@@ -119,7 +119,7 @@ describe('US-24 · DocumentacionService', () => {
     expect(prismaMock.documentacion.create).not.toHaveBeenCalled();
   });
 
-  it('rechaza un tipo que no exige ninguna disciplina o categoría del participante', async () => {
+  it('TC-247: rechaza un tipo que no exige ninguna disciplina o categoría del participante', async () => {
     prismaMock.persona.findUnique.mockResolvedValue({ id: 1 });
 
     await expect(

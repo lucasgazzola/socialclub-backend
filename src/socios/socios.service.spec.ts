@@ -186,7 +186,7 @@ describe('SociosService', () => {
   });
 
   describe('US-09: Registrarme como socio (Autogestión)', () => {
-    it('DNI existente: reutiliza Persona y crea Membresía sin pedir nuevo DNI', async () => {
+    it('TC-236: DNI existente: reutiliza Persona y crea Membresía sin pedir nuevo DNI', async () => {
       const usuarioMock = {
         id: 5,
         email: 'usuario@club.com',
@@ -238,7 +238,7 @@ describe('SociosService', () => {
       expect(resultado.activo).toBe(true);
     });
 
-    it('DNI nuevo: si persona.dni es null, se pide, se valida unicidad y se guarda en Persona', async () => {
+    it('TC-237: DNI nuevo: si persona.dni es null, se pide, se valida unicidad y se guarda en Persona', async () => {
       const usuarioMock = {
         id: 6,
         email: 'nuevo@club.com',
@@ -289,7 +289,7 @@ describe('SociosService', () => {
       expect(resultado.dni).toBe('40999888');
     });
 
-    it('DNI nuevo: rechaza el alta si el DNI enviado ya pertenece a otra persona', async () => {
+    it('TC-238: DNI nuevo: rechaza el alta si el DNI enviado ya pertenece a otra persona', async () => {
       const usuarioMock = {
         id: 7,
         email: 'otro@club.com',
@@ -312,7 +312,7 @@ describe('SociosService', () => {
       );
     });
 
-    it('Membresía activa existente: rechaza nueva alta autogestionada si ya es socio activo', async () => {
+    it('TC-239: Membresía activa existente: rechaza nueva alta autogestionada si ya es socio activo', async () => {
       const usuarioMock = {
         id: 8,
         email: 'activo@club.com',
@@ -438,7 +438,7 @@ describe('SociosService', () => {
       },
     };
 
-    it('actualiza los datos permitidos del socio, sincroniza usuario y persona, y genera registro de auditoría', async () => {
+    it('TC-241: actualiza los datos permitidos del socio, sincroniza usuario y persona, y genera registro de auditoría', async () => {
       const dto = {
         nombre: 'Pedro Pablo',
         apellido: 'Gomez Alvarez',
@@ -505,7 +505,7 @@ describe('SociosService', () => {
       );
     });
 
-    it('rechaza la edición si el nuevo correo ya está registrado por otro usuario', async () => {
+    it('TC-242: rechaza la edición si el nuevo correo ya está registrado por otro usuario', async () => {
       const dto = {
         nombre: 'Pedro',
         apellido: 'Gomez',
@@ -520,7 +520,7 @@ describe('SociosService', () => {
       );
     });
 
-    it('rechaza la edición si el nuevo correo ya está registrado por otra persona', async () => {
+    it('TC-242: rechaza la edición si el nuevo correo ya está registrado por otra persona', async () => {
       const dto = {
         nombre: 'Pedro',
         apellido: 'Gomez',
@@ -536,7 +536,7 @@ describe('SociosService', () => {
       );
     });
 
-    it('rechaza la edición si el usuario no tiene ficha de socio activa asociada', async () => {
+    it('TC-243: rechaza la edición si el usuario no tiene ficha de socio activa asociada', async () => {
       prismaMock.usuario.findUnique.mockResolvedValue({
         id: 5,
         email: 'usuario@club.com',

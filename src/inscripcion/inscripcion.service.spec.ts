@@ -131,7 +131,7 @@ describe('InscripcionService', () => {
       apellido: 'Perez Gomez',
     };
 
-    it('should update basic person data (same discipline, same category)', async () => {
+    it('US-06 · TC-225: should update basic person data (same discipline, same category)', async () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
       mockPrisma.disciplina.findUnique.mockResolvedValue(inscripcionExistente.disciplina);
       mockPrisma.persona.update.mockResolvedValue({
@@ -190,7 +190,7 @@ describe('InscripcionService', () => {
       expect(mockPrisma.persona.findUnique).toHaveBeenCalledWith({ where: { dni: '87654321' } });
     });
 
-    it('should throw ConflictException if DNI already exists in same discipline', async () => {
+    it('US-06 · TC-226: should throw ConflictException if DNI already exists in same discipline', async () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
       mockPrisma.disciplina.findUnique.mockResolvedValue(inscripcionExistente.disciplina);
       mockPrisma.persona.findUnique.mockResolvedValue({ id: 999, dni: '87654321' });
@@ -244,7 +244,7 @@ describe('InscripcionService', () => {
       await expect(service.update(1, { disciplinaId: 999 }, 99)).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw BadRequestException if new discipline is inactive', async () => {
+    it('US-06 · TC-228: should throw BadRequestException if new discipline is inactive', async () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
       mockPrisma.disciplina.findUnique.mockResolvedValue({
         id: 2,
@@ -357,7 +357,7 @@ describe('InscripcionService', () => {
       await expect(service.update(1, { telefono: '351000' }, 99)).resolves.toBeDefined();
     });
 
-    it('TASK-31 · US-06: al cambiar de categoría el plazo de la documentación corre desde hoy', async () => {
+    it('TASK-31 · US-06 · TC-227: al cambiar de categoría el plazo de la documentación corre desde hoy', async () => {
       mockPrisma.inscripcion.findUnique.mockResolvedValue(inscripcionExistente);
       mockPrisma.disciplina.findUnique.mockResolvedValue({
         ...inscripcionExistente.disciplina,
@@ -492,7 +492,7 @@ describe('InscripcionService', () => {
       ...personaBase,
       inscripciones: [inscripcionFutbol, inscripcionVoley],
     };
-    it('TC-0801: busca por coincidencia parcial y agrupa por participante', async () => {
+    it('TC-230 (TC-0801): busca por coincidencia parcial y agrupa por participante', async () => {
       mockPrisma.persona.findMany.mockResolvedValue([participanteDosDisciplinas]);
       mockPrisma.persona.count.mockResolvedValue(1);
 
@@ -540,7 +540,7 @@ describe('InscripcionService', () => {
       expect(disciplina?.motivosDocumentacion).toEqual(['DNI: vencido el 30/09/2026']);
     });
 
-    it('TC-0802: valida la coincidencia exacta por DNI', async () => {
+    it('TC-231 (TC-0802): valida la coincidencia exacta por DNI', async () => {
       mockPrisma.persona.findMany.mockResolvedValue([participanteDosDisciplinas]);
       mockPrisma.persona.count.mockResolvedValue(1);
 
@@ -550,7 +550,7 @@ describe('InscripcionService', () => {
       expect(where.AND[1].OR).toEqual(expect.arrayContaining([{ dni: { equals: '12345678' } }]));
     });
 
-    it('TC-0803: filtra por disciplina y muestra todas las del participante', async () => {
+    it('TC-232 (TC-0803): filtra por disciplina y muestra todas las del participante', async () => {
       mockPrisma.persona.findMany.mockResolvedValue([participanteDosDisciplinas]);
       mockPrisma.persona.count.mockResolvedValue(1);
 
@@ -563,7 +563,7 @@ describe('InscripcionService', () => {
       expect(result.items[0].disciplinas).toHaveLength(2);
     });
 
-    it('TC-0804: filtra por estado INSCRIPTO', async () => {
+    it('TC-233 (TC-0804): filtra por estado INSCRIPTO', async () => {
       mockPrisma.persona.findMany.mockResolvedValue([participanteDosDisciplinas]);
       mockPrisma.persona.count.mockResolvedValue(1);
 
@@ -580,7 +580,7 @@ describe('InscripcionService', () => {
       expect(result.items[0].estado).toBe('INSCRIPTO');
     });
 
-    it('TC-0805: filtra por estado BAJA y expone el estado agregado', async () => {
+    it('TC-233 (TC-0805): filtra por estado BAJA y expone el estado agregado', async () => {
       const participanteBaja = {
         ...personaBase,
         inscripciones: [{ ...inscripcionFutbol, activo: false }],
@@ -601,7 +601,7 @@ describe('InscripcionService', () => {
       expect(result.items[0].estado).toBe('BAJA');
     });
 
-    it('TC-0806: combina busqueda, disciplina y estado (AND)', async () => {
+    it('TC-234 (TC-0806): combina busqueda, disciplina y estado (AND)', async () => {
       mockPrisma.persona.findMany.mockResolvedValue([]);
       mockPrisma.persona.count.mockResolvedValue(0);
 
@@ -624,7 +624,7 @@ describe('InscripcionService', () => {
       );
     });
 
-    it('TC-0807: sin coincidencias devuelve una lista vacia', async () => {
+    it('TC-235 (TC-0807): sin coincidencias devuelve una lista vacia', async () => {
       mockPrisma.persona.findMany.mockResolvedValue([]);
       mockPrisma.persona.count.mockResolvedValue(0);
 
@@ -639,7 +639,7 @@ describe('InscripcionService', () => {
       });
     });
 
-    it('TC-0808: sin filtros lista personas paginado y respeta skip/take', async () => {
+    it('TC-235 (TC-0808): sin filtros lista personas paginado y respeta skip/take', async () => {
       mockPrisma.persona.findMany.mockResolvedValue([participanteDosDisciplinas]);
       mockPrisma.persona.count.mockResolvedValue(15);
 
