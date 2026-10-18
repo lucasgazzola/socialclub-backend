@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 10/10/2026 (US-23: vencimiento de la cuota deportiva y DT-48; antes TASK-43)
+- **Última actualización:** 18/10/2026 (TASK-44 · DT-43 y TASK-45 · DT-44; antes US-23 y TASK-43)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -33,8 +33,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-31 · No existe compra real de entradas](#dt-31--no-existe-compra-real-de-entradas)
     - [DT-35 · El pago implementado solo cubre la cuota social](#dt-35--el-pago-implementado-solo-cubre-la-cuota-social)
   - [🟡 Medias](#-medias)
-    - [DT-43 · El DNI no debe requerir fecha de vencimiento](#dt-43--el-dni-no-debe-requerir-fecha-de-vencimiento)
-    - [DT-44 · Las fechas guardadas a las 00:00 UTC corren la deuda deportiva un mes](#dt-44--las-fechas-guardadas-a-las-0000-utc-corren-la-deuda-deportiva-un-mes)
     - [DT-48 · Morosos de cuota social cuenta cuotas que todavía no vencieron](#dt-48--morosos-de-cuota-social-cuenta-cuotas-que-todavía-no-vencieron)
     - [DT-10 · La pantalla de Auditoría es interminable](#dt-10--la-pantalla-de-auditoría-es-interminable)
     - [DT-24 · La planilla documenta generación de cuotas que no existe](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe)
@@ -73,9 +71,9 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-03, DT-04, DT-05, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42 |
-| 🟠 Altas pendientes | DT-02 (en curso), DT-27 (configuración, estado documental y alertas resueltos; restan aprobación/rechazo y habilitación excepcional), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio) |
-| 🟡 Medias pendientes | DT-10, DT-23, DT-24, DT-28, DT-34, DT-43, DT-44, DT-48 |
+| ✅ Resueltas | DT-01, DT-03, DT-04, DT-05, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44 |
+| 🟠 Altas pendientes | DT-02 (en curso), DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio) |
+| 🟡 Medias pendientes | DT-10, DT-23, DT-24, DT-28, DT-34, DT-48 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-45, DT-46, DT-47, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
 **Cobertura de tests** (medida el 02/10/2026, objetivo DoD **70 %**):
@@ -311,40 +309,6 @@ deportiva.
 
 ### 🟡 Medias
 
-#### DT-43 · El DNI no debe requerir fecha de vencimiento
-*Nuevo · backend + frontend · detectado en US-05*
-
-Actualmente, el modelo de datos `Documentacion` (`Documentacion.fechaVencimiento`)
-y el DTO `CreateDocumentacionDto` (`fechaVencimiento: string` / `IsDateString`) exigen
-obligatoriamente una fecha de vencimiento para todos los tipos de documentación del
-catálogo. Sin embargo, el **DNI** es un documento de identidad que no requiere fecha
-de caducidad para los trámites y habilitaciones deportivas en el club. Al exigir
-vencimiento, se fuerza a registrar fechas ficticias en el sistema o en la UI.
-
-**Arreglo:** hacer opcional `fechaVencimiento` (nullable en la base de datos y opcional
-en el DTO/frontend) cuando el tipo de documento sea permanente o de identidad (`DNI`),
-y adaptar la lógica de cálculo de vigencia en `EstadoDocumentalService` para que no
-trate un documento permanente sin vencimiento como vencido o por vencer.
-
-- **Rama sugerida:** `issue/TASK-<n>-DT-43-Dni-sin-vencimiento` (TASK-38 ya se usó para DT-05)
-
-
-#### DT-44 · Las fechas guardadas a las 00:00 UTC corren la deuda deportiva un mes
-*Nuevo · backend · detectado en DT-41*
-
-`periodosEntre` (`src/cuotas/tarifas.ts`) toma el mes con `getMonth()`, en la
-hora del servidor. Una fecha de inscripción guardada a las 00:00 UTC del día 1
-(como las del seed, `new Date('2025-06-01')`) en hora argentina es el 31 del mes
-anterior, así que la deuda empieza un mes antes: una alta del 01/06/2025 cobra
-desde 2025-05. En Azure el servidor corre en UTC y no pasa; en local sí. Es el
-mismo problema que resolvió `fix[US-25]` para la documentación.
-
-**Arreglo:** calcular el período con la fecha en UTC (`getUTCFullYear` /
-`getUTCMonth`) o normalizar las fechas de alta y baja al día, como
-`estado-documental.ts`. Sumar un test con `TZ=America/Argentina/Buenos_Aires`.
-
-- **Evidencia:** `docs/pruebas/evidencias/US-21/dt41-api.txt`.
-
 #### DT-48 · Morosos de cuota social cuenta cuotas que todavía no vencieron
 *Nuevo · backend · detectado en US-23*
 
@@ -511,6 +475,29 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### TASK-45 · DT-44 · Las fechas guardadas a las 00:00 UTC no corren la deuda deportiva un mes
+**`issue/TASK-45-DT-44-Periodos-deportivos-en-utc`** (backend) · 18/10/2026
+
+- `aPeriodo`, `periodosEntre` y `eraSocioEn` (`src/cuotas/tarifas.ts`) leen año
+  y mes en UTC (`getUTCFullYear` / `getUTCMonth`), evitando que una fecha de
+  inscripción o membresía guardada a las `00:00 UTC` del día 1 se corra al mes
+  anterior en huso horario argentino (UTC-3).
+- Cubierto en `src/cuotas/tarifas.spec.ts`.
+
+### TASK-44 · DT-43 · El DNI no requiere fecha de vencimiento
+**`issue/TASK-44-DT-43-Dni-sin-vencimiento`** (backend + frontend) · 18/10/2026
+
+- Migración `20261017210000_dni_sin_vencimiento`: `Documentacion.fechaVencimiento`
+  pasa a ser opcional (`DateTime?`).
+- `requiereVencimiento(tipoDocumento)` en backend (`src/disciplinas/requerimientos-doc.ts`)
+  y frontend (`src/features/disciplinas/types.ts`).
+- `CreateDocumentacionDto`, `CreateInscripcionDocumentoDto`, `DocumentacionService`
+  e `InscripcionService` admiten `fechaVencimiento` vacía/nula cuando `tipoDocumento === 'DNI'`.
+- `estadoDeInscripcion` (`src/documentacion/estado-documental.ts`) evalúa un
+  documento permanente sin fecha de vencimiento como `VIGENTE`.
+- `DocumentacionParticipante` e `InscripcionForm` ocultan el campo de fecha de
+  vencimiento al cargar un `DNI` y muestran «Sin vencimiento».
 
 ### TASK-43 · Pruebas E2E con evidencia automática
 **`issue/TASK-43-Testing-E2E-con-evidencia`** (backend + frontend) · 04/10/2026

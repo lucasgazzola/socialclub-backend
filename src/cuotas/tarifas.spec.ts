@@ -1,4 +1,5 @@
 import {
+  aPeriodo,
   eraSocioEn,
   montoACobrar,
   periodosEntre,
@@ -94,5 +95,32 @@ describe('tarifas de la cuota deportiva', () => {
       '2026-12',
       '2027-01',
     ]);
+  });
+
+  describe('DT-44 · fechas a las 00:00 UTC del día 1 no se corren al mes anterior en UTC-3', () => {
+    it('aPeriodo lee el año y mes en UTC para una fecha guardada a las 00:00 UTC del día 1', () => {
+      expect(aPeriodo(new Date('2025-06-01T00:00:00.000Z'))).toBe('2025-06');
+      expect(aPeriodo(new Date('2026-01-01T00:00:00.000Z'))).toBe('2026-01');
+    });
+
+    it('periodosEntre con alta el 01/06/2025 00:00 UTC empieza en 2025-06 (no en 2025-05)', () => {
+      expect(
+        periodosEntre(new Date('2025-06-01T00:00:00.000Z'), new Date('2025-08-01T00:00:00.000Z')),
+      ).toEqual(['2025-06', '2025-07', '2025-08']);
+    });
+
+    it('eraSocioEn con alta el 01/06/2025 00:00 UTC no cuenta como socio en 2025-05', () => {
+      const m = [
+        {
+          fechaAlta: new Date('2025-06-01T00:00:00.000Z'),
+          fechaBaja: new Date('2025-08-01T00:00:00.000Z'),
+          activo: false,
+        },
+      ];
+      expect(eraSocioEn(m, '2025-05')).toBe(false);
+      expect(eraSocioEn(m, '2025-06')).toBe(true);
+      expect(eraSocioEn(m, '2025-08')).toBe(true);
+      expect(eraSocioEn(m, '2025-09')).toBe(false);
+    });
   });
 });
