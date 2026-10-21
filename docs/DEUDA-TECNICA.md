@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 21/10/2026 (TASK-49 · DT-08)
+- **Última actualización:** 21/10/2026 (TASK-50 · DT-45)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -37,7 +37,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-23 · El ratchet de cobertura corta el CI por décimas](#dt-23--el-ratchet-de-cobertura-corta-el-ci-por-décimas)
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
   - [⚪ Bajas](#-bajas)
-    - [DT-45 · La tarjeta del evento ofrece comprar fuera del período de venta](#dt-45--la-tarjeta-del-evento-ofrece-comprar-fuera-del-período-de-venta)
     - [DT-46 · El alta de usuario no muestra el error en el formulario](#dt-46--el-alta-de-usuario-no-muestra-el-error-en-el-formulario)
     - [DT-47 · El DNI se muestra con formatos distintos](#dt-47--el-dni-se-muestra-con-formatos-distintos)
     - [DT-09 · Imágenes en eventos](#dt-09--imágenes-en-eventos)
@@ -67,10 +66,10 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-28, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44 |
+| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-28, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45 |
 | 🟠 Altas pendientes | DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio) |
 | 🟡 Medias pendientes | DT-23, DT-24, DT-34, DT-48 |
-| ⚪ Bajas pendientes | DT-06, DT-09, DT-45, DT-46, DT-47, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
+| ⚪ Bajas pendientes | DT-06, DT-09, DT-46, DT-47, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
 **Cobertura de tests** (medida el 18/10/2026, objetivo DoD **70 %**):
 
@@ -334,14 +333,6 @@ quién reembolsar.
 
 ### ⚪ Bajas
 
-#### DT-45 · La tarjeta del evento ofrece comprar fuera del período de venta
-*Nuevo · frontend · detectado en TASK-43*
-
-`puedeComprar` (`features/eventos/helpers.ts`), que decide si la tarjeta
-muestra «Comprar entradas», no mira el período de venta. Antes o después del
-período la tarjeta ofrece el botón y la página de compra dice «La venta no está
-habilitada». Usar `ventaAbierta` (TASK-43) también en la tarjeta.
-
 #### DT-46 · El alta de usuario no muestra el error en el formulario
 *Nuevo · frontend · detectado en TASK-43*
 
@@ -409,6 +400,12 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### TASK-50 · DT-45 · La tarjeta del evento no ofrece comprar fuera del período de venta
+**`issue/TASK-50-DT-45-Tarjeta-evento-periodo-venta`** (frontend) · 21/10/2026
+
+- Vinculada la disponibilidad del botón "Comprar entradas" en `EventoCard` directamente a `ventaAbierta(evento)`, evitando ofrecer la compra cuando la fecha actual es anterior a `inicioVenta` o posterior a `finVenta`.
+- Cobertura completa de pruebas unitarias en `EventoCard.test.tsx` verificando el ocultamiento del botón de compra ante períodos de venta futuros o pasados y su visualización adecuada durante el período vigente.
 
 ### TASK-49 · DT-08 · Descarga de entradas con código QR en PDF
 **`issue/TASK-49-DT-08-Descarga-entradas-pdf`** (frontend) · 21/10/2026
