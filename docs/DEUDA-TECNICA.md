@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 21/10/2026 (TASK-47 · DT-10)
+- **Última actualización:** 21/10/2026 (TASK-48 · DT-28)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -35,7 +35,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-48 · Morosos de cuota social cuenta cuotas que todavía no vencieron](#dt-48--morosos-de-cuota-social-cuenta-cuotas-que-todavía-no-vencieron)
     - [DT-24 · La planilla documenta generación de cuotas que no existe](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe)
     - [DT-23 · El ratchet de cobertura corta el CI por décimas](#dt-23--el-ratchet-de-cobertura-corta-el-ci-por-décimas)
-    - [DT-28 · El participante no puede consultar su propia documentación](#dt-28--el-participante-no-puede-consultar-su-propia-documentación)
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
   - [⚪ Bajas](#-bajas)
     - [DT-45 · La tarjeta del evento ofrece comprar fuera del período de venta](#dt-45--la-tarjeta-del-evento-ofrece-comprar-fuera-del-período-de-venta)
@@ -69,9 +68,9 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44 |
+| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-28, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44 |
 | 🟠 Altas pendientes | DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio) |
-| 🟡 Medias pendientes | DT-23, DT-24, DT-28, DT-34, DT-48 |
+| 🟡 Medias pendientes | DT-23, DT-24, DT-34, DT-48 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-45, DT-46, DT-47, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
 **Cobertura de tests** (medida el 18/10/2026, objetivo DoD **70 %**):
@@ -319,21 +318,6 @@ hiciera nada mal. Se resolvió dejando ~3 puntos de margen, pero conviene
 revisarlo si vuelve a pasar. La alternativa de fondo es exigir tests por PR
 (regla de equipo) en lugar de apretar el número global.
 
-#### DT-28 · El participante no puede consultar su propia documentación
-*Nuevo · funcional · backend + frontend*
-
-El endpoint de documentación solo permite acceso a `ADMIN` y `DELEGADO`, y la
-pantalla de edición del participante no carga documentación. El propio socio
-no puede ver qué documentos tiene cargados, ni su estado o vencimiento.
-
-**Arreglo:** incluir documentación en el detalle del participante; permitir
-que el propio usuario consulte la documentación de su persona; permitir que
-`COLABORADOR` la consulte si va a ser responsable de revisar solicitudes
-(ver DT-27/DT-29); mostrar estado, vencimiento, tipo y archivo.
-
-- **Detectado en el análisis funcional de dominio (22/09/2026).**
-- **Rama sugerida:** `issue/TASK-23-DT-28-Consulta-documentacion-participante`
-
 #### DT-34 · No hay cancelación, devolución ni transferencia de entradas
 *Nuevo · funcional · backend + frontend*
 
@@ -434,6 +418,14 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### TASK-48 · DT-28 · El participante puede consultar su propia documentación
+**`issue/TASK-48-DT-28-Consulta-documentacion-participante`** (backend + frontend) · 21/10/2026
+
+- Habilitados los roles `COLABORADOR` y `SOCIO` para la consulta de documentación (`GET /documentacion/persona/:personaId`, `GET /documentacion/persona/:personaId/estado` y `GET /documentacion/:id/archivo`), verificando mediante `validarAccesoPersona` y `obtenerArchivo` que un participante/socio solo pueda acceder a los documentos de su propia persona.
+- Creados endpoints directos de autoservicio `GET /documentacion/mi-documentacion` y `GET /documentacion/mi-documentacion/estado`.
+- Incorporada la vista de "Mi documentación" en el frontend tanto en el perfil del socio como en una página y acceso de navegación dedicado (`ROUTES.miDocumentacion`), mostrando estado general por disciplina, requisitos presentados/faltantes, vencimientos y descarga de archivos adjuntos.
+- Cobertura de pruebas unitarias en backend (`documentacion.roles.spec.ts`, `documentacion.service.spec.ts`) y frontend.
 
 ### TASK-47 · DT-10 · Filtros avanzados y tabla con encabezado fijo en auditoría
 **`issue/TASK-47-DT-10-Filtros-de-auditoria`** (frontend) · 21/10/2026
@@ -1054,7 +1046,7 @@ Lo que ya usa el equipo, aplicado a la deuda técnica:
 
 - **Ramas:** `issue/TASK-<n>-DT-<nn>-<Descripcion-en-kebab>` para deuda
   identificada; `fix/<Descripcion>` para arreglos de configuración o tooling.
-  El número `TASK` es correlativo y global. **Último usado: TASK-47**
+  El número `TASK` es correlativo y global. **Último usado: TASK-48**
   (21/10/2026).
 - **Commits:** `<prefijo>[scope]: <descripción en minúscula>`, con el ID de la
   deuda como scope — `refactor[DT-03]: …`, `test[DT-01]: …`, `ci[lint]: …`.
