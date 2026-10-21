@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 18/10/2026 (TASK-46 · DT-02, TASK-44 · DT-43 y TASK-45 · DT-44)
+- **Última actualización:** 21/10/2026 (TASK-47 · DT-10)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -33,7 +33,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-35 · El pago implementado solo cubre la cuota social](#dt-35--el-pago-implementado-solo-cubre-la-cuota-social)
   - [🟡 Medias](#-medias)
     - [DT-48 · Morosos de cuota social cuenta cuotas que todavía no vencieron](#dt-48--morosos-de-cuota-social-cuenta-cuotas-que-todavía-no-vencieron)
-    - [DT-10 · La pantalla de Auditoría es interminable](#dt-10--la-pantalla-de-auditoría-es-interminable)
     - [DT-24 · La planilla documenta generación de cuotas que no existe](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe)
     - [DT-23 · El ratchet de cobertura corta el CI por décimas](#dt-23--el-ratchet-de-cobertura-corta-el-ci-por-décimas)
     - [DT-28 · El participante no puede consultar su propia documentación](#dt-28--el-participante-no-puede-consultar-su-propia-documentación)
@@ -70,9 +69,9 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44 |
+| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44 |
 | 🟠 Altas pendientes | DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio) |
-| 🟡 Medias pendientes | DT-10, DT-23, DT-24, DT-28, DT-34, DT-48 |
+| 🟡 Medias pendientes | DT-23, DT-24, DT-28, DT-34, DT-48 |
 | ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-45, DT-46, DT-47, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
 **Cobertura de tests** (medida el 18/10/2026, objetivo DoD **70 %**):
@@ -289,16 +288,6 @@ cuenta el mes en curso desde el día 1: un socio que paga el 5 figura como moros
 del 1 al 5. Conviene alinear las dos con la misma regla (o una constante propia
 para la cuota social, si el club la cobra distinto). Decisión del equipo.
 
-#### DT-10 · La pantalla de Auditoría es interminable
-*frontend · 2 SP*
-
-Ya pagina de 20 en 20; lo que la hace larga es que solo se puede filtrar por
-acción. El backend acepta además `entidad`, `responsableId`, `fechaDesde` y
-`fechaHasta`.
-
-- **Arreglo:** sumar esos filtros, selector de tamaño de página y encabezado fijo con scroll dentro de la tabla.
-- **Rama sugerida:** `issue/TASK-18-DT-10-Filtros-de-auditoria`
-
 #### DT-24 · La planilla documenta generación de cuotas que no existe
 *Nuevo · producto + documentación · a definir*
 
@@ -445,6 +434,13 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### TASK-47 · DT-10 · Filtros avanzados y tabla con encabezado fijo en auditoría
+**`issue/TASK-47-DT-10-Filtros-de-auditoria`** (frontend) · 21/10/2026
+
+- Incorporado el selector de responsable (`responsableId`) en `AuditoriaFilters`, vinculado con `useResponsables` (consulta de usuarios vía `usuariosApi.list`), schema `auditoria-filtros.schema.ts` y conectado reactivamente en `AuditoriaPage`.
+- Implementado contenedor con scroll vertical delimitado (`max-h-[600px] overflow-y-auto`) y encabezado sticky (`sticky top-0 z-10 bg-slate-50 shadow-xs`) en `AuditoriaTable` para evitar que la pantalla crezca indefinidamente ante listas largas de registros.
+- Cobertura completa de pruebas unitarias en `AuditoriaFilters.spec.tsx`, `AuditoriaTable.spec.tsx`, `AuditoriaPage.spec.tsx` y `auditoria-filtros.schema.spec.ts`.
 
 ### TASK-46 · DT-02 · Casos de prueba y cobertura de las historias implementadas (backend)
 **`issue/TASK-46-DT-02-Casos-y-cobertura-backend`** (backend) · 18/10/2026
@@ -1058,8 +1054,8 @@ Lo que ya usa el equipo, aplicado a la deuda técnica:
 
 - **Ramas:** `issue/TASK-<n>-DT-<nn>-<Descripcion-en-kebab>` para deuda
   identificada; `fix/<Descripcion>` para arreglos de configuración o tooling.
-  El número `TASK` es correlativo y global. **Último usado: TASK-46**
-  (18/10/2026).
+  El número `TASK` es correlativo y global. **Último usado: TASK-47**
+  (21/10/2026).
 - **Commits:** `<prefijo>[scope]: <descripción en minúscula>`, con el ID de la
   deuda como scope — `refactor[DT-03]: …`, `test[DT-01]: …`, `ci[lint]: …`.
   Prefijos válidos: `feat`, `fix`, `docs`, `test`, `ci`, `chore`, `refactor`.
