@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,6 +7,9 @@ import { CreateDocumentacionDto } from './dto/create-documentacion.dto';
 import { getStorageDir, type ArchivoSubido } from './storage.config';
 import { ETIQUETA_TIPO_DOCUMENTO, requiereVencimiento } from '../disciplinas/requerimientos-doc';
 import { EstadoDocumentalService } from './estado-documental.service';
+import type { AuthenticatedUser } from '../auth/types/authenticated-user';
+
+const ROLES_STAFF = ['ADMIN', 'DELEGADO', 'COLABORADOR'];
 
 @Injectable()
 export class DocumentacionService {
@@ -93,6 +96,39 @@ export class DocumentacionService {
     return documentacion;
   }
 
+  /**
+   * DT-28: Valida que el usuario tenga permisos para consultar la documentación
+   * de una persona: ADMIN, DELEGADO y COLABORADOR tienen acceso global; el participante
+   * solo puede consultar la suya propia.
+   */
+  async validarAccesoPersona(personaId: number, user: AuthenticatedUser) {
+    const esStaff = user.roles?.some((rol) => ROLES_STAFF.includes(rol));
+    if (esStaff) {
+      return;
+    }
+
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: user.id },
+      select: { personaId: true },
+    });
+
+    if (!usuario?.personaId || usuario.personaId !== personaId) {
+      throw new ForbiddenException('No tenés permisos suficientes para esta operación');
+    }
+  }
+
+  /** Obtiene la personaId asociada a un usuario del sistema (autoservicio). */
+  async obtenerPersonaIdDeUsuario(usuarioId: number): Promise<number> {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { personaId: true },
+    });
+    if (!usuario?.personaId) {
+      throw new NotFoundException('No se encontró una ficha de persona asociada al usuario');
+    }
+    return usuario.personaId;
+  }
+
   /** Lista la documentación cargada de un participante (vencimiento más próximo primero). */
   async findByPersona(personaId: number) {
     const persona = await this.prisma.persona.findUnique({ where: { id: personaId } });
@@ -107,11 +143,25 @@ export class DocumentacionService {
   }
 
   /** Devuelve la ruta absoluta del archivo adjunto para descargarlo. */
-  async obtenerArchivo(id: number) {
+  async obtenerArchivo(id: number, user?: AuthenticatedUser) {
     const doc = await this.prisma.documentacion.findUnique({ where: { id } });
     if (!doc || !doc.archivoRuta) {
       throw new NotFoundException('El documento no tiene un archivo adjunto');
     }
+
+    if (user) {
+      const esStaff = user.roles?.some((rol) => ROLES_STAFF.includes(rol));
+      if (!esStaff) {
+        const usuario = await this.prisma.usuario.findUnique({
+          where: { id: user.id },
+          select: { personaId: true },
+        });
+        if (!usuario?.personaId || usuario.personaId !== doc.personaId) {
+          throw new ForbiddenException('No tenés permisos suficientes para esta operación');
+        }
+      }
+    }
+
     const rutaAbsoluta = join(getStorageDir(), doc.archivoRuta);
     if (!existsSync(rutaAbsoluta)) {
       throw new NotFoundException('El archivo no se encuentra en el servidor');

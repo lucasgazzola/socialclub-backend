@@ -4,11 +4,11 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { DocumentacionController } from './documentacion.controller';
 
 /**
- * US-24 / US-25 · Control de acceso de la documentación: la cargan y la
- * consultan ADMIN y DELEGADO. Ni COLABORADOR ni SOCIO acceden (DT-28 queda
- * pendiente para que el propio participante vea la suya).
+ * US-24 / US-25 / DT-28 · Control de acceso de la documentación:
+ * - La carga sigue protegida para ADMIN y DELEGADO.
+ * - La consulta y descarga de archivo se habilita para ADMIN, DELEGADO, COLABORADOR y SOCIO (DT-28).
  */
-describe('US-24/25 · DocumentacionController · control de acceso', () => {
+describe('US-24/25 · DT-28 · DocumentacionController · control de acceso', () => {
   const guard = new RolesGuard(new Reflector());
 
   function contextoPara(
@@ -26,20 +26,37 @@ describe('US-24/25 · DocumentacionController · control de acceso', () => {
   }
 
   const proto = DocumentacionController.prototype;
-  const handlers = {
-    'POST /documentacion': proto.create,
+
+  describe('POST /documentacion (alta de documentación)', () => {
+    it.each(['ADMIN', 'DELEGADO'])('US-24 · TC-248: permite a un %s', (rol) => {
+      expect(guard.canActivate(contextoPara(proto.create, [rol]))).toBe(true);
+    });
+
+    it.each(['COLABORADOR', 'SOCIO'])('US-24 · TC-248: rechaza a un %s', (rol) => {
+      expect(() => guard.canActivate(contextoPara(proto.create, [rol]))).toThrow(ForbiddenException);
+    });
+  });
+
+  const handlersLectura = {
     'GET /documentacion/persona/:personaId': proto.findByPersona,
     'GET /documentacion/persona/:personaId/estado': proto.estadoPorPersona,
     'GET /documentacion/:id/archivo': proto.descargarArchivo,
+    'GET /documentacion/mi-documentacion': proto.miDocumentacion,
+    'GET /documentacion/mi-documentacion/estado': proto.miEstadoDocumental,
   };
 
-  describe.each(Object.entries(handlers))('%s', (_ruta, handler) => {
-    it.each(['ADMIN', 'DELEGADO'])('US-24 · TC-248: permite a un %s', (rol) => {
-      expect(guard.canActivate(contextoPara(handler, [rol]))).toBe(true);
-    });
+  describe.each(Object.entries(handlersLectura))('%s (consulta y descarga)', (_ruta, handler) => {
+    it.each(['ADMIN', 'DELEGADO', 'COLABORADOR', 'SOCIO'])(
+      'DT-28: permite a un %s',
+      (rol) => {
+        expect(guard.canActivate(contextoPara(handler, [rol]))).toBe(true);
+      },
+    );
 
-    it.each(['COLABORADOR', 'SOCIO'])('US-24/25 · TC-184 / TC-248: rechaza a un %s', (rol) => {
-      expect(() => guard.canActivate(contextoPara(handler, [rol]))).toThrow(ForbiddenException);
+    it('DT-28: rechaza a roles no autorizados', () => {
+      expect(() => guard.canActivate(contextoPara(handler, ['INVITADO']))).toThrow(
+        ForbiddenException,
+      );
     });
   });
 });

@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { DocumentacionService } from './documentacion.service';
@@ -15,7 +15,8 @@ describe('US-24 · DocumentacionService', () => {
 
   const prismaMock = {
     persona: { findUnique: jest.fn() },
-    documentacion: { create: jest.fn(), findMany: jest.fn() },
+    documentacion: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn() },
+    usuario: { findUnique: jest.fn() },
   };
   const auditoriaMock = { registrar: jest.fn() };
   const estadoDocumentalMock = { tiposExigidos: jest.fn() };
@@ -194,6 +195,41 @@ describe('US-24 · DocumentacionService', () => {
         ),
       ).rejects.toThrow('La fecha de vencimiento es obligatoria.');
       expect(prismaMock.documentacion.create).not.toHaveBeenCalled();
+    });
+  });
+  describe('DT-28 · Consulta de documentación y permisos', () => {
+    it('permite a un usuario con rol de staff consultar cualquier persona', async () => {
+      const user = { id: 10, email: 'admin@club.com', roles: ['ADMIN'] };
+      await expect(service.validarAccesoPersona(99, user)).resolves.toBeUndefined();
+      expect(prismaMock.usuario.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('permite a un colaborador consultar cualquier persona', async () => {
+      const user = { id: 11, email: 'colab@club.com', roles: ['COLABORADOR'] };
+      await expect(service.validarAccesoPersona(99, user)).resolves.toBeUndefined();
+    });
+
+    it('permite a un socio consultar su propia persona', async () => {
+      const user = { id: 12, email: 'socio@club.com', roles: ['SOCIO'] };
+      prismaMock.usuario.findUnique.mockResolvedValue({ personaId: 5 });
+      await expect(service.validarAccesoPersona(5, user)).resolves.toBeUndefined();
+    });
+
+    it('rechaza a un socio que intenta consultar la documentación de otra persona', async () => {
+      const user = { id: 12, email: 'socio@club.com', roles: ['SOCIO'] };
+      prismaMock.usuario.findUnique.mockResolvedValue({ personaId: 5 });
+      await expect(service.validarAccesoPersona(99, user)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('obtiene personaId del usuario autenticado', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ personaId: 5 });
+      const personaId = await service.obtenerPersonaIdDeUsuario(12);
+      expect(personaId).toBe(5);
+    });
+
+    it('falla si el usuario no tiene ficha de persona', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ personaId: null });
+      await expect(service.obtenerPersonaIdDeUsuario(12)).rejects.toThrow(NotFoundException);
     });
   });
 });
