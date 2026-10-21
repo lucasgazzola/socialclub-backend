@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 21/10/2026 (TASK-48 · DT-28)
+- **Última actualización:** 21/10/2026 (TASK-49 · DT-08)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -40,7 +40,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-45 · La tarjeta del evento ofrece comprar fuera del período de venta](#dt-45--la-tarjeta-del-evento-ofrece-comprar-fuera-del-período-de-venta)
     - [DT-46 · El alta de usuario no muestra el error en el formulario](#dt-46--el-alta-de-usuario-no-muestra-el-error-en-el-formulario)
     - [DT-47 · El DNI se muestra con formatos distintos](#dt-47--el-dni-se-muestra-con-formatos-distintos)
-    - [DT-08 · Las entradas con QR no se pueden descargar en PDF](#dt-08--las-entradas-con-qr-no-se-pueden-descargar-en-pdf)
     - [DT-09 · Imágenes en eventos](#dt-09--imágenes-en-eventos)
     - [DT-06 · Historias de usuario para sumar al backlog](#dt-06--historias-de-usuario-para-sumar-al-backlog)
     - [DT-36 · No hay notificaciones de vencimiento o resolución](#dt-36--no-hay-notificaciones-de-vencimiento-o-resolución)
@@ -68,10 +67,10 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-28, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44 |
+| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-28, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44 |
 | 🟠 Altas pendientes | DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio) |
 | 🟡 Medias pendientes | DT-23, DT-24, DT-34, DT-48 |
-| ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-45, DT-46, DT-47, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
+| ⚪ Bajas pendientes | DT-06, DT-09, DT-45, DT-46, DT-47, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
 **Cobertura de tests** (medida el 18/10/2026, objetivo DoD **70 %**):
 
@@ -359,14 +358,6 @@ de participante.
 Usuarios muestra el DNI agrupado (`30.111.222`) y Socios sin agrupar
 (`30111222`). Unificar con el mismo helper de formato.
 
-#### DT-08 · Las entradas con QR no se pueden descargar en PDF
-*frontend · 2 SP*
-
-Hoy `ComprarEntradasPage` descarga el QR como PNG con `qrcode`, así que hay
-salida funcional. Para PDF, `jspdf` en el cliente alcanza y evita endpoints
-nuevos; si más adelante se quiere enviar la entrada por mail, conviene
-generarlo en el backend. **Decidir eso antes de instalar nada.**
-
 #### DT-09 · Imágenes en eventos
 *backend + frontend · 5 SP*
 
@@ -418,6 +409,14 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### TASK-49 · DT-08 · Descarga de entradas con código QR en PDF
+**`issue/TASK-49-DT-08-Descarga-entradas-pdf`** (frontend) · 21/10/2026
+
+- Incorporada la librería `jspdf` en el cliente para la generación de entradas de acceso en formato PDF tamaño A6.
+- Implementado el módulo `descargarEntradaPdf.ts` con soporte para descarga individual de entrada en PDF, descarga masiva de todas las entradas adquiridas en un solo documento multipágina (`descargarTodasEntradasPdf`) y descarga del código QR en imagen PNG.
+- Actualizada la vista de `MisEntradasPage` y el flujo posterior a la compra en `ComprarEntradasPage` para ofrecer descarga en PDF además de PNG.
+- Cobertura completa de pruebas unitarias en `descargarEntradaPdf.test.ts`, `MisEntradasPage.test.tsx` y `ComprarEntradasPage.test.tsx`.
 
 ### TASK-48 · DT-28 · El participante puede consultar su propia documentación
 **`issue/TASK-48-DT-28-Consulta-documentacion-participante`** (backend + frontend) · 21/10/2026
