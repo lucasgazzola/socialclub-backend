@@ -218,7 +218,7 @@ export class UsuariosService {
       case 'nombre':
       case 'usuario':
       default:
-        orderBy = [{ apellido: direccion }, { nombre: direccion }];
+        orderBy = [{ nombre: direccion }, { apellido: direccion }];
         break;
     }
 
