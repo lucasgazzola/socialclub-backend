@@ -161,7 +161,7 @@ export class UsuariosService {
       estado,
       pagina = 1,
       porPagina = 10,
-      ordenarPor = 'nombre',
+      ordenarPor,
       orden = 'asc',
     } = query;
     const whereBase: Prisma.UsuarioWhereInput = {};
@@ -197,29 +197,33 @@ export class UsuariosService {
     const direccion: 'asc' | 'desc' = orden?.toLowerCase() === 'desc' ? 'desc' : 'asc';
     let orderBy: Prisma.UsuarioOrderByWithRelationInput | Prisma.UsuarioOrderByWithRelationInput[];
 
-    switch (ordenarPor?.toLowerCase()) {
-      case 'dni':
-        orderBy = { persona: { dni: direccion } };
-        break;
-      case 'email':
-        orderBy = { email: direccion };
-        break;
-      case 'estado':
-      case 'activo':
-        orderBy = { activo: direccion };
-        break;
-      case 'fecha':
-      case 'creadoen':
-        orderBy = { creadoEn: direccion };
-        break;
-      case 'roles':
-        orderBy = { roles: { _count: direccion } };
-        break;
-      case 'nombre':
-      case 'usuario':
-      default:
-        orderBy = [{ nombre: direccion }, { apellido: direccion }];
-        break;
+    if (!ordenarPor) {
+      orderBy = [{ apellido: 'asc' }, { nombre: 'asc' }];
+    } else {
+      switch (ordenarPor.toLowerCase()) {
+        case 'dni':
+          orderBy = { persona: { dni: direccion } };
+          break;
+        case 'email':
+          orderBy = { email: direccion };
+          break;
+        case 'estado':
+        case 'activo':
+          orderBy = { activo: direccion };
+          break;
+        case 'fecha':
+        case 'creadoen':
+          orderBy = { creadoEn: direccion };
+          break;
+        case 'roles':
+          orderBy = { roles: { _count: direccion } };
+          break;
+        case 'nombre':
+        case 'usuario':
+        default:
+          orderBy = [{ nombre: direccion }, { apellido: direccion }];
+          break;
+      }
     }
 
     const [items, total, totalTodos, totalActivos, totalInactivos] = await this.prisma.$transaction(

@@ -40,11 +40,10 @@ export class GetUsuariosQueryDto {
   @ApiPropertyOptional({
     description: 'Campo de ordenamiento: nombre, dni, email, roles, estado, fecha',
     enum: CriterioOrdenUsuarios,
-    default: CriterioOrdenUsuarios.NOMBRE,
   })
   @IsOptional()
   @IsString()
-  ordenarPor?: string = 'nombre';
+  ordenarPor?: string;
 
   @ApiPropertyOptional({
     description: 'Sentido del ordenamiento: asc o desc',
