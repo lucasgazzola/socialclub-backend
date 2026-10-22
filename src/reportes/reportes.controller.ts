@@ -6,10 +6,11 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { ApiErrores, VALIDACION } from '../common/swagger/respuestas';
 import { ReportesService } from './reportes.service';
 import { EstadoFinancieroQueryDto } from './dto/estado-financiero-query.dto';
+import { AsistenciaEventosQueryDto } from './dto/asistencia-eventos-query.dto';
 
 /**
- * US-35 — Reportes. El "tesorero" se mapea a ADMIN y COLABORADOR, los mismos
- * roles que gestionan la cobranza (US-19, US-21, US-23).
+ * Reportes — US-35 (Estado financiero) y US-36 (Reporte de asistencia y ocupación de eventos).
+ * Roles autorizados: ADMIN y COLABORADOR.
  */
 @ApiTags('reportes')
 @ApiCookieAuth()
@@ -38,5 +39,23 @@ export class ReportesController {
   })
   estadoFinanciero(@Query() query: EstadoFinancieroQueryDto) {
     return this.reportesService.estadoFinanciero(query);
+  }
+
+  @Get('asistencia-eventos')
+  @Roles('ADMIN', 'COLABORADOR')
+  @ApiOperation({
+    summary:
+      'US-36 — Reporte de asistencia a eventos: total de entradas, ingresos validados y porcentaje de ocupación',
+  })
+  @ApiOkResponse({
+    description: 'Reporte consolidado de asistencia y ocupación por evento y totales globales',
+  })
+  @ApiErrores({
+    400: [VALIDACION, 'La fecha «desde» no puede ser posterior a «hasta».'],
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+  })
+  asistenciaEventos(@Query() query: AsistenciaEventosQueryDto) {
+    return this.reportesService.asistenciaEventos(query);
   }
 }

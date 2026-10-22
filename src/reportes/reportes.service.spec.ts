@@ -234,3 +234,177 @@ describe('US-35 · ReportesService.estadoFinanciero', () => {
     expect(mesesEntre('2025-11', '2026-02')).toEqual(['2025-11', '2025-12', '2026-01', '2026-02']);
   });
 });
+
+describe('US-36 · ReportesService.asistenciaEventos', () => {
+  let service: ReportesService;
+  const HOY = new Date('2026-10-22T18:00:00.000Z');
+
+  const prisma = {
+    evento: { findMany: jest.fn() },
+    pagoCuotaDeportiva: { findMany: jest.fn(), aggregate: jest.fn() },
+    pago: { findMany: jest.fn(), aggregate: jest.fn() },
+  };
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ReportesService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: PagosService, useValue: {} },
+        { provide: PagosDeportivosService, useValue: {} },
+      ],
+    }).compile();
+
+    service = module.get<ReportesService>(ReportesService);
+  });
+
+  it('consolida asistencia y ocupación por evento y totales acumulados', async () => {
+    prisma.evento.findMany.mockResolvedValue([
+      {
+        id: 1,
+        nombre: 'Torneo Apertura de Pádel',
+        descripcion: 'Torneo anual',
+        estado: 'FINALIZADO',
+        requiereEntrada: true,
+        fechaEvento: new Date('2026-08-15T15:00:00.000Z'),
+        fechaFin: new Date('2026-08-15T21:00:00.000Z'),
+        lugarAcreditacion: 'Canchas centrales',
+        capacidadMaxima: 100,
+        entradasDisponibles: 20,
+        precio: 2500,
+        entradas: [
+          ...Array(60).fill({ id: 1, estado: 'USADA' }),
+          ...Array(20).fill({ id: 2, estado: 'VALIDA' }),
+        ],
+        compras: [{ cantidad: 80, montoTotal: 200000, estado: 'APROBADA' }],
+        registrosAcceso: [],
+      },
+      {
+        id: 2,
+        nombre: 'Festival Gastronómico',
+        descripcion: 'Peña y cena',
+        estado: 'FINALIZADO',
+        requiereEntrada: true,
+        fechaEvento: new Date('2026-09-12T20:00:00.000Z'),
+        fechaFin: new Date('2026-09-13T03:00:00.000Z'),
+        lugarAcreditacion: 'Salón principal',
+        capacidadMaxima: 50,
+        entradasDisponibles: 10,
+        precio: 2500,
+        entradas: Array(40).fill({ id: 3, estado: 'USADA' }),
+        compras: [{ cantidad: 40, montoTotal: 100000, estado: 'APROBADA' }],
+        registrosAcceso: [],
+      },
+    ]);
+
+    const resultado = await service.asistenciaEventos({}, HOY);
+
+    expect(resultado.totales).toEqual({
+      totalEventos: 2,
+      totalCapacidad: 150,
+      totalEntradas: 120,
+      totalAsistentes: 100,
+      totalAusentes: 20,
+      porcentajeOcupacionPromedio: 66.7, // 100 / 150 * 100
+      porcentajeAsistenciaPromedio: 83.3, // 100 / 120 * 100
+      totalRecaudado: 300000,
+    });
+
+    expect(resultado.eventos).toHaveLength(2);
+    expect(resultado.eventos[0]).toMatchObject({
+      id: 1,
+      nombre: 'Torneo Apertura de Pádel',
+      capacidadMaxima: 100,
+      totalEntradas: 80,
+      ingresosValidados: 60,
+      ausentes: 20,
+      porcentajeOcupacion: 60.0,
+      porcentajeAsistencia: 75.0,
+      recaudado: 200000,
+    });
+    expect(resultado.eventos[1]).toMatchObject({
+      id: 2,
+      nombre: 'Festival Gastronómico',
+      capacidadMaxima: 50,
+      totalEntradas: 40,
+      ingresosValidados: 40,
+      ausentes: 0,
+      porcentajeOcupacion: 80.0,
+      porcentajeAsistencia: 100.0,
+      recaudado: 100000,
+    });
+  });
+
+  it('un evento sin entradas ni capacidad no rompe con división por cero', async () => {
+    prisma.evento.findMany.mockResolvedValue([
+      {
+        id: 99,
+        nombre: 'Jornada Libre de Yoga',
+        descripcion: 'Sin entrada',
+        estado: 'PUBLICADO',
+        requiereEntrada: false,
+        fechaEvento: new Date('2026-11-28T10:00:00.000Z'),
+        fechaFin: null,
+        lugarAcreditacion: 'Parque',
+        capacidadMaxima: null,
+        entradasDisponibles: null,
+        precio: 0,
+        entradas: [],
+        compras: [],
+        registrosAcceso: [],
+      },
+    ]);
+
+    const resultado = await service.asistenciaEventos({ eventoId: 99 }, HOY);
+
+    expect(resultado.totales).toEqual({
+      totalEventos: 1,
+      totalCapacidad: 0,
+      totalEntradas: 0,
+      totalAsistentes: 0,
+      totalAusentes: 0,
+      porcentajeOcupacionPromedio: null,
+      porcentajeAsistenciaPromedio: null,
+      totalRecaudado: 0,
+    });
+
+    expect(resultado.eventos[0].porcentajeOcupacion).toBeNull();
+    expect(resultado.eventos[0].porcentajeAsistencia).toBeNull();
+  });
+
+  it('aplica filtros por eventoId, estado y rango de fechas', async () => {
+    prisma.evento.findMany.mockResolvedValue([]);
+
+    await service.asistenciaEventos(
+      {
+        eventoId: 5,
+        estado: 'FINALIZADO' as any,
+        desde: '2026-08-01',
+        hasta: '2026-09-30',
+      },
+      HOY,
+    );
+
+    expect(prisma.evento.findMany).toHaveBeenCalledWith({
+      where: {
+        id: 5,
+        estado: 'FINALIZADO',
+        fechaEvento: {
+          gte: new Date('2026-08-01T00:00:00.000Z'),
+          lte: new Date('2026-09-30T23:59:59.999Z'),
+        },
+      },
+      orderBy: { fechaEvento: 'asc' },
+      include: expect.any(Object),
+    });
+  });
+
+  it('rechaza una fecha desde posterior a hasta con BadRequestException', async () => {
+    await expect(
+      service.asistenciaEventos({ desde: '2026-10-01', hasta: '2026-08-01' }, HOY),
+    ).rejects.toThrow(
+      new BadRequestException('La fecha «desde» no puede ser posterior a «hasta».'),
+    );
+  });
+});

@@ -24,3 +24,25 @@ describe('US-35 · ReportesController · control de acceso', () => {
     expect(() => guard.canActivate(contextoPara([rol]))).toThrow(ForbiddenException);
   });
 });
+
+/** US-36 · El reporte de asistencia a eventos es para ADMIN y COLABORADOR. */
+describe('US-36 · ReportesController.asistenciaEventos · control de acceso', () => {
+  const guard = new RolesGuard(new Reflector());
+  const handler = ReportesController.prototype.asistenciaEventos;
+
+  function contextoPara(roles: string[]): ExecutionContext {
+    return {
+      getHandler: () => handler,
+      getClass: () => ReportesController,
+      switchToHttp: () => ({ getRequest: () => ({ user: { id: 7, roles } }) }),
+    } as unknown as ExecutionContext;
+  }
+
+  it.each(['ADMIN', 'COLABORADOR'])('permite el acceso a %s', (rol) => {
+    expect(guard.canActivate(contextoPara([rol]))).toBe(true);
+  });
+
+  it.each(['DELEGADO', 'SOCIO'])('rechaza a %s con 403', (rol) => {
+    expect(() => guard.canActivate(contextoPara([rol]))).toThrow(ForbiddenException);
+  });
+});

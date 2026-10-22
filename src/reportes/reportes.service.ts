@@ -7,6 +7,8 @@ import {
   DIA_VENCIMIENTO_CUOTA_DEPORTIVA,
 } from '../pagos/vencimiento-cuota-deportiva';
 import { EstadoFinancieroQueryDto } from './dto/estado-financiero-query.dto';
+import { AsistenciaEventosQueryDto } from './dto/asistencia-eventos-query.dto';
+import { EstadoEntrada } from '@prisma/client';
 
 /** Meses máximos de un reporte (tres años). */
 export const MAX_MESES_REPORTE = 36;
@@ -227,6 +229,140 @@ export class ReportesService {
         recaudado: redondear(m.recaudado),
         adeudado: redondear(m.adeudado),
       })),
+    };
+  }
+
+  /**
+   * US-36 — Reporte de asistencia y ocupación de eventos.
+   *
+   * Consolida métricas por evento (capacidad, entradas vendidas, ingresos validados
+   * por escaneo QR y porcentajes de asistencia y ocupación), con filtros opcionales
+   * por evento puntual, rango de fechas y estado del evento.
+   */
+  async asistenciaEventos(query: AsistenciaEventosQueryDto, hoy = new Date()) {
+    const { eventoId, desde, hasta, estado } = query;
+
+    if (desde && hasta && new Date(desde) > new Date(hasta)) {
+      throw new BadRequestException('La fecha «desde» no puede ser posterior a «hasta».');
+    }
+
+    const whereEvento: any = {};
+    if (eventoId) {
+      whereEvento.id = eventoId;
+    }
+    if (estado) {
+      whereEvento.estado = estado;
+    }
+    if (desde || hasta) {
+      whereEvento.fechaEvento = {};
+      if (desde) {
+        whereEvento.fechaEvento.gte = new Date(desde.includes('T') ? desde : `${desde}T00:00:00.000Z`);
+      }
+      if (hasta) {
+        whereEvento.fechaEvento.lte = new Date(hasta.includes('T') ? hasta : `${hasta}T23:59:59.999Z`);
+      }
+    }
+
+    const eventos = await this.prisma.evento.findMany({
+      where: whereEvento,
+      orderBy: { fechaEvento: 'asc' },
+      include: {
+        entradas: {
+          select: {
+            id: true,
+            estado: true,
+          },
+        },
+        compras: {
+          where: { estado: 'APROBADA' },
+          select: {
+            montoTotal: true,
+            cantidad: true,
+          },
+        },
+      },
+    });
+
+    let totalCapacidadAcumulada = 0;
+    let totalEntradasAcumuladas = 0;
+    let totalAsistentesAcumulados = 0;
+    let totalRecaudadoAcumulado = 0;
+
+    const eventosCalculados = eventos.map((ev) => {
+      const totalEntradas = ev.entradas.length;
+      // Ingresos validados = entradas escaneadas/usadas en el evento
+      const ingresosValidados = ev.entradas.filter((e) => e.estado === EstadoEntrada.USADA).length;
+      const ausentes = Math.max(0, totalEntradas - ingresosValidados);
+
+      const capacidadMaxima = ev.capacidadMaxima ?? null;
+      const porcentajeOcupacion =
+        capacidadMaxima && capacidadMaxima > 0
+          ? Math.round((ingresosValidados / capacidadMaxima) * 1000) / 10
+          : null;
+
+      const porcentajeAsistencia =
+        totalEntradas > 0
+          ? Math.round((ingresosValidados / totalEntradas) * 1000) / 10
+          : null;
+
+      const recaudado = ev.compras.reduce((sum, c) => sum + Number(c.montoTotal), 0);
+
+      if (capacidadMaxima) totalCapacidadAcumulada += capacidadMaxima;
+      totalEntradasAcumuladas += totalEntradas;
+      totalAsistentesAcumulados += ingresosValidados;
+      totalRecaudadoAcumulado += recaudado;
+
+      return {
+        id: ev.id,
+        nombre: ev.nombre,
+        descripcion: ev.descripcion,
+        estado: ev.estado,
+        requiereEntrada: ev.requiereEntrada,
+        fechaEvento: ev.fechaEvento.toISOString(),
+        fechaFin: ev.fechaFin ? ev.fechaFin.toISOString() : null,
+        lugarAcreditacion: ev.lugarAcreditacion,
+        capacidadMaxima,
+        entradasDisponibles: ev.entradasDisponibles ?? null,
+        precio: Number(ev.precio),
+        totalEntradas,
+        ingresosValidados,
+        ausentes,
+        porcentajeOcupacion,
+        porcentajeAsistencia,
+        recaudado: Math.round(recaudado * 100) / 100,
+      };
+    });
+
+    const totalEventos = eventosCalculados.length;
+    const totalAusentes = Math.max(0, totalEntradasAcumuladas - totalAsistentesAcumulados);
+    const porcentajeOcupacionPromedio =
+      totalCapacidadAcumulada > 0
+        ? Math.round((totalAsistentesAcumulados / totalCapacidadAcumulada) * 1000) / 10
+        : null;
+    const porcentajeAsistenciaPromedio =
+      totalEntradasAcumuladas > 0
+        ? Math.round((totalAsistentesAcumulados / totalEntradasAcumuladas) * 1000) / 10
+        : null;
+
+    return {
+      generadoEn: hoy.toISOString(),
+      filtros: {
+        eventoId: eventoId ?? null,
+        desde: desde ?? null,
+        hasta: hasta ?? null,
+        estado: estado ?? null,
+      },
+      totales: {
+        totalEventos,
+        totalCapacidad: totalCapacidadAcumulada,
+        totalEntradas: totalEntradasAcumuladas,
+        totalAsistentes: totalAsistentesAcumulados,
+        totalAusentes,
+        porcentajeOcupacionPromedio,
+        porcentajeAsistenciaPromedio,
+        totalRecaudado: Math.round(totalRecaudadoAcumulado * 100) / 100,
+      },
+      eventos: eventosCalculados,
     };
   }
 }

@@ -1230,259 +1230,181 @@ async function main() {
   }
   console.log(`  ${pagosDeportivosData.length} pagos de cuota deportiva registrados.`);
 
-  // ── 13. Mock de eventos y entradas con código QR (US-29 / US-31 / US-52) ──
-  const cantidadEventos = await prisma.evento.count();
-  if (cantidadEventos === 0) {
-    const eventosData = [
-      {
-        nombre: 'Torneo de Pádel Abierto 2026',
-        descripcion: 'Torneo de pádel dobles masculino y femenino con premios y catering.',
-        requiereEntrada: true,
-        entradasDisponibles: 50,
-        capacidadMaxima: 60,
-        fechaEvento: new Date('2026-11-15T15:00:00Z'),
-        fechaFin: new Date('2026-11-15T21:00:00Z'),
-        imagen: null,
-        lugarAcreditacion: 'Canchas de pádel central',
-        precio: 2500,
-        descuentoSocio: 20,
-        estado: EstadoEvento.PUBLICADO,
-        inicioVenta: new Date('2026-09-01T00:00:00Z'),
-        finVenta: new Date('2026-11-15T14:00:00Z'),
-      },
-      {
-        nombre: 'Fiesta de Fin de Año',
-        descripcion: 'Celebración anual del club con cena show, música en vivo y brindis.',
-        requiereEntrada: true,
-        entradasDisponibles: 148,
-        capacidadMaxima: 150,
-        fechaEvento: new Date('2026-12-20T21:00:00Z'),
-        fechaFin: new Date('2026-12-21T04:00:00Z'),
-        imagen: null,
-        lugarAcreditacion: 'Salón principal',
-        precio: 5000,
-        descuentoSocio: 10,
-        estado: EstadoEvento.PUBLICADO,
-        inicioVenta: new Date('2026-09-01T00:00:00Z'),
-        finVenta: new Date('2026-12-20T20:00:00Z'),
-      },
-      {
-        nombre: 'Torneo de Fútbol Interclubes 2026',
-        descripcion: 'Torneo interclubes de fútbol 7. Incluye fixture y premiación.',
-        requiereEntrada: true,
-        entradasDisponibles: 79,
-        capacidadMaxima: 80,
-        fechaEvento: new Date('2026-11-15T09:00:00Z'),
-        fechaFin: new Date('2026-11-15T18:00:00Z'),
-        imagen: null,
-        lugarAcreditacion: 'Predio deportivo central',
-        precio: 2500,
-        descuentoSocio: 15,
-        estado: EstadoEvento.PUBLICADO,
-        inicioVenta: new Date('2026-09-01T00:00:00Z'),
-        finVenta: new Date('2026-11-15T08:00:00Z'),
-      },
-      {
-        nombre: 'Jornada Abierta de Yoga y Meditación',
-        descripcion: 'Encuentro al aire libre en los jardines del club. Evento de acceso libre sin inscripción.',
-        requiereEntrada: false,
-        entradasDisponibles: null,
-        capacidadMaxima: null,
-        fechaEvento: new Date('2026-11-28T10:00:00Z'),
-        fechaFin: new Date('2026-11-28T13:00:00Z'),
-        imagen: null,
-        lugarAcreditacion: 'Jardines del club',
-        precio: 0,
-        descuentoSocio: 0,
-        estado: EstadoEvento.PUBLICADO,
-        inicioVenta: null,
-        finVenta: null,
-      },
-      {
-        nombre: 'Cena de Gala de Socios',
-        descripcion: 'Cena anual exclusiva para socios con entrega de distinciones deportivas.',
-        requiereEntrada: true,
-        entradasDisponibles: 0,
-        capacidadMaxima: 100,
-        fechaEvento: new Date('2026-12-05T21:00:00Z'),
-        fechaFin: new Date('2026-12-06T02:00:00Z'),
-        imagen: null,
-        lugarAcreditacion: 'Salón de honores',
-        precio: 4500,
-        descuentoSocio: 100,
-        estado: EstadoEvento.PUBLICADO,
-        inicioVenta: new Date('2026-09-01T00:00:00Z'),
-        finVenta: new Date('2026-12-05T20:00:00Z'),
-      },
-      {
-        nombre: 'Clase Abierta de Natación y Aquagym',
-        descripcion: 'Jornada gratuita participativa para todas las edades en la pileta climatizada.',
-        requiereEntrada: true,
-        entradasDisponibles: 40,
-        capacidadMaxima: 40,
-        fechaEvento: new Date('2027-01-10T10:00:00Z'),
-        fechaFin: new Date('2027-01-10T13:00:00Z'),
-        imagen: null,
-        lugarAcreditacion: 'Natatorio techado',
-        precio: 0,
-        descuentoSocio: 0,
-        estado: EstadoEvento.PUBLICADO,
-        inicioVenta: new Date('2026-12-01T00:00:00Z'),
-        finVenta: new Date('2027-01-10T09:00:00Z'),
-      },
-      {
-        nombre: 'Torneo de Tenis Nocturno',
-        descripcion: 'Competición nocturna bajo luces LED con hidratación y fruta para competidores.',
-        requiereEntrada: true,
-        entradasDisponibles: 20,
-        capacidadMaxima: 30,
-        fechaEvento: new Date('2026-10-20T19:00:00Z'),
-        fechaFin: new Date('2026-10-20T23:00:00Z'),
-        imagen: null,
-        lugarAcreditacion: 'Canchas de polvo de ladrillo',
-        precio: 3000,
-        descuentoSocio: 10,
-        estado: EstadoEvento.PUBLICADO,
-        inicioVenta: new Date('2026-09-01T00:00:00Z'),
-        finVenta: new Date('2026-09-30T23:59:59Z'),
-      },
-      {
-        nombre: 'Festival Deportivo y Cultural Primaveral',
-        descripcion: 'Jornada multidisciplinaria de deportes, música en vivo y gastronomía.',
-        requiereEntrada: true,
-        entradasDisponibles: 15,
-        capacidadMaxima: 200,
-        fechaEvento: new Date('2026-10-01T09:00:00Z'),
-        fechaFin: new Date('2026-10-10T22:00:00Z'),
-        imagen: null,
-        lugarAcreditacion: 'Plaza central del club',
-        precio: 1500,
-        descuentoSocio: 0,
-        estado: EstadoEvento.PUBLICADO,
-        inicioVenta: new Date('2026-09-01T00:00:00Z'),
-        finVenta: new Date('2026-10-05T18:00:00Z'),
-      },
-      {
-        nombre: 'Torneo de Ajedrez Relámpago',
-        descripcion: 'Competencia rápida por sistema suizo a 7 rondas.',
-        requiereEntrada: true,
-        entradasDisponibles: 0,
-        capacidadMaxima: 30,
-        fechaEvento: new Date('2026-08-15T14:00:00Z'),
-        fechaFin: new Date('2026-08-15T20:00:00Z'),
-        imagen: null,
-        lugarAcreditacion: 'Biblioteca del club',
-        precio: 1000,
-        descuentoSocio: 0,
-        estado: EstadoEvento.FINALIZADO,
-        inicioVenta: new Date('2026-07-01T00:00:00Z'),
-        finVenta: new Date('2026-08-15T13:00:00Z'),
-      },
-      {
-        nombre: 'Maratón Anual 10K del Club',
-        descripcion: 'Carrera urbana de 10k y caminata recreativa de 3k por el parque (cancelada por remodelaciones).',
-        requiereEntrada: true,
-        entradasDisponibles: 50,
-        capacidadMaxima: 100,
-        fechaEvento: new Date('2026-11-01T08:00:00Z'),
-        fechaFin: new Date('2026-11-01T12:00:00Z'),
-        imagen: null,
-        lugarAcreditacion: 'Acceso principal',
-        precio: 2000,
-        descuentoSocio: 50,
-        estado: EstadoEvento.CANCELADO,
-        inicioVenta: new Date('2026-09-01T00:00:00Z'),
-        finVenta: new Date('2026-11-01T07:00:00Z'),
-      },
-      {
-        nombre: 'Exhibición de Gimnasia Rítmica',
-        descripcion: 'Muestra gimnástica de cierre de temporada de las categorías juveniles.',
-        requiereEntrada: true,
-        entradasDisponibles: 80,
-        capacidadMaxima: 80,
-        fechaEvento: new Date('2026-12-15T18:00:00Z'),
-        fechaFin: new Date('2026-12-15T21:00:00Z'),
-        imagen: null,
-        lugarAcreditacion: 'Gimnasio multiuso',
-        precio: 1200,
-        descuentoSocio: 0,
-        estado: EstadoEvento.BORRADOR,
-        inicioVenta: new Date('2026-11-01T00:00:00Z'),
-        finVenta: new Date('2026-12-15T17:00:00Z'),
-      },
-    ];
+  // ── 13. Eventos y entradas con código QR y accesos validados (US-29 / US-31 / US-36 / US-52) ──
+  const eventosData = [
+    {
+      nombre: 'Torneo Apertura de Pádel 2026',
+      descripcion: 'Torneo de pádel dobles masculino y femenino con premios y catering.',
+      requiereEntrada: true,
+      entradasDisponibles: 12,
+      capacidadMaxima: 60,
+      fechaEvento: new Date('2026-08-15T15:00:00Z'),
+      fechaFin: new Date('2026-08-15T21:00:00Z'),
+      imagen: null,
+      lugarAcreditacion: 'Canchas de pádel central',
+      precio: 2500,
+      descuentoSocio: 20,
+      estado: EstadoEvento.FINALIZADO,
+      inicioVenta: new Date('2026-07-01T00:00:00Z'),
+      finVenta: new Date('2026-08-15T14:00:00Z'),
+      entradasVendidas: 48,
+      entradasUsadas: 42,
+    },
+    {
+      nombre: 'Festival Gastronómico y Peña Social',
+      descripcion: 'Cena típica tradicional, peña folclórica y sorteos del club.',
+      requiereEntrada: true,
+      entradasDisponibles: 10,
+      capacidadMaxima: 150,
+      fechaEvento: new Date('2026-09-12T20:30:00Z'),
+      fechaFin: new Date('2026-09-13T03:00:00Z'),
+      imagen: null,
+      lugarAcreditacion: 'Salón principal de eventos',
+      precio: 3500,
+      descuentoSocio: 15,
+      estado: EstadoEvento.FINALIZADO,
+      inicioVenta: new Date('2026-08-01T00:00:00Z'),
+      finVenta: new Date('2026-09-12T19:00:00Z'),
+      entradasVendidas: 140,
+      entradasUsadas: 128,
+    },
+    {
+      nombre: 'Torneo Relámpago de Básquet 3x3',
+      descripcion: 'Torneo intensivo de básquet callejero 3x3 en categorías mixtas.',
+      requiereEntrada: true,
+      entradasDisponibles: 5,
+      capacidadMaxima: 50,
+      fechaEvento: new Date('2026-09-26T16:00:00Z'),
+      fechaFin: new Date('2026-09-26T22:00:00Z'),
+      imagen: null,
+      lugarAcreditacion: 'Gimnasio techado 1',
+      precio: 2000,
+      descuentoSocio: 10,
+      estado: EstadoEvento.FINALIZADO,
+      inicioVenta: new Date('2026-08-15T00:00:00Z'),
+      finVenta: new Date('2026-09-26T15:00:00Z'),
+      entradasVendidas: 45,
+      entradasUsadas: 39,
+    },
+    {
+      nombre: 'Festival Deportivo Primaveral',
+      descripcion: 'Jornada multidisciplinaria de deportes, música en vivo y gastronomía.',
+      requiereEntrada: true,
+      entradasDisponibles: 20,
+      capacidadMaxima: 200,
+      fechaEvento: new Date('2026-10-05T09:00:00Z'),
+      fechaFin: new Date('2026-10-05T22:00:00Z'),
+      imagen: null,
+      lugarAcreditacion: 'Plaza central del club',
+      precio: 1500,
+      descuentoSocio: 0,
+      estado: EstadoEvento.FINALIZADO,
+      inicioVenta: new Date('2026-09-01T00:00:00Z'),
+      finVenta: new Date('2026-10-05T08:00:00Z'),
+      entradasVendidas: 180,
+      entradasUsadas: 156,
+    },
+    {
+      nombre: 'Masterclass y Torneo de Tenis Nocturno',
+      descripcion: 'Competición nocturna bajo luces LED con hidratación y fruta para competidores.',
+      requiereEntrada: true,
+      entradasDisponibles: 2,
+      capacidadMaxima: 40,
+      fechaEvento: new Date('2026-10-18T19:00:00Z'),
+      fechaFin: new Date('2026-10-18T23:30:00Z'),
+      imagen: null,
+      lugarAcreditacion: 'Canchas de tenis polvo de ladrillo',
+      precio: 3000,
+      descuentoSocio: 10,
+      estado: EstadoEvento.FINALIZADO,
+      inicioVenta: new Date('2026-09-01T00:00:00Z'),
+      finVenta: new Date('2026-10-18T18:00:00Z'),
+      entradasVendidas: 38,
+      entradasUsadas: 35,
+    },
+    {
+      nombre: 'Torneo de Fútbol Interclubes 2026',
+      descripcion: 'Torneo interclubes de fútbol 7 con fixture y premiación.',
+      requiereEntrada: true,
+      entradasDisponibles: 15,
+      capacidadMaxima: 80,
+      fechaEvento: new Date('2026-11-15T09:00:00Z'),
+      fechaFin: new Date('2026-11-15T18:00:00Z'),
+      imagen: null,
+      lugarAcreditacion: 'Predio deportivo central',
+      precio: 2500,
+      descuentoSocio: 15,
+      estado: EstadoEvento.PUBLICADO,
+      inicioVenta: new Date('2026-09-01T00:00:00Z'),
+      finVenta: new Date('2026-11-15T08:00:00Z'),
+      entradasVendidas: 65,
+      entradasUsadas: 0,
+    },
+    {
+      nombre: 'Fiesta de Fin de Año',
+      descripcion: 'Celebración anual del club con cena show, música en vivo y brindis.',
+      requiereEntrada: true,
+      entradasDisponibles: 25,
+      capacidadMaxima: 150,
+      fechaEvento: new Date('2026-12-20T21:00:00Z'),
+      fechaFin: new Date('2026-12-21T04:00:00Z'),
+      imagen: null,
+      lugarAcreditacion: 'Salón principal',
+      precio: 5000,
+      descuentoSocio: 10,
+      estado: EstadoEvento.PUBLICADO,
+      inicioVenta: new Date('2026-09-01T00:00:00Z'),
+      finVenta: new Date('2026-12-20T20:00:00Z'),
+      entradasVendidas: 125,
+      entradasUsadas: 0,
+    },
+  ];
 
-    for (const ev of eventosData) {
-      await prisma.evento.create({ data: ev });
+  for (const evData of eventosData) {
+    const { entradasVendidas, entradasUsadas, ...datosEvento } = evData;
+    let ev = await prisma.evento.findFirst({ where: { nombre: datosEvento.nombre } });
+    if (!ev) {
+      ev = await prisma.evento.create({ data: datosEvento });
+    } else {
+      ev = await prisma.evento.update({
+        where: { id: ev.id },
+        data: datosEvento,
+      });
     }
-    console.log(`  ${eventosData.length} eventos de ejemplo creados.`);
 
-    // Crear compra de ejemplo para Lucía en Fiesta de Fin de Año y Torneo de Fútbol
-    const eventoFiesta = await prisma.evento.findFirst({
-      where: { nombre: 'Fiesta de Fin de Año' },
-    });
-    if (eventoFiesta) {
-      const compraFiesta = await prisma.compraEntrada.create({
+    const entradasActuales = await prisma.entrada.count({ where: { eventoId: ev.id } });
+    if (entradasActuales < entradasVendidas) {
+      const faltantes = entradasVendidas - entradasActuales;
+      const montoTotal = faltantes * Number(ev.precio);
+
+      const compra = await prisma.compraEntrada.create({
         data: {
           usuarioId: usuarioLucia.id,
-          eventoId: eventoFiesta.id,
-          cantidad: 2,
-          precioUnitario: 5000,
-          montoTotal: 10000,
+          eventoId: ev.id,
+          cantidad: faltantes,
+          precioUnitario: ev.precio,
+          montoTotal,
           estado: EstadoCompraEntrada.APROBADA,
           metodoPago: 'MOCK_TARJETA',
         },
       });
 
-      // Entrada 1: VÁLIDA
-      await prisma.entrada.create({
-        data: {
+      // Crear entradas
+      const nuevasEntradas = [];
+      for (let i = 0; i < faltantes; i++) {
+        const esUsada = i < entradasUsadas;
+        nuevasEntradas.push({
           token: randomUUID(),
-          eventoId: eventoFiesta.id,
-          compraId: compraFiesta.id,
-          estado: EstadoEntrada.VALIDA,
-        },
-      });
+          eventoId: ev.id,
+          compraId: compra.id,
+          estado: esUsada ? EstadoEntrada.USADA : EstadoEntrada.VALIDA,
+        });
+      }
 
-      // Entrada 2: USADA (para probar control de acceso QR)
-      await prisma.entrada.create({
-        data: {
-          token: randomUUID(),
-          eventoId: eventoFiesta.id,
-          compraId: compraFiesta.id,
-          estado: EstadoEntrada.USADA,
-        },
-      });
-      console.log('  2 entradas con QR sembradas para Lucía en Fiesta de Fin de Año (1 VALIDA, 1 USADA).');
-    }
-
-    const eventoTorneo = await prisma.evento.findFirst({
-      where: { nombre: 'Torneo de Fútbol Interclubes 2026' },
-    });
-    if (eventoTorneo) {
-      const compraTorneo = await prisma.compraEntrada.create({
-        data: {
-          usuarioId: usuarioLucia.id,
-          eventoId: eventoTorneo.id,
-          cantidad: 1,
-          precioUnitario: 2500,
-          montoTotal: 2500,
-          estado: EstadoCompraEntrada.APROBADA,
-          metodoPago: 'MOCK_TARJETA',
-        },
-      });
-
-      await prisma.entrada.create({
-        data: {
-          token: randomUUID(),
-          eventoId: eventoTorneo.id,
-          compraId: compraTorneo.id,
-          estado: EstadoEntrada.VALIDA,
-        },
-      });
-      console.log('  1 entrada con QR sembrada para Lucía en Torneo de Fútbol (VALIDA).');
+      await prisma.entrada.createMany({ data: nuevasEntradas });
     }
   }
+  console.log(`  ${eventosData.length} eventos asegurados con entradas, compras y métricas de asistencia.`);
 
   console.log('\nSeed completado exitosamente.');
   if (process.env.NODE_ENV !== 'production') {
