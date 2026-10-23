@@ -57,7 +57,13 @@ describe('US-27 · Bloqueo de participante ante documentación vencida', () => {
   it('US-27 · TC-186: bloquea automáticamente cuando un documento está vencido o se cumple el plazo de presentación sin haberlo cargado', () => {
     // 1. Documento vencido (venció el 30/09/2026, hoy es 01/10/2026)
     const docVencido = crearDoc('CERTIFICADO_MEDICO_APTITUD_FISICA', new Date(2026, 8, 30));
-    const resVencido = estadoDeInscripcion(inscripcionFutbol, [reqAptoFisico], [docVencido], [], hoy);
+    const resVencido = estadoDeInscripcion(
+      inscripcionFutbol,
+      [reqAptoFisico],
+      [docVencido],
+      [],
+      hoy,
+    );
     expect(resVencido.estado).toBe('BLOQUEADO');
     expect(resVencido.documentos[0].estado).toBe('VENCIDO');
 
@@ -94,9 +100,7 @@ describe('US-27 · Bloqueo de participante ante documentación vencida', () => {
     );
 
     expect(res.estado).toBe('BLOQUEADO');
-    expect(res.motivos).toContain(
-      'Certificado médico de aptitud física: vencido el 30/09/2026',
-    );
+    expect(res.motivos).toContain('Certificado médico de aptitud física: vencido el 30/09/2026');
     expect(res.motivos).toContain(
       'Autorización de padres/tutores: no se presentó (el plazo venció el 01/09/2026)',
     );
@@ -104,8 +108,19 @@ describe('US-27 · Bloqueo de participante ante documentación vencida', () => {
 
   it('US-27 · TC-189: el sistema levanta el bloqueo automáticamente al cargar un documento vigente que cubra el requisito', () => {
     // Inicialmente bloqueado por documento vencido
-    const docAntiguo = crearDoc('CERTIFICADO_MEDICO_APTITUD_FISICA', new Date(2026, 8, 30), 1, new Date(2025, 8, 30));
-    const bloqueado = estadoDeInscripcion(inscripcionFutbol, [reqAptoFisico], [docAntiguo], [], hoy);
+    const docAntiguo = crearDoc(
+      'CERTIFICADO_MEDICO_APTITUD_FISICA',
+      new Date(2026, 8, 30),
+      1,
+      new Date(2025, 8, 30),
+    );
+    const bloqueado = estadoDeInscripcion(
+      inscripcionFutbol,
+      [reqAptoFisico],
+      [docAntiguo],
+      [],
+      hoy,
+    );
     expect(bloqueado.estado).toBe('BLOQUEADO');
 
     // Se carga una renovación vigente (fecha de vencimiento 2027)
@@ -142,8 +157,6 @@ describe('US-27 · Bloqueo de participante ante documentación vencida', () => {
 
     expect(res.estado).toBe('HABILITADO');
     expect(res.habilitadoExcepcionalmenteHasta).toEqual(new Date(2026, 9, 20));
-    expect(res.motivos).toEqual([
-      'Certificado médico de aptitud física: vencido el 30/09/2026',
-    ]);
+    expect(res.motivos).toEqual(['Certificado médico de aptitud física: vencido el 30/09/2026']);
   });
 });

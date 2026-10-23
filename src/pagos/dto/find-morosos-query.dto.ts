@@ -31,7 +31,8 @@ export class FindMorososQueryDto {
   categoriaId?: number;
 
   @ApiPropertyOptional({
-    description: 'Criterio de ordenamiento: "monto" (deuda total) o "periodos" (cantidad de períodos)',
+    description:
+      'Criterio de ordenamiento: "monto" (deuda total) o "periodos" (cantidad de períodos)',
     enum: CriterioOrdenMorosos,
     default: CriterioOrdenMorosos.MONTO,
   })

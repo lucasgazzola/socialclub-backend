@@ -29,9 +29,12 @@ export class PagosController {
   @Get('morosos')
   @Roles('ADMIN', 'COLABORADOR')
   @ApiOperation({
-    summary: 'US-19 — Visualizar listado de socios morosos de cuota social para gestión de cobranza',
+    summary:
+      'US-19 — Visualizar listado de socios morosos de cuota social para gestión de cobranza',
   })
-  @ApiOkResponse({ description: 'Listado de socios morosos con deuda acumulada y cuotas adeudadas' })
+  @ApiOkResponse({
+    description: 'Listado de socios morosos con deuda acumulada y cuotas adeudadas',
+  })
   @ApiErrores({
     400: [VALIDACION],
     401: 'Unauthorized',

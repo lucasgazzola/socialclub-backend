@@ -1,0 +1,82 @@
+{
+  "TC-212": {
+    "titulo": "Mostrar total recaudado, total adeudado, cantidad de morosos y porcentaje de cobranza del período",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "estado-financiero.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-212-01.jpg",
+        "titulo": "1. Como colaborador, abrir «Estado financiero» y elegir el 3.º trimestre"
+      },
+      {
+        "archivo": "TC-212-02.jpg",
+        "titulo": "2. El reporte muestra los cuatro indicadores"
+      }
+    ]
+  },
+  "TC-215": {
+    "titulo": "Seleccionar el período por mes, trimestre o rango personalizado",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "estado-financiero.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-215-01.jpg",
+        "titulo": "1. Elegir un mes"
+      },
+      {
+        "archivo": "TC-215-02.jpg",
+        "titulo": "2. Elegir un rango personalizado"
+      }
+    ]
+  },
+  "TC-217": {
+    "titulo": "Filtrar el reporte por disciplina",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "estado-financiero.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-217-01.jpg",
+        "titulo": "1. Elegir «Natación» en el filtro de disciplina"
+      },
+      {
+        "archivo": "TC-217-02.jpg",
+        "titulo": "2. El reporte muestra solo la cuota deportiva de Natación"
+      }
+    ]
+  },
+  "TC-219": {
+    "titulo": "Coincidir la deuda del reporte con los listados de morosos",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "estado-financiero.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-219-01.jpg",
+        "titulo": "1. Generar el reporte de enero al mes actual"
+      },
+      {
+        "archivo": "TC-219-02.jpg",
+        "titulo": "2. El listado de morosos de cuota deportiva suma la misma deuda vencida"
+      }
+    ]
+  },
+  "TC-220": {
+    "titulo": "Restringir el reporte a los roles que gestionan la cobranza",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "estado-financiero.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-220-01.jpg",
+        "titulo": "1. Como delegado, abrir el reporte por URL"
+      },
+      {
+        "archivo": "TC-220-02.jpg",
+        "titulo": "2. La API también lo rechaza (403)"
+      }
+    ]
+  }
+}

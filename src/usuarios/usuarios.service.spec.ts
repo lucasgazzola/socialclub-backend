@@ -586,6 +586,89 @@ describe('UsuariosService', () => {
         }),
       );
     });
+
+    it('aplica ordenamiento por DNI descendente', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([]);
+      prismaMock.usuario.count.mockResolvedValue(0);
+      const query = new GetUsuariosQueryDto();
+      query.ordenarPor = 'dni';
+      query.orden = 'desc';
+      await service.findAll(query);
+      expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { persona: { dni: 'desc' } },
+        }),
+      );
+    });
+
+    it('aplica ordenamiento por email ascendente', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([]);
+      prismaMock.usuario.count.mockResolvedValue(0);
+      const query = new GetUsuariosQueryDto();
+      query.ordenarPor = 'email';
+      query.orden = 'asc';
+      await service.findAll(query);
+      expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { email: 'asc' },
+        }),
+      );
+    });
+
+    it('aplica ordenamiento por estado (activo)', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([]);
+      prismaMock.usuario.count.mockResolvedValue(0);
+      const query = new GetUsuariosQueryDto();
+      query.ordenarPor = 'estado';
+      query.orden = 'desc';
+      await service.findAll(query);
+      expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { activo: 'desc' },
+        }),
+      );
+    });
+
+    it('aplica ordenamiento por fecha (creadoEn)', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([]);
+      prismaMock.usuario.count.mockResolvedValue(0);
+      const query = new GetUsuariosQueryDto();
+      query.ordenarPor = 'fecha';
+      query.orden = 'desc';
+      await service.findAll(query);
+      expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { creadoEn: 'desc' },
+        }),
+      );
+    });
+
+    it('aplica ordenamiento por roles y ordena resultados alfabéticamente', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([
+        {
+          id: 1,
+          nombre: 'A',
+          roles: [{ rol: { id: 2, nombre: 'DELEGADO' } }],
+        },
+        {
+          id: 2,
+          nombre: 'B',
+          roles: [{ rol: { id: 1, nombre: 'ADMIN' } }],
+        },
+      ]);
+      prismaMock.usuario.count.mockResolvedValue(2);
+      const query = new GetUsuariosQueryDto();
+      query.ordenarPor = 'roles';
+      query.orden = 'asc';
+      const result = await service.findAll(query);
+      expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { roles: { _count: 'asc' } },
+        }),
+      );
+      expect(result.items[0]?.nombre).toBe('B');
+      expect(result.items[1]?.nombre).toBe('A');
+    });
   });
 
   describe('US-03 (complemento): Reactivar un usuario previamente dado de baja', () => {

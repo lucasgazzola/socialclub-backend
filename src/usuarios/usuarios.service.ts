@@ -155,7 +155,15 @@ export class UsuariosService {
   }
 
   async findAll(query: GetUsuariosQueryDto = new GetUsuariosQueryDto()) {
-    const { busqueda, rolId, estado, pagina = 1, porPagina = 10 } = query;
+    const {
+      busqueda,
+      rolId,
+      estado,
+      pagina = 1,
+      porPagina = 10,
+      ordenarPor,
+      orden = 'asc',
+    } = query;
     const whereBase: Prisma.UsuarioWhereInput = {};
 
     if (busqueda) {
@@ -186,12 +194,44 @@ export class UsuariosService {
       where = whereInactivos;
     }
 
+    const direccion: 'asc' | 'desc' = orden?.toLowerCase() === 'desc' ? 'desc' : 'asc';
+    let orderBy: Prisma.UsuarioOrderByWithRelationInput | Prisma.UsuarioOrderByWithRelationInput[];
+
+    if (!ordenarPor) {
+      orderBy = [{ apellido: 'asc' }, { nombre: 'asc' }];
+    } else {
+      switch (ordenarPor.toLowerCase()) {
+        case 'dni':
+          orderBy = { persona: { dni: direccion } };
+          break;
+        case 'email':
+          orderBy = { email: direccion };
+          break;
+        case 'estado':
+        case 'activo':
+          orderBy = { activo: direccion };
+          break;
+        case 'fecha':
+        case 'creadoen':
+          orderBy = { creadoEn: direccion };
+          break;
+        case 'roles':
+          orderBy = { roles: { _count: direccion } };
+          break;
+        case 'nombre':
+        case 'usuario':
+        default:
+          orderBy = [{ nombre: direccion }, { apellido: direccion }];
+          break;
+      }
+    }
+
     const [items, total, totalTodos, totalActivos, totalInactivos] = await this.prisma.$transaction(
       [
         this.prisma.usuario.findMany({
           where,
           select: SELECT_PUBLICO,
-          orderBy: { apellido: 'asc' },
+          orderBy,
           skip: (pagina - 1) * porPagina,
           take: porPagina,
         }),
@@ -202,8 +242,24 @@ export class UsuariosService {
       ],
     );
 
+    let resultadoItems = items.map((u) => this.aUsuarioDto(u as UsuarioPublico));
+
+    if (ordenarPor?.toLowerCase() === 'roles') {
+      resultadoItems = resultadoItems.sort((a, b) => {
+        const rolA = (a?.roles ?? [])
+          .map((r: { rol?: { nombre?: string } }) => r.rol?.nombre ?? '')
+          .sort()
+          .join(', ');
+        const rolB = (b?.roles ?? [])
+          .map((r: { rol?: { nombre?: string } }) => r.rol?.nombre ?? '')
+          .sort()
+          .join(', ');
+        return direccion === 'asc' ? rolA.localeCompare(rolB) : rolB.localeCompare(rolA);
+      });
+    }
+
     return {
-      items: items.map((u) => this.aUsuarioDto(u as UsuarioPublico)),
+      items: resultadoItems,
       total,
       pagina,
       porPagina,

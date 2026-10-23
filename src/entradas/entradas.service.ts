@@ -34,7 +34,11 @@ export class EntradasService {
     }
 
     // DT-33: no tiene sentido generar entradas que nacen vencidas o inutilizables.
-    if (evento.estado === 'CANCELADO' || evento.estado === 'FINALIZADO' || eventoTerminado(evento)) {
+    if (
+      evento.estado === 'CANCELADO' ||
+      evento.estado === 'FINALIZADO' ||
+      eventoTerminado(evento)
+    ) {
       throw new BadRequestException(
         `No se pueden generar entradas: el evento "${evento.nombre}" ya terminó o fue cancelado.`,
       );
@@ -117,7 +121,9 @@ export class EntradasService {
     if (!evento) throw new NotFoundException('Evento no encontrado');
 
     if (!evento.requiereEntrada) {
-      throw new BadRequestException('El evento es de acceso libre y no requiere compra de entradas.');
+      throw new BadRequestException(
+        'El evento es de acceso libre y no requiere compra de entradas.',
+      );
     }
 
     if (evento.estado !== 'PUBLICADO') {
