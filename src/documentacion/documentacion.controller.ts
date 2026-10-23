@@ -69,8 +69,38 @@ export class DocumentacionController {
     return this.documentacionService.create(dto, user.id, archivo);
   }
 
+  @Get('mi-documentacion')
+  @Roles('ADMIN', 'DELEGADO', 'COLABORADOR', 'SOCIO')
+  @ApiOperation({ summary: 'DT-28 — Listar la documentación de la persona asociada al usuario logueado' })
+  @ApiOkResponse({ description: 'Documentos del participante logueado' })
+  @ApiErrores({
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: 'No se encontró una ficha de persona asociada al usuario',
+  })
+  async miDocumentacion(@CurrentUser() user: AuthenticatedUser) {
+    const personaId = await this.documentacionService.obtenerPersonaIdDeUsuario(user.id);
+    return this.documentacionService.findByPersona(personaId);
+  }
+
+  @Get('mi-documentacion/estado')
+  @Roles('ADMIN', 'DELEGADO', 'COLABORADOR', 'SOCIO')
+  @ApiOperation({
+    summary: 'US-25 / DT-28 — Estado documental de la persona asociada al usuario logueado',
+  })
+  @ApiOkResponse({ description: 'Estado documental de cada inscripción del participante logueado' })
+  @ApiErrores({
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: 'No se encontró una ficha de persona asociada al usuario',
+  })
+  async miEstadoDocumental(@CurrentUser() user: AuthenticatedUser) {
+    const personaId = await this.documentacionService.obtenerPersonaIdDeUsuario(user.id);
+    return this.estadoDocumental.porPersona(personaId);
+  }
+
   @Get('persona/:personaId')
-  @Roles('ADMIN', 'DELEGADO')
+  @Roles('ADMIN', 'DELEGADO', 'COLABORADOR', 'SOCIO')
   @ApiOperation({ summary: 'Listar la documentación de un participante' })
   @ApiOkResponse({ description: 'Documentos del participante' })
   @ApiErrores({
@@ -79,12 +109,16 @@ export class DocumentacionController {
     403: 'No tenés permisos suficientes para esta operación',
     404: 'Participante no encontrado',
   })
-  findByPersona(@Param('personaId', ParseIntPipe) personaId: number) {
+  async findByPersona(
+    @Param('personaId', ParseIntPipe) personaId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.documentacionService.validarAccesoPersona(personaId, user);
     return this.documentacionService.findByPersona(personaId);
   }
 
   @Get('persona/:personaId/estado')
-  @Roles('ADMIN', 'DELEGADO')
+  @Roles('ADMIN', 'DELEGADO', 'COLABORADOR', 'SOCIO')
   @ApiOperation({
     summary: 'US-25 — Estado documental del participante por inscripción (exigido vs. presentado)',
   })
@@ -95,12 +129,16 @@ export class DocumentacionController {
     403: 'No tenés permisos suficientes para esta operación',
     404: 'Participante no encontrado',
   })
-  estadoPorPersona(@Param('personaId', ParseIntPipe) personaId: number) {
+  async estadoPorPersona(
+    @Param('personaId', ParseIntPipe) personaId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.documentacionService.validarAccesoPersona(personaId, user);
     return this.estadoDocumental.porPersona(personaId);
   }
 
   @Get(':id/archivo')
-  @Roles('ADMIN', 'DELEGADO')
+  @Roles('ADMIN', 'DELEGADO', 'COLABORADOR', 'SOCIO')
   @ApiOperation({ summary: 'Descargar el archivo adjunto de un documento' })
   @ApiOkResponse({ description: 'Archivo adjunto (PDF o imagen)' })
   @ApiErrores({
@@ -111,9 +149,10 @@ export class DocumentacionController {
   })
   async descargarArchivo(
     @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    const { rutaAbsoluta, nombre, mimeType } = await this.documentacionService.obtenerArchivo(id);
+    const { rutaAbsoluta, nombre, mimeType } = await this.documentacionService.obtenerArchivo(id, user);
     res.set({
       'Content-Type': mimeType,
       'Content-Disposition': `inline; filename="${encodeURIComponent(nombre)}"`,

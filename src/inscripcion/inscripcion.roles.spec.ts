@@ -45,6 +45,8 @@ describe('DT-16 · InscripcionController · control de acceso', () => {
     'DELETE /inscripcion/persona/:personaId': InscripcionController.prototype.darDeBajaParticipante,
     'PATCH /inscripcion/persona/:personaId/activar':
       InscripcionController.prototype.activarParticipante,
+    'GET /inscripcion/:id/habilitaciones-excepcionales':
+      InscripcionController.prototype.listarHabilitacionesExcepcionales,
   };
 
   describe.each(Object.entries(handlers))('%s', (_ruta, handler) => {
@@ -69,17 +71,16 @@ describe('DT-16 · InscripcionController · control de acceso', () => {
     const reflector = new Reflector();
 
     const rolesPorRuta = Object.fromEntries(
-      Object.entries(handlers).map(([ruta, handler]) => [
+      Object.entries({
+        ...handlers,
+        'POST /inscripcion/:id/habilitacion-excepcional':
+          InscripcionController.prototype.habilitarExcepcional,
+      }).map(([ruta, handler]) => [
         ruta,
         reflector.getAllAndOverride<string[]>('roles', [handler, InscripcionController]) ?? null,
       ]),
     );
 
-    // Un `null` acá significa que ese handler quedó abierto a cualquier
-    // usuario autenticado, que es exactamente el bug de DT-16.
-    // El listado es el único handler que amplía los roles: lo usan los roles
-    // operativos (COLABORADOR y DELEGADO) para encontrar al participante
-    // —US-08 y, desde US-07, para poder darlo de baja—.
     expect(rolesPorRuta).toEqual({
       'POST /inscripcion': ['ADMIN', 'DELEGADO'],
       'PATCH /inscripcion/:id': ['ADMIN', 'DELEGADO'],
@@ -90,13 +91,19 @@ describe('DT-16 · InscripcionController · control de acceso', () => {
       'DELETE /inscripcion/:id': ['ADMIN', 'DELEGADO'],
       'DELETE /inscripcion/persona/:personaId': ['ADMIN', 'DELEGADO'],
       'PATCH /inscripcion/persona/:personaId/activar': ['ADMIN', 'DELEGADO'],
+      'POST /inscripcion/:id/habilitacion-excepcional': ['ADMIN'],
+      'GET /inscripcion/:id/habilitaciones-excepcionales': ['ADMIN', 'DELEGADO'],
     });
   });
 
-  it('US-07: el COLABORADOR puede listar participantes pero no darlos de baja ni reactivarlos', () => {
+  it('US-06 · TC-229 / US-07 · TC-025: el COLABORADOR puede listar participantes pero no editarlos, darlos de baja ni reactivarlos', () => {
     expect(
       guard.canActivate(contextoPara(InscripcionController.prototype.findAll, ['COLABORADOR'])),
     ).toBe(true);
+
+    expect(() =>
+      guard.canActivate(contextoPara(InscripcionController.prototype.update, ['COLABORADOR'])),
+    ).toThrow(ForbiddenException);
 
     expect(() =>
       guard.canActivate(
@@ -109,5 +116,19 @@ describe('DT-16 · InscripcionController · control de acceso', () => {
         contextoPara(InscripcionController.prototype.activarParticipante, ['COLABORADOR']),
       ),
     ).toThrow(ForbiddenException);
+  });
+
+  it('US-28: el levantamiento manual de bloqueo está restringido EXCLUSIVAMENTE a ADMIN', () => {
+    const handler = InscripcionController.prototype.habilitarExcepcional;
+
+    expect(guard.canActivate(contextoPara(handler, ['ADMIN']))).toBe(true);
+
+    expect(() => guard.canActivate(contextoPara(handler, ['DELEGADO']))).toThrow(
+      ForbiddenException,
+    );
+    expect(() => guard.canActivate(contextoPara(handler, ['COLABORADOR']))).toThrow(
+      ForbiddenException,
+    );
+    expect(() => guard.canActivate(contextoPara(handler, ['SOCIO']))).toThrow(ForbiddenException);
   });
 });

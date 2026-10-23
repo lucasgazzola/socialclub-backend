@@ -5,32 +5,40 @@ a [`DEUDA-TECNICA.md`](DEUDA-TECNICA.md): allá está el detalle por ítem, acá
 estrategia de testing y su secuencia.
 
 - **Equipo:** Nullpointer
-- **Medido el:** 04/10/2026, sobre `dev` + TASK-43 (medición anterior: 01/10/2026)
+- **Medido el:** 18/10/2026, sobre `dev` + TASK-46 (medición anterior: 04/10/2026)
 - **Versión navegable:** <https://claude.ai/code/artifact/b817ba9b-ac31-44c8-9dfb-c72ac923b7a3>
 
 ---
 
-## Estado al 04/10/2026
+## Estado al 18/10/2026
 
 | | Backend | Frontend |
 |---|---|---|
-| Tests unitarios | 651 ✅ (+5 contra Postgres) | 458 ✅ |
+| Tests unitarios | 721 ✅ (+5 contra Postgres) | 458 ✅ |
 | Pruebas E2E (Playwright, sistema real) | — | **31 casos ✅** en 7 flujos |
-| Cobertura (statements) | **87,7 %** ✅ | **70,5 %** ✅ |
+| Cobertura (statements) | **88,3 %** ✅ | **70,5 %** ✅ |
 | Cobertura (ramas) | 76,6 % | 69,3 % |
 | Piso configurado (stmts / ramas / funcs / líneas) | 70 / 70 / 61 / 69 | 67 / 66 / 57 / 68 |
-| Módulos/features sin ningún test | `categorias` (categorías de socio) | `auditoria`, `cuota-social`, `dashboard` |
+| Módulos/features sin ningún test | **0** ✅ | `auditoria`, `cuota-social`, `dashboard` |
 
 | | Cantidad |
 |---|---|
 | US implementadas (los dos repos) | ~40 |
-| US con casos documentados | 32 |
-| Casos documentados | 220 filas (`TC-001`–`TC-220`) |
-| Ejecuciones registradas | 185 (`EJ-01` a `EJ-185`) |
-| Casos con ejecución E2E automática | 31 (`EJ-139`–`EJ-160`, `EJ-173`–`EJ-181`) |
+| US con casos documentados | 37 |
+| Casos documentados | 257 filas (`TC-001`–`TC-257`) |
+| Ejecuciones registradas | 271 (`EJ-01` a `EJ-271`) |
+| Casos con ejecución E2E automática | 31 (`EJ-139` a `EJ-160`, `EJ-173` a `EJ-176`, `EJ-263` a `EJ-267`) |
 
 **Objetivo de la DoD: 70 % de cobertura.** Los dos repos lo superan: backend
-87,7 % y frontend 70,5 %.
+88,3 % y frontend 70,5 %.
+
+**18/10/2026 · TASK-46 (DT-02) — Cierre de casos y cobertura backend.** Se
+documentaron y exportaron los 24 casos faltantes de `US-06`, `US-08`, `US-09`,
+`US-11` y `US-24` (`TC-225`–`TC-248`), se cubrió al 100 % el módulo
+`src/categorias` (dejando al backend con 0 módulos sin tests), se etiquetó la
+trazabilidad `TC-XXX` en las suites y se registraron las ejecuciones faltantes
+(`EJ-190`–`EJ-262`) normalizando además las filas `EJ-185`–`EJ-189` al esquema
+de 10 columnas. Los 248 casos documentados tienen ejecución registrada.
 
 **04/10/2026 · TASK-43 — Pruebas E2E con evidencia.** Hasta acá todos los
 tests usaban mocks: ninguno probaba que front, API y base funcionaran juntos.
@@ -51,17 +59,25 @@ corregidos:
 Además, los 17 tests de `*.e2e-spec.ts` del backend (auth, socios y usuarios)
 no los ejecutaba ninguna configuración de Jest; ahora corren con la suite.
 
-Últimas incorporaciones (10/10/2026, US-35):
-- **US-35 (Reporte de estado financiero)**: casos `TC-212`–`TC-220` y ejecuciones
-  `EJ-177`–`EJ-185` (5 de ellas E2E). Cubre los 3 criterios: total recaudado,
+Últimas incorporaciones (18/10/2026, US-35):
+- **US-35 (Reporte de estado financiero)**: casos `TC-249`–`TC-257` y ejecuciones
+  `EJ-263`–`EJ-271` (5 de ellas E2E). Cubre los 3 criterios: total recaudado,
   total adeudado, morosos y porcentaje de cobranza; período por mes, trimestre o
-  rango (con validación del rango); filtro por disciplina. TC-219 es una prueba
+  rango (con validación del rango); filtro por disciplina. TC-256 es una prueba
   de integración E2E: el adeudado del reporte coincide con el listado de
   morosos. La regla del vencimiento se prueba con fechas fijas. Ejecutadas por
   el desarrollador; **pendiente la prueba cruzada**.
 - **Infraestructura E2E:** el front de las pruebas se sirve compilado
   (`vite build` + `vite preview`); el servidor de desarrollo recargaba la página
   en medio de una prueba de forma intermitente.
+
+Anteriores (15/10/2026, US-28):
+- **US-28 (Habilitar participante con documentación vencida)**: casos `TC-220`–`TC-224` y ejecuciones
+  `EJ-185`–`EJ-189`. Cubre los criterios de aceptación de la US: validación obligatoria de motivo escrito antes de
+  confirmar el levantamiento, indicación de la cantidad de días de habilitación excepcional con cálculo dinámico
+  de fecha límite, restricción de acceso exclusiva a usuarios con rol ADMIN, verificación de que la inscripción
+  se encuentre previamente bloqueada por documentación, levantamiento efectivo a estado HABILITADO y registro
+  inalterable de auditoría (`HabilitacionExcepcional`). Ejecutadas por el desarrollador; **pendiente la prueba cruzada**.
 
 Anteriores (10/10/2026, US-23):
 - **US-23 (Ver morosos de cuota deportiva)**: casos `TC-200`–`TC-211` y ejecuciones

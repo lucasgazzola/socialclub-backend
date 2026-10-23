@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 10/10/2026 (US-35: cálculo del estado financiero; antes US-23 y TASK-43)
+- **Última actualización:** 22/10/2026 (US-36 · Reporte de asistencia a eventos; TASK-50 · DT-45)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -27,25 +27,18 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
   - [🟠 Estandarización del código a inglés](#estandarización-del-código-a-inglés---costo-creciente)
 - [Deuda pendiente](#deuda-pendiente)
   - [🟠 Altas](#-altas)
-    - [DT-02 · Faltan los casos de prueba de las historias ya implementadas (backend)](#dt-02--faltan-los-casos-de-prueba-de-las-historias-ya-implementadas-backend)
     - [DT-27 · Documentación por disciplina: requisitos, estados y vigencia](#dt-27--documentación-por-disciplina-requisitos-estados-y-vigencia)
     - [DT-29 · No existe solicitud de inscripción con aprobación](#dt-29--no-existe-solicitud-de-inscripción-con-aprobación)
     - [DT-31 · No existe compra real de entradas](#dt-31--no-existe-compra-real-de-entradas)
     - [DT-35 · El pago implementado solo cubre la cuota social](#dt-35--el-pago-implementado-solo-cubre-la-cuota-social)
   - [🟡 Medias](#-medias)
-    - [DT-43 · El DNI no debe requerir fecha de vencimiento](#dt-43--el-dni-no-debe-requerir-fecha-de-vencimiento)
-    - [DT-44 · Las fechas guardadas a las 00:00 UTC corren la deuda deportiva un mes](#dt-44--las-fechas-guardadas-a-las-0000-utc-corren-la-deuda-deportiva-un-mes)
     - [DT-48 · Morosos de cuota social cuenta cuotas que todavía no vencieron](#dt-48--morosos-de-cuota-social-cuenta-cuotas-que-todavía-no-vencieron)
-    - [DT-10 · La pantalla de Auditoría es interminable](#dt-10--la-pantalla-de-auditoría-es-interminable)
     - [DT-24 · La planilla documenta generación de cuotas que no existe](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe)
     - [DT-23 · El ratchet de cobertura corta el CI por décimas](#dt-23--el-ratchet-de-cobertura-corta-el-ci-por-décimas)
-    - [DT-28 · El participante no puede consultar su propia documentación](#dt-28--el-participante-no-puede-consultar-su-propia-documentación)
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
   - [⚪ Bajas](#-bajas)
-    - [DT-45 · La tarjeta del evento ofrece comprar fuera del período de venta](#dt-45--la-tarjeta-del-evento-ofrece-comprar-fuera-del-período-de-venta)
     - [DT-46 · El alta de usuario no muestra el error en el formulario](#dt-46--el-alta-de-usuario-no-muestra-el-error-en-el-formulario)
     - [DT-47 · El DNI se muestra con formatos distintos](#dt-47--el-dni-se-muestra-con-formatos-distintos)
-    - [DT-08 · Las entradas con QR no se pueden descargar en PDF](#dt-08--las-entradas-con-qr-no-se-pueden-descargar-en-pdf)
     - [DT-09 · Imágenes en eventos](#dt-09--imágenes-en-eventos)
     - [DT-06 · Historias de usuario para sumar al backlog](#dt-06--historias-de-usuario-para-sumar-al-backlog)
     - [DT-36 · No hay notificaciones de vencimiento o resolución](#dt-36--no-hay-notificaciones-de-vencimiento-o-resolución)
@@ -73,17 +66,17 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-03, DT-04, DT-05, DT-07, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42 |
-| 🟠 Altas pendientes | DT-02 (en curso), DT-27 (configuración, estado documental y alertas resueltos; restan aprobación/rechazo y habilitación excepcional), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio) |
-| 🟡 Medias pendientes | DT-10, DT-23, DT-24, DT-28, DT-34, DT-43, DT-44, DT-48 |
-| ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-45, DT-46, DT-47, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
+| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-28, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45 |
+| 🟠 Altas pendientes | DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio) |
+| 🟡 Medias pendientes | DT-23, DT-24, DT-34, DT-48 |
+| ⚪ Bajas pendientes | DT-06, DT-09, DT-46, DT-47, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
-**Cobertura de tests** (medida el 02/10/2026, objetivo DoD **70 %**):
+**Cobertura de tests** (medida el 18/10/2026, objetivo DoD **70 %**):
 
 | Repo | Statements | Piso configurado |
 |---|---|---|
-| Frontend (Vitest) | **70,13 %** ✅ | 67 % |
-| Backend (Jest) | **76,8 %** ✅ | 70 % |
+| Frontend (Vitest) | **70,5 %** ✅ | 67 % |
+| Backend (Jest) | **88,3 %** ✅ | 70 % |
 
 Los dos repos tenían además el **CI en rojo** por configuración de lint, no por
 código: ver [Extra](#extra--ci-del-frontend-en-rojo-desde-el-0709) al final.
@@ -145,35 +138,6 @@ decidir tiene un costo que sube solo.
 ## Deuda pendiente
 
 ### 🟠 Altas
-
-#### DT-02 · Faltan los casos de prueba de las historias ya implementadas (backend)
-*backend · en curso*
-
-Esto **no es «falta cobertura»**: de las **22 US implementadas en el backend,
-solo 5 tienen casos cargados** en la planilla (US-07, US-08, US-38, US-39,
-US-40). Las otras se mergearon sin documentar un solo caso, y la cobertura baja
-es la consecuencia, no la causa.
-
-Por eso se ataca **por historia y no por módulo**: se generan los casos con
-`/casos-prueba`, se automatizan con `/casos-a-tests` y la cobertura sube como
-efecto. Así los tests cubren requisitos y quedan trazables US → TC → test, que
-es lo que pide la DoD y lo que se entrega.
-
-| US implementada | Módulo | Cobertura | Casos |
-|---|---|---|---|
-| ~~US-16 Configurar cuota social~~ | `cuota-social` | **90 %** | ✅ 10 casos |
-| ~~US-32 Registrar logs de operaciones~~ | `auditoria` | **92 %** | ✅ 9 casos |
-| US-24 Documentación obligatoria | `documentacion` | 41 % | pendiente |
-| US-30 / US-31 Entradas y QR | `entradas` | 50 % | pendiente |
-| US-29 Crear evento | `eventos` | 51 % | pendiente |
-| US-09/11/12/13/14/15 Socios | `socios` | 54 % | pendiente |
-| US-20 Configurar cuotas deportivas | `cuotas` | 56 % | pendiente |
-| US-01 / US-02 / US-03 Usuarios | `usuarios` | 61 % | pendiente |
-| US-05 / US-06 Participantes | `inscripcion` | 75 % | pendiente |
-| — | `categorias` | 0 % | sin US asociada |
-
-- **Orden sugerido para lo que queda:** US-01/02/03 (permisos), US-20, US-29/30/31, US-24, socios.
-- **Rama sugerida:** `issue/TASK-<n>-DT-02-Casos-<US>`
 
 #### DT-27 · Documentación por disciplina: requisitos, estados y vigencia
 *Nuevo · funcional · backend + frontend*
@@ -311,40 +275,6 @@ deportiva.
 
 ### 🟡 Medias
 
-#### DT-43 · El DNI no debe requerir fecha de vencimiento
-*Nuevo · backend + frontend · detectado en US-05*
-
-Actualmente, el modelo de datos `Documentacion` (`Documentacion.fechaVencimiento`)
-y el DTO `CreateDocumentacionDto` (`fechaVencimiento: string` / `IsDateString`) exigen
-obligatoriamente una fecha de vencimiento para todos los tipos de documentación del
-catálogo. Sin embargo, el **DNI** es un documento de identidad que no requiere fecha
-de caducidad para los trámites y habilitaciones deportivas en el club. Al exigir
-vencimiento, se fuerza a registrar fechas ficticias en el sistema o en la UI.
-
-**Arreglo:** hacer opcional `fechaVencimiento` (nullable en la base de datos y opcional
-en el DTO/frontend) cuando el tipo de documento sea permanente o de identidad (`DNI`),
-y adaptar la lógica de cálculo de vigencia en `EstadoDocumentalService` para que no
-trate un documento permanente sin vencimiento como vencido o por vencer.
-
-- **Rama sugerida:** `issue/TASK-<n>-DT-43-Dni-sin-vencimiento` (TASK-38 ya se usó para DT-05)
-
-
-#### DT-44 · Las fechas guardadas a las 00:00 UTC corren la deuda deportiva un mes
-*Nuevo · backend · detectado en DT-41*
-
-`periodosEntre` (`src/cuotas/tarifas.ts`) toma el mes con `getMonth()`, en la
-hora del servidor. Una fecha de inscripción guardada a las 00:00 UTC del día 1
-(como las del seed, `new Date('2025-06-01')`) en hora argentina es el 31 del mes
-anterior, así que la deuda empieza un mes antes: una alta del 01/06/2025 cobra
-desde 2025-05. En Azure el servidor corre en UTC y no pasa; en local sí. Es el
-mismo problema que resolvió `fix[US-25]` para la documentación.
-
-**Arreglo:** calcular el período con la fecha en UTC (`getUTCFullYear` /
-`getUTCMonth`) o normalizar las fechas de alta y baja al día, como
-`estado-documental.ts`. Sumar un test con `TZ=America/Argentina/Buenos_Aires`.
-
-- **Evidencia:** `docs/pruebas/evidencias/US-21/dt41-api.txt`.
-
 #### DT-48 · Morosos de cuota social cuenta cuotas que todavía no vencieron
 *Nuevo · backend · detectado en US-23*
 
@@ -354,16 +284,6 @@ listado de morosos de cuota social (US-19, `PagosService.getMorososCuotaSocial`)
 cuenta el mes en curso desde el día 1: un socio que paga el 5 figura como moroso
 del 1 al 5. Conviene alinear las dos con la misma regla (o una constante propia
 para la cuota social, si el club la cobra distinto). Decisión del equipo.
-
-#### DT-10 · La pantalla de Auditoría es interminable
-*frontend · 2 SP*
-
-Ya pagina de 20 en 20; lo que la hace larga es que solo se puede filtrar por
-acción. El backend acepta además `entidad`, `responsableId`, `fechaDesde` y
-`fechaHasta`.
-
-- **Arreglo:** sumar esos filtros, selector de tamaño de página y encabezado fijo con scroll dentro de la tabla.
-- **Rama sugerida:** `issue/TASK-18-DT-10-Filtros-de-auditoria`
 
 #### DT-24 · La planilla documenta generación de cuotas que no existe
 *Nuevo · producto + documentación · a definir*
@@ -396,21 +316,6 @@ hiciera nada mal. Se resolvió dejando ~3 puntos de margen, pero conviene
 revisarlo si vuelve a pasar. La alternativa de fondo es exigir tests por PR
 (regla de equipo) en lugar de apretar el número global.
 
-#### DT-28 · El participante no puede consultar su propia documentación
-*Nuevo · funcional · backend + frontend*
-
-El endpoint de documentación solo permite acceso a `ADMIN` y `DELEGADO`, y la
-pantalla de edición del participante no carga documentación. El propio socio
-no puede ver qué documentos tiene cargados, ni su estado o vencimiento.
-
-**Arreglo:** incluir documentación en el detalle del participante; permitir
-que el propio usuario consulte la documentación de su persona; permitir que
-`COLABORADOR` la consulte si va a ser responsable de revisar solicitudes
-(ver DT-27/DT-29); mostrar estado, vencimiento, tipo y archivo.
-
-- **Detectado en el análisis funcional de dominio (22/09/2026).**
-- **Rama sugerida:** `issue/TASK-23-DT-28-Consulta-documentacion-participante`
-
 #### DT-34 · No hay cancelación, devolución ni transferencia de entradas
 *Nuevo · funcional · backend + frontend*
 
@@ -428,14 +333,6 @@ quién reembolsar.
 
 ### ⚪ Bajas
 
-#### DT-45 · La tarjeta del evento ofrece comprar fuera del período de venta
-*Nuevo · frontend · detectado en TASK-43*
-
-`puedeComprar` (`features/eventos/helpers.ts`), que decide si la tarjeta
-muestra «Comprar entradas», no mira el período de venta. Antes o después del
-período la tarjeta ofrece el botón y la página de compra dice «La venta no está
-habilitada». Usar `ventaAbierta` (TASK-43) también en la tarjeta.
-
 #### DT-46 · El alta de usuario no muestra el error en el formulario
 *Nuevo · frontend · detectado en TASK-43*
 
@@ -451,14 +348,6 @@ de participante.
 
 Usuarios muestra el DNI agrupado (`30.111.222`) y Socios sin agrupar
 (`30111222`). Unificar con el mismo helper de formato.
-
-#### DT-08 · Las entradas con QR no se pueden descargar en PDF
-*frontend · 2 SP*
-
-Hoy `ComprarEntradasPage` descarga el QR como PNG con `qrcode`, así que hay
-salida funcional. Para PDF, `jspdf` en el cliente alcanza y evita endpoints
-nuevos; si más adelante se quiere enviar la entrada por mail, conviene
-generarlo en el backend. **Decidir eso antes de instalar nada.**
 
 #### DT-09 · Imágenes en eventos
 *backend + frontend · 5 SP*
@@ -511,6 +400,66 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### TASK-50 · DT-45 · La tarjeta del evento no ofrece comprar fuera del período de venta
+**`issue/TASK-50-DT-45-Tarjeta-evento-periodo-venta`** (frontend) · 21/10/2026
+
+- Vinculada la disponibilidad del botón "Comprar entradas" en `EventoCard` directamente a `ventaAbierta(evento)`, evitando ofrecer la compra cuando la fecha actual es anterior a `inicioVenta` o posterior a `finVenta`.
+- Cobertura completa de pruebas unitarias en `EventoCard.test.tsx` verificando el ocultamiento del botón de compra ante períodos de venta futuros o pasados y su visualización adecuada durante el período vigente.
+
+### TASK-49 · DT-08 · Descarga de entradas con código QR en PDF
+**`issue/TASK-49-DT-08-Descarga-entradas-pdf`** (frontend) · 21/10/2026
+
+- Incorporada la librería `jspdf` en el cliente para la generación de entradas de acceso en formato PDF tamaño A6.
+- Implementado el módulo `descargarEntradaPdf.ts` con soporte para descarga individual de entrada en PDF, descarga masiva de todas las entradas adquiridas en un solo documento multipágina (`descargarTodasEntradasPdf`) y descarga del código QR en imagen PNG.
+- Actualizada la vista de `MisEntradasPage` y el flujo posterior a la compra en `ComprarEntradasPage` para ofrecer descarga en PDF además de PNG.
+- Cobertura completa de pruebas unitarias en `descargarEntradaPdf.test.ts`, `MisEntradasPage.test.tsx` y `ComprarEntradasPage.test.tsx`.
+
+### TASK-48 · DT-28 · El participante puede consultar su propia documentación
+**`issue/TASK-48-DT-28-Consulta-documentacion-participante`** (backend + frontend) · 21/10/2026
+
+- Habilitados los roles `COLABORADOR` y `SOCIO` para la consulta de documentación (`GET /documentacion/persona/:personaId`, `GET /documentacion/persona/:personaId/estado` y `GET /documentacion/:id/archivo`), verificando mediante `validarAccesoPersona` y `obtenerArchivo` que un participante/socio solo pueda acceder a los documentos de su propia persona.
+- Creados endpoints directos de autoservicio `GET /documentacion/mi-documentacion` y `GET /documentacion/mi-documentacion/estado`.
+- Incorporada la vista de "Mi documentación" en el frontend tanto en el perfil del socio como en una página y acceso de navegación dedicado (`ROUTES.miDocumentacion`), mostrando estado general por disciplina, requisitos presentados/faltantes, vencimientos y descarga de archivos adjuntos.
+- Cobertura de pruebas unitarias en backend (`documentacion.roles.spec.ts`, `documentacion.service.spec.ts`) y frontend.
+
+### TASK-47 · DT-10 · Filtros avanzados y tabla con encabezado fijo en auditoría
+**`issue/TASK-47-DT-10-Filtros-de-auditoria`** (frontend) · 21/10/2026
+
+- Incorporado el selector de responsable (`responsableId`) en `AuditoriaFilters`, vinculado con `useResponsables` (consulta de usuarios vía `usuariosApi.list`), schema `auditoria-filtros.schema.ts` y conectado reactivamente en `AuditoriaPage`.
+- Implementado contenedor con scroll vertical delimitado (`max-h-[600px] overflow-y-auto`) y encabezado sticky (`sticky top-0 z-10 bg-slate-50 shadow-xs`) en `AuditoriaTable` para evitar que la pantalla crezca indefinidamente ante listas largas de registros.
+- Cobertura completa de pruebas unitarias en `AuditoriaFilters.spec.tsx`, `AuditoriaTable.spec.tsx`, `AuditoriaPage.spec.tsx` y `auditoria-filtros.schema.spec.ts`.
+
+### TASK-46 · DT-02 · Casos de prueba y cobertura de las historias implementadas (backend)
+**`issue/TASK-46-DT-02-Casos-y-cobertura-backend`** (backend) · 18/10/2026
+
+- Documentados y exportados los 24 casos faltantes de las historias implementadas en el backend (`TC-225`–`TC-248` para `US-06`, `US-08`, `US-09`, `US-11` y `US-24`) en `docs/pruebas/casos-prueba.csv`.
+- Cubierto al 100 % el módulo `src/categorias` (`categorias.service.spec.ts` y `categorias.controller.spec.ts`), dejando al backend con 0 módulos sin tests (62 suites, 721 tests unitarios, 88,3 % statements).
+- Etiquetada la trazabilidad `TC-XXX` en las suites de `inscripcion`, `socios`, `categorias` y `documentacion`.
+- Normalizadas las filas `EJ-185`–`EJ-189` al esquema de 10 columnas y registradas las ejecuciones `EJ-190`–`EJ-262` en `docs/pruebas/ejecucion.csv`, logrando que el 100 % de los 248 casos documentados (`TC-001`–`TC-248`) cuente con registro de ejecución (`EJ-01`–`EJ-262`).
+
+### TASK-45 · DT-44 · Las fechas guardadas a las 00:00 UTC no corren la deuda deportiva un mes
+**`issue/TASK-45-DT-44-Periodos-deportivos-en-utc`** (backend) · 18/10/2026
+
+- `aPeriodo`, `periodosEntre` y `eraSocioEn` (`src/cuotas/tarifas.ts`) leen año
+  y mes en UTC (`getUTCFullYear` / `getUTCMonth`), evitando que una fecha de
+  inscripción o membresía guardada a las `00:00 UTC` del día 1 se corra al mes
+  anterior en huso horario argentino (UTC-3).
+- Cubierto en `src/cuotas/tarifas.spec.ts`.
+
+### TASK-44 · DT-43 · El DNI no requiere fecha de vencimiento
+**`issue/TASK-44-DT-43-Dni-sin-vencimiento`** (backend + frontend) · 18/10/2026
+
+- Migración `20261017210000_dni_sin_vencimiento`: `Documentacion.fechaVencimiento`
+  pasa a ser opcional (`DateTime?`).
+- `requiereVencimiento(tipoDocumento)` en backend (`src/disciplinas/requerimientos-doc.ts`)
+  y frontend (`src/features/disciplinas/types.ts`).
+- `CreateDocumentacionDto`, `CreateInscripcionDocumentoDto`, `DocumentacionService`
+  e `InscripcionService` admiten `fechaVencimiento` vacía/nula cuando `tipoDocumento === 'DNI'`.
+- `estadoDeInscripcion` (`src/documentacion/estado-documental.ts`) evalúa un
+  documento permanente sin fecha de vencimiento como `VIGENTE`.
+- `DocumentacionParticipante` e `InscripcionForm` ocultan el campo de fecha de
+  vencimiento al cargar un `DNI` y muestran «Sin vencimiento».
 
 ### TASK-43 · Pruebas E2E con evidencia automática
 **`issue/TASK-43-Testing-E2E-con-evidencia`** (backend + frontend) · 04/10/2026
@@ -1110,8 +1059,8 @@ Lo que ya usa el equipo, aplicado a la deuda técnica:
 
 - **Ramas:** `issue/TASK-<n>-DT-<nn>-<Descripcion-en-kebab>` para deuda
   identificada; `fix/<Descripcion>` para arreglos de configuración o tooling.
-  El número `TASK` es correlativo y global. **Último usado: TASK-43**
-  (04/10/2026).
+  El número `TASK` es correlativo y global. **Último usado: TASK-48**
+  (21/10/2026).
 - **Commits:** `<prefijo>[scope]: <descripción en minúscula>`, con el ID de la
   deuda como scope — `refactor[DT-03]: …`, `test[DT-01]: …`, `ci[lint]: …`.
   Prefijos válidos: `feat`, `fix`, `docs`, `test`, `ci`, `chore`, `refactor`.

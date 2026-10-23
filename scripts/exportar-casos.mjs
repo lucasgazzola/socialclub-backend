@@ -64,17 +64,14 @@ if (comparacion.stdout) console.error(comparacion.stdout.trimEnd());
 const py = spawnSync('python3', [join(here, 'ids-planilla.py'), '--max', '--check', ...planilla], {
   encoding: 'utf8',
 });
-if (py.status === 2) {
-  console.error('Aviso: no se encontró el .xlsx; se calcula el máximo desde los CSV de docs/pruebas.');
-} else if (py.status === 1) {
+if (py.status === 1) {
   console.error(py.stderr || py.stdout);
   console.error('La planilla tiene IDs duplicados. No se asignan IDs nuevos hasta resolverlo.');
   process.exit(1);
 } else if (py.status === 0) {
   maxId = Math.max(maxId, Number((py.stdout || '').trim()) || 0);
 } else {
-  console.error(py.stderr || 'No se pudo leer la planilla .xlsx.');
-  process.exit(1);
+  console.error('Aviso: no se encontró el .xlsx (o python3); se calcula el máximo desde los CSV de docs/pruebas.');
 }
 
 const pruebas = join(repoRoot, 'docs/pruebas');
@@ -90,7 +87,7 @@ if (existsSync(args.csv)) {
 
 const csvCell = (v) => {
   const s = String(v ?? '');
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  return `"${s.replace(/"/g, '""')}"`;
 };
 
 const nuevas = filas.map((linea, i) => {
@@ -101,6 +98,7 @@ const nuevas = filas.map((linea, i) => {
     );
     process.exit(1);
   }
+  cols[4] = cols[4].replace(/\\n/g, '\n').replace(/\s+\/\s+(?=\d+\.\s)/g, '\n');
   const id = `TC-${String(maxId + i + 1).padStart(3, '0')}`;
   return [id, ...cols].map(csvCell).join(',');
 });

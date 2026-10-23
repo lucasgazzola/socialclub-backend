@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { DocumentacionService } from './documentacion.service';
@@ -15,7 +15,8 @@ describe('US-24 · DocumentacionService', () => {
 
   const prismaMock = {
     persona: { findUnique: jest.fn() },
-    documentacion: { create: jest.fn(), findMany: jest.fn() },
+    documentacion: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn() },
+    usuario: { findUnique: jest.fn() },
   };
   const auditoriaMock = { registrar: jest.fn() };
   const estadoDocumentalMock = { tiposExigidos: jest.fn() };
@@ -49,7 +50,7 @@ describe('US-24 · DocumentacionService', () => {
     ]);
   });
 
-  it('carga el documento con fecha futura y audita CREAR', async () => {
+  it('TC-244: carga el documento con fecha futura y audita CREAR', async () => {
     prismaMock.persona.findUnique.mockResolvedValue({ id: 1, nombre: 'Juan' });
     prismaMock.documentacion.create.mockResolvedValue({
       id: 10,
@@ -82,7 +83,7 @@ describe('US-24 · DocumentacionService', () => {
     );
   });
 
-  it('acepta un documento que vence hoy (no es anterior a la fecha actual)', async () => {
+  it('TC-244: acepta un documento que vence hoy (no es anterior a la fecha actual)', async () => {
     prismaMock.persona.findUnique.mockResolvedValue({ id: 1 });
     prismaMock.documentacion.create.mockResolvedValue({ id: 11 });
 
@@ -91,7 +92,7 @@ describe('US-24 · DocumentacionService', () => {
     ).resolves.toBeDefined();
   });
 
-  it('rechaza una fecha de vencimiento anterior a hoy', async () => {
+  it('TC-246: rechaza una fecha de vencimiento anterior a hoy', async () => {
     prismaMock.persona.findUnique.mockResolvedValue({ id: 1 });
 
     await expect(
@@ -107,7 +108,7 @@ describe('US-24 · DocumentacionService', () => {
     expect(prismaMock.documentacion.create).not.toHaveBeenCalled();
   });
 
-  it('rechaza cargar documentación para un participante inexistente', async () => {
+  it('TC-247: rechaza cargar documentación para un participante inexistente', async () => {
     prismaMock.persona.findUnique.mockResolvedValue(null);
 
     await expect(
@@ -119,7 +120,7 @@ describe('US-24 · DocumentacionService', () => {
     expect(prismaMock.documentacion.create).not.toHaveBeenCalled();
   });
 
-  it('rechaza un tipo que no exige ninguna disciplina o categoría del participante', async () => {
+  it('TC-247: rechaza un tipo que no exige ninguna disciplina o categoría del participante', async () => {
     prismaMock.persona.findUnique.mockResolvedValue({ id: 1 });
 
     await expect(
@@ -154,5 +155,81 @@ describe('US-24 · DocumentacionService', () => {
     expect(prismaMock.documentacion.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ tipo: 'DNI tarjeta' }) }),
     );
+  });
+
+  describe('DT-43 · El DNI no requiere fecha de vencimiento', () => {
+    it('permite cargar un DNI sin fecha de vencimiento (guarda fechaVencimiento = null)', async () => {
+      prismaMock.persona.findUnique.mockResolvedValue({ id: 1 });
+      prismaMock.documentacion.create.mockResolvedValue({ id: 15, tipo: 'DNI', personaId: 1 });
+
+      const res = await service.create(
+        {
+          tipoDocumento: 'DNI',
+          personaId: 1,
+        },
+        7,
+      );
+
+      expect(res.id).toBe(15);
+      expect(prismaMock.documentacion.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tipoDocumento: 'DNI',
+            fechaVencimiento: null,
+            personaId: 1,
+          }),
+        }),
+      );
+    });
+
+    it('rechaza cargar un documento que no sea DNI sin fecha de vencimiento', async () => {
+      prismaMock.persona.findUnique.mockResolvedValue({ id: 1 });
+
+      await expect(
+        service.create(
+          {
+            tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA',
+            personaId: 1,
+          },
+          7,
+        ),
+      ).rejects.toThrow('La fecha de vencimiento es obligatoria.');
+      expect(prismaMock.documentacion.create).not.toHaveBeenCalled();
+    });
+  });
+  describe('DT-28 · Consulta de documentación y permisos', () => {
+    it('permite a un usuario con rol de staff consultar cualquier persona', async () => {
+      const user = { id: 10, email: 'admin@club.com', roles: ['ADMIN'] };
+      await expect(service.validarAccesoPersona(99, user)).resolves.toBeUndefined();
+      expect(prismaMock.usuario.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('permite a un colaborador consultar cualquier persona', async () => {
+      const user = { id: 11, email: 'colab@club.com', roles: ['COLABORADOR'] };
+      await expect(service.validarAccesoPersona(99, user)).resolves.toBeUndefined();
+    });
+
+    it('permite a un socio consultar su propia persona', async () => {
+      const user = { id: 12, email: 'socio@club.com', roles: ['SOCIO'] };
+      prismaMock.usuario.findUnique.mockResolvedValue({ personaId: 5 });
+      await expect(service.validarAccesoPersona(5, user)).resolves.toBeUndefined();
+    });
+
+    it('rechaza a un socio que intenta consultar la documentación de otra persona', async () => {
+      const user = { id: 12, email: 'socio@club.com', roles: ['SOCIO'] };
+      prismaMock.usuario.findUnique.mockResolvedValue({ personaId: 5 });
+      await expect(service.validarAccesoPersona(99, user)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('obtiene personaId del usuario autenticado', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ personaId: 5 });
+      const personaId = await service.obtenerPersonaIdDeUsuario(12);
+      expect(personaId).toBe(5);
+    });
+
+    it('falla si el usuario no tiene ficha de persona', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ personaId: null });
+      await expect(service.obtenerPersonaIdDeUsuario(12)).rejects.toThrow(NotFoundException);
+    });
   });
 });

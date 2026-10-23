@@ -1,12 +1,15 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { CreateDocumentacionDto } from './dto/create-documentacion.dto';
 import { getStorageDir, type ArchivoSubido } from './storage.config';
-import { ETIQUETA_TIPO_DOCUMENTO } from '../disciplinas/requerimientos-doc';
+import { ETIQUETA_TIPO_DOCUMENTO, requiereVencimiento } from '../disciplinas/requerimientos-doc';
 import { EstadoDocumentalService } from './estado-documental.service';
+import type { AuthenticatedUser } from '../auth/types/authenticated-user';
+
+const ROLES_STAFF = ['ADMIN', 'DELEGADO', 'COLABORADOR'];
 
 @Injectable()
 export class DocumentacionService {
@@ -20,8 +23,8 @@ export class DocumentacionService {
    * US-24: Carga un documento obligatorio para un participante.
    * Reglas:
    * - El integrante (Persona) debe existir.
-   * - La fecha de vencimiento es obligatoria (validada en el DTO).
-   * - La fecha de vencimiento no puede ser anterior a la fecha actual.
+   * - La fecha de vencimiento es obligatoria salvo para el DNI (DT-43).
+   * - Si se indica fecha de vencimiento, no puede ser anterior a la fecha actual.
    * - El tipo es del catálogo y tiene que estar exigido por alguna disciplina o
    *   categoría en la que el participante esté inscripto. Un documento nuevo
    *   del mismo tipo reemplaza al anterior para la habilitación (renovación);
@@ -33,24 +36,32 @@ export class DocumentacionService {
       throw new NotFoundException('Participante no encontrado');
     }
 
-    // Una fecha "YYYY-MM-DD" se interpreta en horario LOCAL (si se parsea como
-    // UTC, en zonas negativas "hoy" se corre un día y rompe la comparación).
-    const soloFecha = /^(\d{4})-(\d{2})-(\d{2})/.exec(dto.fechaVencimiento);
-    const fechaVencimiento = soloFecha
-      ? new Date(Number(soloFecha[1]), Number(soloFecha[2]) - 1, Number(soloFecha[3]))
-      : new Date(dto.fechaVencimiento);
+    const rawFecha = dto.fechaVencimiento?.trim();
+    if (!rawFecha && requiereVencimiento(dto.tipoDocumento)) {
+      throw new BadRequestException('La fecha de vencimiento es obligatoria.');
+    }
 
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0); // se compara por día: un documento que vence hoy es válido.
-    const diaVencimiento = new Date(
-      fechaVencimiento.getFullYear(),
-      fechaVencimiento.getMonth(),
-      fechaVencimiento.getDate(),
-    );
-    if (diaVencimiento < hoy) {
-      throw new BadRequestException(
-        'La fecha de vencimiento no puede ser anterior a la fecha actual.',
+    let fechaVencimiento: Date | null = null;
+    if (rawFecha) {
+      // Una fecha "YYYY-MM-DD" se interpreta en horario LOCAL (si se parsea como
+      // UTC, en zonas negativas "hoy" se corre un día y rompe la comparación).
+      const soloFecha = /^(\d{4})-(\d{2})-(\d{2})/.exec(rawFecha);
+      fechaVencimiento = soloFecha
+        ? new Date(Number(soloFecha[1]), Number(soloFecha[2]) - 1, Number(soloFecha[3]))
+        : new Date(rawFecha);
+
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0); // se compara por día: un documento que vence hoy es válido.
+      const diaVencimiento = new Date(
+        fechaVencimiento.getFullYear(),
+        fechaVencimiento.getMonth(),
+        fechaVencimiento.getDate(),
       );
+      if (diaVencimiento < hoy) {
+        throw new BadRequestException(
+          'La fecha de vencimiento no puede ser anterior a la fecha actual.',
+        );
+      }
     }
 
     const exigidos = await this.estadoDocumental.tiposExigidos(dto.personaId);
@@ -85,6 +96,39 @@ export class DocumentacionService {
     return documentacion;
   }
 
+  /**
+   * DT-28: Valida que el usuario tenga permisos para consultar la documentación
+   * de una persona: ADMIN, DELEGADO y COLABORADOR tienen acceso global; el participante
+   * solo puede consultar la suya propia.
+   */
+  async validarAccesoPersona(personaId: number, user: AuthenticatedUser) {
+    const esStaff = user.roles?.some((rol) => ROLES_STAFF.includes(rol));
+    if (esStaff) {
+      return;
+    }
+
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: user.id },
+      select: { personaId: true },
+    });
+
+    if (!usuario?.personaId || usuario.personaId !== personaId) {
+      throw new ForbiddenException('No tenés permisos suficientes para esta operación');
+    }
+  }
+
+  /** Obtiene la personaId asociada a un usuario del sistema (autoservicio). */
+  async obtenerPersonaIdDeUsuario(usuarioId: number): Promise<number> {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { personaId: true },
+    });
+    if (!usuario?.personaId) {
+      throw new NotFoundException('No se encontró una ficha de persona asociada al usuario');
+    }
+    return usuario.personaId;
+  }
+
   /** Lista la documentación cargada de un participante (vencimiento más próximo primero). */
   async findByPersona(personaId: number) {
     const persona = await this.prisma.persona.findUnique({ where: { id: personaId } });
@@ -99,11 +143,25 @@ export class DocumentacionService {
   }
 
   /** Devuelve la ruta absoluta del archivo adjunto para descargarlo. */
-  async obtenerArchivo(id: number) {
+  async obtenerArchivo(id: number, user?: AuthenticatedUser) {
     const doc = await this.prisma.documentacion.findUnique({ where: { id } });
     if (!doc || !doc.archivoRuta) {
       throw new NotFoundException('El documento no tiene un archivo adjunto');
     }
+
+    if (user) {
+      const esStaff = user.roles?.some((rol) => ROLES_STAFF.includes(rol));
+      if (!esStaff) {
+        const usuario = await this.prisma.usuario.findUnique({
+          where: { id: user.id },
+          select: { personaId: true },
+        });
+        if (!usuario?.personaId || usuario.personaId !== doc.personaId) {
+          throw new ForbiddenException('No tenés permisos suficientes para esta operación');
+        }
+      }
+    }
+
     const rutaAbsoluta = join(getStorageDir(), doc.archivoRuta);
     if (!existsSync(rutaAbsoluta)) {
       throw new NotFoundException('El archivo no se encuentra en el servidor');

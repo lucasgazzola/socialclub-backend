@@ -21,11 +21,22 @@ export class EventosService {
   ) {}
 
   async findAll(filtros?: FiltrarEventosDto, esAdmin = false) {
-    const { search, soloDisponibles, ordenar, incluirBorradores } = filtros ?? {};
-    const pagina = Math.max(1, filtros?.pagina ?? 1);
-    const porPagina = Math.min(50, Math.max(1, filtros?.porPagina ?? 5));
+    const { search, soloDisponibles, ordenar, incluirBorradores, fechaDesde, fechaHasta } =
+      filtros ?? {};
+    const paginaRaw = filtros?.page ?? filtros?.pagina ?? 1;
+    const porPaginaRaw = filtros?.limit ?? filtros?.porPagina ?? 5;
+    const pagina = Math.max(1, Number(paginaRaw));
+    const porPagina = Math.min(50, Math.max(1, Number(porPaginaRaw)));
 
     const verBorradores = esAdmin && incluirBorradores === 'true';
+
+    let hastaDate: Date | undefined;
+    if (fechaHasta) {
+      hastaDate = new Date(fechaHasta);
+      if (fechaHasta.length === 10) {
+        hastaDate.setUTCHours(23, 59, 59, 999);
+      }
+    }
 
     const where: any = {
       ...(!verBorradores ? { estado: { not: EstadoEvento.BORRADOR } } : {}),
@@ -39,10 +50,15 @@ export class EventosService {
         : {}),
       ...(soloDisponibles === 'true'
         ? {
-            OR: [
-              { entradasDisponibles: null },
-              { entradasDisponibles: { gt: 0 } },
-            ],
+            OR: [{ entradasDisponibles: null }, { entradasDisponibles: { gt: 0 } }],
+          }
+        : {}),
+      ...(fechaDesde || hastaDate
+        ? {
+            fechaEvento: {
+              ...(fechaDesde ? { gte: new Date(fechaDesde) } : {}),
+              ...(hastaDate ? { lte: hastaDate } : {}),
+            },
           }
         : {}),
     };
@@ -121,7 +137,9 @@ export class EventosService {
       finVenta = null;
     } else {
       if (descuentoSocio > 0 && precio <= 0) {
-        throw new BadRequestException('El descuento para socios solo aplica en eventos con precio mayor a 0');
+        throw new BadRequestException(
+          'El descuento para socios solo aplica en eventos con precio mayor a 0',
+        );
       }
       if (capacidadMaxima !== null && capacidadMaxima < 1) {
         throw new BadRequestException('La capacidad máxima debe ser al menos 1');
@@ -134,7 +152,9 @@ export class EventosService {
         entradasDisponibles !== null &&
         entradasDisponibles > capacidadMaxima
       ) {
-        throw new BadRequestException('Las entradas disponibles no pueden superar la capacidad máxima');
+        throw new BadRequestException(
+          'Las entradas disponibles no pueden superar la capacidad máxima',
+        );
       }
     }
 
@@ -263,14 +283,18 @@ export class EventosService {
       descuentoSocio = 0;
     } else {
       if (descuentoSocio > 0 && precio <= 0) {
-        throw new BadRequestException('El descuento para socios solo aplica en eventos con precio mayor a 0');
+        throw new BadRequestException(
+          'El descuento para socios solo aplica en eventos con precio mayor a 0',
+        );
       }
       if (
         capacidadMaxima !== null &&
         entradasDisponibles !== null &&
         entradasDisponibles > capacidadMaxima
       ) {
-        throw new BadRequestException('Las entradas disponibles no pueden superar la capacidad máxima');
+        throw new BadRequestException(
+          'Las entradas disponibles no pueden superar la capacidad máxima',
+        );
       }
     }
 
@@ -353,7 +377,9 @@ export class EventosService {
       throw new BadRequestException('La fecha de fin supera el límite máximo de 3 años');
     }
     if (dInicioVenta && dInicioVenta > limiteMaximo) {
-      throw new BadRequestException('La fecha de inicio de venta supera el límite máximo de 3 años');
+      throw new BadRequestException(
+        'La fecha de inicio de venta supera el límite máximo de 3 años',
+      );
     }
     if (dFinVenta && dFinVenta > limiteMaximo) {
       throw new BadRequestException('La fecha de fin de venta supera el límite máximo de 3 años');

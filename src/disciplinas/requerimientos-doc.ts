@@ -18,6 +18,11 @@ export const ETIQUETA_TIPO_DOCUMENTO: Record<TipoDocumentacionDisciplina, string
   COMPROBANTE_PAGO_CUOTA_SOCIAL_DEPORTIVA: 'Comprobante de pago de cuota social/deportiva',
 };
 
+/** DT-43: el DNI es un documento de identidad permanente; el resto requiere fecha de vencimiento. */
+export function requiereVencimiento(tipo: TipoDocumentacionDisciplina): boolean {
+  return tipo !== 'DNI';
+}
+
 /** Alcance de un conjunto de requisitos: la disciplina entera (categoría null) o una categoría. */
 export interface AlcanceRequerimientos {
   disciplinaId: number;

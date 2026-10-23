@@ -74,6 +74,73 @@ describe('US-29 · EventosService', () => {
       });
       expect(prismaMock.$transaction).toHaveBeenCalled();
     });
+
+    it('aplica filtros de rango de fechas fechaDesde y fechaHasta en el where de Prisma', async () => {
+      prismaMock.$transaction.mockResolvedValue([[], 0]);
+
+      await service.findAll({
+        fechaDesde: '2026-11-01',
+        fechaHasta: '2026-11-30',
+      });
+
+      expect(prismaMock.evento.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            estado: { not: 'BORRADOR' },
+            fechaEvento: {
+              gte: new Date('2026-11-01'),
+              lte: expect.any(Date),
+            },
+          }),
+        }),
+      );
+    });
+
+    it('aplica filtro de búsqueda por texto case-insensitive en nombre y descripción', async () => {
+      prismaMock.$transaction.mockResolvedValue([[], 0]);
+
+      await service.findAll({ search: 'Música' });
+
+      expect(prismaMock.evento.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: [
+              { nombre: { contains: 'Música', mode: 'insensitive' } },
+              { descripcion: { contains: 'Música', mode: 'insensitive' } },
+            ],
+          }),
+        }),
+      );
+    });
+
+    it('soporta alias de paginación page y limit', async () => {
+      prismaMock.$transaction.mockResolvedValue([[], 0]);
+
+      const res = await service.findAll({ page: 2, limit: 10 });
+
+      expect(prismaMock.evento.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 10,
+          take: 10,
+        }),
+      );
+      expect(res.pagina).toBe(2);
+      expect(res.porPagina).toBe(10);
+    });
+
+    it('incluye borradores si es admin y lo solicita explícitamente', async () => {
+      prismaMock.$transaction.mockResolvedValue([[], 0]);
+
+      await service.findAll({ incluirBorradores: 'true' }, true);
+
+      expect(prismaMock.evento.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({
+            estado: { not: 'BORRADOR' },
+          }),
+        }),
+      );
+    });
   });
 
   describe('findOne', () => {
@@ -207,9 +274,9 @@ describe('US-29 · EventosService', () => {
         _count: { entradas: 0 },
       });
 
-      await expect(
-        service.update(5, { estado: 'PUBLICADO' as any }, 1),
-      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.update(5, { estado: 'PUBLICADO' as any }, 1)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
     });
   });
 });
