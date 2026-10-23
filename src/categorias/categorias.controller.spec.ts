@@ -26,4 +26,3 @@ describe('US-09 / US-12 · CategoriasController', () => {
     expect(serviceMock.findAll).toHaveBeenCalledTimes(1);
   });
 });
-

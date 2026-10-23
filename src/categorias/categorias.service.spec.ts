@@ -35,4 +35,3 @@ describe('US-09 / US-12 · CategoriasService', () => {
     expect(resultado).toEqual(categorias);
   });
 });
-

@@ -1,5 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ExecutionContext, ForbiddenException, UnauthorizedException, ValidationPipe } from '@nestjs/common';
+import {
+  ExecutionContext,
+  ForbiddenException,
+  UnauthorizedException,
+  ValidationPipe,
+} from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { Server } from 'http';
@@ -19,11 +24,11 @@ describe('ReportesController (Unit & E2E) — US-35 & US-36', () => {
   };
 
   const mockJwtGuard = {
-    canActivate: jest.fn((context: ExecutionContext) => true),
+    canActivate: jest.fn<boolean, [ExecutionContext]>().mockReturnValue(true),
   };
 
   const mockRolesGuard = {
-    canActivate: jest.fn((context: ExecutionContext) => true),
+    canActivate: jest.fn<boolean, [ExecutionContext]>().mockReturnValue(true),
   };
 
   beforeAll(async () => {
@@ -194,7 +199,10 @@ describe('ReportesController (Unit & E2E) — US-35 & US-36', () => {
 
   describe('Integración / E2E: GET /reportes/estado-financiero (US-35)', () => {
     it('retorna 200 y delega parámetros a estadoFinanciero', async () => {
-      mockReportesService.estadoFinanciero.mockResolvedValue({ desde: '2026-01', hasta: '2026-03' });
+      mockReportesService.estadoFinanciero.mockResolvedValue({
+        desde: '2026-01',
+        hasta: '2026-03',
+      });
 
       const server = app.getHttpServer() as Server;
       const res = await request(server)

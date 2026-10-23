@@ -71,7 +71,9 @@ export class DocumentacionController {
 
   @Get('mi-documentacion')
   @Roles('ADMIN', 'DELEGADO', 'COLABORADOR', 'SOCIO')
-  @ApiOperation({ summary: 'DT-28 — Listar la documentación de la persona asociada al usuario logueado' })
+  @ApiOperation({
+    summary: 'DT-28 — Listar la documentación de la persona asociada al usuario logueado',
+  })
   @ApiOkResponse({ description: 'Documentos del participante logueado' })
   @ApiErrores({
     401: 'Unauthorized',
@@ -152,7 +154,10 @@ export class DocumentacionController {
     @CurrentUser() user: AuthenticatedUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    const { rutaAbsoluta, nombre, mimeType } = await this.documentacionService.obtenerArchivo(id, user);
+    const { rutaAbsoluta, nombre, mimeType } = await this.documentacionService.obtenerArchivo(
+      id,
+      user,
+    );
     res.set({
       'Content-Type': mimeType,
       'Content-Disposition': `inline; filename="${encodeURIComponent(nombre)}"`,

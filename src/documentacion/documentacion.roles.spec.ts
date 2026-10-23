@@ -33,7 +33,9 @@ describe('US-24/25 · DT-28 · DocumentacionController · control de acceso', ()
     });
 
     it.each(['COLABORADOR', 'SOCIO'])('US-24 · TC-248: rechaza a un %s', (rol) => {
-      expect(() => guard.canActivate(contextoPara(proto.create, [rol]))).toThrow(ForbiddenException);
+      expect(() => guard.canActivate(contextoPara(proto.create, [rol]))).toThrow(
+        ForbiddenException,
+      );
     });
   });
 
@@ -46,12 +48,9 @@ describe('US-24/25 · DT-28 · DocumentacionController · control de acceso', ()
   };
 
   describe.each(Object.entries(handlersLectura))('%s (consulta y descarga)', (_ruta, handler) => {
-    it.each(['ADMIN', 'DELEGADO', 'COLABORADOR', 'SOCIO'])(
-      'DT-28: permite a un %s',
-      (rol) => {
-        expect(guard.canActivate(contextoPara(handler, [rol]))).toBe(true);
-      },
-    );
+    it.each(['ADMIN', 'DELEGADO', 'COLABORADOR', 'SOCIO'])('DT-28: permite a un %s', (rol) => {
+      expect(guard.canActivate(contextoPara(handler, [rol]))).toBe(true);
+    });
 
     it('DT-28: rechaza a roles no autorizados', () => {
       expect(() => guard.canActivate(contextoPara(handler, ['INVITADO']))).toThrow(

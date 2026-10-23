@@ -256,10 +256,14 @@ export class ReportesService {
     if (desde || hasta) {
       whereEvento.fechaEvento = {};
       if (desde) {
-        whereEvento.fechaEvento.gte = new Date(desde.includes('T') ? desde : `${desde}T00:00:00.000Z`);
+        whereEvento.fechaEvento.gte = new Date(
+          desde.includes('T') ? desde : `${desde}T00:00:00.000Z`,
+        );
       }
       if (hasta) {
-        whereEvento.fechaEvento.lte = new Date(hasta.includes('T') ? hasta : `${hasta}T23:59:59.999Z`);
+        whereEvento.fechaEvento.lte = new Date(
+          hasta.includes('T') ? hasta : `${hasta}T23:59:59.999Z`,
+        );
       }
     }
 
@@ -301,9 +305,7 @@ export class ReportesService {
           : null;
 
       const porcentajeAsistencia =
-        totalEntradas > 0
-          ? Math.round((ingresosValidados / totalEntradas) * 1000) / 10
-          : null;
+        totalEntradas > 0 ? Math.round((ingresosValidados / totalEntradas) * 1000) / 10 : null;
 
       const recaudado = ev.compras.reduce((sum, c) => sum + Number(c.montoTotal), 0);
 

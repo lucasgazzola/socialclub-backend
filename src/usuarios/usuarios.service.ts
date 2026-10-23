@@ -246,8 +246,14 @@ export class UsuariosService {
 
     if (ordenarPor?.toLowerCase() === 'roles') {
       resultadoItems = resultadoItems.sort((a, b) => {
-        const rolA = (a?.roles ?? []).map((r: any) => r.rol?.nombre ?? '').sort().join(', ');
-        const rolB = (b?.roles ?? []).map((r: any) => r.rol?.nombre ?? '').sort().join(', ');
+        const rolA = (a?.roles ?? [])
+          .map((r: { rol?: { nombre?: string } }) => r.rol?.nombre ?? '')
+          .sort()
+          .join(', ');
+        const rolB = (b?.roles ?? [])
+          .map((r: { rol?: { nombre?: string } }) => r.rol?.nombre ?? '')
+          .sort()
+          .join(', ');
         return direccion === 'asc' ? rolA.localeCompare(rolB) : rolB.localeCompare(rolA);
       });
     }
