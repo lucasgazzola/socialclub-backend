@@ -860,7 +860,32 @@ export class InscripcionService {
    * Cada fila representa a un participante con todas sus disciplinas.
    */
   async findAll(query: FindParticipantesQueryDto = { pagina: 1, porPagina: 10 }) {
-    const { busqueda, disciplinaId, estado, pagina, porPagina } = query;
+    const { busqueda, disciplinaId, estado, pagina, porPagina, ordenarPor, orden } = query;
+
+    const direccion: 'asc' | 'desc' = orden?.toLowerCase() === 'desc' ? 'desc' : 'asc';
+    let orderBy: Prisma.PersonaOrderByWithRelationInput | Prisma.PersonaOrderByWithRelationInput[];
+
+    if (!ordenarPor) {
+      orderBy = [{ apellido: 'asc' }, { nombre: 'asc' }];
+    } else {
+      switch (ordenarPor.toLowerCase()) {
+        case 'dni':
+          orderBy = { dni: direccion };
+          break;
+        case 'fecha':
+        case 'creadoen':
+          orderBy = { creadoEn: direccion };
+          break;
+        case 'nombre':
+        case 'apellido':
+        case 'participante':
+          orderBy = [{ apellido: direccion }, { nombre: direccion }];
+          break;
+        default:
+          orderBy = [{ apellido: 'asc' }, { nombre: 'asc' }];
+          break;
+      }
+    }
 
     const filtrosBase: Prisma.PersonaWhereInput[] = [
       // Solo personas que participan en al menos una disciplina.
@@ -910,7 +935,7 @@ export class InscripcionService {
             orderBy: { disciplina: { nombre: 'asc' } },
           },
         },
-        orderBy: [{ apellido: 'asc' }, { nombre: 'asc' }],
+        orderBy,
         skip: (pagina - 1) * porPagina,
         take: porPagina,
       }),
@@ -921,24 +946,48 @@ export class InscripcionService {
     ]);
 
     const estados = await this.estadoDocumental.porPersonas(items.map((p) => p.id));
+    const resultadoItems = items.map((p) => {
+      const fila = this.aParticipanteAgrupado(p);
+      const resumen = estados.get(p.id);
+      return {
+        ...fila,
+        // US-08/25: estado documental del participante (el peor de sus inscripciones).
+        estadoDocumental: resumen?.estado ?? null,
+        disciplinas: fila.disciplinas.map((d) => {
+          const detalle = resumen?.inscripciones.find((i) => i.inscripcionId === d.inscripcionId);
+          return {
+            ...d,
+            estadoDocumental: detalle?.estado ?? null,
+            motivosDocumentacion: detalle?.motivos ?? [],
+          };
+        }),
+      };
+    });
+
+    if (ordenarPor?.toLowerCase() === 'disciplinas') {
+      resultadoItems.sort((a, b) => {
+        const cantA = a.cantidadDisciplinas ?? a.disciplinas?.length ?? 0;
+        const cantB = b.cantidadDisciplinas ?? b.disciplinas?.length ?? 0;
+        return direccion === 'asc' ? cantA - cantB : cantB - cantA;
+      });
+    } else if (ordenarPor?.toLowerCase() === 'estado') {
+      resultadoItems.sort((a, b) => {
+        const estA = a.estado === 'INSCRIPTO' ? 1 : 0;
+        const estB = b.estado === 'INSCRIPTO' ? 1 : 0;
+        return direccion === 'asc' ? estA - estB : estB - estA;
+      });
+    } else if (ordenarPor?.toLowerCase() === 'documentacion') {
+      resultadoItems.sort((a, b) => {
+        const docA = a.estadoDocumental ?? '';
+        const docB = b.estadoDocumental ?? '';
+        return direccion === 'asc'
+          ? docA.localeCompare(docB, 'es', { sensitivity: 'base' })
+          : docB.localeCompare(docA, 'es', { sensitivity: 'base' });
+      });
+    }
+
     return {
-      items: items.map((p) => {
-        const fila = this.aParticipanteAgrupado(p);
-        const resumen = estados.get(p.id);
-        return {
-          ...fila,
-          // US-08/25: estado documental del participante (el peor de sus inscripciones).
-          estadoDocumental: resumen?.estado ?? null,
-          disciplinas: fila.disciplinas.map((d) => {
-            const detalle = resumen?.inscripciones.find((i) => i.inscripcionId === d.inscripcionId);
-            return {
-              ...d,
-              estadoDocumental: detalle?.estado ?? null,
-              motivosDocumentacion: detalle?.motivos ?? [],
-            };
-          }),
-        };
-      }),
+      items: resultadoItems,
       total,
       pagina,
       porPagina,

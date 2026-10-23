@@ -15,6 +15,22 @@ export enum EstadoSocioFiltro {
  * Toda la búsqueda, el filtrado y la paginación se resuelven en el backend;
  * el frontend solo debe reflejar estos parámetros en la URL/estado de UI.
  */
+
+export enum CriterioOrdenSocios {
+  NOMBRE = 'nombre',
+  DNI = 'dni',
+  EMAIL = 'email',
+  CATEGORIA = 'categoria',
+  ESTADO = 'estado',
+  CUENTA = 'cuenta',
+  FECHA = 'fecha',
+}
+
+export enum SentidoOrden {
+  ASC = 'asc',
+  DESC = 'desc',
+}
+
 export class FindSociosQueryDto {
   /** Búsqueda libre: matchea nombre, apellido o DNI (parcial, insensible a mayúsculas). */
   @IsOptional()
@@ -43,4 +59,12 @@ export class FindSociosQueryDto {
   @IsInt()
   @Min(1)
   porPagina: number = 10;
+
+  @IsOptional()
+  @IsString()
+  ordenarPor?: string;
+
+  @IsOptional()
+  @IsString()
+  orden?: 'asc' | 'desc' = 'asc';
 }

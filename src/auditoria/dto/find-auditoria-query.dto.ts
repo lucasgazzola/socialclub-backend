@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsISO8601, IsOptional, Min } from 'class-validator';
+import { IsEnum, IsInt, IsISO8601, IsOptional, IsString, Min } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { AccionAuditoria } from '@prisma/client';
 
@@ -72,4 +72,20 @@ export class FindAuditoriaQueryDto {
   @IsInt()
   @Min(1)
   porPagina?: number = 20;
+
+  @ApiPropertyOptional({
+    description: 'Campo de ordenamiento: fecha, accion, entidad, entidadId, responsable',
+  })
+  @IsOptional()
+  @IsString()
+  ordenarPor?: string;
+
+  @ApiPropertyOptional({
+    description: 'Sentido del ordenamiento: asc o desc',
+    enum: ['asc', 'desc'],
+    default: 'desc',
+  })
+  @IsOptional()
+  @IsString()
+  orden?: 'asc' | 'desc' = 'desc';
 }

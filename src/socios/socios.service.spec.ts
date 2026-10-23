@@ -828,4 +828,63 @@ describe('SociosService', () => {
       );
     });
   });
+
+  describe('findAll - ordenamiento', () => {
+    it('aplica ordenamiento por nombre asc y por dni desc', async () => {
+      prismaMock.$transaction.mockResolvedValueOnce([[], 0, 0, 0, 0]);
+      await service.findAll({ pagina: 1, porPagina: 10, ordenarPor: 'nombre', orden: 'asc' });
+      expect(prismaMock.persona.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ apellido: 'asc' }, { nombre: 'asc' }],
+        }),
+      );
+
+      prismaMock.$transaction.mockResolvedValueOnce([[], 0, 0, 0, 0]);
+      await service.findAll({ pagina: 1, porPagina: 10, ordenarPor: 'dni', orden: 'desc' });
+      expect(prismaMock.persona.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { dni: 'desc' },
+        }),
+      );
+    });
+
+    it('ordena en memoria por categoria y estado', async () => {
+      const mockPersonas = [
+        {
+          id: 1,
+          nombre: 'Juan',
+          apellido: 'Perez',
+          dni: '123',
+          email: 'j@p.com',
+          membresias: [{ activo: true, categoria: { nombre: 'B Categoria' } }],
+        },
+        {
+          id: 2,
+          nombre: 'Ana',
+          apellido: 'Gomez',
+          dni: '456',
+          email: 'a@g.com',
+          membresias: [{ activo: false, categoria: { nombre: 'A Categoria' } }],
+        },
+      ];
+
+      prismaMock.$transaction.mockResolvedValueOnce([mockPersonas, 2, 2, 1, 1]);
+      const resCat = await service.findAll({
+        pagina: 1,
+        porPagina: 10,
+        ordenarPor: 'categoria',
+        orden: 'asc',
+      });
+      expect(resCat.items[0].categoria?.nombre).toBe('A Categoria');
+
+      prismaMock.$transaction.mockResolvedValueOnce([mockPersonas, 2, 2, 1, 1]);
+      const resEst = await service.findAll({
+        pagina: 1,
+        porPagina: 10,
+        ordenarPor: 'estado',
+        orden: 'desc',
+      });
+      expect(resEst.items[0].activo).toBe(true);
+    });
+  });
 });

@@ -44,4 +44,12 @@ export class FindParticipantesQueryDto {
   @IsInt()
   @Min(1)
   porPagina: number = 10;
+
+  @IsOptional()
+  @IsString()
+  ordenarPor?: string;
+
+  @IsOptional()
+  @IsString()
+  orden?: 'asc' | 'desc' = 'asc';
 }

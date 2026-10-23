@@ -59,7 +59,39 @@ export class AuditoriaService {
       rango,
       pagina = 1,
       porPagina = 20,
+      ordenarPor,
+      orden,
     } = query;
+
+    const direccion: 'asc' | 'desc' = orden?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+    let orderBy: Prisma.RegistroAuditoriaOrderByWithRelationInput;
+
+    if (!ordenarPor) {
+      orderBy = { fechaHora: 'desc' };
+    } else {
+      switch (ordenarPor.toLowerCase()) {
+        case 'accion':
+          orderBy = { accion: direccion };
+          break;
+        case 'entidad':
+          orderBy = { entidad: direccion };
+          break;
+        case 'id':
+        case 'identidad':
+        case 'entidadid':
+          orderBy = { idEntidad: direccion };
+          break;
+        case 'responsable':
+        case 'usuario':
+          orderBy = { responsable: { apellido: direccion } };
+          break;
+        case 'fecha':
+        case 'fechahora':
+        default:
+          orderBy = { fechaHora: direccion };
+          break;
+      }
+    }
 
     const periodoFiltro = periodo ?? rango;
     let fechaDesdeCalculada = fechaDesde ? new Date(fechaDesde) : undefined;
@@ -91,7 +123,7 @@ export class AuditoriaService {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.registroAuditoria.findMany({
         where,
-        orderBy: { fechaHora: 'desc' },
+        orderBy,
         skip: (pagina - 1) * porPagina,
         take: porPagina,
         include: {
