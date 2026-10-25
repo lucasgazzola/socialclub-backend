@@ -101,16 +101,56 @@ export class CategoriasDisciplinaService {
   async findAll(disciplinaId: number, query: FindCategoriasDisciplinaQueryDto = {}) {
     const disciplina = await this.obtenerDisciplina(disciplinaId);
     const busqueda = query.busqueda?.trim();
-    const categorias = await this.prisma.categoriaDisciplina.findMany({
-      where: {
-        disciplinaId,
-        ...(query.estado ? { activo: query.estado === EstadoCategoriaFiltro.ACTIVA } : {}),
-        ...(busqueda ? { nombre: { contains: busqueda, mode: 'insensitive' as const } } : {}),
-      },
-      orderBy: { nombre: 'asc' },
-      include: CATEGORIA_INCLUDE,
-    });
-    return { disciplina, items: categorias };
+
+    const whereBusqueda = {
+      disciplinaId,
+      ...(busqueda ? { nombre: { contains: busqueda, mode: 'insensitive' as const } } : {}),
+    };
+
+    const activo =
+      query.estado === EstadoCategoriaFiltro.ACTIVA
+        ? true
+        : query.estado === EstadoCategoriaFiltro.INACTIVA
+          ? false
+          : undefined;
+
+    const where = {
+      ...whereBusqueda,
+      ...(activo !== undefined ? { activo } : {}),
+    };
+
+    const findManyPromise =
+      query.pagina && query.porPagina
+        ? this.prisma.categoriaDisciplina.findMany({
+            where,
+            orderBy: { nombre: 'asc' },
+            skip: (query.pagina - 1) * query.porPagina,
+            take: query.porPagina,
+            include: CATEGORIA_INCLUDE,
+          })
+        : this.prisma.categoriaDisciplina.findMany({
+            where,
+            orderBy: { nombre: 'asc' },
+            include: CATEGORIA_INCLUDE,
+          });
+
+    const [items, total, todas, activas, inactivas] = await this.prisma.$transaction([
+      findManyPromise,
+      this.prisma.categoriaDisciplina.count({ where }),
+      this.prisma.categoriaDisciplina.count({ where: whereBusqueda }),
+      this.prisma.categoriaDisciplina.count({ where: { ...whereBusqueda, activo: true } }),
+      this.prisma.categoriaDisciplina.count({ where: { ...whereBusqueda, activo: false } }),
+    ]);
+
+    return {
+      disciplina,
+      items,
+      total,
+      ...(query.pagina && query.porPagina
+        ? { pagina: query.pagina, porPagina: query.porPagina }
+        : {}),
+      conteos: { todas, activas, inactivas },
+    };
   }
 
   async findOne(disciplinaId: number, id: number) {

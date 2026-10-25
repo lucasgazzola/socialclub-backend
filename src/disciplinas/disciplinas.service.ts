@@ -83,7 +83,7 @@ export class DisciplinasService {
   }
 
   async findAll(query: FindDisciplinasQueryDto = new FindDisciplinasQueryDto()) {
-    const { busqueda, estado, pagina = 1, porPagina = 20 } = query;
+    const { busqueda, estado, pagina = 1, porPagina = 10 } = query;
     const activo =
       estado === EstadoDisciplinaFiltro.ACTIVA
         ? true

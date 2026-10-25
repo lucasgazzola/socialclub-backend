@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -48,4 +48,22 @@ export class FindMorososQueryDto {
   @IsOptional()
   @IsEnum(SentidoOrden)
   orden?: SentidoOrden = SentidoOrden.DESC;
+
+  @ApiPropertyOptional({ description: 'Número de página (desde 1)', example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  pagina?: number;
+
+  @ApiPropertyOptional({
+    description: 'Cantidad de elementos por página',
+    example: 10,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10000)
+  porPagina?: number;
 }

@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export enum EstadoCategoriaFiltro {
   ACTIVA = 'ACTIVA',
@@ -17,4 +18,22 @@ export class FindCategoriasDisciplinaQueryDto {
   @IsOptional()
   @IsEnum(EstadoCategoriaFiltro)
   estado?: EstadoCategoriaFiltro;
+
+  @ApiPropertyOptional({ description: 'Número de página (desde 1)', example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  pagina?: number;
+
+  @ApiPropertyOptional({
+    description: 'Cantidad de elementos por página',
+    example: 10,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10000)
+  porPagina?: number;
 }
