@@ -15,6 +15,10 @@ function run(cmd, inherit = true) {
   }
 }
 
+function sleep(ms) {
+  execSync(`node -e "setTimeout(() => {}, ${ms})"`);
+}
+
 // 1. Validar rama actual
 const branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8' }).trim();
 if (['main', 'dev', 'test'].includes(branch)) {
@@ -37,14 +41,23 @@ if (!prInfo) {
 } else {
   try {
     const { number, url } = JSON.parse(prInfo);
-    console.log(`PR #${number} ya existente: ${url}`);
+    console.log(`PR #${number} detectada: ${url}`);
   } catch {
-    console.log('PR ya existente.');
+    console.log('PR detectada.');
   }
 }
 
-// 4. Monitorear checks de CI
-console.log('\n3. Esperando que los tests de CI pasen en verde...');
+// 4. Esperar a que inicien los checks y monitorear hasta que pasen
+console.log('\n3. Esperando que inicien los checks de CI en GitHub...');
+for (let i = 0; i < 15; i++) {
+  const checks = run(`${gh} pr checks`, false);
+  if (checks && !checks.includes('no checks reported')) {
+    break;
+  }
+  sleep(3000);
+}
+
+console.log('Monitoreando ejecución de tests en vivo...');
 run(`${gh} pr checks --watch`);
 
 // 5. Mergear PR a dev
