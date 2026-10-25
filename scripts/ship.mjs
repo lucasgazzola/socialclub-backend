@@ -1,4 +1,9 @@
 import { execSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+
+const gh = (process.platform === 'win32' && existsSync('C:\\Program Files\\GitHub CLI\\gh.exe'))
+  ? '"C:\\Program Files\\GitHub CLI\\gh.exe"'
+  : 'gh';
 
 function run(cmd, inherit = true) {
   console.log(`\x1b[36m> ${cmd}\x1b[0m`);
@@ -25,10 +30,10 @@ run(`git push -u origin ${branch}`);
 
 // 3. Crear PR si no existe
 console.log('\n2. Verificando Pull Request hacia dev...');
-const prInfo = run('gh pr view --json url,number', false);
+const prInfo = run(`${gh} pr view --json url,number`, false);
 if (!prInfo) {
   console.log('Creando Pull Request automáticamente con la información del commit...');
-  run('gh pr create --base dev --fill');
+  run(`${gh} pr create --base dev --fill`);
 } else {
   try {
     const { number, url } = JSON.parse(prInfo);
@@ -39,12 +44,12 @@ if (!prInfo) {
 }
 
 // 4. Monitorear checks de CI
-console.log('\n3. Esperando que los tests de CI pasen en verde en GitHub Actions...');
-run('gh pr checks --watch');
+console.log('\n3. Esperando que los tests de CI pasen en verde...');
+run(`${gh} pr checks --watch`);
 
 // 5. Mergear PR a dev
 console.log('\n4. CI en verde! Mergeando PR hacia dev...');
-run('gh pr merge --merge');
+run(`${gh} pr merge --merge`);
 
 // 6. Volver a dev y sincronizar
 console.log('\n5. Sincronizando entorno local con dev...');
