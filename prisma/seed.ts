@@ -6,6 +6,10 @@ import {
   EstadoEvento,
   EstadoEntrada,
   EstadoCompraEntrada,
+  Persona,
+  Inscripcion,
+  Disciplina,
+  CategoriaDisciplina,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'node:crypto';
@@ -129,7 +133,8 @@ async function main() {
       create: {
         categoriaId: cat.id,
         periodoAplicacion: '2025-01',
-        monto: cat.nombre === 'Cuota Juvenil' ? 6000 : cat.nombre === 'Cuota General' ? 10000 : 8000,
+        monto:
+          cat.nombre === 'Cuota Juvenil' ? 6000 : cat.nombre === 'Cuota General' ? 10000 : 8000,
         activo: true,
       },
     });
@@ -155,7 +160,9 @@ async function main() {
         where: { categoriaId: legacyCat.id },
         data: { categoriaId: nuevoCat.id },
       });
-    } catch {}
+    } catch {
+      // Ignorar si el modelo legacy no existe
+    }
     await prisma.categoriaSocio.delete({ where: { id: legacyCat.id } });
     console.log(`  Migrada categoría legacy '${legacy}' -> '${nuevo}'`);
   }
@@ -227,7 +234,7 @@ async function main() {
     },
   ];
 
-  const disciplinasMap = new Map<string, any>();
+  const disciplinasMap = new Map<string, Disciplina>();
   for (const discData of disciplinasData) {
     const disc = await prisma.disciplina.upsert({
       where: { nombre: discData.nombre },
@@ -248,27 +255,93 @@ async function main() {
   // ── 4. Categorías de disciplina (US-48 / US-49 / US-05) ────────────────────
   const categoriasDisciplinaData = [
     // Fútbol Mayor
-    { disciplina: 'Fútbol Mayor', nombre: 'Primera División', edadMinima: 18, edadMaxima: null, genero: GeneroDisciplina.MASCULINO },
-    { disciplina: 'Fútbol Mayor', nombre: 'Reserva', edadMinima: 18, edadMaxima: 23, genero: GeneroDisciplina.MASCULINO },
-    { disciplina: 'Fútbol Mayor', nombre: 'Senior (+35)', edadMinima: 35, edadMaxima: null, genero: GeneroDisciplina.MASCULINO },
+    {
+      disciplina: 'Fútbol Mayor',
+      nombre: 'Primera División',
+      edadMinima: 18,
+      edadMaxima: null,
+      genero: GeneroDisciplina.MASCULINO,
+    },
+    {
+      disciplina: 'Fútbol Mayor',
+      nombre: 'Reserva',
+      edadMinima: 18,
+      edadMaxima: 23,
+      genero: GeneroDisciplina.MASCULINO,
+    },
+    {
+      disciplina: 'Fútbol Mayor',
+      nombre: 'Senior (+35)',
+      edadMinima: 35,
+      edadMaxima: null,
+      genero: GeneroDisciplina.MASCULINO,
+    },
     // Fútbol Femenino
-    { disciplina: 'Fútbol Femenino', nombre: 'Primera Femenina', edadMinima: 17, edadMaxima: null, genero: GeneroDisciplina.FEMENINO },
-    { disciplina: 'Fútbol Femenino', nombre: 'Sub-16 Femenina', edadMinima: 13, edadMaxima: 16, genero: GeneroDisciplina.FEMENINO },
+    {
+      disciplina: 'Fútbol Femenino',
+      nombre: 'Primera Femenina',
+      edadMinima: 17,
+      edadMaxima: null,
+      genero: GeneroDisciplina.FEMENINO,
+    },
+    {
+      disciplina: 'Fútbol Femenino',
+      nombre: 'Sub-16 Femenina',
+      edadMinima: 13,
+      edadMaxima: 16,
+      genero: GeneroDisciplina.FEMENINO,
+    },
     // Jockey Femenino
-    { disciplina: 'Jockey Femenino', nombre: 'Primera', edadMinima: 15, edadMaxima: null, genero: GeneroDisciplina.FEMENINO },
-    { disciplina: 'Jockey Femenino', nombre: 'Sub-14', edadMinima: 10, edadMaxima: 14, genero: GeneroDisciplina.FEMENINO },
+    {
+      disciplina: 'Jockey Femenino',
+      nombre: 'Primera',
+      edadMinima: 15,
+      edadMaxima: null,
+      genero: GeneroDisciplina.FEMENINO,
+    },
+    {
+      disciplina: 'Jockey Femenino',
+      nombre: 'Sub-14',
+      edadMinima: 10,
+      edadMaxima: 14,
+      genero: GeneroDisciplina.FEMENINO,
+    },
     // Natación
-    { disciplina: 'Natación', nombre: 'Escuela Infantil', edadMinima: 4, edadMaxima: 12, genero: null },
-    { disciplina: 'Natación', nombre: 'Adultos / Libre', edadMinima: 13, edadMaxima: null, genero: null },
+    {
+      disciplina: 'Natación',
+      nombre: 'Escuela Infantil',
+      edadMinima: 4,
+      edadMaxima: 12,
+      genero: null,
+    },
+    {
+      disciplina: 'Natación',
+      nombre: 'Adultos / Libre',
+      edadMinima: 13,
+      edadMaxima: null,
+      genero: null,
+    },
     // Gimnasio
-    { disciplina: 'Gimnasio', nombre: 'Pase Libre Musculación', edadMinima: 14, edadMaxima: null, genero: null },
-    { disciplina: 'Gimnasio', nombre: 'Entrenamiento Funcional', edadMinima: 14, edadMaxima: null, genero: null },
+    {
+      disciplina: 'Gimnasio',
+      nombre: 'Pase Libre Musculación',
+      edadMinima: 14,
+      edadMaxima: null,
+      genero: null,
+    },
+    {
+      disciplina: 'Gimnasio',
+      nombre: 'Entrenamiento Funcional',
+      edadMinima: 14,
+      edadMaxima: null,
+      genero: null,
+    },
     // Básquet
     { disciplina: 'Básquet', nombre: 'Mini Básquet', edadMinima: 8, edadMaxima: 12, genero: null },
     { disciplina: 'Básquet', nombre: 'Juveniles', edadMinima: 13, edadMaxima: 18, genero: null },
   ];
 
-  const categoriasDisciplinaMap = new Map<string, any>();
+  const categoriasDisciplinaMap = new Map<string, CategoriaDisciplina>();
   for (const catData of categoriasDisciplinaData) {
     const disc = disciplinasMap.get(catData.disciplina);
     if (!disc) continue;
@@ -301,31 +374,98 @@ async function main() {
   // ── 5. Requerimientos documentales (US-24 / DT-27) ─────────────────────────
   const requerimientosData = [
     // Fútbol Mayor
-    { disciplina: 'Fútbol Mayor', categoria: null, tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA, plazoDiasTolerancia: 15 },
-    { disciplina: 'Fútbol Mayor', categoria: null, tipoDocumento: TipoDocumentacionDisciplina.SEGURO_COBERTURA_MEDICA, plazoDiasTolerancia: 30 },
-    { disciplina: 'Fútbol Mayor', categoria: null, tipoDocumento: TipoDocumentacionDisciplina.DNI, plazoDiasTolerancia: 0 },
+    {
+      disciplina: 'Fútbol Mayor',
+      categoria: null,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      plazoDiasTolerancia: 15,
+    },
+    {
+      disciplina: 'Fútbol Mayor',
+      categoria: null,
+      tipoDocumento: TipoDocumentacionDisciplina.SEGURO_COBERTURA_MEDICA,
+      plazoDiasTolerancia: 30,
+    },
+    {
+      disciplina: 'Fútbol Mayor',
+      categoria: null,
+      tipoDocumento: TipoDocumentacionDisciplina.DNI,
+      plazoDiasTolerancia: 0,
+    },
     // Fútbol Femenino
-    { disciplina: 'Fútbol Femenino', categoria: null, tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA, plazoDiasTolerancia: 15 },
-    { disciplina: 'Fútbol Femenino', categoria: null, tipoDocumento: TipoDocumentacionDisciplina.DNI, plazoDiasTolerancia: 0 },
+    {
+      disciplina: 'Fútbol Femenino',
+      categoria: null,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      plazoDiasTolerancia: 15,
+    },
+    {
+      disciplina: 'Fútbol Femenino',
+      categoria: null,
+      tipoDocumento: TipoDocumentacionDisciplina.DNI,
+      plazoDiasTolerancia: 0,
+    },
     // Jockey Femenino
-    { disciplina: 'Jockey Femenino', categoria: null, tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA, plazoDiasTolerancia: 15 },
-    { disciplina: 'Jockey Femenino', categoria: null, tipoDocumento: TipoDocumentacionDisciplina.CARNET_FEDERATIVO_LICENCIA_DEPORTIVA, plazoDiasTolerancia: 30 },
+    {
+      disciplina: 'Jockey Femenino',
+      categoria: null,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      plazoDiasTolerancia: 15,
+    },
+    {
+      disciplina: 'Jockey Femenino',
+      categoria: null,
+      tipoDocumento: TipoDocumentacionDisciplina.CARNET_FEDERATIVO_LICENCIA_DEPORTIVA,
+      plazoDiasTolerancia: 30,
+    },
     // Natación
-    { disciplina: 'Natación', categoria: null, tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA, plazoDiasTolerancia: 10 },
-    { disciplina: 'Natación', categoria: null, tipoDocumento: TipoDocumentacionDisciplina.FICHA_TECNICA_NATACION, plazoDiasTolerancia: 0 },
+    {
+      disciplina: 'Natación',
+      categoria: null,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      plazoDiasTolerancia: 10,
+    },
+    {
+      disciplina: 'Natación',
+      categoria: null,
+      tipoDocumento: TipoDocumentacionDisciplina.FICHA_TECNICA_NATACION,
+      plazoDiasTolerancia: 0,
+    },
     // Requisito adicional para Natación - Escuela Infantil
-    { disciplina: 'Natación', categoria: 'Escuela Infantil', tipoDocumento: TipoDocumentacionDisciplina.AUTORIZACION_PADRES_TUTORES, plazoDiasTolerancia: 0 },
+    {
+      disciplina: 'Natación',
+      categoria: 'Escuela Infantil',
+      tipoDocumento: TipoDocumentacionDisciplina.AUTORIZACION_PADRES_TUTORES,
+      plazoDiasTolerancia: 0,
+    },
     // Gimnasio
-    { disciplina: 'Gimnasio', categoria: null, tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA, plazoDiasTolerancia: 15 },
-    { disciplina: 'Gimnasio', categoria: null, tipoDocumento: TipoDocumentacionDisciplina.FICHA_TECNICA_GIMNASIO_FITNESS, plazoDiasTolerancia: 0 },
+    {
+      disciplina: 'Gimnasio',
+      categoria: null,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      plazoDiasTolerancia: 15,
+    },
+    {
+      disciplina: 'Gimnasio',
+      categoria: null,
+      tipoDocumento: TipoDocumentacionDisciplina.FICHA_TECNICA_GIMNASIO_FITNESS,
+      plazoDiasTolerancia: 0,
+    },
     // Básquet
-    { disciplina: 'Básquet', categoria: null, tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA, plazoDiasTolerancia: 15 },
+    {
+      disciplina: 'Básquet',
+      categoria: null,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      plazoDiasTolerancia: 15,
+    },
   ];
 
   for (const req of requerimientosData) {
     const disc = disciplinasMap.get(req.disciplina);
     if (!disc) continue;
-    const cat = req.categoria ? categoriasDisciplinaMap.get(`${req.disciplina}:${req.categoria}`) : null;
+    const cat = req.categoria
+      ? categoriasDisciplinaMap.get(`${req.disciplina}:${req.categoria}`)
+      : null;
     const categoriaDisciplinaId = cat ? cat.id : null;
 
     const existente = await prisma.disciplinaRequerimientoDoc.findFirst({
@@ -357,25 +497,103 @@ async function main() {
   // ── 6. Tarifas de Cuota Deportiva (US-20 · TASK-33) ────────────────────────
   const cuotasDeportivasData = [
     // Fútbol Mayor
-    { disciplina: 'Fútbol Mayor', categoria: null, periodo: '2026-01', monto: 15000, descuentoSocioPorcentaje: 20 },
-    { disciplina: 'Fútbol Mayor', categoria: 'Senior (+35)', periodo: '2026-01', monto: 12000, descuentoSocioPorcentaje: 25 },
+    {
+      disciplina: 'Fútbol Mayor',
+      categoria: null,
+      periodo: '2026-01',
+      monto: 15000,
+      descuentoSocioPorcentaje: 20,
+    },
+    {
+      disciplina: 'Fútbol Mayor',
+      categoria: 'Senior (+35)',
+      periodo: '2026-01',
+      monto: 12000,
+      descuentoSocioPorcentaje: 25,
+    },
     // Fútbol Femenino
-    { disciplina: 'Fútbol Femenino', categoria: null, periodo: '2026-01', monto: 14000, descuentoSocioPorcentaje: 20 },
-    { disciplina: 'Fútbol Femenino', categoria: 'Sub-16 Femenina', periodo: '2026-01', monto: 11000, descuentoSocioPorcentaje: 20 },
+    {
+      disciplina: 'Fútbol Femenino',
+      categoria: null,
+      periodo: '2026-01',
+      monto: 14000,
+      descuentoSocioPorcentaje: 20,
+    },
+    {
+      disciplina: 'Fútbol Femenino',
+      categoria: 'Sub-16 Femenina',
+      periodo: '2026-01',
+      monto: 11000,
+      descuentoSocioPorcentaje: 20,
+    },
     // Jockey Femenino
-    { disciplina: 'Jockey Femenino', categoria: null, periodo: '2026-01', monto: 16000, descuentoSocioPorcentaje: 15 },
+    {
+      disciplina: 'Jockey Femenino',
+      categoria: null,
+      periodo: '2026-01',
+      monto: 16000,
+      descuentoSocioPorcentaje: 15,
+    },
     // Natación
-    { disciplina: 'Natación', categoria: null, periodo: '2026-01', monto: 18000, descuentoSocioPorcentaje: 20 },
-    { disciplina: 'Natación', categoria: 'Escuela Infantil', periodo: '2026-01', monto: 13000, descuentoSocioPorcentaje: 15 },
-    { disciplina: 'Natación', categoria: 'Adultos / Libre', periodo: '2026-01', monto: 16000, descuentoSocioPorcentaje: 20 },
+    {
+      disciplina: 'Natación',
+      categoria: null,
+      periodo: '2026-01',
+      monto: 18000,
+      descuentoSocioPorcentaje: 20,
+    },
+    {
+      disciplina: 'Natación',
+      categoria: 'Escuela Infantil',
+      periodo: '2026-01',
+      monto: 13000,
+      descuentoSocioPorcentaje: 15,
+    },
+    {
+      disciplina: 'Natación',
+      categoria: 'Adultos / Libre',
+      periodo: '2026-01',
+      monto: 16000,
+      descuentoSocioPorcentaje: 20,
+    },
     // Pelota Paleta
-    { disciplina: 'Pelota Paleta', categoria: null, periodo: '2026-01', monto: 10000, descuentoSocioPorcentaje: 10 },
+    {
+      disciplina: 'Pelota Paleta',
+      categoria: null,
+      periodo: '2026-01',
+      monto: 10000,
+      descuentoSocioPorcentaje: 10,
+    },
     // Gimnasio
-    { disciplina: 'Gimnasio', categoria: null, periodo: '2026-01', monto: 11000, descuentoSocioPorcentaje: 25 },
-    { disciplina: 'Gimnasio', categoria: 'Pase Libre Musculación', periodo: '2026-01', monto: 11000, descuentoSocioPorcentaje: 25 },
-    { disciplina: 'Gimnasio', categoria: 'Entrenamiento Funcional', periodo: '2026-01', monto: 13500, descuentoSocioPorcentaje: 20 },
+    {
+      disciplina: 'Gimnasio',
+      categoria: null,
+      periodo: '2026-01',
+      monto: 11000,
+      descuentoSocioPorcentaje: 25,
+    },
+    {
+      disciplina: 'Gimnasio',
+      categoria: 'Pase Libre Musculación',
+      periodo: '2026-01',
+      monto: 11000,
+      descuentoSocioPorcentaje: 25,
+    },
+    {
+      disciplina: 'Gimnasio',
+      categoria: 'Entrenamiento Funcional',
+      periodo: '2026-01',
+      monto: 13500,
+      descuentoSocioPorcentaje: 20,
+    },
     // Básquet
-    { disciplina: 'Básquet', categoria: null, periodo: '2026-01', monto: 12000, descuentoSocioPorcentaje: 20 },
+    {
+      disciplina: 'Básquet',
+      categoria: null,
+      periodo: '2026-01',
+      monto: 12000,
+      descuentoSocioPorcentaje: 20,
+    },
   ];
 
   for (const c of cuotasDeportivasData) {
@@ -838,7 +1056,569 @@ async function main() {
     },
   });
 
-  console.log('  11 combinaciones de Persona, Usuario y Membresía sembradas exitosamente.');
+  // Mapa centralizado de Personas por DNI para vincular inscripciones, documentaciones y pagos
+  const personasMap = new Map<string, Persona>();
+  personasMap.set('10000001', personaAdmin);
+  personasMap.set('20000002', personaSocioSinCuenta);
+  personasMap.set('30000003', personaLucia);
+  personasMap.set('40000004', personaMartin);
+  personasMap.set('50000005', personaGimnasio);
+  personasMap.set('60000006', personaValeria);
+  personasMap.set('70000007', personaColaborador);
+  personasMap.set('80000008', personaDelegado);
+  personasMap.set('90000009', personaSantiago);
+  personasMap.set('90000010', personaCamila);
+  personasMap.set('70000011', personaRoberto);
+
+  // 7.12 a 7.35. Ampliación de Personas, Socios y Usuarios (mínimo ~20 de cada entidad)
+  interface SeedPersonaUsuarioData {
+    dni: string;
+    nombre: string;
+    apellido: string;
+    email: string;
+    telefono?: string;
+    genero: GeneroDisciplina;
+    fechaNacimiento: Date;
+    membresias?: {
+      categoria: 'Cuota Juvenil' | 'Cuota General' | 'Cuota Senior';
+      activo: boolean;
+      fechaAlta: Date;
+      fechaBaja?: Date | null;
+    }[];
+    usuario?: {
+      roles: ('ADMIN' | 'COLABORADOR' | 'DELEGADO' | 'SOCIO')[];
+      activo?: boolean;
+      disciplinasDelegadas?: string[];
+    };
+  }
+
+  const nuevasPersonasData: SeedPersonaUsuarioData[] = [
+    // 7.12. Mariana Colaboradora (Personal operativo del club)
+    {
+      dni: '70000012',
+      nombre: 'Mariana',
+      apellido: 'Colaboradora',
+      email: 'mariana.colaboradora@socialclub.local',
+      telefono: '3515551212',
+      genero: GeneroDisciplina.FEMENINO,
+      fechaNacimiento: new Date('1993-04-18'),
+      usuario: { roles: ['COLABORADOR'], activo: true },
+    },
+    // 7.13. Pablo Delegado (Delegado a cargo de Básquet y Gimnasio)
+    {
+      dni: '80000013',
+      nombre: 'Pablo',
+      apellido: 'Delegado',
+      email: 'pablo.delegado@socialclub.local',
+      telefono: '3515551313',
+      genero: GeneroDisciplina.MASCULINO,
+      fechaNacimiento: new Date('1986-11-25'),
+      usuario: {
+        roles: ['DELEGADO'],
+        activo: true,
+        disciplinasDelegadas: ['Básquet', 'Gimnasio'],
+      },
+    },
+    // 7.14. Julián Gómez (Socio activo Cuota General, jugador de Reserva en Fútbol Mayor)
+    {
+      dni: '30000014',
+      nombre: 'Julián',
+      apellido: 'Gómez',
+      email: 'julian.gomez@club.local',
+      telefono: '3515551414',
+      genero: GeneroDisciplina.MASCULINO,
+      fechaNacimiento: new Date('1996-08-14'),
+      membresias: [
+        {
+          categoria: 'Cuota General',
+          activo: true,
+          fechaAlta: new Date('2025-02-10'),
+        },
+      ],
+      usuario: { roles: ['SOCIO'], activo: true },
+    },
+    // 7.15. Sofía Martínez (Socia activa Cuota General, jugadora de Jockey Femenino Primera)
+    {
+      dni: '30000015',
+      nombre: 'Sofía',
+      apellido: 'Martínez',
+      email: 'sofia.martinez@club.local',
+      telefono: '3515551515',
+      genero: GeneroDisciplina.FEMENINO,
+      fechaNacimiento: new Date('1999-03-22'),
+      membresias: [
+        {
+          categoria: 'Cuota General',
+          activo: true,
+          fechaAlta: new Date('2025-04-01'),
+        },
+      ],
+      usuario: { roles: ['SOCIO'], activo: true },
+    },
+    // 7.16. Mateo Rossi (Socio activo Cuota General, practica Pelota Paleta)
+    {
+      dni: '30000016',
+      nombre: 'Mateo',
+      apellido: 'Rossi',
+      email: 'mateo.rossi@club.local',
+      telefono: '3515551616',
+      genero: GeneroDisciplina.MASCULINO,
+      fechaNacimiento: new Date('1994-12-05'),
+      membresias: [
+        {
+          categoria: 'Cuota General',
+          activo: true,
+          fechaAlta: new Date('2024-11-15'),
+        },
+      ],
+      usuario: { roles: ['SOCIO'], activo: true },
+    },
+    // 7.17. Florencia Benítez (Socia activa Cuota General, nada en Adultos / Libre)
+    {
+      dni: '30000017',
+      nombre: 'Florencia',
+      apellido: 'Benítez',
+      email: 'florencia.benitez@club.local',
+      telefono: '3515551717',
+      genero: GeneroDisciplina.FEMENINO,
+      fechaNacimiento: new Date('1997-07-30'),
+      membresias: [
+        {
+          categoria: 'Cuota General',
+          activo: true,
+          fechaAlta: new Date('2025-06-01'),
+        },
+      ],
+      usuario: { roles: ['SOCIO'], activo: true },
+    },
+    // 7.18. Lucas Díaz (Socio activo Cuota General, Primera de Fútbol Mayor)
+    {
+      dni: '30000018',
+      nombre: 'Lucas',
+      apellido: 'Díaz',
+      email: 'lucas.diaz@club.local',
+      telefono: '3515551818',
+      genero: GeneroDisciplina.MASCULINO,
+      fechaNacimiento: new Date('1991-05-19'),
+      membresias: [
+        {
+          categoria: 'Cuota General',
+          activo: true,
+          fechaAlta: new Date('2025-03-15'),
+        },
+      ],
+      usuario: { roles: ['SOCIO'], activo: true },
+    },
+    // 7.19. Valentina Fernández (Socia activa Cuota General, Primera de Fútbol Femenino)
+    {
+      dni: '30000019',
+      nombre: 'Valentina',
+      apellido: 'Fernández',
+      email: 'valentina.fernandez@club.local',
+      telefono: '3515551919',
+      genero: GeneroDisciplina.FEMENINO,
+      fechaNacimiento: new Date('2000-10-12'),
+      membresias: [
+        {
+          categoria: 'Cuota General',
+          activo: true,
+          fechaAlta: new Date('2025-01-20'),
+        },
+      ],
+      usuario: { roles: ['SOCIO'], activo: true },
+    },
+    // 7.20. Joaquín Romero (Socio activo Cuota General, concurre a Entrenamiento Funcional)
+    {
+      dni: '30000020',
+      nombre: 'Joaquín',
+      apellido: 'Romero',
+      email: 'joaquin.romero@club.local',
+      telefono: '3515552020',
+      genero: GeneroDisciplina.MASCULINO,
+      fechaNacimiento: new Date('1995-02-28'),
+      membresias: [
+        {
+          categoria: 'Cuota General',
+          activo: true,
+          fechaAlta: new Date('2025-05-10'),
+        },
+      ],
+      usuario: { roles: ['SOCIO'], activo: true },
+    },
+    // 7.21. Agustín Morales (Socio activo Cuota General, Básquet)
+    {
+      dni: '30000021',
+      nombre: 'Agustín',
+      apellido: 'Morales',
+      email: 'agustin.morales@club.local',
+      telefono: '3515552121',
+      genero: GeneroDisciplina.MASCULINO,
+      fechaNacimiento: new Date('1993-09-08'),
+      membresias: [
+        {
+          categoria: 'Cuota General',
+          activo: true,
+          fechaAlta: new Date('2025-04-20'),
+        },
+      ],
+      usuario: { roles: ['SOCIO'], activo: true },
+    },
+    // 7.22. Rocío Álvarez (Socia activa Cuota General, Jockey Femenino)
+    {
+      dni: '30000022',
+      nombre: 'Rocío',
+      apellido: 'Álvarez',
+      email: 'rocio.alvarez@club.local',
+      telefono: '3515552222',
+      genero: GeneroDisciplina.FEMENINO,
+      fechaNacimiento: new Date('1998-01-17'),
+      membresias: [
+        {
+          categoria: 'Cuota General',
+          activo: true,
+          fechaAlta: new Date('2025-07-01'),
+        },
+      ],
+      usuario: { roles: ['SOCIO'], activo: true },
+    },
+    // 7.23. Tomás Herrera (Socio Juvenil activo con usuario autogestionado)
+    {
+      dni: '30000023',
+      nombre: 'Tomás',
+      apellido: 'Herrera',
+      email: 'tomas.herrera@club.local',
+      telefono: '3515552323',
+      genero: GeneroDisciplina.MASCULINO,
+      fechaNacimiento: new Date('2010-06-14'),
+      membresias: [
+        {
+          categoria: 'Cuota Juvenil',
+          activo: true,
+          fechaAlta: new Date('2026-01-10'),
+        },
+      ],
+      usuario: { roles: ['SOCIO'], activo: true },
+    },
+    // 7.24. Mía Castro (Socia Juvenil activa con usuario autogestionado, Jockey Sub-14)
+    {
+      dni: '30000024',
+      nombre: 'Mía',
+      apellido: 'Castro',
+      email: 'mia.castro@club.local',
+      telefono: '3515552424',
+      genero: GeneroDisciplina.FEMENINO,
+      fechaNacimiento: new Date('2011-11-20'),
+      membresias: [
+        {
+          categoria: 'Cuota Juvenil',
+          activo: true,
+          fechaAlta: new Date('2026-02-01'),
+        },
+      ],
+      usuario: { roles: ['SOCIO'], activo: true },
+    },
+    // 7.25. Benjamín López (Socio Juvenil activo infantil, sin usuario, gestionado por padres)
+    {
+      dni: '30000025',
+      nombre: 'Benjamín',
+      apellido: 'López',
+      email: 'benjamin.lopez@familia.local',
+      telefono: '3515552525',
+      genero: GeneroDisciplina.MASCULINO,
+      fechaNacimiento: new Date('2014-03-05'),
+      membresias: [
+        {
+          categoria: 'Cuota Juvenil',
+          activo: true,
+          fechaAlta: new Date('2026-02-15'),
+        },
+      ],
+    },
+    // 7.26. Clara Navarro (Socia Juvenil activa, sin usuario, Fútbol Sub-16)
+    {
+      dni: '30000026',
+      nombre: 'Clara',
+      apellido: 'Navarro',
+      email: 'clara.navarro@familia.local',
+      telefono: '3515552626',
+      genero: GeneroDisciplina.FEMENINO,
+      fechaNacimiento: new Date('2012-08-19'),
+      membresias: [
+        {
+          categoria: 'Cuota Juvenil',
+          activo: true,
+          fechaAlta: new Date('2026-03-01'),
+        },
+      ],
+    },
+    // 7.27. Pedro Gutiérrez (Socio Senior activo + Usuario SOCIO)
+    {
+      dni: '20000027',
+      nombre: 'Pedro',
+      apellido: 'Gutiérrez',
+      email: 'pedro.gutierrez@club.local',
+      telefono: '3515552727',
+      genero: GeneroDisciplina.MASCULINO,
+      fechaNacimiento: new Date('1958-09-12'),
+      membresias: [
+        {
+          categoria: 'Cuota Senior',
+          activo: true,
+          fechaAlta: new Date('2024-05-10'),
+        },
+      ],
+      usuario: { roles: ['SOCIO'], activo: true },
+    },
+    // 7.28. Carmen Domínguez (Socia Senior activa + Usuario SOCIO, Natación Adultos)
+    {
+      dni: '20000028',
+      nombre: 'Carmen',
+      apellido: 'Domínguez',
+      email: 'carmen.dominguez@club.local',
+      telefono: '3515552828',
+      genero: GeneroDisciplina.FEMENINO,
+      fechaNacimiento: new Date('1961-04-03'),
+      membresias: [
+        {
+          categoria: 'Cuota Senior',
+          activo: true,
+          fechaAlta: new Date('2024-08-20'),
+        },
+      ],
+      usuario: { roles: ['SOCIO'], activo: true },
+    },
+    // 7.29. Jorge Méndez (Socio Senior activo, sin usuario)
+    {
+      dni: '20000029',
+      nombre: 'Jorge',
+      apellido: 'Méndez',
+      email: 'jorge.mendez@club.local',
+      telefono: '3515552929',
+      genero: GeneroDisciplina.MASCULINO,
+      fechaNacimiento: new Date('1955-12-18'),
+      membresias: [
+        {
+          categoria: 'Cuota Senior',
+          activo: true,
+          fechaAlta: new Date('2023-10-01'),
+        },
+      ],
+    },
+    // 7.30. Elena Paz (Socia inactiva con baja y Usuario inactivo)
+    {
+      dni: '30000030',
+      nombre: 'Elena',
+      apellido: 'Paz',
+      email: 'elena.paz@club.local',
+      telefono: '3515553030',
+      genero: GeneroDisciplina.FEMENINO,
+      fechaNacimiento: new Date('1989-07-21'),
+      membresias: [
+        {
+          categoria: 'Cuota General',
+          activo: false,
+          fechaAlta: new Date('2024-01-10'),
+          fechaBaja: new Date('2025-12-31'),
+        },
+      ],
+      usuario: { roles: ['SOCIO'], activo: false },
+    },
+    // 7.31. Gonzalo Torres (Socio inactivo con baja y Usuario activo)
+    {
+      dni: '30000031',
+      nombre: 'Gonzalo',
+      apellido: 'Torres',
+      email: 'gonzalo.torres@club.local',
+      telefono: '3515553131',
+      genero: GeneroDisciplina.MASCULINO,
+      fechaNacimiento: new Date('1987-02-14'),
+      membresias: [
+        {
+          categoria: 'Cuota General',
+          activo: false,
+          fechaAlta: new Date('2024-03-01'),
+          fechaBaja: new Date('2025-11-30'),
+        },
+      ],
+      usuario: { roles: ['SOCIO'], activo: true },
+    },
+    // 7.32. Paula Ruiz (Socia inactiva con baja, sin usuario)
+    {
+      dni: '30000032',
+      nombre: 'Paula',
+      apellido: 'Ruiz',
+      email: 'paula.ruiz@club.local',
+      telefono: '3515553232',
+      genero: GeneroDisciplina.FEMENINO,
+      fechaNacimiento: new Date('1993-10-05'),
+      membresias: [
+        {
+          categoria: 'Cuota General',
+          activo: false,
+          fechaAlta: new Date('2024-06-15'),
+          fechaBaja: new Date('2025-10-01'),
+        },
+      ],
+    },
+    // 7.33. Rodrigo Vega (Participante no socio, usuario SOCIO autogestionado)
+    {
+      dni: '50000033',
+      nombre: 'Rodrigo',
+      apellido: 'Vega',
+      email: 'rodrigo.vega@externo.local',
+      telefono: '3515553333',
+      genero: GeneroDisciplina.MASCULINO,
+      fechaNacimiento: new Date('1996-05-11'),
+      usuario: { roles: ['SOCIO'], activo: true },
+    },
+    // 7.34. Nicolás Giménez (Participante no socio, sin usuario)
+    {
+      dni: '50000034',
+      nombre: 'Nicolás',
+      apellido: 'Giménez',
+      email: 'nicolas.gimenez@externo.local',
+      telefono: '3515553434',
+      genero: GeneroDisciplina.MASCULINO,
+      fechaNacimiento: new Date('2002-08-29'),
+    },
+    // 7.35. Patricia Sosa (Usuario inactivo rol COLABORADOR)
+    {
+      dni: '70000035',
+      nombre: 'Patricia',
+      apellido: 'Sosa',
+      email: 'patricia.colaboradora@socialclub.local',
+      telefono: '3515553535',
+      genero: GeneroDisciplina.FEMENINO,
+      fechaNacimiento: new Date('1982-12-04'),
+      usuario: { roles: ['COLABORADOR'], activo: false },
+    },
+  ];
+
+  for (const pData of nuevasPersonasData) {
+    let persona = await prisma.persona.findUnique({ where: { dni: pData.dni } });
+    if (!persona) {
+      persona = await prisma.persona.create({
+        data: {
+          nombre: pData.nombre,
+          apellido: pData.apellido,
+          dni: pData.dni,
+          email: pData.email,
+          telefono: pData.telefono,
+          genero: pData.genero,
+          fechaNacimiento: pData.fechaNacimiento,
+        },
+      });
+    } else {
+      persona = await prisma.persona.update({
+        where: { id: persona.id },
+        data: {
+          nombre: pData.nombre,
+          apellido: pData.apellido,
+          email: pData.email,
+          telefono: pData.telefono,
+          genero: pData.genero,
+          fechaNacimiento: pData.fechaNacimiento,
+        },
+      });
+    }
+
+    if (pData.membresias?.length) {
+      for (const m of pData.membresias) {
+        const cat = categoriasMap.get(m.categoria);
+        if (cat) {
+          const memExistente = await prisma.membresia.findFirst({
+            where: { personaId: persona.id, categoriaId: cat.id },
+          });
+          if (!memExistente) {
+            await prisma.membresia.create({
+              data: {
+                personaId: persona.id,
+                categoriaId: cat.id,
+                activo: m.activo,
+                fechaAlta: m.fechaAlta,
+                fechaBaja: m.fechaBaja ?? null,
+              },
+            });
+          } else {
+            await prisma.membresia.update({
+              where: { id: memExistente.id },
+              data: {
+                activo: m.activo,
+                fechaAlta: m.fechaAlta,
+                fechaBaja: m.fechaBaja ?? null,
+              },
+            });
+          }
+        }
+      }
+    }
+
+    if (pData.usuario) {
+      const rolesParaAsignar = pData.usuario.roles.map((rNombre) => {
+        if (rNombre === 'ADMIN') return rolAdmin.id;
+        if (rNombre === 'COLABORADOR') return rolColaborador.id;
+        if (rNombre === 'DELEGADO') return rolDelegado.id;
+        return rolSocio.id;
+      });
+
+      const usuario = await prisma.usuario.upsert({
+        where: { email: pData.email },
+        update: {
+          personaId: persona.id,
+          nombre: pData.nombre,
+          apellido: pData.apellido,
+          activo: pData.usuario.activo ?? true,
+        },
+        create: {
+          email: pData.email,
+          passwordHash,
+          nombre: pData.nombre,
+          apellido: pData.apellido,
+          activo: pData.usuario.activo ?? true,
+          personaId: persona.id,
+          roles: {
+            create: rolesParaAsignar.map((rolId) => ({ rolId })),
+          },
+        },
+      });
+
+      for (const rolId of rolesParaAsignar) {
+        await prisma.usuarioRol.upsert({
+          where: {
+            usuarioId_rolId: {
+              usuarioId: usuario.id,
+              rolId,
+            },
+          },
+          update: {},
+          create: {
+            usuarioId: usuario.id,
+            rolId,
+          },
+        });
+      }
+
+      if (pData.usuario.disciplinasDelegadas?.length) {
+        const countDelegadas = await prisma.delegadoDisciplina.count({
+          where: { usuarioId: usuario.id },
+        });
+        if (countDelegadas === 0) {
+          await prisma.delegadoDisciplina.createMany({
+            data: pData.usuario.disciplinasDelegadas.map((nombreDisc) => ({
+              usuarioId: usuario.id,
+              disciplinaId: disciplinasMap.get(nombreDisc)!.id,
+            })),
+          });
+        }
+      }
+    }
+
+    personasMap.set(pData.dni, persona);
+  }
+
+  console.log(
+    `  ${personasMap.size} personas sembradas exitosamente con socios y usuarios correspondientes.`,
+  );
 
   // ── 8. Inscripciones (US-07 · fechaBaja / US-08 · categoría) ───────────────
   const inscripcionesData = [
@@ -905,9 +1685,171 @@ async function main() {
       activo: false,
       fechaBaja: new Date('2026-02-15'),
     },
+    // Julián Gómez en Fútbol Mayor (Reserva)
+    {
+      personaId: personasMap.get('30000014')!.id,
+      disciplinaNombre: 'Fútbol Mayor',
+      categoriaNombre: 'Reserva',
+      fechaInscripcion: new Date('2026-01-15'),
+      activo: true,
+      fechaBaja: null,
+    },
+    // Sofía Martínez en Jockey Femenino (Primera)
+    {
+      personaId: personasMap.get('30000015')!.id,
+      disciplinaNombre: 'Jockey Femenino',
+      categoriaNombre: 'Primera',
+      fechaInscripcion: new Date('2026-02-01'),
+      activo: true,
+      fechaBaja: null,
+    },
+    // Mateo Rossi en Pelota Paleta
+    {
+      personaId: personasMap.get('30000016')!.id,
+      disciplinaNombre: 'Pelota Paleta',
+      categoriaNombre: null,
+      fechaInscripcion: new Date('2025-11-20'),
+      activo: true,
+      fechaBaja: null,
+    },
+    // Florencia Benítez en Natación (Adultos / Libre)
+    {
+      personaId: personasMap.get('30000017')!.id,
+      disciplinaNombre: 'Natación',
+      categoriaNombre: 'Adultos / Libre',
+      fechaInscripcion: new Date('2026-02-10'),
+      activo: true,
+      fechaBaja: null,
+    },
+    // Lucas Díaz en Fútbol Mayor (Primera División)
+    {
+      personaId: personasMap.get('30000018')!.id,
+      disciplinaNombre: 'Fútbol Mayor',
+      categoriaNombre: 'Primera División',
+      fechaInscripcion: new Date('2025-05-01'),
+      activo: true,
+      fechaBaja: null,
+    },
+    // Lucas Díaz en Gimnasio (dada de baja en 2026-01-31)
+    {
+      personaId: personasMap.get('30000018')!.id,
+      disciplinaNombre: 'Gimnasio',
+      categoriaNombre: 'Pase Libre Musculación',
+      fechaInscripcion: new Date('2025-06-01'),
+      activo: false,
+      fechaBaja: new Date('2026-01-31'),
+    },
+    // Valentina Fernández en Fútbol Femenino (Primera)
+    {
+      personaId: personasMap.get('30000019')!.id,
+      disciplinaNombre: 'Fútbol Femenino',
+      categoriaNombre: 'Primera Femenina',
+      fechaInscripcion: new Date('2026-01-10'),
+      activo: true,
+      fechaBaja: null,
+    },
+    // Joaquín Romero en Gimnasio (Entrenamiento Funcional)
+    {
+      personaId: personasMap.get('30000020')!.id,
+      disciplinaNombre: 'Gimnasio',
+      categoriaNombre: 'Entrenamiento Funcional',
+      fechaInscripcion: new Date('2025-08-01'),
+      activo: true,
+      fechaBaja: null,
+    },
+    // Agustín Morales en Básquet (Juveniles)
+    {
+      personaId: personasMap.get('30000021')!.id,
+      disciplinaNombre: 'Básquet',
+      categoriaNombre: 'Juveniles',
+      fechaInscripcion: new Date('2025-09-01'),
+      activo: true,
+      fechaBaja: null,
+    },
+    // Rocío Álvarez en Jockey Femenino (Primera)
+    {
+      personaId: personasMap.get('30000022')!.id,
+      disciplinaNombre: 'Jockey Femenino',
+      categoriaNombre: 'Primera',
+      fechaInscripcion: new Date('2025-10-15'),
+      activo: true,
+      fechaBaja: null,
+    },
+    // Tomás Herrera en Básquet (Juveniles)
+    {
+      personaId: personasMap.get('30000023')!.id,
+      disciplinaNombre: 'Básquet',
+      categoriaNombre: 'Juveniles',
+      fechaInscripcion: new Date('2026-01-20'),
+      activo: true,
+      fechaBaja: null,
+    },
+    // Mía Castro en Jockey Femenino (Sub-14)
+    {
+      personaId: personasMap.get('30000024')!.id,
+      disciplinaNombre: 'Jockey Femenino',
+      categoriaNombre: 'Sub-14',
+      fechaInscripcion: new Date('2026-02-01'),
+      activo: true,
+      fechaBaja: null,
+    },
+    // Benjamín López en Natación (Escuela Infantil)
+    {
+      personaId: personasMap.get('30000025')!.id,
+      disciplinaNombre: 'Natación',
+      categoriaNombre: 'Escuela Infantil',
+      fechaInscripcion: new Date('2026-02-15'),
+      activo: true,
+      fechaBaja: null,
+    },
+    // Clara Navarro en Fútbol Femenino (Sub-16 Femenina)
+    {
+      personaId: personasMap.get('30000026')!.id,
+      disciplinaNombre: 'Fútbol Femenino',
+      categoriaNombre: 'Sub-16 Femenina',
+      fechaInscripcion: new Date('2026-03-01'),
+      activo: true,
+      fechaBaja: null,
+    },
+    // Pedro Gutiérrez en Pelota Paleta
+    {
+      personaId: personasMap.get('20000027')!.id,
+      disciplinaNombre: 'Pelota Paleta',
+      categoriaNombre: null,
+      fechaInscripcion: new Date('2024-06-01'),
+      activo: true,
+      fechaBaja: null,
+    },
+    // Carmen Domínguez en Natación (Adultos / Libre)
+    {
+      personaId: personasMap.get('20000028')!.id,
+      disciplinaNombre: 'Natación',
+      categoriaNombre: 'Adultos / Libre',
+      fechaInscripcion: new Date('2024-09-01'),
+      activo: true,
+      fechaBaja: null,
+    },
+    // Rodrigo Vega en Gimnasio (Pase Libre Musculación)
+    {
+      personaId: personasMap.get('50000033')!.id,
+      disciplinaNombre: 'Gimnasio',
+      categoriaNombre: 'Pase Libre Musculación',
+      fechaInscripcion: new Date('2026-01-05'),
+      activo: true,
+      fechaBaja: null,
+    },
+    // Nicolás Giménez en Básquet (Juveniles)
+    {
+      personaId: personasMap.get('50000034')!.id,
+      disciplinaNombre: 'Básquet',
+      categoriaNombre: 'Juveniles',
+      fechaInscripcion: new Date('2026-02-01'),
+      activo: true,
+      fechaBaja: null,
+    },
   ];
 
-  const inscripcionesMap = new Map<string, any>();
+  const inscripcionesMap = new Map<string, Inscripcion>();
   for (const ins of inscripcionesData) {
     const disc = disciplinasMap.get(ins.disciplinaNombre);
     if (!disc) continue;
@@ -1052,6 +1994,259 @@ async function main() {
       mimeType: 'application/pdf',
       tamano: 720000,
     },
+    // Julián Gómez (Fútbol Mayor)
+    {
+      personaId: personasMap.get('30000014')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.DNI,
+      tipo: 'Documento Nacional de Identidad',
+      fechaVencimiento: new Date('2034-01-01'),
+      archivoNombre: 'dni_julian.pdf',
+      archivoRuta: 'documentos/dni_julian.pdf',
+      mimeType: 'application/pdf',
+      tamano: 220000,
+    },
+    {
+      personaId: personasMap.get('30000014')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      tipo: 'Certificado Médico de Aptitud Física',
+      fechaVencimiento: new Date('2026-12-31'),
+      archivoNombre: 'apto_medico_julian.pdf',
+      archivoRuta: 'documentos/apto_medico_julian.pdf',
+      mimeType: 'application/pdf',
+      tamano: 680000,
+    },
+    // Sofía Martínez (Jockey Femenino)
+    {
+      personaId: personasMap.get('30000015')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      tipo: 'Certificado Médico Aptitud Competitiva',
+      fechaVencimiento: new Date('2026-11-30'),
+      archivoNombre: 'apto_medico_sofia.pdf',
+      archivoRuta: 'documentos/apto_medico_sofia.pdf',
+      mimeType: 'application/pdf',
+      tamano: 750000,
+    },
+    {
+      personaId: personasMap.get('30000015')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.CARNET_FEDERATIVO_LICENCIA_DEPORTIVA,
+      tipo: 'Carnet de Jugadora Federada 2026',
+      fechaVencimiento: new Date('2027-01-15'),
+      archivoNombre: 'carnet_federativo_sofia.pdf',
+      archivoRuta: 'documentos/carnet_federativo_sofia.pdf',
+      mimeType: 'application/pdf',
+      tamano: 340000,
+    },
+    // Florencia Benítez (Natación)
+    {
+      personaId: personasMap.get('30000017')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      tipo: 'Certificado Médico Natatorio',
+      fechaVencimiento: new Date('2026-10-15'),
+      archivoNombre: 'apto_medico_florencia.pdf',
+      archivoRuta: 'documentos/apto_medico_florencia.pdf',
+      mimeType: 'application/pdf',
+      tamano: 600000,
+    },
+    {
+      personaId: personasMap.get('30000017')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.FICHA_TECNICA_NATACION,
+      tipo: 'Ficha de Pileta y Natatorio',
+      fechaVencimiento: new Date('2027-02-28'),
+      archivoNombre: 'ficha_natacion_florencia.pdf',
+      archivoRuta: 'documentos/ficha_natacion_florencia.pdf',
+      mimeType: 'application/pdf',
+      tamano: 410000,
+    },
+    // Lucas Díaz (Fútbol Mayor)
+    {
+      personaId: personasMap.get('30000018')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.DNI,
+      tipo: 'Documento Nacional de Identidad',
+      fechaVencimiento: new Date('2032-05-19'),
+      archivoNombre: 'dni_lucas.pdf',
+      archivoRuta: 'documentos/dni_lucas.pdf',
+      mimeType: 'application/pdf',
+      tamano: 230000,
+    },
+    {
+      personaId: personasMap.get('30000018')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      tipo: 'Apto Médico Alta Competencia',
+      fechaVencimiento: new Date('2026-12-31'),
+      archivoNombre: 'apto_medico_lucas.pdf',
+      archivoRuta: 'documentos/apto_medico_lucas.pdf',
+      mimeType: 'application/pdf',
+      tamano: 820000,
+    },
+    {
+      personaId: personasMap.get('30000018')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.SEGURO_COBERTURA_MEDICA,
+      tipo: 'Póliza Seguro Deportivo Anual',
+      fechaVencimiento: new Date('2026-12-31'),
+      archivoNombre: 'seguro_deportivo_lucas.pdf',
+      archivoRuta: 'documentos/seguro_deportivo_lucas.pdf',
+      mimeType: 'application/pdf',
+      tamano: 512000,
+    },
+    // Valentina Fernández (Fútbol Femenino)
+    {
+      personaId: personasMap.get('30000019')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.DNI,
+      tipo: 'Documento Nacional de Identidad',
+      fechaVencimiento: new Date('2035-10-12'),
+      archivoNombre: 'dni_valentina.pdf',
+      archivoRuta: 'documentos/dni_valentina.pdf',
+      mimeType: 'application/pdf',
+      tamano: 215000,
+    },
+    {
+      personaId: personasMap.get('30000019')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      tipo: 'Certificado de Aptitud Física',
+      fechaVencimiento: new Date('2026-11-15'),
+      archivoNombre: 'apto_medico_valentina.pdf',
+      archivoRuta: 'documentos/apto_medico_valentina.pdf',
+      mimeType: 'application/pdf',
+      tamano: 710000,
+    },
+    // Joaquín Romero (Gimnasio)
+    {
+      personaId: personasMap.get('30000020')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      tipo: 'Apto Médico Gimnasio Funcional',
+      fechaVencimiento: new Date('2026-09-30'),
+      archivoNombre: 'apto_medico_joaquin.pdf',
+      archivoRuta: 'documentos/apto_medico_joaquin.pdf',
+      mimeType: 'application/pdf',
+      tamano: 640000,
+    },
+    {
+      personaId: personasMap.get('30000020')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.FICHA_TECNICA_GIMNASIO_FITNESS,
+      tipo: 'Ficha Técnica Funcional',
+      fechaVencimiento: new Date('2027-01-01'),
+      archivoNombre: 'ficha_funcional_joaquin.pdf',
+      archivoRuta: 'documentos/ficha_funcional_joaquin.pdf',
+      mimeType: 'application/pdf',
+      tamano: 460000,
+    },
+    // Agustín Morales (Básquet)
+    {
+      personaId: personasMap.get('30000021')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      tipo: 'Apto Físico Básquetbol',
+      fechaVencimiento: new Date('2026-08-31'),
+      archivoNombre: 'apto_basquet_agustin.pdf',
+      archivoRuta: 'documentos/apto_basquet_agustin.pdf',
+      mimeType: 'application/pdf',
+      tamano: 590000,
+    },
+    // Tomás Herrera (Básquet)
+    {
+      personaId: personasMap.get('30000023')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      tipo: 'Certificado Médico Formativo Básquet',
+      fechaVencimiento: new Date('2026-12-31'),
+      archivoNombre: 'apto_tomas.pdf',
+      archivoRuta: 'documentos/apto_tomas.pdf',
+      mimeType: 'application/pdf',
+      tamano: 630000,
+    },
+    // Mía Castro (Jockey Femenino)
+    {
+      personaId: personasMap.get('30000024')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      tipo: 'Apto Físico Juvenil Jockey',
+      fechaVencimiento: new Date('2026-12-15'),
+      archivoNombre: 'apto_mia.pdf',
+      archivoRuta: 'documentos/apto_mia.pdf',
+      mimeType: 'application/pdf',
+      tamano: 610000,
+    },
+    {
+      personaId: personasMap.get('30000024')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.CARNET_FEDERATIVO_LICENCIA_DEPORTIVA,
+      tipo: 'Carnet Federativo Juvenil 2026',
+      fechaVencimiento: new Date('2027-03-01'),
+      archivoNombre: 'carnet_federativo_mia.pdf',
+      archivoRuta: 'documentos/carnet_federativo_mia.pdf',
+      mimeType: 'application/pdf',
+      tamano: 310000,
+    },
+    // Benjamín López (Natación Escuela Infantil)
+    {
+      personaId: personasMap.get('30000025')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      tipo: 'Apto Pediátrico Pileta Climatizada',
+      fechaVencimiento: new Date('2026-12-31'),
+      archivoNombre: 'apto_benjamin.pdf',
+      archivoRuta: 'documentos/apto_benjamin.pdf',
+      mimeType: 'application/pdf',
+      tamano: 570000,
+    },
+    {
+      personaId: personasMap.get('30000025')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.FICHA_TECNICA_NATACION,
+      tipo: 'Ficha Técnica Infantil Pileta',
+      fechaVencimiento: new Date('2027-02-15'),
+      archivoNombre: 'ficha_natacion_benjamin.pdf',
+      archivoRuta: 'documentos/ficha_natacion_benjamin.pdf',
+      mimeType: 'application/pdf',
+      tamano: 390000,
+    },
+    {
+      personaId: personasMap.get('30000025')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.AUTORIZACION_PADRES_TUTORES,
+      tipo: 'Consentimiento Parental Pileta Climatizada',
+      fechaVencimiento: new Date('2027-02-15'),
+      archivoNombre: 'autorizacion_tutores_benjamin.pdf',
+      archivoRuta: 'documentos/autorizacion_tutores_benjamin.pdf',
+      mimeType: 'application/pdf',
+      tamano: 290000,
+    },
+    // Clara Navarro (Fútbol Femenino Sub-16)
+    {
+      personaId: personasMap.get('30000026')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.DNI,
+      tipo: 'Documento Nacional de Identidad',
+      fechaVencimiento: new Date('2036-01-01'),
+      archivoNombre: 'dni_clara.pdf',
+      archivoRuta: 'documentos/dni_clara.pdf',
+      mimeType: 'application/pdf',
+      tamano: 195000,
+    },
+    {
+      personaId: personasMap.get('30000026')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      tipo: 'Apto Médico Competitivo Sub-16',
+      fechaVencimiento: new Date('2026-11-30'),
+      archivoNombre: 'apto_clara.pdf',
+      archivoRuta: 'documentos/apto_clara.pdf',
+      mimeType: 'application/pdf',
+      tamano: 640000,
+    },
+    // Rodrigo Vega (Gimnasio) - Documento vencido para pruebas de alertas de documentación
+    {
+      personaId: personasMap.get('50000033')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      tipo: 'Certificado Médico Gimnasio 2025 (Vencido)',
+      fechaVencimiento: new Date('2026-02-10'),
+      archivoNombre: 'apto_vencido_rodrigo.pdf',
+      archivoRuta: 'documentos/apto_vencido_rodrigo.pdf',
+      mimeType: 'application/pdf',
+      tamano: 530000,
+    },
+    // Nicolás Giménez (Básquet)
+    {
+      personaId: personasMap.get('50000034')!.id,
+      tipoDocumento: TipoDocumentacionDisciplina.CERTIFICADO_MEDICO_APTITUD_FISICA,
+      tipo: 'Apto Médico Torneo Básquetbol',
+      fechaVencimiento: new Date('2026-12-31'),
+      archivoNombre: 'apto_nicolas.pdf',
+      archivoRuta: 'documentos/apto_nicolas.pdf',
+      mimeType: 'application/pdf',
+      tamano: 710000,
+    },
   ];
 
   for (const doc of docsData) {
@@ -1119,13 +2314,37 @@ async function main() {
   };
 
   const planPagosSociales = [
-    { persona: personaValeria, desde: '2025-01', hasta: '2026-09' }, // Al día
-    { persona: personaCamila, desde: '2025-05', hasta: '2026-09' }, // Al día
-    { persona: personaSantiago, desde: '2026-01', hasta: '2026-09' }, // Al día
+    // Socios al día (cubren hasta 2026-09)
+    { persona: personaValeria, desde: '2025-01', hasta: '2026-09' },
+    { persona: personaCamila, desde: '2025-05', hasta: '2026-09' },
+    { persona: personaSantiago, desde: '2026-01', hasta: '2026-09' },
+    { persona: personasMap.get('30000014'), desde: '2025-02', hasta: '2026-09' }, // Julián Gómez
+    { persona: personasMap.get('30000015'), desde: '2025-04', hasta: '2026-09' }, // Sofía Martínez
+    { persona: personasMap.get('30000016'), desde: '2024-11', hasta: '2026-09' }, // Mateo Rossi
+    { persona: personasMap.get('30000018'), desde: '2025-03', hasta: '2026-09' }, // Lucas Díaz
+    { persona: personasMap.get('30000023'), desde: '2026-01', hasta: '2026-09' }, // Tomás Herrera
+    { persona: personasMap.get('20000027'), desde: '2024-05', hasta: '2026-09' }, // Pedro Gutiérrez
+    { persona: personasMap.get('20000029'), desde: '2023-10', hasta: '2026-09' }, // Jorge Méndez
+
+    // Socios con morosidad escalonada (1 a 10 cuotas adeudadas)
     { persona: personaSocioSinCuenta, desde: '2025-01', hasta: '2026-08' }, // Debe 2026-09 (1 cuota)
-    { persona: personaLucia, desde: '2025-03', hasta: '2026-07' }, // Debe 2026-08 y 2026-09 (2 cuotas)
-    { persona: personaMartin, desde: '2024-06', hasta: '2026-06' }, // Debe 2026-07, 2026-08 y 2026-09 (3 cuotas)
-    { persona: personaRoberto, desde: '2025-01', hasta: '2025-11' }, // Debe desde 2025-12 hasta 2026-09 (10 cuotas adeudadas)
+    { persona: personasMap.get('30000017'), desde: '2025-06', hasta: '2026-08' }, // Florencia Benítez - Debe 1 cuota
+    { persona: personaLucia, desde: '2025-03', hasta: '2026-07' }, // Lucía - Debe 2 cuotas
+    { persona: personasMap.get('30000019'), desde: '2025-01', hasta: '2026-07' }, // Valentina Fernández - Debe 2 cuotas
+    { persona: personasMap.get('30000020'), desde: '2025-05', hasta: '2026-07' }, // Joaquín Romero - Debe 2 cuotas
+    { persona: personaMartin, desde: '2024-06', hasta: '2026-06' }, // Martín - Debe 3 cuotas
+    { persona: personasMap.get('30000021'), desde: '2025-04', hasta: '2026-06' }, // Agustín Morales - Debe 3 cuotas
+    { persona: personasMap.get('30000026'), desde: '2026-03', hasta: '2026-06' }, // Clara Navarro - Debe 3 cuotas
+    { persona: personasMap.get('30000022'), desde: '2025-07', hasta: '2026-05' }, // Rocío Álvarez - Debe 4 cuotas
+    { persona: personasMap.get('30000024'), desde: '2026-02', hasta: '2026-05' }, // Mía Castro - Debe 4 cuotas
+    { persona: personasMap.get('20000028'), desde: '2024-08', hasta: '2026-04' }, // Carmen Domínguez - Debe 5 cuotas
+    { persona: personasMap.get('30000025'), desde: '2026-02', hasta: '2026-03' }, // Benjamín López - Debe 6 cuotas
+    { persona: personaRoberto, desde: '2025-01', hasta: '2025-11' }, // Roberto - Debe 10 cuotas
+
+    // Socios históricos dados de baja (pagaron todo hasta su fecha de baja)
+    { persona: personasMap.get('30000030'), desde: '2024-01', hasta: '2025-12' }, // Elena Paz
+    { persona: personasMap.get('30000031'), desde: '2024-03', hasta: '2025-11' }, // Gonzalo Torres
+    { persona: personasMap.get('30000032'), desde: '2024-06', hasta: '2025-10' }, // Paula Ruiz
   ];
 
   for (const plan of planPagosSociales) {
@@ -1145,7 +2364,9 @@ async function main() {
       });
     }
   }
-  console.log('  Pagos sociales y morosidad sembrados (socios al día y con 1, 2, 3 y 10 cuotas adeudadas).');
+  console.log(
+    '  Pagos sociales y morosidad sembrados para 26 socios (al día y con morosidad escalonada de 1 a 10 cuotas).',
+  );
 
   // ── 12. Pagos de Cuota Deportiva (US-21) ───────────────────────────────────
   const pagosDeportivosData = [
@@ -1195,6 +2416,160 @@ async function main() {
       monto: 11000,
       metodoPago: 'EFECTIVO',
       fechaPago: new Date('2026-08-02T18:00:00Z'),
+      responsableId: colaborador.id,
+    },
+    // Julián Gómez en Fútbol Mayor (Reserva): pagó 2026-08 y 2026-09 con 20% descuento socio
+    {
+      personaId: personasMap.get('30000014')!.id,
+      disciplinaNombre: 'Fútbol Mayor',
+      periodo: '2026-08',
+      monto: 12000,
+      metodoPago: 'TRANSFERENCIA',
+      fechaPago: new Date('2026-08-05T14:00:00Z'),
+      responsableId: admin.id,
+    },
+    {
+      personaId: personasMap.get('30000014')!.id,
+      disciplinaNombre: 'Fútbol Mayor',
+      periodo: '2026-09',
+      monto: 12000,
+      metodoPago: 'TRANSFERENCIA',
+      fechaPago: new Date('2026-09-05T14:00:00Z'),
+      responsableId: admin.id,
+    },
+    // Sofía Martínez en Jockey Femenino (Primera): pagó 2026-08 y 2026-09 con 15% descuento
+    {
+      personaId: personasMap.get('30000015')!.id,
+      disciplinaNombre: 'Jockey Femenino',
+      periodo: '2026-08',
+      monto: 13600,
+      metodoPago: 'TRANSFERENCIA',
+      fechaPago: new Date('2026-08-08T18:00:00Z'),
+      responsableId: colaborador.id,
+    },
+    {
+      personaId: personasMap.get('30000015')!.id,
+      disciplinaNombre: 'Jockey Femenino',
+      periodo: '2026-09',
+      monto: 13600,
+      metodoPago: 'TRANSFERENCIA',
+      fechaPago: new Date('2026-09-08T18:00:00Z'),
+      responsableId: colaborador.id,
+    },
+    // Lucas Díaz en Fútbol Mayor: pagó 2026-08 (debe 2026-09)
+    {
+      personaId: personasMap.get('30000018')!.id,
+      disciplinaNombre: 'Fútbol Mayor',
+      periodo: '2026-08',
+      monto: 12000,
+      metodoPago: 'EFECTIVO',
+      fechaPago: new Date('2026-08-03T10:00:00Z'),
+      responsableId: colaborador.id,
+    },
+    // Valentina Fernández en Fútbol Femenino: pagó 2026-08 y 2026-09
+    {
+      personaId: personasMap.get('30000019')!.id,
+      disciplinaNombre: 'Fútbol Femenino',
+      periodo: '2026-08',
+      monto: 11200,
+      metodoPago: 'TRANSFERENCIA',
+      fechaPago: new Date('2026-08-12T17:00:00Z'),
+      responsableId: admin.id,
+    },
+    {
+      personaId: personasMap.get('30000019')!.id,
+      disciplinaNombre: 'Fútbol Femenino',
+      periodo: '2026-09',
+      monto: 11200,
+      metodoPago: 'TRANSFERENCIA',
+      fechaPago: new Date('2026-09-12T17:00:00Z'),
+      responsableId: admin.id,
+    },
+    // Joaquín Romero en Gimnasio: pagó 2026-08 con 20% descuento socio (debe 2026-09)
+    {
+      personaId: personasMap.get('30000020')!.id,
+      disciplinaNombre: 'Gimnasio',
+      periodo: '2026-08',
+      monto: 10800,
+      metodoPago: 'EFECTIVO',
+      fechaPago: new Date('2026-08-04T19:00:00Z'),
+      responsableId: colaborador.id,
+    },
+    // Florencia Benítez en Natación: pagó 2026-08 y 2026-09 con 20% descuento socio
+    {
+      personaId: personasMap.get('30000017')!.id,
+      disciplinaNombre: 'Natación',
+      periodo: '2026-08',
+      monto: 12800,
+      metodoPago: 'TRANSFERENCIA',
+      fechaPago: new Date('2026-08-07T11:00:00Z'),
+      responsableId: admin.id,
+    },
+    {
+      personaId: personasMap.get('30000017')!.id,
+      disciplinaNombre: 'Natación',
+      periodo: '2026-09',
+      monto: 12800,
+      metodoPago: 'TRANSFERENCIA',
+      fechaPago: new Date('2026-09-07T11:00:00Z'),
+      responsableId: admin.id,
+    },
+    // Benjamín López en Natación: pagó 2026-08 (debe 2026-09)
+    {
+      personaId: personasMap.get('30000025')!.id,
+      disciplinaNombre: 'Natación',
+      periodo: '2026-08',
+      monto: 11050,
+      metodoPago: 'EFECTIVO',
+      fechaPago: new Date('2026-08-06T15:00:00Z'),
+      responsableId: colaborador.id,
+    },
+    // Tomás Herrera en Básquet: pagó 2026-08 y 2026-09 con 20% descuento socio
+    {
+      personaId: personasMap.get('30000023')!.id,
+      disciplinaNombre: 'Básquet',
+      periodo: '2026-08',
+      monto: 9600,
+      metodoPago: 'TRANSFERENCIA',
+      fechaPago: new Date('2026-08-09T18:30:00Z'),
+      responsableId: admin.id,
+    },
+    {
+      personaId: personasMap.get('30000023')!.id,
+      disciplinaNombre: 'Básquet',
+      periodo: '2026-09',
+      monto: 9600,
+      metodoPago: 'TRANSFERENCIA',
+      fechaPago: new Date('2026-09-09T18:30:00Z'),
+      responsableId: admin.id,
+    },
+    // Pedro Gutiérrez en Pelota Paleta: pagó 2026-08 y 2026-09 con 10% descuento socio
+    {
+      personaId: personasMap.get('20000027')!.id,
+      disciplinaNombre: 'Pelota Paleta',
+      periodo: '2026-08',
+      monto: 9000,
+      metodoPago: 'EFECTIVO',
+      fechaPago: new Date('2026-08-02T10:00:00Z'),
+      responsableId: colaborador.id,
+    },
+    {
+      personaId: personasMap.get('20000027')!.id,
+      disciplinaNombre: 'Pelota Paleta',
+      periodo: '2026-09',
+      monto: 9000,
+      metodoPago: 'EFECTIVO',
+      fechaPago: new Date('2026-09-02T10:00:00Z'),
+      responsableId: colaborador.id,
+    },
+    // Rodrigo Vega en Gimnasio: no es socio, pagó tarifa base ($11000) en 2026-08 (debe 2026-09)
+    {
+      personaId: personasMap.get('50000033')!.id,
+      disciplinaNombre: 'Gimnasio',
+      periodo: '2026-08',
+      monto: 11000,
+      metodoPago: 'EFECTIVO',
+      fechaPago: new Date('2026-08-05T19:00:00Z'),
       responsableId: colaborador.id,
     },
   ];
@@ -1404,7 +2779,9 @@ async function main() {
       await prisma.entrada.createMany({ data: nuevasEntradas });
     }
   }
-  console.log(`  ${eventosData.length} eventos asegurados con entradas, compras y métricas de asistencia.`);
+  console.log(
+    `  ${eventosData.length} eventos asegurados con entradas, compras y métricas de asistencia.`,
+  );
 
   console.log('\nSeed completado exitosamente.');
   if (process.env.NODE_ENV !== 'production') {
@@ -1417,7 +2794,9 @@ async function main() {
   } else {
     console.log(`  Usuario ADMIN:       ${admin.email} (contraseña oculta en producción)`);
     console.log(`  Usuario COLABORADOR: ${colaborador.email} (contraseña oculta en producción)`);
-    console.log(`  Usuario DELEGADO:    ${usuarioDelegado.email} (contraseña oculta en producción)`);
+    console.log(
+      `  Usuario DELEGADO:    ${usuarioDelegado.email} (contraseña oculta en producción)`,
+    );
   }
 }
 
@@ -1429,4 +2808,3 @@ main()
   .finally(() => {
     void prisma.$disconnect();
   });
-
