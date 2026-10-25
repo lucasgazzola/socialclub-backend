@@ -243,4 +243,45 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
       include: expect.any(Object),
     });
   });
+
+  it('soporta paginación opcional preservando total y deudaTotalClub intactos', async () => {
+    const hoy = new Date();
+    const haceUnMes = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+    mockPrisma.persona.findMany.mockResolvedValue([
+      {
+        id: 1,
+        nombre: 'Socio1',
+        apellido: 'Test',
+        dni: '111',
+        membresias: [
+          { activo: true, fechaAlta: haceUnMes, categoriaId: 1, categoria: { nombre: 'General' } },
+        ],
+        pagos: [],
+      },
+      {
+        id: 2,
+        nombre: 'Socio2',
+        apellido: 'Test',
+        dni: '222',
+        membresias: [
+          { activo: true, fechaAlta: haceUnMes, categoriaId: 1, categoria: { nombre: 'General' } },
+        ],
+        pagos: [],
+      },
+    ]);
+    mockPrisma.configuracionCuotaSocial.findFirst.mockResolvedValue({ monto: 5000 });
+
+    const resPag1 = await service.getMorososCuotaSocial({ pagina: 1, porPagina: 1 });
+    expect(resPag1.total).toBe(2);
+    expect(resPag1.deudaTotalClub).toBe(20000);
+    expect(resPag1.items).toHaveLength(1);
+    expect(resPag1.pagina).toBe(1);
+    expect(resPag1.porPagina).toBe(1);
+
+    const resPag2 = await service.getMorososCuotaSocial({ pagina: 2, porPagina: 1 });
+    expect(resPag2.total).toBe(2);
+    expect(resPag2.items).toHaveLength(1);
+    expect(resPag2.pagina).toBe(2);
+    expect(resPag2.porPagina).toBe(1);
+  });
 });

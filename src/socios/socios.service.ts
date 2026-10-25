@@ -292,7 +292,36 @@ export class SociosService {
    * - Paginación resuelta en backend.
    */
   async findAll(query: FindSociosQueryDto) {
-    const { busqueda, categoriaId, estado, pagina, porPagina } = query;
+    const { busqueda, categoriaId, estado, pagina, porPagina, ordenarPor, orden } = query;
+
+    const direccion: 'asc' | 'desc' = orden?.toLowerCase() === 'desc' ? 'desc' : 'asc';
+    let orderBy: Prisma.PersonaOrderByWithRelationInput | Prisma.PersonaOrderByWithRelationInput[];
+
+    if (!ordenarPor) {
+      orderBy = { creadoEn: 'desc' };
+    } else {
+      switch (ordenarPor.toLowerCase()) {
+        case 'dni':
+          orderBy = { dni: direccion };
+          break;
+        case 'email':
+          orderBy = { email: direccion };
+          break;
+        case 'nombre':
+        case 'apellido':
+        case 'socio':
+          orderBy = [{ apellido: direccion }, { nombre: direccion }];
+          break;
+        case 'fecha':
+        case 'creadoen':
+        case 'alta':
+          orderBy = { creadoEn: direccion };
+          break;
+        default:
+          orderBy = { creadoEn: 'desc' };
+          break;
+      }
+    }
 
     const filtrosBase: Prisma.PersonaWhereInput[] = [
       { membresias: { some: {} } }, // Solo personas que tienen o tuvieron membresías
@@ -337,7 +366,7 @@ export class SociosService {
           membresias: { include: { categoria: true }, orderBy: { fechaAlta: 'desc' } },
           usuario: { select: { id: true } },
         },
-        orderBy: { creadoEn: 'desc' },
+        orderBy,
         skip: (pagina - 1) * porPagina,
         take: porPagina,
       }),
@@ -347,8 +376,26 @@ export class SociosService {
       this.prisma.persona.count({ where: whereBaja }),
     ]);
 
+    let resultadoItems = items.map((p) => this.aSocioDto(p));
+
+    if (ordenarPor?.toLowerCase() === 'categoria') {
+      resultadoItems = resultadoItems.sort((a, b) => {
+        const catA = a.categoria?.nombre ?? '';
+        const catB = b.categoria?.nombre ?? '';
+        return direccion === 'asc'
+          ? catA.localeCompare(catB, 'es', { sensitivity: 'base' })
+          : catB.localeCompare(catA, 'es', { sensitivity: 'base' });
+      });
+    } else if (ordenarPor?.toLowerCase() === 'estado') {
+      resultadoItems = resultadoItems.sort((a, b) => {
+        const estA = a.activo ? 1 : 0;
+        const estB = b.activo ? 1 : 0;
+        return direccion === 'asc' ? estA - estB : estB - estA;
+      });
+    }
+
     return {
-      items: items.map((p) => this.aSocioDto(p)),
+      items: resultadoItems,
       total,
       pagina,
       porPagina,

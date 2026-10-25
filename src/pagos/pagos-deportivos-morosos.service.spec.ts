@@ -282,5 +282,21 @@ describe('US-23 · PagosDeportivosService.getMorosos', () => {
         ['MasDeuda', 3],
       ]);
     });
+
+    it('soporta paginación opcional preservando total y deudaTotal intactos', async () => {
+      const rPag1 = await service.getMorosos({ pagina: 1, porPagina: 2 }, HOY);
+      expect(rPag1.total).toBe(3);
+      expect(rPag1.deudaTotal).toBe(80000);
+      expect(rPag1.items).toHaveLength(2);
+      expect(rPag1.pagina).toBe(1);
+      expect(rPag1.porPagina).toBe(2);
+
+      const rPag2 = await service.getMorosos({ pagina: 2, porPagina: 2 }, HOY);
+      expect(rPag2.total).toBe(3);
+      expect(rPag2.deudaTotal).toBe(80000);
+      expect(rPag2.items).toHaveLength(1);
+      expect(rPag2.pagina).toBe(2);
+      expect(rPag2.porPagina).toBe(2);
+    });
   });
 });

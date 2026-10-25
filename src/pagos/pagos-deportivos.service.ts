@@ -286,10 +286,13 @@ export class PagosDeportivosService {
     });
     if (!personas.length) {
       return {
+        items: [],
         total: 0,
         deudaTotal: 0,
         diaVencimiento: DIA_VENCIMIENTO_CUOTA_DEPORTIVA,
-        items: [],
+        ...(query.pagina && query.porPagina
+          ? { pagina: query.pagina, porPagina: query.porPagina }
+          : {}),
       };
     }
 
@@ -352,11 +355,21 @@ export class PagosDeportivosService {
       ordenarPor === CriterioOrdenMorosos.PERIODOS ? m.cantidadPeriodos : m.montoTotalDeuda;
     items.sort((a, b) => (orden === SentidoOrden.ASC ? clave(a) - clave(b) : clave(b) - clave(a)));
 
+    const total = items.length;
+    const deudaTotal = redondear(items.reduce((s, m) => s + m.montoTotalDeuda, 0));
+    const paginados =
+      query.pagina && query.porPagina
+        ? items.slice((query.pagina - 1) * query.porPagina, query.pagina * query.porPagina)
+        : items;
+
     return {
-      total: items.length,
-      deudaTotal: redondear(items.reduce((s, m) => s + m.montoTotalDeuda, 0)),
+      items: paginados,
+      total,
+      deudaTotal,
       diaVencimiento: DIA_VENCIMIENTO_CUOTA_DEPORTIVA,
-      items,
+      ...(query.pagina && query.porPagina
+        ? { pagina: query.pagina, porPagina: query.porPagina }
+        : {}),
     };
   }
 

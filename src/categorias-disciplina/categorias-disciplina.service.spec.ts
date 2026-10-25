@@ -23,8 +23,15 @@ describe('CategoriasDisciplinaService', () => {
   };
   const prismaMock = {
     disciplina: { findUnique: jest.fn() },
-    categoriaDisciplina: { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() },
-    $transaction: jest.fn((fn: (tx: typeof txMock) => unknown) => fn(txMock)),
+    categoriaDisciplina: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+      count: jest.fn(),
+    },
+    $transaction: jest.fn((value: ((tx: typeof txMock) => unknown) | unknown[]) =>
+      Array.isArray(value) ? Promise.all(value) : (value as (tx: typeof txMock) => unknown)(txMock),
+    ),
   };
   const auditoriaMock = { registrar: jest.fn() };
 
@@ -428,9 +435,14 @@ describe('CategoriasDisciplinaService', () => {
   // ─── US-51 · Consultar categorías ──────────────────────────────────────────
 
   describe('US-51 · findAll', () => {
-    it('lista las categorías de la disciplina con los requisitos de la disciplina', async () => {
+    it('lista las categorías de la disciplina con los requisitos de la disciplina y calcula conteos', async () => {
       prismaMock.disciplina.findUnique.mockResolvedValue(futbol);
       prismaMock.categoriaDisciplina.findMany.mockResolvedValue([sub15]);
+      prismaMock.categoriaDisciplina.count
+        .mockResolvedValueOnce(1) // total
+        .mockResolvedValueOnce(1) // todas
+        .mockResolvedValueOnce(1) // activas
+        .mockResolvedValueOnce(0); // inactivas
 
       const res = await service.findAll(1, {
         busqueda: '  sub ',
@@ -439,6 +451,8 @@ describe('CategoriasDisciplinaService', () => {
 
       expect(res.disciplina.requerimientosDoc).toHaveLength(1);
       expect(res.items).toEqual([sub15]);
+      expect(res.total).toBe(1);
+      expect(res.conteos).toEqual({ todas: 1, activas: 1, inactivas: 0 });
       expect(prismaMock.categoriaDisciplina.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
@@ -454,10 +468,17 @@ describe('CategoriasDisciplinaService', () => {
     it('filtra por categorías inactivas', async () => {
       prismaMock.disciplina.findUnique.mockResolvedValue(futbol);
       prismaMock.categoriaDisciplina.findMany.mockResolvedValue([]);
+      prismaMock.categoriaDisciplina.count
+        .mockResolvedValueOnce(0) // total
+        .mockResolvedValueOnce(2) // todas
+        .mockResolvedValueOnce(2) // activas
+        .mockResolvedValueOnce(0); // inactivas
 
       const res = await service.findAll(1, { estado: EstadoCategoriaFiltro.INACTIVA });
 
       expect(res.items).toEqual([]);
+      expect(res.total).toBe(0);
+      expect(res.conteos).toEqual({ todas: 2, activas: 2, inactivas: 0 });
       expect(prismaMock.categoriaDisciplina.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { disciplinaId: 1, activo: false } }),
       );
@@ -467,6 +488,49 @@ describe('CategoriasDisciplinaService', () => {
       prismaMock.disciplina.findUnique.mockResolvedValue(null);
 
       await expect(service.findAll(99)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('soporta paginación opcional con skip y take en prisma preservando total y conteos', async () => {
+      const sub17 = { ...sub15, id: 2, nombre: 'Sub-17' };
+      prismaMock.disciplina.findUnique.mockResolvedValue(futbol);
+      prismaMock.categoriaDisciplina.findMany.mockResolvedValue([sub15, sub17]);
+      prismaMock.categoriaDisciplina.count
+        .mockResolvedValueOnce(3) // total
+        .mockResolvedValueOnce(3) // todas
+        .mockResolvedValueOnce(2) // activas
+        .mockResolvedValueOnce(1); // inactivas
+
+      const resPag1 = await service.findAll(1, { pagina: 1, porPagina: 2 });
+      expect(resPag1.total).toBe(3);
+      expect(resPag1.items).toEqual([sub15, sub17]);
+      expect(resPag1.pagina).toBe(1);
+      expect(resPag1.porPagina).toBe(2);
+      expect(resPag1.conteos).toEqual({ todas: 3, activas: 2, inactivas: 1 });
+      expect(prismaMock.categoriaDisciplina.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 0,
+          take: 2,
+        }),
+      );
+
+      prismaMock.categoriaDisciplina.findMany.mockResolvedValue([sub15]);
+      prismaMock.categoriaDisciplina.count
+        .mockResolvedValueOnce(3)
+        .mockResolvedValueOnce(3)
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(1);
+
+      const resPag2 = await service.findAll(1, { pagina: 2, porPagina: 2 });
+      expect(resPag2.total).toBe(3);
+      expect(resPag2.items).toEqual([sub15]);
+      expect(resPag2.pagina).toBe(2);
+      expect(resPag2.porPagina).toBe(2);
+      expect(prismaMock.categoriaDisciplina.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 2,
+          take: 2,
+        }),
+      );
     });
   });
 });

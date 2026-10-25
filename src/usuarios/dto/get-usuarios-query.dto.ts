@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum CriterioOrdenUsuarios {
@@ -66,5 +66,6 @@ export class GetUsuariosQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(10000)
   porPagina: number = 10;
 }

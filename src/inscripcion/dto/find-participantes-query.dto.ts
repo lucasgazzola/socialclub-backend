@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 /**
  * Estado lógico de la participación de un participante en una disciplina,
@@ -43,5 +43,14 @@ export class FindParticipantesQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(10000)
   porPagina: number = 10;
+
+  @IsOptional()
+  @IsString()
+  ordenarPor?: string;
+
+  @IsOptional()
+  @IsString()
+  orden?: 'asc' | 'desc' = 'asc';
 }

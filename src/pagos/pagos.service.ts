@@ -490,10 +490,21 @@ export class PagosService {
       return valorB - valorA;
     });
 
+    const total = morosos.length;
+    const deudaTotalClub = morosos.reduce((sum, m) => sum + m.montoTotalDeuda, 0);
+
+    const paginados =
+      query.pagina && query.porPagina
+        ? morosos.slice((query.pagina - 1) * query.porPagina, query.pagina * query.porPagina)
+        : morosos;
+
     return {
-      total: morosos.length,
-      deudaTotalClub: morosos.reduce((sum, m) => sum + m.montoTotalDeuda, 0),
-      items: morosos,
+      items: paginados,
+      total,
+      deudaTotalClub,
+      ...(query.pagina && query.porPagina
+        ? { pagina: query.pagina, porPagina: query.porPagina }
+        : {}),
     };
   }
 }
