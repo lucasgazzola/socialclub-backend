@@ -9,7 +9,7 @@ reporte HTML (artifact `playwright-report` del CI).
 
 ### TC-059 · Validar la creación de un evento con datos válidos
 
-Aprobado el 10/10/2026 · `e2e/eventos-y-entradas.spec.ts`
+Aprobado el 31/10/2026 · `e2e/eventos-y-entradas.spec.ts`
 
   - [`TC-059-01.jpg`](TC-059-01.jpg) — 1. Como administrador, abrir Eventos y «Nuevo evento»
   - [`TC-059-02.jpg`](TC-059-02.jpg) — 2. Completar nombre, lugar, cupo, precio y fecha (dentro de 7 días)
