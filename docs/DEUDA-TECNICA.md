@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 31/10/2026 (TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
+- **Última actualización:** 01/11/2026 (Registro DT-50, DT-51 y DT-52; TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -27,16 +27,19 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
   - [🟠 Estandarización del código a inglés](#estandarización-del-código-a-inglés---costo-creciente)
 - [Deuda pendiente](#deuda-pendiente)
   - [🟠 Altas](#-altas)
+    - [DT-52 · Reemplazo del rol DELEGADO por COLABORADOR y eliminación de toda mención](#dt-52--reemplazo-del-rol-delegado-por-colaborador-y-eliminación-de-toda-mención)
     - [DT-27 · Documentación por disciplina: requisitos, estados y vigencia](#dt-27--documentación-por-disciplina-requisitos-estados-y-vigencia)
     - [DT-29 · No existe solicitud de inscripción con aprobación](#dt-29--no-existe-solicitud-de-inscripción-con-aprobación)
     - [DT-35 · El pago implementado solo cubre la cuota social](#dt-35--el-pago-implementado-solo-cubre-la-cuota-social)
   - [🟡 Medias](#-medias)
+    - [DT-50 · La habilitación excepcional documental no restringe su uso a una única vez](#dt-50--la-habilitación-excepcional-documental-no-restringe-su-uso-a-una-única-vez)
     - [DT-48 · Morosos de cuota social cuenta cuotas que todavía no vencieron](#dt-48--morosos-de-cuota-social-cuenta-cuotas-que-todavía-no-vencieron)
     - [DT-49 · Tests de cuota deportiva que fallan según la hora](#dt-49--tests-de-cuota-deportiva-que-fallan-según-la-hora)
     - [DT-24 · La planilla documenta generación de cuotas que no existe](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe)
     - [DT-23 · El ratchet de cobertura corta el CI por décimas](#dt-23--el-ratchet-de-cobertura-corta-el-ci-por-décimas)
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
   - [⚪ Bajas](#-bajas)
+    - [DT-51 · Nombres y correos electrónicos del seed con descriptores de prueba sin realismo](#dt-51--nombres-y-correos-electrónicos-del-seed-con-descriptores-de-prueba-sin-realismo)
     - [DT-46 · El alta de usuario no muestra el error en el formulario](#dt-46--el-alta-de-usuario-no-muestra-el-error-en-el-formulario)
     - [DT-47 · El DNI se muestra con formatos distintos](#dt-47--el-dni-se-muestra-con-formatos-distintos)
     - [DT-09 · Imágenes en eventos](#dt-09--imágenes-en-eventos)
@@ -67,9 +70,9 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
 | ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-28, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-31 |
-| 🟠 Altas pendientes | DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-35 (cobro, tarifa y pasarela de pagos resueltos; resta el autoservicio de la cuota deportiva) |
-| 🟡 Medias pendientes | DT-23, DT-24, DT-34, DT-48, DT-49 |
-| ⚪ Bajas pendientes | DT-06, DT-09, DT-46, DT-47, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
+| 🟠 Altas pendientes | DT-52, DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-35 (cobro, tarifa y pasarela de pagos resueltos; resta el autoservicio de la cuota deportiva) |
+| 🟡 Medias pendientes | DT-23, DT-24, DT-34, DT-48, DT-49, DT-50 |
+| ⚪ Bajas pendientes | DT-06, DT-09, DT-46, DT-47, DT-51, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
 **Cobertura de tests** (medida el 18/10/2026, objetivo DoD **70 %**):
 
@@ -138,6 +141,22 @@ decidir tiene un costo que sube solo.
 ## Deuda pendiente
 
 ### 🟠 Altas
+
+#### DT-52 · Reemplazo del rol DELEGADO por COLABORADOR y eliminación de toda mención
+*Nuevo · modelo de autorización · backend + frontend*
+
+El rol `DELEGADO` va a ser reemplazado íntegramente por `COLABORADOR`, eliminando toda mención a "delegado" en la base de datos, el código fuente, las interfaces de usuario, el seed y las pruebas de ambos repositorios (`socialclub-backend` y `socialclub-frontend`):
+
+- **Base de datos y Prisma (`prisma/schema.prisma`, migración y `prisma/seed.ts`):**
+  - Migrar los usuarios existentes con `rol = 'DELEGADO'` a `'COLABORADOR'` y eliminar el valor `DELEGADO` del enum `RolUsuario` (quedando `ADMIN`, `COLABORADOR`, `SOCIO`).
+  - Eliminar la tabla `DisciplinaDelegado` (`disciplina_delegados`) y toda relación asociada en `Usuario` y `Disciplina`.
+  - Eliminar el usuario de prueba de delegado (`delegado@socialclub.local`) o unificarlo bajo `COLABORADOR` en `prisma/seed.ts`.
+- **Backend (`src/`):**
+  - Reemplazar `@Roles(..., RolUsuario.DELEGADO)` por `RolUsuario.COLABORADOR` en todos los controladores (`inscripcion`, `documentacion`, `disciplinas`, `personas`, `socios`, `eventos`, `alertas`, etc.).
+  - Eliminar la lógica de filtrado exclusivo por disciplinas asignadas al delegado (p. ej. `AlertasDocumentacionService`, `DisciplinasService`, `UsuariosService`) y cualquier propiedad, DTO o método que mencione `delegado` / `disciplinasDelegadas`.
+- **Frontend (`src/` y `e2e/`):**
+  - Eliminar `'DELEGADO'` del tipo `RolUsuario`, selectores de alta/edición de usuario, badges de rol, etiquetas visibles, guardas de rutas (`ProtectedRoute`), menú de navegación (`Sidebar` / `Layout`) y vistas de disciplinas/alertas.
+  - Actualizar las pruebas unitarias (Jest/Vitest) y flujos E2E (Playwright) eliminando toda referencia al rol `DELEGADO`.
 
 #### DT-27 · Documentación por disciplina: requisitos, estados y vigencia
 *Nuevo · funcional · backend + frontend*
@@ -261,6 +280,18 @@ deportiva.
 
 ### 🟡 Medias
 
+#### DT-50 · La habilitación excepcional documental no restringe su uso a una única vez
+*Nuevo · backend + frontend · detectado en US-28*
+
+La funcionalidad de habilitar excepcionalmente a un participante con documentación vencida o faltante (US-28) debe ser un recurso de **única vez por inscripción**. Actualmente el sistema permite reincidir o extenderla indefinidamente:
+
+- **Frontend (`DocumentacionParticipante.tsx`):**
+  - Mientras la excepción se encuentra vigente (`habilitadoExcepcionalmenteHasta != null`), el panel muestra indebidamente un botón de «Extender habilitación».
+  - Al expirar el plazo de la excepción, la inscripción vuelve al estado `BLOQUEADO` y el sistema vuelve a ofrecer el botón «Habilitar excepcionalmente» sin validar si el participante ya utilizó el beneficio previamente.
+- **Backend (`InscripcionService.habilitarExcepcional` y `EstadoDocumentalService`):**
+  - `InscripcionService.habilitarExcepcional` no valida si la inscripción ya cuenta con registros previos en la tabla `habilitaciones_excepcionales`.
+  - `EstadoDocumentalService` no expone en el detalle de la inscripción si ya utilizó su habilitación excepcional (`yaHabilitadoExcepcionalmente`), impidiendo a la interfaz de usuario ocultar la acción o advertir que el beneficio ya fue consumido.
+
 #### DT-49 · Tests de cuota deportiva que fallan según la hora
 *Nuevo · backend · detectado en TASK-51 (31/10/2026)*
 
@@ -331,6 +362,28 @@ quién reembolsar.
 - **Rama sugerida:** `issue/TASK-27-DT-34-Cancelacion-devolucion-transferencia-entradas`
 
 ### ⚪ Bajas
+
+#### DT-51 · Nombres y correos electrónicos del seed con descriptores de prueba sin realismo
+*Nuevo · backend + frontend · datos de prueba*
+
+Las personas y usuarios generados por el seed (`prisma/seed.ts`) y consumidos en pruebas E2E/fixtures fueron nombrados utilizando descriptores literales de su rol o caso de prueba en lugar de nombres y apellidos de personas reales:
+- `Administrador Inicial` (`admin@socialclub.local`)
+- `Carlos SinCuenta` (`carlos.sincuenta@club.local`)
+- `Lucía Registrada` (`lucia.registrada@club.local`)
+- `Martín AdminSocio` (`martin.adminsocio@socialclub.local`)
+- `Esteban Gimnasio` (`esteban.gim@externo.local`)
+- `Valeria Historica` (`valeria.historica@club.local`)
+- `Franco Colaborador` (`colaborador@socialclub.local`)
+- `Diego Delegado` (`delegado@socialclub.local`)
+- `Santiago Menor` (`santiago.menor@familia.local`)
+- `Camila Futbolista` (`camila.futbol@club.local`)
+- `Roberto MorosoDiezMeses` (`roberto.moroso@socialclub.local`)
+- `Marcos DocVencida` (`marcos.bloqueado@socialclub.local`)
+
+Esto afecta la presentación del sistema en demostraciones y revisiones de producto. Para resolverlo se requiere:
+1. Reemplazar los apellidos y correos en `prisma/seed.ts` por nombres y dominios coherentes.
+2. Asegurar que `usuario.upsert` en el seed use `personaId` como clave de búsqueda/actualización (`where: { personaId }`) para permitir actualizar bases de datos ya sembradas sin violar la restricción de unicidad de `personaId`.
+3. Actualizar en sincronía las referencias en las pruebas E2E (`e2e/soporte/fixtures.ts`, `morosos-cuota-deportiva.spec.ts`) y los mocks de pruebas unitarias (`pagos.service.spec.ts`, `ModalCobroCuotaSocio.spec.tsx`).
 
 #### DT-46 · El alta de usuario no muestra el error en el formulario
 *Nuevo · frontend · detectado en TASK-43*
