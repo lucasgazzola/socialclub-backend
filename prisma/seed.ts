@@ -2783,6 +2783,120 @@ async function main() {
     `  ${eventosData.length} eventos asegurados con entradas, compras y métricas de asistencia.`,
   );
 
+  // ── 14. Espacios, bloqueos de agenda y reservas (TASK-52 · US-60 a US-62) ──
+  // Datos de ejemplo hasta que existan las pantallas de US-55 (crear espacio)
+  // y US-59 (solicitar reserva). Las reservas RES-SEED* se crean una vez; con
+  // SEED_RESETEAR_RESERVAS=1 (lo usan los E2E) vuelven a su estado inicial.
+  const H = 3_600_000;
+  const enDias = (dias: number, hora: number) => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + dias);
+    // hora del club (UTC−3) → UTC
+    d.setUTCHours(hora + 3, 0, 0, 0);
+    return d;
+  };
+  const espaciosData = [
+    {
+      nombre: 'Cancha de fútbol 5',
+      tipo: 'DEPORTIVO' as const,
+      capacidadMaxima: 12,
+      modalidad: 'POR_HORA' as const,
+      ubicacion: 'Predio deportivo',
+      precio: 15000,
+      precioSocio: 12000,
+      montoSena: 6000,
+      disciplinas: ['Fútbol'],
+    },
+    {
+      nombre: 'Salón principal',
+      tipo: 'SOCIAL' as const,
+      capacidadMaxima: 150,
+      modalidad: 'POR_HORA' as const,
+      ubicacion: 'Sede social, planta baja',
+      precio: 40000,
+      precioSocio: 32000,
+      montoSena: 20000,
+      disciplinas: [] as string[],
+    },
+    {
+      nombre: 'Quincho',
+      tipo: 'SOCIAL' as const,
+      capacidadMaxima: 40,
+      modalidad: 'DIA_COMPLETO' as const,
+      ubicacion: 'Parque, junto a la pileta',
+      precio: 60000,
+      precioSocio: 45000,
+      montoSena: 15000,
+      disciplinas: [] as string[],
+    },
+  ];
+  const espacios = new Map<string, { id: number }>();
+  for (const { disciplinas, ...datos } of espaciosData) {
+    const existente = await prisma.espacio.findFirst({ where: { nombre: datos.nombre } });
+    const espacio =
+      existente ??
+      (await prisma.espacio.create({
+        data: {
+          ...datos,
+          disciplinas: {
+            create: disciplinas
+              .map((n) => disciplinasMap.get(n))
+              .filter((d): d is Disciplina => !!d)
+              .map((d) => ({ disciplinaId: d.id })),
+          },
+        },
+      }));
+    espacios.set(datos.nombre, espacio);
+  }
+  const cancha = espacios.get('Cancha de fútbol 5')!;
+  if (!(await prisma.bloqueoAgenda.findFirst({ where: { espacioId: cancha.id } }))) {
+    await prisma.bloqueoAgenda.create({
+      data: {
+        espacioId: cancha.id,
+        tipo: 'RECURRENTE',
+        diasSemana: [2, 4],
+        horaInicio: '18:00',
+        horaFin: '20:00',
+        vigenteHasta: new Date(Date.UTC(new Date().getUTCFullYear(), 11, 31)),
+        disciplinaId: disciplinasMap.get('Fútbol')?.id ?? null,
+        motivo: 'Entrenamiento de fútbol',
+      },
+    });
+  }
+  const usuarioCamila = await prisma.usuario.findUnique({ where: { email: emailCamila } });
+  const camilaId = usuarioCamila?.id ?? usuarioLucia.id;
+  const reservasData = [
+    { codigo: 'RES-SEED01', espacio: 'Cancha de fútbol 5', usuarioId: usuarioLucia.id, inicio: enDias(5, 19), fin: enDias(5, 21), estado: 'PENDIENTE_APROBACION' as const, esSocio: true, montoTotal: 24000, montoSena: 6000 },
+    { codigo: 'RES-SEED02', espacio: 'Cancha de fútbol 5', usuarioId: camilaId, inicio: enDias(5, 20), fin: enDias(5, 22), estado: 'PENDIENTE_APROBACION' as const, esSocio: true, montoTotal: 24000, montoSena: 6000 },
+    { codigo: 'RES-SEED03', espacio: 'Quincho', usuarioId: usuarioLucia.id, inicio: enDias(10, 0), fin: enDias(11, 0), estado: 'APROBADA_PENDIENTE_PAGO' as const, esSocio: true, montoTotal: 45000, montoSena: 15000, limitePagoSena: new Date(Date.now() + 40 * H) },
+    { codigo: 'RES-SEED04', espacio: 'Salón principal', usuarioId: usuarioLucia.id, inicio: enDias(12, 20), fin: enDias(12, 24), estado: 'CONFIRMADA' as const, esSocio: true, montoTotal: 128000, montoSena: 20000, senaPagadaEn: new Date(), metodoPagoSena: 'EFECTIVO' },
+    { codigo: 'RES-SEED05', espacio: 'Cancha de fútbol 5', usuarioId: usuarioLucia.id, inicio: enDias(-20, 18), fin: enDias(-20, 19), estado: 'RECHAZADA' as const, esSocio: true, montoTotal: 12000, montoSena: 6000, motivoRechazo: 'La cancha estaba reservada para un torneo oficial.' },
+    { codigo: 'RES-SEED06', espacio: 'Quincho', usuarioId: camilaId, inicio: enDias(3, 0), fin: enDias(4, 0), estado: 'APROBADA_PENDIENTE_PAGO' as const, esSocio: true, montoTotal: 45000, montoSena: 15000, limitePagoSena: new Date(Date.now() - 2 * H) },
+  ];
+  const resetear = process.env.SEED_RESETEAR_RESERVAS === '1';
+  for (const { espacio, ...r } of reservasData) {
+    const inicial = {
+      espacioId: espacios.get(espacio)!.id,
+      limitePagoSena: null,
+      senaPagadaEn: null,
+      metodoPagoSena: null,
+      motivoRechazo: null,
+      motivoCancelacion: null,
+      canceladaPorId: null,
+      canceladaEn: null,
+      evaluadaPorId: null,
+      evaluadaEn: null,
+      ordenPagoId: null,
+      ...r,
+    };
+    await prisma.reserva.upsert({
+      where: { codigo: r.codigo },
+      create: inicial,
+      update: resetear ? inicial : {},
+    });
+  }
+  console.log(`  ${espacios.size} espacios y ${reservasData.length} reservas de ejemplo asegurados.`);
+
   console.log('\nSeed completado exitosamente.');
   if (process.env.NODE_ENV !== 'production') {
     console.log(`  Usuario ADMIN:       ${admin.email} / ${passwordPlano}`);
