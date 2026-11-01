@@ -30,6 +30,9 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
     cancelarPendientes: jest.fn(),
   };
 
+  /** 15/10/2026: la cuota de octubre ya venció (día 10). */
+  const HOY = new Date(2026, 9, 15);
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -46,8 +49,7 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
   });
 
   it('CA 5 & 6: Excluye socios al día y devuelve lista vacía si todos pagaron', async () => {
-    const hoy = new Date();
-    const periodoActualStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+    const periodoActualStr = '2026-10';
 
     mockPrisma.persona.findMany.mockResolvedValue([
       {
@@ -61,7 +63,7 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
           {
             id: 10,
             activo: true,
-            fechaAlta: hoy,
+            fechaAlta: HOY,
             categoriaId: 1,
             categoria: { nombre: 'General' },
           },
@@ -75,16 +77,16 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
       },
     ]);
 
-    const resultado = await service.getMorososCuotaSocial({});
+    const resultado = await service.getMorososCuotaSocial({}, HOY);
 
     expect(resultado.total).toBe(0);
     expect(resultado.deudaTotalClub).toBe(0);
     expect(resultado.items).toHaveLength(0);
+    expect(resultado.diaVencimiento).toBe(10);
   });
 
   it('CA 1, 4 & 5: Lista morosos con deuda acumulada calculada según tarifa histórica por período', async () => {
-    const hoy = new Date();
-    const haceDosMeses = new Date(hoy.getFullYear(), hoy.getMonth() - 2, 1);
+    const haceDosMeses = new Date(HOY.getFullYear(), HOY.getMonth() - 2, 1);
     const p0 = `${haceDosMeses.getFullYear()}-${String(haceDosMeses.getMonth() + 1).padStart(2, '0')}`;
 
     mockPrisma.persona.findMany.mockResolvedValue([
@@ -104,7 +106,7 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
             categoria: { nombre: 'Juvenil' },
           },
         ],
-        pagos: [], // Debe 3 períodos
+        pagos: [], // Al día 15 debe 3 períodos (mes -2, mes -1 y mes actual ya vencido)
       },
     ]);
 
@@ -114,7 +116,7 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
       periodoAplicacion: '2026-01',
     });
 
-    const resultado = await service.getMorososCuotaSocial({});
+    const resultado = await service.getMorososCuotaSocial({}, HOY);
 
     expect(resultado.total).toBe(1);
     expect(resultado.items[0].nombreCompleto).toBe('María Gómez');
@@ -124,12 +126,101 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
     expect(resultado.items[0].montoTotalDeuda).toBe(12000); // 3 * 4000
     expect(resultado.items[0].periodosAdeudados).toContain(p0);
     expect(resultado.deudaTotalClub).toBe(12000);
+    expect(resultado.diaVencimiento).toBe(10);
+  });
+
+  it('DT-48: no cuenta las cuotas del mes en curso que todavía no vencieron (hasta el día 10)', async () => {
+    const haceDosMeses = new Date(2026, 7, 1); // Agosto 2026
+    mockPrisma.persona.findMany.mockResolvedValue([
+      {
+        id: 2,
+        nombre: 'María',
+        apellido: 'Gómez',
+        dni: '22334455',
+        email: 'maria@test.com',
+        telefono: '99887766',
+        membresias: [
+          {
+            id: 20,
+            activo: true,
+            fechaAlta: haceDosMeses,
+            categoriaId: 2,
+            categoria: { nombre: 'Juvenil' },
+          },
+        ],
+        pagos: [],
+      },
+    ]);
+    mockPrisma.configuracionCuotaSocial.findFirst.mockResolvedValue({ monto: 4000 });
+
+    // Consultado el 10/10/2026 (día 10): octubre NO venció aún, solo debe agosto y septiembre
+    const resultado = await service.getMorososCuotaSocial({}, new Date(2026, 9, 10));
+
+    expect(resultado.items[0].periodosAdeudados).toEqual(['2026-08', '2026-09']);
+    expect(resultado.items[0].cantidadPeriodos).toBe(2);
+    expect(resultado.items[0].montoTotalDeuda).toBe(8000);
+  });
+
+  it('DT-48: no lista como moroso a quien solo debe la cuota del mes en curso antes del día 10', async () => {
+    mockPrisma.persona.findMany.mockResolvedValue([
+      {
+        id: 3,
+        nombre: 'Nuevo',
+        apellido: 'Socio',
+        dni: '33445566',
+        membresias: [
+          {
+            id: 30,
+            activo: true,
+            fechaAlta: new Date(2026, 9, 1),
+            categoriaId: 1,
+            categoria: { nombre: 'General' },
+          },
+        ],
+        pagos: [],
+      },
+    ]);
+    mockPrisma.configuracionCuotaSocial.findFirst.mockResolvedValue({ monto: 5000 });
+
+    // Consultado el 08/10/2026 (día 8): no figura en la lista de morosos
+    const resultado = await service.getMorososCuotaSocial({}, new Date(2026, 9, 8));
+
+    expect(resultado).toMatchObject({ total: 0, deudaTotalClub: 0, items: [] });
+  });
+
+  it('DT-48: lista como moroso a quien debe la cuota del mes en curso a partir del día 11', async () => {
+    mockPrisma.persona.findMany.mockResolvedValue([
+      {
+        id: 3,
+        nombre: 'Nuevo',
+        apellido: 'Socio',
+        dni: '33445566',
+        membresias: [
+          {
+            id: 30,
+            activo: true,
+            fechaAlta: new Date(2026, 9, 1),
+            categoriaId: 1,
+            categoria: { nombre: 'General' },
+          },
+        ],
+        pagos: [],
+      },
+    ]);
+    mockPrisma.configuracionCuotaSocial.findFirst.mockResolvedValue({ monto: 5000 });
+
+    // Consultado el 11/10/2026: octubre ya venció
+    const resultado = await service.getMorososCuotaSocial({}, new Date(2026, 9, 11));
+
+    expect(resultado.total).toBe(1);
+    expect(resultado.items[0].periodosAdeudados).toEqual(['2026-10']);
+    expect(resultado.items[0].cantidadPeriodos).toBe(1);
+    expect(resultado.items[0].montoTotalDeuda).toBe(5000);
   });
 
   it('CA 2: Permite ordenar por monto de deuda (descendente y ascendente)', async () => {
-    const hoy = new Date();
-    const haceUnMes = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
-    const haceTresMeses = new Date(hoy.getFullYear(), hoy.getMonth() - 3, 1);
+    const haceUnMes = new Date(HOY.getFullYear(), HOY.getMonth() - 1, 1);
+    const haceTresMeses = new Date(HOY.getFullYear(), HOY.getMonth() - 3, 1);
 
     mockPrisma.persona.findMany.mockResolvedValue([
       {
@@ -162,26 +253,31 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
     mockPrisma.configuracionCuotaSocial.findFirst.mockResolvedValue({ monto: 5000 });
 
     // Orden DESC por monto
-    const resDesc = await service.getMorososCuotaSocial({
-      ordenarPor: CriterioOrdenMorosos.MONTO,
-      orden: SentidoOrden.DESC,
-    });
+    const resDesc = await service.getMorososCuotaSocial(
+      {
+        ordenarPor: CriterioOrdenMorosos.MONTO,
+        orden: SentidoOrden.DESC,
+      },
+      HOY,
+    );
     expect(resDesc.items[0].dni).toBe('222');
     expect(resDesc.items[1].dni).toBe('111');
 
     // Orden ASC por monto
-    const resAsc = await service.getMorososCuotaSocial({
-      ordenarPor: CriterioOrdenMorosos.MONTO,
-      orden: SentidoOrden.ASC,
-    });
+    const resAsc = await service.getMorososCuotaSocial(
+      {
+        ordenarPor: CriterioOrdenMorosos.MONTO,
+        orden: SentidoOrden.ASC,
+      },
+      HOY,
+    );
     expect(resAsc.items[0].dni).toBe('111');
     expect(resAsc.items[1].dni).toBe('222');
   });
 
   it('CA 2: Permite ordenar por cantidad de períodos adeudados', async () => {
-    const hoy = new Date();
-    const haceUnMes = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
-    const haceDosMeses = new Date(hoy.getFullYear(), hoy.getMonth() - 2, 1);
+    const haceUnMes = new Date(HOY.getFullYear(), HOY.getMonth() - 1, 1);
+    const haceDosMeses = new Date(HOY.getFullYear(), HOY.getMonth() - 2, 1);
 
     mockPrisma.persona.findMany.mockResolvedValue([
       {
@@ -213,10 +309,13 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
 
     mockPrisma.configuracionCuotaSocial.findFirst.mockResolvedValue({ monto: 5000 });
 
-    const res = await service.getMorososCuotaSocial({
-      ordenarPor: CriterioOrdenMorosos.PERIODOS,
-      orden: SentidoOrden.DESC,
-    });
+    const res = await service.getMorososCuotaSocial(
+      {
+        ordenarPor: CriterioOrdenMorosos.PERIODOS,
+        orden: SentidoOrden.DESC,
+      },
+      HOY,
+    );
 
     expect(res.items[0].dni).toBe('2');
     expect(res.items[0].cantidadPeriodos).toBe(3);
@@ -252,8 +351,7 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
   });
 
   it('soporta paginación opcional preservando total y deudaTotalClub intactos', async () => {
-    const hoy = new Date();
-    const haceUnMes = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+    const haceUnMes = new Date(HOY.getFullYear(), HOY.getMonth() - 1, 1);
     mockPrisma.persona.findMany.mockResolvedValue([
       {
         id: 1,
@@ -263,7 +361,7 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
         membresias: [
           { activo: true, fechaAlta: haceUnMes, categoriaId: 1, categoria: { nombre: 'General' } },
         ],
-        pagos: [],
+        pagos: [], // 2 períodos
       },
       {
         id: 2,
@@ -273,19 +371,19 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
         membresias: [
           { activo: true, fechaAlta: haceUnMes, categoriaId: 1, categoria: { nombre: 'General' } },
         ],
-        pagos: [],
+        pagos: [], // 2 períodos
       },
     ]);
     mockPrisma.configuracionCuotaSocial.findFirst.mockResolvedValue({ monto: 5000 });
 
-    const resPag1 = await service.getMorososCuotaSocial({ pagina: 1, porPagina: 1 });
+    const resPag1 = await service.getMorososCuotaSocial({ pagina: 1, porPagina: 1 }, HOY);
     expect(resPag1.total).toBe(2);
     expect(resPag1.deudaTotalClub).toBe(20000);
     expect(resPag1.items).toHaveLength(1);
     expect(resPag1.pagina).toBe(1);
     expect(resPag1.porPagina).toBe(1);
 
-    const resPag2 = await service.getMorososCuotaSocial({ pagina: 2, porPagina: 1 });
+    const resPag2 = await service.getMorososCuotaSocial({ pagina: 2, porPagina: 1 }, HOY);
     expect(resPag2.total).toBe(2);
     expect(resPag2.items).toHaveLength(1);
     expect(resPag2.pagina).toBe(2);
