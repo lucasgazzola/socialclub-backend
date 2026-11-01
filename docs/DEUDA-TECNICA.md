@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 01/11/2026 (US-60/61/62 · reservas, DT-53 nueva; registro DT-50, DT-51 y DT-52; TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
+- **Última actualización:** 01/11/2026 (TASK-56 · DT-06, DT-09, DT-36: confirmación de compra de entradas y actualización de deuda técnica; US-60/61/62 · reservas, DT-53 nueva; registro DT-50, DT-51 y DT-52; TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -38,7 +38,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-46 · El alta de usuario no muestra el error en el formulario](#dt-46--el-alta-de-usuario-no-muestra-el-error-en-el-formulario)
     - [DT-47 · El DNI se muestra con formatos distintos](#dt-47--el-dni-se-muestra-con-formatos-distintos)
     - [DT-09 · Imágenes en eventos](#dt-09--imágenes-en-eventos)
-    - [DT-06 · Historias de usuario para sumar al backlog](#dt-06--historias-de-usuario-para-sumar-al-backlog)
     - [DT-36 · No hay notificaciones de vencimiento o resolución](#dt-36--no-hay-notificaciones-de-vencimiento-o-resolución)
 - [Deuda resuelta](#deuda-resuelta)
 - [Trazabilidad de casos de prueba](#trazabilidad-de-casos-de-prueba)
@@ -64,10 +63,10 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-31, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48, DT-49, DT-50, DT-53 |
+| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-31, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48, DT-49, DT-50, DT-53, DT-06 |
 | 🟠 Altas pendientes | DT-52, DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-35 (cobro, tarifa y pasarela de pagos resueltos; resta el autoservicio de la cuota deportiva) |
 | 🟡 Medias pendientes | DT-34 |
-| ⚪ Bajas pendientes | DT-06, DT-09, DT-46, DT-47, DT-51, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
+| ⚪ Bajas pendientes | DT-09 (campo e interfaz listos, subida pendiente de DT-15), DT-46, DT-47, DT-51, DT-36 (servicio resuelto en TASK-35, alertas en US-26, reservas en US-60/61/62, compra de entradas en TASK-56; restan DT-29 y cuotas) |
 
 **Cobertura de tests** (medida el 01/11/2026, objetivo DoD **70 %**):
 
@@ -333,32 +332,13 @@ Usuarios muestra el DNI agrupado (`30.111.222`) y Socios sin agrupar
 #### DT-09 · Imágenes en eventos
 *backend + frontend · 5 SP*
 
-`Evento` no tiene ningún campo de imagen: hay migración, endpoint de upload con
-validación de tipo y tamaño, y UI de carga y preview. **No empezar antes de
-DT-15**: hay que reusar el mecanismo de almacenamiento que quede definido ahí.
-
-#### DT-06 · Historias de usuario para sumar al backlog
-*gestión · 0 SP de código*
-
-No es deuda de código: son historias de producto nuevas.
-
-- US-X: Darme de baja como socio.
-- US-Y: Reactivación / nueva alta de un ex-socio.
-- US-Z: Baja automática por falta de pago.
-- US-W: **Generación de cuotas** (social y deportiva) por período.
-
-**Baja automática implica un job programado y reglas de morosidad que hoy no
-existen en el dominio.** Estimarlas en refinamiento y sacarlas de esta tabla.
-
-**US-W es además una dependencia de US-07.** El criterio de aceptación «el
-sistema detiene la generación de nuevas cuotas asociadas a ese participante» no
-tiene hoy dónde implementarse: no existe ninguna entidad de cuota por persona.
-`ConfiguracionCuotaSocial` y `ConfiguracionCuotaDeportiva` son **precios**
-(monto por categoría/disciplina y período), no cuotas emitidas, y no hay ningún
-proceso de emisión (`generar*`), ni modelo `Pago`. Lo que sí dejó la baja de
-US-07 es la precondición correcta: el participante queda Inactivo
-(`Persona.activo = false`) y **sin inscripciones vigentes**, que es lo que
-tendrá que filtrar el generador cuando exista.
+El campo `Evento.imagen` ya existe en la base de datos (Prisma) y el frontend ya
+implementa la carga, edición y visualización (`EventoForm.tsx`, `EventoCard.tsx`).
+El endpoint de subida de archivos multipart y almacenamiento definitivo en el
+backend permanece en pausa a la espera de la resolución de la decisión
+arquitectónica **DT-15** (almacenamiento no efímero en Azure Container Apps),
+para evitar implementar una solución basada en el filesystem local que luego
+deba ser refactorizada.
 
 #### DT-36 · No hay notificaciones de vencimiento o resolución
 *Nuevo · funcional · backend + frontend*
@@ -376,11 +356,32 @@ confirmada; o una cuota está vencida.
   notificaciones ([decisión 0001](decisiones/0001-servicio-de-notificaciones.md)).
   Cada aviso pendiente es una plantilla más una llamada a
   `NotificacionesService.notificar`; push se suma como canal.
+- **Reservas de espacios resuelto en US-60/61/62 (20/10/2026):** confirmación y cancelación
+  con avisos por email al socio.
+- **Confirmación de compra de entradas resuelta en TASK-56 (01/11/2026):** implementada
+  `CompraEntradasPlantilla` y envío de correo al usuario comprador ante la acreditación
+  aprobada de la orden de pago en `EntradasAcreditador` (DT-31).
+- **Pendiente:** avisos de solicitud de inscripción (DT-29) y alertas de cuotas adeudadas.
 - **Rama sugerida:** `issue/TASK-28-DT-36-Notificaciones`
 
 ---
 
 ## Deuda resuelta
+
+### TASK-56 · DT-06 · Historias de usuario para sumar al backlog
+**`issue/TASK-56-DT-06-DT-09-DT-36-notificaciones-y-documentacion`** (gestión) · 01/11/2026
+
+- Se cerró el ítem de deuda de gestión DT-06 (0 SP de código) al no constituir un defecto ni deuda técnica del código existente.
+- La US-W (generación de cuotas) quedó resuelta conceptualmente y documentada en TASK-52 (DT-24): el sistema calcula la deuda y emite la cuota al vuelo a partir de la fecha de alta/inscripción respecto a los pagos registrados en `Pago` y `PagoCuotaDeportiva`, en lugar de pre-generar masivamente registros vacíos en base de datos.
+- Las historias restantes (US-X baja voluntaria de socio, US-Y reactivación y US-Z baja automática por morosidad) fueron derivadas al refinamiento y priorización del backlog de producto.
+
+### TASK-56 · DT-36 · Envío de confirmación de compra de entradas por email
+**`issue/TASK-56-DT-06-DT-09-DT-36-notificaciones-y-documentacion`** (backend · notificaciones) · 01/11/2026
+
+- Se implementó la plantilla de correo `CompraEntradasPlantilla` (`COMPRA_ENTRADAS`) con el detalle completo de la compra (nombre del evento, fecha, lugar de acreditación, cantidad, precio unitario y monto total abonado).
+- Se integró el envío automático de la notificación en `EntradasAcreditador.acreditar` ante la acreditación exitosa de una orden de pago por compra de entradas (DT-31), despachando el email al comprador a través de `NotificacionesService`.
+- Manejo resiliente de errores para asegurar que eventuales fallas en el servicio de correo no reviertan ni bloqueen la acreditación de las entradas compradas.
+- Cobertura de pruebas unitarias al 100% en `compra-entradas.plantilla.spec.ts` y `entradas.acreditador.spec.ts`.
 
 ### TASK-55 · DT-53 · Tres E2E desactualizados por US-04
 **issue/TASK-55-DT-53-tres-e2e-desactualizados-por-us-04** (frontend · e2e + accesibilidad) · 01/11/2026

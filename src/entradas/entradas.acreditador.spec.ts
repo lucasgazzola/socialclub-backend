@@ -1,7 +1,8 @@
 import type { OrdenPago } from '@prisma/client';
 import { EntradasAcreditador } from './entradas.acreditador';
+import { CompraEntradasPlantilla } from './compra-entradas.plantilla';
 
-/** US-52 · TASK-51 (DT-31) · Acreditación de la compra online de entradas. */
+/** US-52 · TASK-51 (DT-31) / TASK-56 (DT-36) · Acreditación de la compra online de entradas y notificación. */
 describe('US-52 · TASK-51 · EntradasAcreditador', () => {
   const orden = {
     id: 8,
@@ -13,19 +14,31 @@ describe('US-52 · TASK-51 · EntradasAcreditador', () => {
 
   let tx: any;
   let auditoria: { registrar: jest.Mock };
+  let notificaciones: { notificar: jest.Mock };
+  let plantilla: CompraEntradasPlantilla;
   let acreditador: EntradasAcreditador;
 
   beforeEach(() => {
     tx = {
       evento: {
-        findUnique: jest.fn().mockResolvedValue({ id: 1, nombre: 'Peña', entradasDisponibles: 8 }),
+        findUnique: jest.fn().mockResolvedValue({
+          id: 1,
+          nombre: 'Peña',
+          entradasDisponibles: 8,
+          fechaEvento: new Date('2026-11-20T21:00:00.000Z'),
+          lugarAcreditacion: 'Sede Central',
+        }),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       compraEntrada: { create: jest.fn().mockResolvedValue({ id: 25 }) },
       entrada: { createMany: jest.fn() },
     };
     auditoria = { registrar: jest.fn() };
-    acreditador = new EntradasAcreditador(auditoria as never);
+    notificaciones = {
+      notificar: jest.fn().mockResolvedValue({ creadas: 1, enviadas: 1, fallidas: 0 }),
+    };
+    plantilla = new CompraEntradasPlantilla();
+    acreditador = new EntradasAcreditador(auditoria as never, notificaciones as never, plantilla);
   });
 
   it('TC-263 · crea la compra asociada a la orden y una entrada única por unidad', async () => {
@@ -52,6 +65,31 @@ describe('US-52 · TASK-51 · EntradasAcreditador', () => {
     );
   });
 
+  it('DT-36 · notifica al comprador por email con el detalle de las entradas acreditadas', async () => {
+    await acreditador.acreditar(orden, tx, { reservaVigente: true });
+
+    expect(notificaciones.notificar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        plantilla,
+        destinatarios: [7],
+        referencias: ['compra-entradas-25'],
+        datos: expect.objectContaining({
+          eventoNombre: 'Peña',
+          cantidad: 2,
+          precioUnitario: '$1500.00',
+          montoTotal: '$3000.00',
+        }),
+      }),
+    );
+  });
+
+  it('DT-36 · si la notificación falla, no aborta ni revierte la acreditación de la compra', async () => {
+    notificaciones.notificar.mockRejectedValue(new Error('SMTP no disponible'));
+
+    await expect(acreditador.acreditar(orden, tx, { reservaVigente: true })).resolves.not.toThrow();
+    expect(tx.compraEntrada.create).toHaveBeenCalled();
+  });
+
   it('con la reserva vigente no vuelve a descontar el cupo', async () => {
     await acreditador.acreditar(orden, tx, { reservaVigente: true });
     expect(tx.evento.updateMany).not.toHaveBeenCalled();
@@ -73,6 +111,7 @@ describe('US-52 · TASK-51 · EntradasAcreditador', () => {
       'la orden venció y las entradas se agotaron',
     );
     expect(tx.compraEntrada.create).not.toHaveBeenCalled();
+    expect(notificaciones.notificar).not.toHaveBeenCalled();
   });
 
   it('falla si el evento ya no existe', async () => {
@@ -80,6 +119,7 @@ describe('US-52 · TASK-51 · EntradasAcreditador', () => {
     await expect(acreditador.acreditar(orden, tx, { reservaVigente: true })).rejects.toThrow(
       'el evento ya no existe',
     );
+    expect(notificaciones.notificar).not.toHaveBeenCalled();
   });
 
   it('TC-264 · liberar devuelve el cupo reservado al evento', async () => {
