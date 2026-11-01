@@ -32,6 +32,16 @@ estrategia de testing y su secuencia.
 **Objetivo de la DoD: 70 % de cobertura.** Los dos repos lo superan: backend
 88,3 % y frontend 70,5 %.
 
+**31/10/2026 · TASK-51 — Pasarela de pagos (Mercado Pago).** 15 casos nuevos
+(`TC-258`–`TC-272`, US-10 y US-52) con su ejecución (`EJ-272`–`EJ-286`,
+unitarios con la trazabilidad `TC-XXX` en el título) y E2E (`EJ-287`–`EJ-291`):
+el nuevo `TC-260` (pago rechazado y cancelado) y `TC-069`, que ahora compra
+pagando con la pasarela simulada. Prueba manual contra el sandbox de Mercado
+Pago en `pruebas/evidencias/US-10/README.md`. Se corrigió
+`scripts/exportar-casos.mjs`, que tomaba los alias viejos `TC-08xx` de los
+títulos como último ID. Hallazgo: DT-49 (tests de cuota deportiva que fallan
+cuando la fecha local y la UTC están en meses distintos).
+
 **18/10/2026 · TASK-46 (DT-02) — Cierre de casos y cobertura backend.** Se
 documentaron y exportaron los 24 casos faltantes de `US-06`, `US-08`, `US-09`,
 `US-11` y `US-24` (`TC-225`–`TC-248`), se cubrió al 100 % el módulo
