@@ -160,6 +160,7 @@ describe('US-25 · estado documental de una inscripción', () => {
     );
     expect(r.estado).toBe('HABILITADO');
     expect(r.habilitadoExcepcionalmenteHasta).toEqual(new Date(2026, 9, 15));
+    expect(r.yaHabilitadoExcepcionalmente).toBe(true);
   });
 
   it('una habilitación excepcional vencida no levanta el bloqueo', () => {
@@ -171,6 +172,7 @@ describe('US-25 · estado documental de una inscripción', () => {
       hoy,
     );
     expect(r.estado).toBe('BLOQUEADO');
+    expect(r.yaHabilitadoExcepcionalmente).toBe(true);
   });
 
   it('ignora documentos sin tipo del catálogo (cargados antes del catálogo)', () => {
