@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import type { OrdenPago, Prisma } from '@prisma/client';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import {
@@ -7,6 +7,8 @@ import {
   type AcreditadorCobro,
   type ContextoAcreditacion,
 } from '../pasarela/acreditadores/acreditador-cobro';
+import { NotificacionesService } from '../notificaciones/notificaciones.service';
+import { CompraEntradasPlantilla } from './compra-entradas.plantilla';
 
 /** Lo que guarda la orden de pago de entradas (`OrdenPago.datos`). */
 export interface DatosCobroEntradas {
@@ -17,16 +19,21 @@ export interface DatosCobroEntradas {
 }
 
 /**
- * TASK-51 (DT-31) — Acredita la compra online de entradas: crea la
- * `CompraEntrada` y una entrada con su token por unidad. El cupo se reservó
- * al iniciar; si la orden había vencido, se vuelve a reservar.
+ * TASK-51 (DT-31) / TASK-56 (DT-36) — Acredita la compra online de entradas: crea la
+ * `CompraEntrada` y una entrada con su token por unidad, y notifica al comprador
+ * por email con el detalle de su compra.
  */
 @Acreditador()
 @Injectable()
 export class EntradasAcreditador implements AcreditadorCobro {
   readonly concepto = 'ENTRADAS' as const;
+  private readonly logger = new Logger(EntradasAcreditador.name);
 
-  constructor(private readonly auditoria: AuditoriaService) {}
+  constructor(
+    private readonly auditoria: AuditoriaService,
+    private readonly notificaciones?: NotificacionesService,
+    private readonly plantilla?: CompraEntradasPlantilla,
+  ) {}
 
   async acreditar(
     orden: OrdenPago,
@@ -76,6 +83,30 @@ export class EntradasAcreditador implements AcreditadorCobro {
       },
       tx,
     );
+
+    if (this.notificaciones && this.plantilla) {
+      try {
+        await this.notificaciones.notificar({
+          plantilla: this.plantilla,
+          destinatarios: [orden.usuarioId],
+          referencias: [`compra-entradas-${compra.id}`],
+          datos: {
+            eventoNombre: evento.nombre,
+            fechaEvento: evento.fechaEvento
+              ? new Date(evento.fechaEvento).toLocaleDateString('es-AR')
+              : '—',
+            lugarAcreditacion: evento.lugarAcreditacion,
+            cantidad: datos.cantidad,
+            precioUnitario: `$${Number(datos.precioUnitario).toFixed(2)}`,
+            montoTotal: `$${Number(datos.montoTotal).toFixed(2)}`,
+          },
+        });
+      } catch (error) {
+        this.logger.error(
+          `No se pudo enviar la confirmación de compra ${compra.id}: ${(error as Error).message}`,
+        );
+      }
+    }
   }
 
   /** Devuelve al evento el cupo reservado por una orden que no se pagó. */
