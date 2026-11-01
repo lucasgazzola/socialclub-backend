@@ -32,8 +32,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-29 · No existe solicitud de inscripción con aprobación](#dt-29--no-existe-solicitud-de-inscripción-con-aprobación)
     - [DT-35 · El pago implementado solo cubre la cuota social](#dt-35--el-pago-implementado-solo-cubre-la-cuota-social)
   - [🟡 Medias](#-medias)
-    - [DT-50 · La habilitación excepcional documental no restringe su uso a una única vez](#dt-50--la-habilitación-excepcional-documental-no-restringe-su-uso-a-una-única-vez)
-    - [DT-49 · Tests de cuota deportiva que fallan según la hora](#dt-49--tests-de-cuota-deportiva-que-fallan-según-la-hora)
     - [DT-53 · Tres E2E desactualizados por US-04](#dt-53--tres-e2e-desactualizados-por-us-04)
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
   - [⚪ Bajas](#-bajas)
@@ -67,9 +65,9 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-31, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48 |
+| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-31, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48, DT-49, DT-50 |
 | 🟠 Altas pendientes | DT-52, DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-35 (cobro, tarifa y pasarela de pagos resueltos; resta el autoservicio de la cuota deportiva) |
-| 🟡 Medias pendientes | DT-34, DT-49, DT-50, DT-53 |
+| 🟡 Medias pendientes | DT-34, DT-53 |
 | ⚪ Bajas pendientes | DT-06, DT-09, DT-46, DT-47, DT-51, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
 **Cobertura de tests** (medida el 01/11/2026, objetivo DoD **70 %**):
@@ -278,18 +276,6 @@ deportiva.
 
 ### 🟡 Medias
 
-#### DT-50 · La habilitación excepcional documental no restringe su uso a una única vez
-*Nuevo · backend + frontend · detectado en US-28*
-
-La funcionalidad de habilitar excepcionalmente a un participante con documentación vencida o faltante (US-28) debe ser un recurso de **única vez por inscripción**. Actualmente el sistema permite reincidir o extenderla indefinidamente:
-
-- **Frontend (`DocumentacionParticipante.tsx`):**
-  - Mientras la excepción se encuentra vigente (`habilitadoExcepcionalmenteHasta != null`), el panel muestra indebidamente un botón de «Extender habilitación».
-  - Al expirar el plazo de la excepción, la inscripción vuelve al estado `BLOQUEADO` y el sistema vuelve a ofrecer el botón «Habilitar excepcionalmente» sin validar si el participante ya utilizó el beneficio previamente.
-- **Backend (`InscripcionService.habilitarExcepcional` y `EstadoDocumentalService`):**
-  - `InscripcionService.habilitarExcepcional` no valida si la inscripción ya cuenta con registros previos en la tabla `habilitaciones_excepcionales`.
-  - `EstadoDocumentalService` no expone en el detalle de la inscripción si ya utilizó su habilitación excepcional (`yaHabilitadoExcepcionalmente`), impidiendo a la interfaz de usuario ocultar la acción o advertir que el beneficio ya fue consumido.
-
 #### DT-53 · Tres E2E desactualizados por US-04
 *Nuevo · frontend (e2e) · detectado en US-60/61/62 (01/11/2026)*
 
@@ -304,19 +290,6 @@ otros cambios:
 **Arreglo:** comparar contra `formatearDni(dni)` y buscar la fila (`row`). El
 workflow E2E del front, que corre en cada push a `dev`, queda en rojo hasta
 corregirlo.
-
-#### DT-49 · Tests de cuota deportiva que fallan según la hora
-*Nuevo · backend · detectado en TASK-51 (31/10/2026)*
-
-Seis casos de `src/pagos/pagos-deportivos.service.spec.ts` (registro de pago,
-tarifas de TASK-33 y reinscripción de DT-41) fallan cuando la fecha local y la
-UTC caen en meses distintos: el 31/10 después de las 21:00 (hora argentina) ya
-es 01/11 en UTC y el "período actual" del test no coincide con el del servicio.
-Pasan el resto del mes, así que el CI puede quedar en rojo solo el último día
-de cada mes por la noche. Fallan igual en `dev` sin ningún cambio.
-
-**Arreglo:** congelar el reloj en esos tests (`jest.useFakeTimers().setSystemTime(...)`)
-o calcular el período esperado con la misma función que usa el servicio.
 
 #### DT-34 · No hay cancelación, devolución ni transferencia de entradas
 *Nuevo · funcional · backend + frontend*
@@ -424,6 +397,20 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### TASK-54 · DT-49 · Tests de cuota deportiva que fallan según la hora
+**issue/TASK-54-DT-49-DT-50-tests-deportivos-y-habilitacion-excepcional** (backend · tooling) · 01/11/2026
+
+- Se congeló el reloj de pruebas en pagos-deportivos.service.spec.ts mediante jest.useFakeTimers() y jest.setSystemTime(new Date('2026-08-15T12:00:00Z')), restaurándolo con jest.useRealTimers() en fterEach().
+- Se parametrizaron de forma fija y determinista el año, mes y períodos relativos (mes(-2), mes(-1), mes(0)), evitando que la diferencia entre la medianoche UTC y el huso local de Argentina genere períodos discrepantes en ejecuciones nocturnas de fin de mes.
+
+### TASK-54 · DT-50 · La habilitación excepcional documental no restringe su uso a una única vez
+**issue/TASK-54-DT-49-DT-50-tests-deportivos-y-habilitacion-excepcional** (backend + frontend) · 01/11/2026
+
+- Backend: InscripcionService.habilitarExcepcional valida que la inscripción no registre excepciones previas en la base de datos (habilitacionExcepcional.count({ where: { inscripcionId } }) === 0), rechazando reincidencias con 400 Bad Request.
+- Backend: EstadoDocumentalService y estadoDeInscripcion exponen la propiedad yaHabilitadoExcepcionalmente: boolean (indicando si habilitacionesExcepcionales.length > 0).
+- Frontend: en DocumentacionParticipante.tsx, se eliminó el botón «Extender habilitación» (la excepción rige por única vez sin extensiones), y cuando la inscripción vuelve al estado BLOQUEADO tras expirar el plazo, se oculta el botón «Habilitar excepcionalmente» mostrando el aviso Excepción única ya utilizada.
+- Cobertura completa de pruebas unitarias en backend (inscripcion-habilitacion.service.spec.ts, estado-documental.spec.ts) y frontend (DocumentacionParticipante.test.tsx).
 
 ### TASK-53 · DT-48 · Morosos de cuota social cuenta cuotas que todavía no vencieron
 **issue/TASK-53-DT-48-Vencimiento-cuota-social-morosos** (backend + frontend) · 01/11/2026

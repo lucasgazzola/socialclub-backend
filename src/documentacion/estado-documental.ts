@@ -55,6 +55,8 @@ export interface EstadoDeInscripcion {
   documentos: EstadoDeDocumento[];
   /** Si una habilitación excepcional vigente levanta el bloqueo (US-28). */
   habilitadoExcepcionalmenteHasta: Date | null;
+  /** Si la inscripción ya utilizó alguna vez la habilitación excepcional única (DT-50). */
+  yaHabilitadoExcepcionalmente: boolean;
 }
 
 export const MS_DIA = 24 * 60 * 60 * 1000;
@@ -159,6 +161,8 @@ export function estadoDeInscripcion(
     .filter((d) => d.estado === 'FALTANTE' && d.fechaLimite && dia(d.fechaLimite) >= hoyDia)
     .map((d) => `${d.etiqueta}: falta presentarlo hasta el ${formatear(d.fechaLimite as Date)}`);
 
+  const yaHabilitadoExcepcionalmente = habilitacionesExcepcionales.length > 0;
+
   const excepcion = habilitacionesExcepcionales
     .filter((h) => dia(h.hasta) >= hoyDia)
     .sort((a, b) => b.hasta.getTime() - a.hasta.getTime())[0];
@@ -170,6 +174,7 @@ export function estadoDeInscripcion(
         motivos: motivosBloqueo,
         documentos: estados,
         habilitadoExcepcionalmenteHasta: excepcion.hasta,
+        yaHabilitadoExcepcionalmente,
       };
     }
     return {
@@ -177,6 +182,7 @@ export function estadoDeInscripcion(
       motivos: [...motivosBloqueo, ...motivosPendientes],
       documentos: estados,
       habilitadoExcepcionalmenteHasta: null,
+      yaHabilitadoExcepcionalmente,
     };
   }
   return {
@@ -184,6 +190,7 @@ export function estadoDeInscripcion(
     motivos: motivosPendientes,
     documentos: estados,
     habilitadoExcepcionalmenteHasta: null,
+    yaHabilitadoExcepcionalmente,
   };
 }
 

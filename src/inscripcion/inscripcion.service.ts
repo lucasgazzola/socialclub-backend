@@ -1116,6 +1116,15 @@ export class InscripcionService {
       throw new BadRequestException('La inscripción no se encuentra bloqueada por documentación');
     }
 
+    const excepcionesPrevias = await this.prisma.habilitacionExcepcional.count({
+      where: { inscripcionId },
+    });
+    if (excepcionesPrevias > 0) {
+      throw new BadRequestException(
+        'La inscripción ya utilizó su habilitación excepcional única y no puede recibir otra',
+      );
+    }
+
     const hoy = new Date();
     // Se calcula la fecha límite de vigencia hasta las 23:59:59.999 UTC del día resultante
     const fechaHasta = new Date(

@@ -12,6 +12,7 @@ const mockPrisma: any = {
   habilitacionExcepcional: {
     create: jest.fn(),
     findMany: jest.fn(),
+    count: jest.fn(),
   },
   $transaction: jest.fn(async (arg: any) =>
     typeof arg === 'function' ? arg(mockPrisma) : Promise.all(arg),
@@ -33,6 +34,7 @@ describe('US-28 · InscripcionService.habilitarExcepcional', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockPrisma.habilitacionExcepcional.count.mockResolvedValue(0);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -99,6 +101,24 @@ describe('US-28 · InscripcionService.habilitarExcepcional', () => {
     await expect(
       service.habilitarExcepcional(10, { motivo: 'Excepción justificada', dias: 15 }, 1),
     ).rejects.toThrow('La inscripción no se encuentra bloqueada por documentación');
+  });
+
+  it('DT-50: rechaza otorgar habilitación excepcional si la inscripción ya utilizó una previamente (400 Bad Request)', async () => {
+    mockPrisma.inscripcion.findUnique.mockResolvedValue(mockInscripcion);
+    mockEstadoDocumental.porInscripcion.mockResolvedValue({
+      inscripcionId: 10,
+      bloqueada: true,
+      estado: 'BLOQUEADO',
+      motivos: ['Apto médico vencido'],
+      documentos: [],
+    });
+    mockPrisma.habilitacionExcepcional.count.mockResolvedValue(1);
+
+    await expect(
+      service.habilitarExcepcional(10, { motivo: 'Segunda excepción', dias: 15 }, 1),
+    ).rejects.toThrow(
+      'La inscripción ya utilizó su habilitación excepcional única y no puede recibir otra',
+    );
   });
 
   it('US-28 · TC-222: crea la habilitación excepcional calculando correctamente la fecha hasta según los días indicados', async () => {
