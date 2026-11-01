@@ -95,6 +95,19 @@ class EnvironmentVariables {
   @IsOptional()
   API_PUBLIC_URL?: string;
 
+  // ── Reservas de espacios (US-60, US-61, decisión 0004) ───────────────────
+  /** Horas que tiene el solicitante para pagar la seña desde la aprobación (48 por defecto). */
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  RESERVAS_HORAS_LIMITE_SENA?: number;
+
+  /** Hasta cuántas horas antes del turno el usuario puede cancelar solo (48 por defecto). */
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  RESERVAS_HORAS_PENALIZACION?: number;
+
   /** Secreto con el que el workflow dispara las tareas automáticas (DT-22). */
   @IsString()
   @MinLength(16, { message: 'TAREAS_TOKEN debe tener al menos 16 caracteres.' })
