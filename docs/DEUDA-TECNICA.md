@@ -33,7 +33,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-35 · El pago implementado solo cubre la cuota social](#dt-35--el-pago-implementado-solo-cubre-la-cuota-social)
   - [🟡 Medias](#-medias)
     - [DT-50 · La habilitación excepcional documental no restringe su uso a una única vez](#dt-50--la-habilitación-excepcional-documental-no-restringe-su-uso-a-una-única-vez)
-    - [DT-48 · Morosos de cuota social cuenta cuotas que todavía no vencieron](#dt-48--morosos-de-cuota-social-cuenta-cuotas-que-todavía-no-vencieron)
     - [DT-49 · Tests de cuota deportiva que fallan según la hora](#dt-49--tests-de-cuota-deportiva-que-fallan-según-la-hora)
     - [DT-53 · Tres E2E desactualizados por US-04](#dt-53--tres-e2e-desactualizados-por-us-04)
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
@@ -68,17 +67,17 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-31, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45 |
+| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-31, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48 |
 | 🟠 Altas pendientes | DT-52, DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-35 (cobro, tarifa y pasarela de pagos resueltos; resta el autoservicio de la cuota deportiva) |
-| 🟡 Medias pendientes | DT-34, DT-48, DT-49, DT-50, DT-53 |
+| 🟡 Medias pendientes | DT-34, DT-49, DT-50, DT-53 |
 | ⚪ Bajas pendientes | DT-06, DT-09, DT-46, DT-47, DT-51, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
-**Cobertura de tests** (medida el 18/10/2026, objetivo DoD **70 %**):
+**Cobertura de tests** (medida el 01/11/2026, objetivo DoD **70 %**):
 
 | Repo | Statements | Piso configurado |
 |---|---|---|
-| Frontend (Vitest) | **72,6 %** ✅ | 69 % |
-| Backend (Jest) | **88,3 %** ✅ | 85 % |
+| Frontend (Vitest) | **73,2 %** ✅ | 70 % |
+| Backend (Jest) | **88,6 %** ✅ | 85 % |
 
 Los dos repos tenían además el **CI en rojo** por configuración de lint, no por
 código: ver [Extra](#extra--ci-del-frontend-en-rojo-desde-el-0709) al final.
@@ -319,16 +318,6 @@ de cada mes por la noche. Fallan igual en `dev` sin ningún cambio.
 **Arreglo:** congelar el reloj en esos tests (`jest.useFakeTimers().setSystemTime(...)`)
 o calcular el período esperado con la misma función que usa el servicio.
 
-#### DT-48 · Morosos de cuota social cuenta cuotas que todavía no vencieron
-*Nuevo · backend · detectado en US-23*
-
-US-23 definió que la cuota deportiva de un mes **vence el día 10** y que
-recién desde el 11 es deuda (`src/pagos/vencimiento-cuota-deportiva.ts`). El
-listado de morosos de cuota social (US-19, `PagosService.getMorososCuotaSocial`)
-cuenta el mes en curso desde el día 1: un socio que paga el 5 figura como moroso
-del 1 al 5. Conviene alinear las dos con la misma regla (o una constante propia
-para la cuota social, si el club la cobra distinto). Decisión del equipo.
-
 #### DT-34 · No hay cancelación, devolución ni transferencia de entradas
 *Nuevo · funcional · backend + frontend*
 
@@ -435,6 +424,15 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### TASK-53 · DT-48 · Morosos de cuota social cuenta cuotas que todavía no vencieron
+**issue/TASK-53-DT-48-Vencimiento-cuota-social-morosos** (backend + frontend) · 01/11/2026
+
+- Se alineó la regla de vencimiento de la cuota social (US-19) con la cuota deportiva (US-23): ambas vencen el día 10 del mes corriente (`DIA_VENCIMIENTO_CUOTA_SOCIAL = 10` y `DIA_VENCIMIENTO_CUOTA_DEPORTIVA = 10` en `vencimiento-cuota-deportiva.ts`).
+- `PagosService.getMorososCuotaSocial` y `PagosService.getCuotasPendientesPorSocio`: se excluye el período del mes en curso hasta el día 10 inclusive, evitando que los socios que pagan entre el 1 y el 10 figuren como morosos o con deuda vencida.
+- La respuesta de morosos de cuota social expone `diaVencimiento: 10` y la pantalla de morosos en frontend (`MorososCuotaSocialPage.tsx`) comunica la fecha de vencimiento clara al operador.
+- 100% de consistencia entre el listado de morosos de secretaría y el reporte financiero consolidado (`ReportesService`).
+- Tests unitarios completos en backend (`pagos-morosos.service.spec.ts`, vencimiento-cuota-deportiva.spec.ts`) y frontend (`MorososCuotaSocialPage.test.tsx`).
 
 ### TASK-52 · DT-23 · El ratchet de cobertura corta el CI por décimas
 **`issue/TASK-52-DT-23-DT-24-ratchet-cobertura-y-cuotas`** (tooling + CI) · 01/11/2026
@@ -756,7 +754,7 @@ Se implementó la suite completa de tests unitarios y de integración de compone
   informa aparte.
 - Usa la **misma regla de vencimiento para las dos cuotas** (día 10). Dentro
   del reporte la cuota social ya la respeta; la pantalla de morosos de US-19
-  todavía no (DT-48).
+  alineado en DT-48.
 - Con disciplina, solo su cuota deportiva: la cuota social no pertenece a
   ninguna disciplina.
 - La deuda sale de los mismos cálculos que los listados de morosos (US-19 y
@@ -772,7 +770,7 @@ Se implementó la suite completa de tests unitarios y de integración de compone
   desde el 11. Constante única `DIA_VENCIMIENTO_CUOTA_DEPORTIVA`.
 - Afecta solo al listado de morosos. El cobro (US-21) sigue mostrando todo lo
   pendiente, incluido el mes en curso, porque se puede pagar por adelantado.
-- La cuota social (US-19) todavía no usa esta regla: ver DT-48.
+- La cuota social (US-19) usa esta misma regla desde DT-48.
 
 ### Decisión · Cuota deportiva por disciplina y categoría, con descuento para socios (US-20)
 **`issue/TASK-33-US-20-Cuota-deportiva-por-disciplina`** · 02/10/2026

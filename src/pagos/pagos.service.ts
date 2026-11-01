@@ -11,6 +11,11 @@ import { PasarelaService } from '../pasarela/pasarela.service';
 import type { DatosCobroCuotaSocial } from './cuota-social.acreditador';
 import { RegistrarPagoSocioDto } from './dto/registrar-pago-socio.dto';
 import {
+  cuotaVencida,
+  DIA_VENCIMIENTO_CUOTA_SOCIAL,
+  fechaVencimiento,
+} from './vencimiento-cuota-deportiva';
+import {
   CriterioOrdenMorosos,
   FindMorososQueryDto,
   SentidoOrden,
@@ -22,6 +27,8 @@ export interface CuotaPendienteDto {
   periodo: string;
   monto: number;
   categoriaNombre: string;
+  fechaVencimiento?: string;
+  vencida?: boolean;
 }
 
 export function periodoActual(now = new Date()): string {
@@ -158,10 +165,10 @@ export class PagosService {
   /**
    * US-17 CA 1, 2, 5, 6, 8, 9: Obtener cuotas pendientes y estado financiero de un socio (Secretaría)
    */
-  async getCuotasPendientesPorSocio(socioId: number) {
+  async getCuotasPendientesPorSocio(socioId: number, hoy: Date = new Date()) {
     const { persona, membresia } = await this.getSocioPorPersonaId(socioId);
 
-    const fechaFin = membresia.fechaBaja ?? new Date();
+    const fechaFin = membresia.fechaBaja ?? hoy;
     const periodosTotales = this.generarPeriodosHasta(membresia.fechaAlta, fechaFin);
     const pagosRealizados = new Set(persona.pagos.map((p) => p.periodo));
 
@@ -171,17 +178,21 @@ export class PagosService {
     for (const periodo of periodosTotales) {
       if (!pagosRealizados.has(periodo)) {
         const monto = await this.getMontoCuotaSocial(membresia.categoriaId, periodo);
+        const vencida = cuotaVencida(periodo, hoy, DIA_VENCIMIENTO_CUOTA_SOCIAL);
         cuotasPendientes.push({
           periodo,
           monto,
           categoriaNombre: membresia.categoria?.nombre ?? '',
+          fechaVencimiento: fechaVencimiento(periodo, DIA_VENCIMIENTO_CUOTA_SOCIAL),
+          vencida,
         });
         totalAdeudado += monto;
       }
     }
 
+    const cuotasVencidas = cuotasPendientes.filter((c) => c.vencida);
     const estadoFinanciero: EstadoFinancieroSocio =
-      cuotasPendientes.length === 0 ? 'AL_DIA' : 'MOROSO';
+      cuotasVencidas.length === 0 ? 'AL_DIA' : 'MOROSO';
 
     return {
       personaId: persona.id,
@@ -190,6 +201,7 @@ export class PagosService {
       categoria: membresia.categoria?.nombre ?? '',
       categoriaId: membresia.categoriaId,
       estadoFinanciero,
+      diaVencimiento: DIA_VENCIMIENTO_CUOTA_SOCIAL,
       cuotasPendientes,
       totalAdeudado,
     };
@@ -407,7 +419,7 @@ export class PagosService {
    * CA 5: Excluir automáticamente socios al día.
    * CA 6: Mensaje / listado vacío si no hay morosos.
    */
-  async getMorososCuotaSocial(query: FindMorososQueryDto = {}) {
+  async getMorososCuotaSocial(query: FindMorososQueryDto = {}, hoy: Date = new Date()) {
     const {
       busqueda,
       categoriaId,
@@ -415,8 +427,6 @@ export class PagosService {
       orden = SentidoOrden.DESC,
     } = query;
 
-    // Buscar personas con membresía (socios o ex-socios)
-    // Filtro inicial por categoría o texto si fue provisto
     const wherePersona: any = {
       membresias: {
         some: categoriaId ? { categoriaId } : {},
@@ -449,7 +459,6 @@ export class PagosService {
       },
     });
 
-    // Cache de tarifas históricas por categoría y período para optimizar consultas
     const tarifasCache = new Map<string, number>();
     const getTarifaConCache = async (catId: number, periodo: string): Promise<number> => {
       const key = `${catId}:${periodo}`;
@@ -470,33 +479,36 @@ export class PagosService {
       const ultimaMembresia = persona.membresias[0];
       const membresia = membresiaActiva ?? ultimaMembresia;
 
-      // Si se filtró por categoría, verificar que la membresía seleccionada coincida
       if (categoriaId && membresia.categoriaId !== categoriaId) {
         continue;
       }
 
-      // Períodos desde fechaAlta hasta fechaBaja (o mes actual)
-      const fechaFin = membresia.fechaBaja ?? new Date();
+      const fechaFin = membresia.fechaBaja ?? hoy;
       const periodosTotales = this.generarPeriodosHasta(membresia.fechaAlta, fechaFin);
       const pagosRealizados = new Set(persona.pagos.map((p) => p.periodo));
 
-      const cuotasPendientes: CuotaPendienteDto[] = [];
+      const cuotasVencidas: CuotaPendienteDto[] = [];
       let totalAdeudado = 0;
 
       for (const periodo of periodosTotales) {
-        if (!pagosRealizados.has(periodo)) {
+        if (
+          !pagosRealizados.has(periodo) &&
+          cuotaVencida(periodo, hoy, DIA_VENCIMIENTO_CUOTA_SOCIAL)
+        ) {
           const monto = await getTarifaConCache(membresia.categoriaId, periodo);
-          cuotasPendientes.push({
+          cuotasVencidas.push({
             periodo,
             monto,
             categoriaNombre: membresia.categoria?.nombre ?? '',
+            fechaVencimiento: fechaVencimiento(periodo, DIA_VENCIMIENTO_CUOTA_SOCIAL),
+            vencida: true,
           });
           totalAdeudado += monto;
         }
       }
 
-      // CA 5: Excluir socios que estén al día
-      if (cuotasPendientes.length > 0) {
+      // CA 5: Excluir socios que estén al día (sin cuotas vencidas)
+      if (cuotasVencidas.length > 0) {
         morosos.push({
           personaId: persona.id,
           nombreCompleto: `${persona.nombre} ${persona.apellido}`.trim(),
@@ -508,15 +520,14 @@ export class PagosService {
           categoriaId: membresia.categoriaId,
           categoria: membresia.categoria?.nombre ?? '',
           socioActivo: Boolean(membresiaActiva),
-          periodosAdeudados: cuotasPendientes.map((c) => c.periodo),
-          cantidadPeriodos: cuotasPendientes.length,
+          periodosAdeudados: cuotasVencidas.map((c) => c.periodo),
+          cantidadPeriodos: cuotasVencidas.length,
           montoTotalDeuda: totalAdeudado,
-          cuotasPendientes,
+          cuotasPendientes: cuotasVencidas,
         });
       }
     }
 
-    // CA 2: Ordenar por monto de deuda o cantidad de períodos
     morosos.sort((a, b) => {
       let valorA: number;
       let valorB: number;
@@ -525,7 +536,6 @@ export class PagosService {
         valorA = a.cantidadPeriodos;
         valorB = b.cantidadPeriodos;
       } else {
-        // Por defecto: MONTO
         valorA = a.montoTotalDeuda;
         valorB = b.montoTotalDeuda;
       }
@@ -548,6 +558,7 @@ export class PagosService {
       items: paginados,
       total,
       deudaTotalClub,
+      diaVencimiento: DIA_VENCIMIENTO_CUOTA_SOCIAL,
       ...(query.pagina && query.porPagina
         ? { pagina: query.pagina, porPagina: query.porPagina }
         : {}),
