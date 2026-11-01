@@ -107,6 +107,25 @@ enum EstadoCompraEntrada {
   APROBADA
 }
 
+/// TASK-51: qué se cobra con una orden de pago online. Cada concepto tiene un
+/// acreditador en su módulo de dominio (ver docs/decisiones/0003).
+enum ConceptoCobro {
+  CUOTA_SOCIAL
+  ENTRADAS
+}
+
+/// TASK-51: ciclo de vida de una orden de pago online.
+/// PENDIENTE → APROBADA (se acreditó) · CANCELADA (el usuario desistió) ·
+/// VENCIDA (pasó `expiraEn` sin pago) · REQUIERE_REVISION (se cobró pero no se
+/// pudo acreditar, p. ej. el período ya lo cobró secretaría: hay que devolver).
+enum EstadoOrdenPago {
+  PENDIENTE
+  APROBADA
+  CANCELADA
+  VENCIDA
+  REQUIERE_REVISION
+}
+
 /// Catálogo de roles del sistema. Un Usuario puede tener uno o más roles
 /// simultáneos (RF02), de ahí la tabla intermedia UsuarioRol.
 model Rol {
@@ -140,6 +159,7 @@ model Usuario {
   registrosAuditoria          RegistroAuditoria[]       @relation("usuarioResponsable")
   pagosDeportivos             PagoCuotaDeportiva[]      @relation("responsablePagoDeportivo")
   comprasEntradas             CompraEntrada[]
+  ordenesPago                 OrdenPago[]
   habilitacionesExcepcionales HabilitacionExcepcional[] @relation("responsableHabilitacionExcepcional")
   notificaciones              Notificacion[]
   ejecucionesTareas           EjecucionTarea[]
@@ -400,6 +420,9 @@ model CompraEntrada {
   montoTotal     Decimal             @db.Decimal(12, 2)
   estado         EstadoCompraEntrada @default(APROBADA)
   metodoPago     String              @default("MOCK_TARJETA")
+  /// TASK-51: orden de pago online que originó la compra.
+  ordenPagoId    Int?                @unique
+  ordenPago      OrdenPago?          @relation(fields: [ordenPagoId], references: [id], onDelete: SetNull)
   creadoEn       DateTime            @default(now())
   entradas       Entrada[]
 
@@ -550,16 +573,20 @@ model HabilitacionExcepcional {
 /// La restricción @@unique([personaId, periodo]) garantiza que no sea posible
 /// registrar un pago por un período que ya figura como pagado.
 model Pago {
-  id         Int      @id @default(autoincrement())
-  personaId  Int
-  persona    Persona  @relation(fields: [personaId], references: [id], onDelete: Cascade)
-  periodo    String // "YYYY-MM"
-  monto      Decimal  @db.Decimal(12, 2)
-  metodoPago String   @default("MOCK_TARJETA")
-  fechaPago  DateTime @default(now())
-  creadoEn   DateTime @default(now())
+  id          Int        @id @default(autoincrement())
+  personaId   Int
+  persona     Persona    @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  periodo     String // "YYYY-MM"
+  monto       Decimal    @db.Decimal(12, 2)
+  metodoPago  String     @default("MOCK_TARJETA")
+  fechaPago   DateTime   @default(now())
+  /// TASK-51: orden de pago online que lo originó (null si lo cobró secretaría).
+  ordenPagoId Int?
+  ordenPago   OrdenPago? @relation(fields: [ordenPagoId], references: [id], onDelete: SetNull)
+  creadoEn    DateTime   @default(now())
 
   @@unique([personaId, periodo])
+  @@index([ordenPagoId])
   @@index([personaId])
   @@index([periodo])
   @@map("pagos")
@@ -593,6 +620,43 @@ model PagoCuotaDeportiva {
   @@index([disciplinaId])
   @@index([periodo])
   @@map("pagos_cuota_deportiva")
+}
+
+/// Orden de pago online (TASK-51, decisión 0003). Se crea ANTES de ir a la
+/// pasarela con todo lo necesario para acreditar (`datos`), y su `referencia`
+/// viaja como `external_reference`: así un pago que llega por webhook o por la
+/// vuelta del usuario siempre encuentra qué acreditar, una sola vez.
+model OrdenPago {
+  id             Int             @id @default(autoincrement())
+  /// UUID que se le pasa a la pasarela y vuelve con cada notificación.
+  referencia     String          @unique @default(uuid())
+  concepto       ConceptoCobro
+  estado         EstadoOrdenPago @default(PENDIENTE)
+  /// Pasarela con la que se generó: MERCADO_PAGO, SIMULADA o SIN_COSTO.
+  pasarela       String
+  usuarioId      Int
+  usuario        Usuario         @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  descripcion    String
+  monto          Decimal         @db.Decimal(12, 2)
+  /// Lo que el acreditador necesita (períodos, evento y cantidad, precios).
+  datos          Json
+  /// Id del cobro en la pasarela (en Mercado Pago, la preferencia).
+  idCobroExterno String?
+  urlPago        String?
+  /// Id del pago aprobado (o del último informado) en la pasarela.
+  idPagoExterno  String?
+  /// Último estado informado por la pasarela o motivo de la revisión.
+  detalleEstado  String?
+  expiraEn       DateTime
+  resueltaEn     DateTime?
+  creadoEn       DateTime        @default(now())
+  actualizadoEn  DateTime        @updatedAt
+  pagos          Pago[]
+  compraEntrada  CompraEntrada?
+
+  @@index([usuarioId, creadoEn])
+  @@index([estado, expiraEn])
+  @@map("ordenes_pago")
 }
 
 /// Notificación saliente (DT-36): outbox de todos los avisos del sistema.
