@@ -32,7 +32,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-29 · No existe solicitud de inscripción con aprobación](#dt-29--no-existe-solicitud-de-inscripción-con-aprobación)
     - [DT-35 · El pago implementado solo cubre la cuota social](#dt-35--el-pago-implementado-solo-cubre-la-cuota-social)
   - [🟡 Medias](#-medias)
-    - [DT-53 · Tres E2E desactualizados por US-04](#dt-53--tres-e2e-desactualizados-por-us-04)
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
   - [⚪ Bajas](#-bajas)
     - [DT-51 · Nombres y correos electrónicos del seed con descriptores de prueba sin realismo](#dt-51--nombres-y-correos-electrónicos-del-seed-con-descriptores-de-prueba-sin-realismo)
@@ -65,9 +64,9 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-31, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48, DT-49, DT-50 |
+| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-31, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48, DT-49, DT-50, DT-53 |
 | 🟠 Altas pendientes | DT-52, DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-35 (cobro, tarifa y pasarela de pagos resueltos; resta el autoservicio de la cuota deportiva) |
-| 🟡 Medias pendientes | DT-34, DT-53 |
+| 🟡 Medias pendientes | DT-34 |
 | ⚪ Bajas pendientes | DT-06, DT-09, DT-46, DT-47, DT-51, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
 **Cobertura de tests** (medida el 01/11/2026, objetivo DoD **70 %**):
@@ -276,21 +275,6 @@ deportiva.
 
 ### 🟡 Medias
 
-#### DT-53 · Tres E2E desactualizados por US-04
-*Nuevo · frontend (e2e) · detectado en US-60/61/62 (01/11/2026)*
-
-Los cambios de US-04 en `dev` (DNI con puntos y Usuarios en tabla, PR del front
-#155 y del back #103) dejaron tres E2E en rojo; fallan igual en `dev` sin
-otros cambios:
-- `socios.spec.ts` (TC-026) y `morosos-cuota-deportiva.spec.ts` esperan el DNI
-  sin puntos (`30959355`) y la pantalla muestra `30.959.355`.
-- `inscripcion-y-alertas.spec.ts` busca al delegado nuevo como `listitem` y
-  Usuarios ahora es una tabla.
-
-**Arreglo:** comparar contra `formatearDni(dni)` y buscar la fila (`row`). El
-workflow E2E del front, que corre en cada push a `dev`, queda en rojo hasta
-corregirlo.
-
 #### DT-34 · No hay cancelación, devolución ni transferencia de entradas
 *Nuevo · funcional · backend + frontend*
 
@@ -397,6 +381,15 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### TASK-55 · DT-53 · Tres E2E desactualizados por US-04
+**issue/TASK-55-DT-53-tres-e2e-desactualizados-por-us-04** (frontend · e2e + accesibilidad) · 01/11/2026
+
+- Se adaptaron las expectativas de DNI en las pruebas E2E socios.spec.ts (TC-026) y morosos-cuota-deportiva.spec.ts (TC-201) utilizando formatearDni, reflejando fielmente el formato con puntos (30.959.355) introducido en US-04.
+- Se exportó formatearDni desde e2e/soporte/fixtures.ts para su consumo directo en las suites E2E.
+- Se eliminaron los atributos ARIA no estándar role="list" en <tbody> y role="listitem" en <tr> de UsuariosGrid.tsx, restableciendo la semántica nativa de HTML table (rowgroup y row).
+- Se actualizaron las búsquedas de filas en inscripcion-y-alertas.spec.ts (TC-176) y sesion-y-usuarios.spec.ts a page.getByRole('row').
+- Se adaptaron las pruebas unitarias de UsuariosPage.spec.tsx para consultar las filas del cuerpo de la tabla (row), pasando 18/18 tests unitarios.
 
 ### TASK-54 · DT-49 · Tests de cuota deportiva que fallan según la hora
 **issue/TASK-54-DT-49-DT-50-tests-deportivos-y-habilitacion-excepcional** (backend · tooling) · 01/11/2026
