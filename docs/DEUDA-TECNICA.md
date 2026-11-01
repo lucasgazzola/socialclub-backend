@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 01/11/2026 (TASK-56 · DT-06, DT-09, DT-36: confirmación de compra de entradas y actualización de deuda técnica; US-60/61/62 · reservas, DT-53 nueva; registro DT-50, DT-51 y DT-52; TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
+- **Última actualización:** 01/11/2026 (TASK-57 · DT-46 y DT-47: error en formulario de usuario y formato de DNI unificado; TASK-56 · DT-06, DT-09, DT-36: confirmación de compra de entradas y actualización de deuda técnica; US-60/61/62 · reservas, DT-53 nueva; registro DT-50, DT-51 y DT-52; TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -35,8 +35,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
   - [⚪ Bajas](#-bajas)
     - [DT-51 · Nombres y correos electrónicos del seed con descriptores de prueba sin realismo](#dt-51--nombres-y-correos-electrónicos-del-seed-con-descriptores-de-prueba-sin-realismo)
-    - [DT-46 · El alta de usuario no muestra el error en el formulario](#dt-46--el-alta-de-usuario-no-muestra-el-error-en-el-formulario)
-    - [DT-47 · El DNI se muestra con formatos distintos](#dt-47--el-dni-se-muestra-con-formatos-distintos)
     - [DT-09 · Imágenes en eventos](#dt-09--imágenes-en-eventos)
     - [DT-36 · No hay notificaciones de vencimiento o resolución](#dt-36--no-hay-notificaciones-de-vencimiento-o-resolución)
 - [Deuda resuelta](#deuda-resuelta)
@@ -63,10 +61,10 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-31, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48, DT-49, DT-50, DT-53, DT-06 |
+| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-31, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48, DT-49, DT-50, DT-53, DT-06, DT-46, DT-47 |
 | 🟠 Altas pendientes | DT-52, DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-35 (cobro, tarifa y pasarela de pagos resueltos; resta el autoservicio de la cuota deportiva) |
 | 🟡 Medias pendientes | DT-34 |
-| ⚪ Bajas pendientes | DT-09 (campo e interfaz listos, subida pendiente de DT-15), DT-46, DT-47, DT-51, DT-36 (servicio resuelto en TASK-35, alertas en US-26, reservas en US-60/61/62, compra de entradas en TASK-56; restan DT-29 y cuotas) |
+| ⚪ Bajas pendientes | DT-09 (campo e interfaz listos, subida pendiente de DT-15), DT-51, DT-36 (servicio resuelto en TASK-35, alertas en US-26, reservas en US-60/61/62, compra de entradas en TASK-56; restan DT-29 y cuotas) |
 
 **Cobertura de tests** (medida el 01/11/2026, objetivo DoD **70 %**):
 
@@ -313,22 +311,6 @@ Esto afecta la presentación del sistema en demostraciones y revisiones de produ
 2. Asegurar que `usuario.upsert` en el seed use `personaId` como clave de búsqueda/actualización (`where: { personaId }`) para permitir actualizar bases de datos ya sembradas sin violar la restricción de unicidad de `personaId`.
 3. Actualizar en sincronía las referencias en las pruebas E2E (`e2e/soporte/fixtures.ts`, `morosos-cuota-deportiva.spec.ts`) y los mocks de pruebas unitarias (`pagos.service.spec.ts`, `ModalCobroCuotaSocio.spec.tsx`).
 
-#### DT-46 · El alta de usuario no muestra el error en el formulario
-*Nuevo · frontend · detectado en TASK-43*
-
-Si la API rechaza el alta (p. ej. «El apellido contiene caracteres
-inválidos»), el error aparece solo como toast durante unos segundos y el modal
-queda abierto sin indicar qué falló; además la promesa queda sin capturar
-(*Unhandled rejection* en la consola). Capturar el error en
-`UsuarioFormModal.handleSubmit` y mostrarlo en el formulario, como hace el alta
-de participante.
-
-#### DT-47 · El DNI se muestra con formatos distintos
-*Nuevo · frontend · detectado en TASK-43*
-
-Usuarios muestra el DNI agrupado (`30.111.222`) y Socios sin agrupar
-(`30111222`). Unificar con el mismo helper de formato.
-
 #### DT-09 · Imágenes en eventos
 *backend + frontend · 5 SP*
 
@@ -367,6 +349,22 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### TASK-57 · DT-46 · El alta de usuario no muestra el error en el formulario
+**`issue/TASK-57-DT-46-DT-47-error-alta-usuario-y-formato-dni`** (frontend) · 01/11/2026
+
+- Se implementó la captura de errores en `UsuarioFormModal.handleSubmit` mediante `try / catch`, evitando excepciones y promesas no capturadas (*Unhandled rejection* en consola) ante rechazos de la API al crear o editar usuarios (`createUsuario` / `updateUsuario`).
+- Se conectó el estado `errorServidor` con `UsuarioForm`, asignando los mensajes de error directamente a los campos correspondientes (`apellido`, `nombre`, `dni`, `email`, `password`) a través de `setError` de React Hook Form (p. ej. «El apellido contiene caracteres inválidos» o «Ya existe un usuario con ese DNI»).
+- Ante errores generales de red o servidor no asociados a un campo específico, se renderiza un banner visible (`role="alert"`) justo sobre las acciones del formulario.
+- El modal permanece abierto permitiendo al usuario corregir los datos ingresados sin perder los campos ya completados.
+- Cobertura completa de pruebas unitarias en `UsuarioForm.spec.tsx` y pruebas de integración del modal en `UsuariosPage.spec.tsx`.
+
+### TASK-57 · DT-47 · El DNI se muestra con formatos distintos
+**`issue/TASK-57-DT-46-DT-47-error-alta-usuario-y-formato-dni`** (frontend) · 01/11/2026
+
+- Se unificó la visualización de DNI en todo el sistema utilizando el helper oficial `formatearDni` (`src/lib/utils/dni.ts`), que agrupa dígitos de a miles con puntos (`30.111.222`).
+- Se adaptó el campo de sólo lectura de DNI en `HacermeSocioForm.tsx` (`value={formatearDni(defaultValues.dni)}`), garantizando consistencia absoluta entre las vistas de Socios, Usuarios, Participantes y Morosos (estandarizado inicialmente en US-04 y consolidado en TASK-55 / TASK-57).
+- Test unitario agregado en `HacermeSocioForm.test.tsx`.
 
 ### TASK-56 · DT-06 · Historias de usuario para sumar al backlog
 **`issue/TASK-56-DT-06-DT-09-DT-36-notificaciones-y-documentacion`** (gestión) · 01/11/2026
