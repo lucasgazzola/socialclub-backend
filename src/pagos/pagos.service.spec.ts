@@ -3,6 +3,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { PagosService, periodoActual } from './pagos.service';
+import { PasarelaService } from '../pasarela/pasarela.service';
 
 const mockPrisma: any = {
   usuario: {
@@ -26,6 +27,11 @@ const mockAuditoria = { registrar: jest.fn() };
 describe('PagosService · US-17 & US-10', () => {
   let service: PagosService;
 
+  const mockPasarela = {
+    iniciarCobro: jest.fn(),
+    cancelarPendientes: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -34,6 +40,7 @@ describe('PagosService · US-17 & US-10', () => {
         PagosService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditoriaService, useValue: mockAuditoria },
+        { provide: PasarelaService, useValue: mockPasarela },
       ],
     }).compile();
 
@@ -310,6 +317,75 @@ describe('PagosService · US-17 & US-10', () => {
 
       const historial = await service.getHistorialPagos(1);
       expect(Array.isArray(historial)).toBe(true);
+    });
+  });
+
+  describe('US-10 · TASK-51 · iniciarPagoOnline (pasarela de pagos)', () => {
+    const periodo = periodoActual();
+    const usuarioSocio = {
+      id: 1,
+      persona: {
+        id: 10,
+        membresias: [
+          {
+            id: 1,
+            activo: true,
+            fechaAlta: new Date(2020, 0, 1),
+            categoriaId: 1,
+            categoria: { nombre: 'Activo' },
+          },
+        ],
+        pagos: [],
+      },
+    };
+
+    beforeEach(() => {
+      mockPrisma.usuario.findUnique.mockResolvedValue(usuarioSocio);
+      mockPrisma.pago.findMany.mockResolvedValue([]);
+      mockPrisma.configuracionCuotaSocial.findFirst.mockResolvedValue({ monto: 12000 });
+      mockPasarela.iniciarCobro.mockResolvedValue({ referencia: 'ref', urlPago: 'https://pagar' });
+    });
+
+    it('TC-258 · crea la orden con un ítem por período y el monto vigente, sin registrar pagos', async () => {
+      const orden = await service.iniciarPagoOnline(1, { periodos: [periodo] });
+
+      expect(orden).toEqual({ referencia: 'ref', urlPago: 'https://pagar' });
+      expect(mockPasarela.iniciarCobro).toHaveBeenCalledWith({
+        concepto: 'CUOTA_SOCIAL',
+        usuarioId: 1,
+        descripcion: `Cuota social ${periodo}`,
+        items: [{ titulo: `Cuota social ${periodo} — Activo`, cantidad: 1, precioUnitario: 12000 }],
+        datos: { personaId: 10, periodos: [{ periodo, monto: 12000 }] },
+      });
+      expect(mockPrisma.pago.create).not.toHaveBeenCalled();
+    });
+
+    it('reemplaza una orden anterior sin pagar antes de cotizar', async () => {
+      await service.iniciarPagoOnline(1, { periodos: [periodo] });
+
+      expect(mockPasarela.cancelarPendientes).toHaveBeenCalledWith(1, 'CUOTA_SOCIAL');
+    });
+
+    it('TC-261 · rechaza un período que ya figura como pagado sin crear la orden (409)', async () => {
+      mockPrisma.pago.findMany.mockResolvedValue([{ periodo }]);
+
+      await expect(service.iniciarPagoOnline(1, { periodos: [periodo] })).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(mockPasarela.iniciarCobro).not.toHaveBeenCalled();
+    });
+
+    it('rechaza un período futuro (400)', async () => {
+      await expect(service.iniciarPagoOnline(1, { periodos: ['2999-01'] })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(mockPasarela.iniciarCobro).not.toHaveBeenCalled();
+    });
+
+    it('ignora períodos repetidos y los ordena', async () => {
+      await service.iniciarPagoOnline(1, { periodos: [periodo, periodo] });
+
+      expect(mockPasarela.iniciarCobro.mock.calls[0][0].items).toHaveLength(1);
     });
   });
 });

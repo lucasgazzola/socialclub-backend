@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { PagosService } from './pagos.service';
+import { PasarelaService } from '../pasarela/pasarela.service';
 import { CriterioOrdenMorosos, SentidoOrden } from './dto/find-morosos-query.dto';
 
 describe('PagosService · US-19 · getMorososCuotaSocial', () => {
@@ -24,6 +25,11 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
     registrar: jest.fn(),
   };
 
+  const mockPasarela = {
+    iniciarCobro: jest.fn(),
+    cancelarPendientes: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -32,6 +38,7 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
         PagosService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditoriaService, useValue: mockAuditoria },
+        { provide: PasarelaService, useValue: mockPasarela },
       ],
     }).compile();
 
