@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 01/11/2026 (Registro DT-50, DT-51 y DT-52; TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
+- **Última actualización:** 01/11/2026 (US-60/61/62 · reservas, DT-53 nueva; registro DT-50, DT-51 y DT-52; TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -35,6 +35,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-50 · La habilitación excepcional documental no restringe su uso a una única vez](#dt-50--la-habilitación-excepcional-documental-no-restringe-su-uso-a-una-única-vez)
     - [DT-48 · Morosos de cuota social cuenta cuotas que todavía no vencieron](#dt-48--morosos-de-cuota-social-cuenta-cuotas-que-todavía-no-vencieron)
     - [DT-49 · Tests de cuota deportiva que fallan según la hora](#dt-49--tests-de-cuota-deportiva-que-fallan-según-la-hora)
+    - [DT-53 · Tres E2E desactualizados por US-04](#dt-53--tres-e2e-desactualizados-por-us-04)
     - [DT-24 · La planilla documenta generación de cuotas que no existe](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe)
     - [DT-23 · El ratchet de cobertura corta el CI por décimas](#dt-23--el-ratchet-de-cobertura-corta-el-ci-por-décimas)
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
@@ -71,7 +72,7 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
 | ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-28, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-31 |
 | 🟠 Altas pendientes | DT-52, DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-35 (cobro, tarifa y pasarela de pagos resueltos; resta el autoservicio de la cuota deportiva) |
-| 🟡 Medias pendientes | DT-23, DT-24, DT-34, DT-48, DT-49, DT-50 |
+| 🟡 Medias pendientes | DT-23, DT-24, DT-34, DT-48, DT-49, DT-50, DT-53 |
 | ⚪ Bajas pendientes | DT-06, DT-09, DT-46, DT-47, DT-51, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
 **Cobertura de tests** (medida el 18/10/2026, objetivo DoD **70 %**):
@@ -291,6 +292,21 @@ La funcionalidad de habilitar excepcionalmente a un participante con documentaci
 - **Backend (`InscripcionService.habilitarExcepcional` y `EstadoDocumentalService`):**
   - `InscripcionService.habilitarExcepcional` no valida si la inscripción ya cuenta con registros previos en la tabla `habilitaciones_excepcionales`.
   - `EstadoDocumentalService` no expone en el detalle de la inscripción si ya utilizó su habilitación excepcional (`yaHabilitadoExcepcionalmente`), impidiendo a la interfaz de usuario ocultar la acción o advertir que el beneficio ya fue consumido.
+
+#### DT-53 · Tres E2E desactualizados por US-04
+*Nuevo · frontend (e2e) · detectado en US-60/61/62 (01/11/2026)*
+
+Los cambios de US-04 en `dev` (DNI con puntos y Usuarios en tabla, PR del front
+#155 y del back #103) dejaron tres E2E en rojo; fallan igual en `dev` sin
+otros cambios:
+- `socios.spec.ts` (TC-026) y `morosos-cuota-deportiva.spec.ts` esperan el DNI
+  sin puntos (`30959355`) y la pantalla muestra `30.959.355`.
+- `inscripcion-y-alertas.spec.ts` busca al delegado nuevo como `listitem` y
+  Usuarios ahora es una tabla.
+
+**Arreglo:** comparar contra `formatearDni(dni)` y buscar la fila (`row`). El
+workflow E2E del front, que corre en cada push a `dev`, queda en rojo hasta
+corregirlo.
 
 #### DT-49 · Tests de cuota deportiva que fallan según la hora
 *Nuevo · backend · detectado en TASK-51 (31/10/2026)*

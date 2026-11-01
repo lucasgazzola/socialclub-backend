@@ -1,0 +1,30 @@
+{
+  "TC-286": {
+    "titulo": "Consultar «Mis Reservas» con el estado y el detalle de cada solicitud",
+    "fecha": "01/11/2026",
+    "resultado": "Aprobado",
+    "archivo": "reservas.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-286-01.jpg",
+        "titulo": "1. Como socia, abrir «Mis reservas» desde el menú"
+      },
+      {
+        "archivo": "TC-286-02.jpg",
+        "titulo": "2. Cada reserva muestra código, espacio, turno, monto y estado; la rechazada, su motivo"
+      }
+    ]
+  },
+  "TC-287": {
+    "titulo": "Destacar el límite y las instrucciones para pagar la seña",
+    "fecha": "01/11/2026",
+    "resultado": "Aprobado",
+    "archivo": "reservas.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-287-01.jpg",
+        "titulo": "1. En «Mis reservas», la reserva aprobada destaca el límite y cómo pagar la seña"
+      }
+    ]
+  }
+}

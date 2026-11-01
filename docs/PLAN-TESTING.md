@@ -32,6 +32,13 @@ estrategia de testing y su secuencia.
 **Objetivo de la DoD: 70 % de cobertura.** Los dos repos lo superan: backend
 88,3 % y frontend 70,5 %.
 
+**01/11/2026 · US-60, US-61, US-62 — Reservas de espacios.** 16 casos
+(`TC-273`–`TC-288`) con ejecución unitaria (`EJ-294`–`EJ-309`: back y front) y
+8 E2E nuevos en `e2e/reservas.spec.ts` (`EJ-310`–`EJ-317`, capturas en
+`pruebas/evidencias/US-60`, `US-61` y `US-62`), que usan las reservas de
+ejemplo del seed (`SEED_RESETEAR_RESERVAS=1`). La suite E2E completa dejó a la
+vista 3 casos desactualizados en `dev` por US-04 (DT-53).
+
 **31/10/2026 · TASK-51 — Pasarela de pagos (Mercado Pago).** 15 casos nuevos
 (`TC-258`–`TC-272`, US-10 y US-52) con su ejecución (`EJ-272`–`EJ-286`,
 unitarios con la trazabilidad `TC-XXX` en el título) y E2E (`EJ-287`–`EJ-291`):

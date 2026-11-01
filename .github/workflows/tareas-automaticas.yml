@@ -22,6 +22,7 @@ on:
     - cron: '0 6 1 * *' # día 1, 03:00 ART · rotacion-cuota-social
     - cron: '0 8 * * *' # 05:00 ART · cierre-de-eventos
     - cron: '15 * * * *' # cada hora · vencer-ordenes-pago
+    - cron: '45 * * * *' # cada hora · vencer-senas-reservas
   workflow_dispatch:
     inputs:
       tarea:
@@ -34,6 +35,7 @@ on:
           - rotacion-cuota-social
           - cierre-de-eventos
           - vencer-ordenes-pago
+          - vencer-senas-reservas
 
 permissions:
   contents: read
@@ -56,6 +58,7 @@ jobs:
             '0 6 1 * *')    TAREAS='["rotacion-cuota-social"]' ;;
             '0 8 * * *')    TAREAS='["cierre-de-eventos"]' ;;
             '15 * * * *')   TAREAS='["vencer-ordenes-pago"]' ;;
+            '45 * * * *')   TAREAS='["vencer-senas-reservas"]' ;;
             *)              TAREAS="[\"$MANUAL\"]" ;;
           esac
           echo "tareas=$TAREAS" >> "$GITHUB_OUTPUT"

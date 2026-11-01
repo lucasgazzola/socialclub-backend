@@ -1,0 +1,34 @@
+{
+  "TC-281": {
+    "titulo": "Cancelar por falta de pago una reserva con la seña vencida",
+    "fecha": "01/11/2026",
+    "resultado": "Aprobado",
+    "archivo": "reservas.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-281-01.jpg",
+        "titulo": "1. En «Pendientes de pago», RES-SEED06 muestra la seña vencida"
+      },
+      {
+        "archivo": "TC-281-02.jpg",
+        "titulo": "2. Cancelar por falta de pago y confirmar: el turno queda libre"
+      }
+    ]
+  },
+  "TC-284": {
+    "titulo": "El solicitante cancela su reserva antes del plazo de penalización",
+    "fecha": "01/11/2026",
+    "resultado": "Aprobado",
+    "archivo": "reservas.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-284-01.jpg",
+        "titulo": "1. En «Mis reservas», elegir «Cancelar» en RES-SEED04"
+      },
+      {
+        "archivo": "TC-284-02.jpg",
+        "titulo": "2. La reserva queda cancelada por el usuario y el turno libre"
+      }
+    ]
+  }
+}

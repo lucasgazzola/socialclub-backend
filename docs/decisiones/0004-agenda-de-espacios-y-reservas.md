@@ -53,12 +53,14 @@ Las funciones (`seSolapan`, `intervalosDeBloqueo`, `conflictosDe`, `diaCompleto`
 
 ### Cobro de la seña
 
-Se paga **online** con la pasarela de pagos (decisión [0003](0003-pasarela-de-pagos.md), concepto `RESERVA` con su acreditador) o la **registra secretaría** en ventanilla. En los dos casos la reserva pasa a `CONFIRMADA`. Se implementa con US-60.
+Se paga **online** con la pasarela de pagos (decisión [0003](0003-pasarela-de-pagos.md): concepto `RESERVA`, `ReservaAcreditador`, `POST /reservas/:id/sena/checkout`) o la **registra secretaría** en ventanilla (`POST /reservas/:id/sena`). En los dos casos la reserva pasa a `CONFIRMADA` y guarda método y fecha (y la orden de pago, si fue online). Si la reserva se canceló mientras el usuario pagaba, la orden queda `REQUIERE_REVISION` para devolver el dinero. Implementado en US-60.
 
 ### Plazos
 
-- **Límite para pagar la seña** (US-60): 48 h desde la aprobación (el ejemplo de la historia).
-- **Plazo de penalización** (US-61): hasta cuántas horas antes del turno el usuario puede cancelar solo. Configurable, 48 h por defecto.
+- **Límite para pagar la seña** (US-60): 48 h desde la aprobación (el ejemplo de la historia). Variable `RESERVAS_HORAS_LIMITE_SENA`.
+- **Plazo de penalización** (US-61): hasta cuántas horas antes del turno el usuario puede cancelar solo. 48 h por defecto, variable `RESERVAS_HORAS_PENALIZACION`.
+- **Seña vencida:** la tarea `vencer-senas-reservas` (cada hora) cancela por falta de pago y avisa; secretaría también puede hacerlo a mano.
+- **Avisos por email** (`ReservasPlantilla`, vía `NotificacionesService`): aprobación (con seña y límite), rechazo (con motivo), cancelación por el club (con motivo) y por falta de pago.
 
 ## Alternativas descartadas
 

@@ -112,6 +112,8 @@ enum EstadoCompraEntrada {
 enum ConceptoCobro {
   CUOTA_SOCIAL
   ENTRADAS
+  /// US-60: seña de una reserva de espacio aprobada.
+  RESERVA
 }
 
 /// TASK-51: ciclo de vida de una orden de pago online.
@@ -696,6 +698,7 @@ model OrdenPago {
   actualizadoEn  DateTime        @updatedAt
   pagos          Pago[]
   compraEntrada  CompraEntrada?
+  reserva        Reserva?
 
   @@index([usuarioId, creadoEn])
   @@index([estado, expiraEn])
@@ -848,6 +851,9 @@ model Reserva {
   limitePagoSena    DateTime?
   senaPagadaEn      DateTime?
   metodoPagoSena    String?
+  /// US-60: orden de pago online con la que se pagó la seña (null si la cobró secretaría).
+  ordenPagoId       Int?          @unique
+  ordenPago         OrdenPago?    @relation(fields: [ordenPagoId], references: [id], onDelete: SetNull)
   evaluadaPorId     Int?
   evaluadaPor       Usuario?      @relation("evaluadorReserva", fields: [evaluadaPorId], references: [id], onDelete: SetNull)
   evaluadaEn        DateTime?

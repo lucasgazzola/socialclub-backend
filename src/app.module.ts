@@ -23,6 +23,7 @@ import { AlertasModule } from './alertas/alertas.module';
 import { NotificacionesModule } from './notificaciones/notificaciones.module';
 import { TareasModule } from './tareas/tareas.module';
 import { PasarelaModule } from './pasarela/pasarela.module';
+import { ReservasModule } from './reservas/reservas.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { PasarelaModule } from './pasarela/pasarela.module';
     NotificacionesModule,
     TareasModule,
     PasarelaModule,
+    ReservasModule,
   ],
   controllers: [AppController],
 })
