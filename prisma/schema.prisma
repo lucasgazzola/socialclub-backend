@@ -107,6 +107,41 @@ enum EstadoCompraEntrada {
   APROBADA
 }
 
+/// TASK-52 (E14) · Tipo de espacio. Solo DEPORTIVO y MULTIUSO admiten
+/// disciplinas compatibles (US-55).
+enum TipoEspacio {
+  DEPORTIVO
+  SOCIAL
+  MULTIUSO
+}
+
+/// TASK-52 · Unidad de reserva de un espacio (RN-ESP03): por hora/turno
+/// (canchas, salón) o por día completo (quinchos, parrillas).
+enum ModalidadReserva {
+  POR_HORA
+  DIA_COMPLETO
+}
+
+/// TASK-52 · Bloqueo de agenda: recurrente (grilla semanal de una disciplina,
+/// con fecha límite de vigencia) o puntual (una fecha, p. ej. un evento).
+enum TipoBloqueo {
+  RECURRENTE
+  PUNTUAL
+}
+
+/// TASK-52 · Estados de una reserva (US-59 a US-62). Solo
+/// APROBADA_PENDIENTE_PAGO y CONFIRMADA ocupan la agenda (ver
+/// src/reservas/agenda.ts y docs/decisiones/0004).
+enum EstadoReserva {
+  PENDIENTE_APROBACION
+  APROBADA_PENDIENTE_PAGO
+  CONFIRMADA
+  RECHAZADA
+  CANCELADA_USUARIO
+  CANCELADA_FALTA_PAGO
+  CANCELADA_INSTITUCION
+}
+
 /// Catálogo de roles del sistema. Un Usuario puede tener uno o más roles
 /// simultáneos (RF02), de ahí la tabla intermedia UsuarioRol.
 model Rol {
@@ -145,6 +180,11 @@ model Usuario {
   ejecucionesTareas           EjecucionTarea[]
   /// DT-42: disciplinas que gestiona, si tiene el rol DELEGADO.
   disciplinasDelegadas        DelegadoDisciplina[]
+  /// TASK-52: reservas que solicitó, evaluó o canceló, y bloqueos que cargó.
+  reservas                    Reserva[]                 @relation("solicitanteReserva")
+  reservasEvaluadas           Reserva[]                 @relation("evaluadorReserva")
+  reservasCanceladas          Reserva[]                 @relation("canceladorReserva")
+  bloqueosAgenda              BloqueoAgenda[]
 
   @@map("usuarios")
 }
@@ -212,6 +252,9 @@ model Disciplina {
   requerimientosDoc             DisciplinaRequerimientoDoc[]
   pagosDeportivos               PagoCuotaDeportiva[]
   delegados                     DelegadoDisciplina[]
+  /// TASK-52: espacios donde se practica y bloqueos de agenda de su grilla.
+  espacios                      EspacioDisciplina[]
+  bloqueosAgenda                BloqueoAgenda[]
 
   @@map("disciplinas")
 }
@@ -644,4 +687,116 @@ model EjecucionTarea {
 
   @@index([tarea, inicio])
   @@map("ejecuciones_tareas")
+}
+
+/// TASK-52 (E14) · Espacio o instalación que se alquila (US-55 a US-58).
+/// Baja lógica con `activo` (RN-ESP05): las reservas pasadas lo siguen
+/// referenciando.
+model Espacio {
+  id              Int                 @id @default(autoincrement())
+  nombre          String
+  tipo            TipoEspacio
+  capacidadMaxima Int
+  modalidad       ModalidadReserva
+  ubicacion       String?
+  descripcion     String?
+  /// Tarifa para no socios: por hora (POR_HORA) o por día (DIA_COMPLETO).
+  precio          Decimal             @db.Decimal(12, 2)
+  /// Tarifa para socios activos al día. Null = misma que `precio`.
+  precioSocio     Decimal?            @db.Decimal(12, 2)
+  /// Seña que se exige para confirmar una reserva aprobada.
+  montoSena       Decimal             @db.Decimal(12, 2)
+  activo          Boolean             @default(true)
+  creadoEn        DateTime            @default(now())
+  actualizadoEn   DateTime            @updatedAt
+  disciplinas     EspacioDisciplina[]
+  bloqueos        BloqueoAgenda[]
+  reservas        Reserva[]
+
+  @@index([activo])
+  @@map("espacios")
+}
+
+/// TASK-52 · Disciplinas compatibles con un espacio deportivo o multiuso.
+/// Un espacio compartido se ocupa entero (RN-ESP01).
+model EspacioDisciplina {
+  espacioId    Int
+  espacio      Espacio    @relation(fields: [espacioId], references: [id], onDelete: Cascade)
+  disciplinaId Int
+  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
+
+  @@id([espacioId, disciplinaId])
+  @@index([disciplinaId])
+  @@map("espacios_disciplinas")
+}
+
+/// TASK-52 · Bloqueo de la agenda de un espacio (US-55, US-56): actividades
+/// del club con prioridad sobre los alquileres (RN-ESP02). Las horas son de
+/// reloj del club ("HH:MM", hora argentina); sin horas = día completo.
+model BloqueoAgenda {
+  id            Int         @id @default(autoincrement())
+  espacioId     Int
+  espacio       Espacio     @relation(fields: [espacioId], references: [id], onDelete: Cascade)
+  tipo          TipoBloqueo
+  /// RECURRENTE: días de la semana (0 = domingo … 6 = sábado).
+  diasSemana    Int[]
+  /// PUNTUAL: la fecha bloqueada.
+  fecha         DateTime?   @db.Date
+  horaInicio    String?
+  horaFin       String?
+  /// RECURRENTE: desde cuándo y hasta cuándo rige (fecha límite de vigencia).
+  vigenteDesde  DateTime?   @db.Date
+  vigenteHasta  DateTime?   @db.Date
+  disciplinaId  Int?
+  disciplina    Disciplina? @relation(fields: [disciplinaId], references: [id], onDelete: SetNull)
+  motivo        String?
+  activo        Boolean     @default(true)
+  creadoPorId   Int?
+  creadoPor     Usuario?    @relation(fields: [creadoPorId], references: [id], onDelete: SetNull)
+  creadoEn      DateTime    @default(now())
+  actualizadoEn DateTime    @updatedAt
+
+  @@index([espacioId, activo])
+  @@map("bloqueos_agenda")
+}
+
+/// TASK-52 · Reserva (alquiler) de un espacio (US-59 a US-62). `inicio` y
+/// `fin` son instantes (UTC); un día completo va de 00:00 a 24:00 hora del
+/// club. Los montos quedan pactados al solicitar: si después cambia la tarifa
+/// del espacio, la reserva conserva los suyos (US-56).
+model Reserva {
+  id                Int           @id @default(autoincrement())
+  /// Código de seguimiento que se le muestra al usuario (US-59, US-62).
+  codigo            String        @unique
+  espacioId         Int
+  espacio           Espacio       @relation(fields: [espacioId], references: [id])
+  usuarioId         Int
+  usuario           Usuario       @relation("solicitanteReserva", fields: [usuarioId], references: [id])
+  inicio            DateTime
+  fin               DateTime
+  estado            EstadoReserva @default(PENDIENTE_APROBACION)
+  /// Si se le aplicó la tarifa de socio al solicitar.
+  esSocio           Boolean       @default(false)
+  montoTotal        Decimal       @db.Decimal(12, 2)
+  montoSena         Decimal       @db.Decimal(12, 2)
+  observaciones     String?
+  /// US-60: fecha límite para pagar la seña (al aprobar).
+  limitePagoSena    DateTime?
+  senaPagadaEn      DateTime?
+  metodoPagoSena    String?
+  evaluadaPorId     Int?
+  evaluadaPor       Usuario?      @relation("evaluadorReserva", fields: [evaluadaPorId], references: [id], onDelete: SetNull)
+  evaluadaEn        DateTime?
+  motivoRechazo     String?
+  canceladaPorId    Int?
+  canceladaPor      Usuario?      @relation("canceladorReserva", fields: [canceladaPorId], references: [id], onDelete: SetNull)
+  canceladaEn       DateTime?
+  motivoCancelacion String?
+  creadoEn          DateTime      @default(now())
+  actualizadoEn     DateTime      @updatedAt
+
+  @@index([espacioId, inicio, fin])
+  @@index([usuarioId, creadoEn])
+  @@index([estado, limitePagoSena])
+  @@map("reservas")
 }
