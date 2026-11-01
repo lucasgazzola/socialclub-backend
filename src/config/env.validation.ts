@@ -1,5 +1,13 @@
 import { plainToInstance, Type } from 'class-transformer';
-import { IsEnum, IsNumber, IsOptional, IsString, MinLength, validateSync } from 'class-validator';
+import {
+  IsEnum,
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MinLength,
+  validateSync,
+} from 'class-validator';
 
 /**
  * Valida las variables de entorno al arrancar la aplicación. Si falta alguna
@@ -63,6 +71,29 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   APP_URL?: string;
+
+  // ── Pasarela de pagos (TASK-51, decisión 0003) ───────────────────────────
+  /** `mercadopago` o `simulada`. Sin definir: Mercado Pago si hay token, si no la simulada. */
+  @IsIn(['mercadopago', 'simulada'], {
+    message: 'PASARELA_PAGOS debe ser «mercadopago» o «simulada».',
+  })
+  @IsOptional()
+  PASARELA_PAGOS?: string;
+
+  /** Access Token de Mercado Pago (`TEST-…` para el sandbox). */
+  @IsString()
+  @IsOptional()
+  MP_ACCESS_TOKEN?: string;
+
+  /** Clave secreta del webhook de Mercado Pago (valida la firma `x-signature`). */
+  @IsString()
+  @IsOptional()
+  MP_WEBHOOK_SECRET?: string;
+
+  /** URL pública de esta API, para que la pasarela le avise los pagos (webhook). */
+  @IsString()
+  @IsOptional()
+  API_PUBLIC_URL?: string;
 
   /** Secreto con el que el workflow dispara las tareas automáticas (DT-22). */
   @IsString()

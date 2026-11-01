@@ -14,6 +14,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { ValidarEntradaDto } from './dto/validar-entrada.dto';
+import { OrdenPagoRespuestaDto } from '../pasarela/dto/orden-pago-respuesta.dto';
 import { ComprarEntradasDto } from './dto/comprar-entradas.dto';
 import { ApiErrores, VALIDACION } from '../common/swagger/respuestas';
 
@@ -65,9 +66,12 @@ export class EntradasController {
     return this.entradasService.validarAcceso(dto, user.id);
   }
 
-  @Post('comprar')
-  @ApiOperation({ summary: 'US-52 — Comprar entradas con pasarela mock' })
-  @ApiCreatedResponse({ description: 'Compra confirmada con sus entradas' })
+  @Post('checkout')
+  @ApiOperation({
+    summary:
+      'US-52 · TASK-51 — Iniciar la compra online de entradas (reserva el cupo y devuelve la URL de la pasarela)',
+  })
+  @ApiCreatedResponse({ description: 'Orden de pago creada', type: OrdenPagoRespuestaDto })
   @ApiErrores({
     400: [
       VALIDACION,
@@ -81,9 +85,10 @@ export class EntradasController {
     ],
     401: 'Unauthorized',
     404: 'Evento no encontrado',
+    502: 'La pasarela de pagos no respondió. Intentá nuevamente.',
   })
-  comprar(@Body() dto: ComprarEntradasDto, @CurrentUser() user: AuthenticatedUser) {
-    return this.entradasService.comprar(dto, user.id);
+  iniciarCompra(@Body() dto: ComprarEntradasDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.entradasService.iniciarCompra(dto, user.id);
   }
 
   @Get('mis-entradas')

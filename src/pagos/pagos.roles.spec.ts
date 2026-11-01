@@ -28,7 +28,7 @@ describe('US-17 & US-10 · PagosController · control de acceso', () => {
 
   const socioYAdmin = {
     'GET /pagos/mis-cuotas': PagosController.prototype.getMisCuotas,
-    'POST /pagos/registrar': PagosController.prototype.registrarPago,
+    'POST /pagos/checkout': PagosController.prototype.iniciarPagoOnline,
     'GET /pagos/historial': PagosController.prototype.getHistorial,
   };
 

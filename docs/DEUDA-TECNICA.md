@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 22/10/2026 (US-36 · Reporte de asistencia a eventos; TASK-50 · DT-45)
+- **Última actualización:** 31/10/2026 (TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -29,10 +29,10 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
   - [🟠 Altas](#-altas)
     - [DT-27 · Documentación por disciplina: requisitos, estados y vigencia](#dt-27--documentación-por-disciplina-requisitos-estados-y-vigencia)
     - [DT-29 · No existe solicitud de inscripción con aprobación](#dt-29--no-existe-solicitud-de-inscripción-con-aprobación)
-    - [DT-31 · No existe compra real de entradas](#dt-31--no-existe-compra-real-de-entradas)
     - [DT-35 · El pago implementado solo cubre la cuota social](#dt-35--el-pago-implementado-solo-cubre-la-cuota-social)
   - [🟡 Medias](#-medias)
     - [DT-48 · Morosos de cuota social cuenta cuotas que todavía no vencieron](#dt-48--morosos-de-cuota-social-cuenta-cuotas-que-todavía-no-vencieron)
+    - [DT-49 · Tests de cuota deportiva que fallan según la hora](#dt-49--tests-de-cuota-deportiva-que-fallan-según-la-hora)
     - [DT-24 · La planilla documenta generación de cuotas que no existe](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe)
     - [DT-23 · El ratchet de cobertura corta el CI por décimas](#dt-23--el-ratchet-de-cobertura-corta-el-ci-por-décimas)
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
@@ -66,9 +66,9 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-28, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45 |
-| 🟠 Altas pendientes | DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-31, DT-35 (cobro y tarifa resueltos; resta autoservicio) |
-| 🟡 Medias pendientes | DT-23, DT-24, DT-34, DT-48 |
+| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-28, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-31 |
+| 🟠 Altas pendientes | DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-35 (cobro, tarifa y pasarela de pagos resueltos; resta el autoservicio de la cuota deportiva) |
+| 🟡 Medias pendientes | DT-23, DT-24, DT-34, DT-48, DT-49 |
 | ⚪ Bajas pendientes | DT-06, DT-09, DT-46, DT-47, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
 **Cobertura de tests** (medida el 18/10/2026, objetivo DoD **70 %**):
@@ -228,23 +228,6 @@ aprueba o rechaza → solo al aprobar se crea o activa la `Inscripcion`.
 - **Detectado en el análisis funcional de dominio (22/09/2026).**
 - **Rama sugerida:** `issue/TASK-20-DT-29-Solicitud-de-inscripcion`
 
-#### DT-31 · No existe compra real de entradas
-*Nuevo · funcional · backend + frontend*
-
-`crearMultiples()` genera entradas administrativas: no registra comprador,
-usuario o persona propietaria, precio, pago, orden de compra ni estado de
-compra. El botón "Comprar entradas" hoy en realidad significa "generar
-entradas": no hay pago de por medio.
-
-**Arreglo:** crear `CompraEntrada` y `DetalleCompraEntrada`, sumar
-`Entrada.usuarioId` (o `personaId`) y un `estadoCompra` (`PENDIENTE`,
-`PAGADA`, `CANCELADA`, `REEMBOLSADA`). Flujo: el usuario elige evento y
-cantidad → se crea una compra pendiente → se procesa el pago → las entradas
-se generan solo si el pago fue aprobado → quedan asociadas al comprador.
-
-- **Detectado en el análisis funcional de dominio (22/09/2026).**
-- **Rama sugerida:** `issue/TASK-21-DT-31-Compra-real-de-entradas`
-
 #### DT-35 · El cobro de cuota deportiva quedó implementado; resta la generación y el autoservicio
 *funcional · backend · parcialmente resuelto (US-21, 26/09/2026)*
 
@@ -268,12 +251,28 @@ deportiva.
   dónde sale el monto.
 - **Autoservicio y matrícula/eventos:** el pago deportivo por el propio socio
   (equivalente a US-10) y las obligaciones de matrícula/eventos siguen sin
-  cobrarse.
+  cobrarse. **TASK-51 dejó la base:** con la pasarela de pagos
+  ([decisión 0003](decisiones/0003-pasarela-de-pagos.md)), sumarlo es un
+  endpoint de checkout en `pagos` y un `@Acreditador()` para el concepto
+  `CUOTA_DEPORTIVA`.
 
 - **Relacionado:** [DT-24](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe), [DT-06](#dt-06--historias-de-usuario-para-sumar-al-backlog).
 - **Detectado en el análisis funcional de dominio (22/09/2026); cobro implementado en US-21 (26/09/2026).**
 
 ### 🟡 Medias
+
+#### DT-49 · Tests de cuota deportiva que fallan según la hora
+*Nuevo · backend · detectado en TASK-51 (31/10/2026)*
+
+Seis casos de `src/pagos/pagos-deportivos.service.spec.ts` (registro de pago,
+tarifas de TASK-33 y reinscripción de DT-41) fallan cuando la fecha local y la
+UTC caen en meses distintos: el 31/10 después de las 21:00 (hora argentina) ya
+es 01/11 en UTC y el "período actual" del test no coincide con el del servicio.
+Pasan el resto del mes, así que el CI puede quedar en rojo solo el último día
+de cada mes por la noche. Fallan igual en `dev` sin ningún cambio.
+
+**Arreglo:** congelar el reloj en esos tests (`jest.useFakeTimers().setSystemTime(...)`)
+o calcular el período esperado con la misma función que usa el servicio.
 
 #### DT-48 · Morosos de cuota social cuenta cuotas que todavía no vencieron
 *Nuevo · backend · detectado en US-23*
@@ -327,7 +326,7 @@ errores de compra, devoluciones o cambios de titularidad.
 para pasar por ellos, apoyándose en la compra real (DT-31) para saber a
 quién reembolsar.
 
-- **Depende de:** [DT-31](#dt-31--no-existe-compra-real-de-entradas).
+- **Depende de:** DT-31 (resuelta en TASK-51: la compra ya pasa por la pasarela y queda asociada a su `OrdenPago`).
 - **Detectado en el análisis funcional de dominio (22/09/2026).**
 - **Rama sugerida:** `issue/TASK-27-DT-34-Cancelacion-devolucion-transferencia-entradas`
 
@@ -400,6 +399,16 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### TASK-51 · DT-31 · Pasarela de pagos con Mercado Pago: compra real de entradas y pago online de cuotas
+**`issue/TASK-51-DT-31-Pasarela-de-pagos`** (backend + frontend) · 31/10/2026
+
+- Módulo `src/pasarela/` con la facade `PasarelaService` y dos interfaces: `PasarelaPago` (adaptadores `PasarelaMercadoPago`, Checkout Pro por API REST, y `PasarelaSimulada`) y `AcreditadorCobro` (`CuotaSocialAcreditador` en `pagos`, `EntradasAcreditador` en `entradas`, registrados con `@Acreditador()`). Diseño, alternativas y guía del sandbox en la [decisión 0003](decisiones/0003-pasarela-de-pagos.md).
+- Tabla `ordenes_pago` (migración `20261031230000_pasarela_de_pagos`): la orden se guarda antes de ir a la pasarela y se acredita una sola vez, por la vuelta del usuario o por webhook (`POST /pasarela/webhook`, firma `x-signature`). Estados PENDIENTE, APROBADA, CANCELADA, VENCIDA y REQUIERE_REVISION. Tarea `vencer-ordenes-pago` cada hora.
+- **DT-31:** la compra de entradas reserva el cupo, cobra y recién con el pago aprobado genera la `CompraEntrada` y sus entradas (con `ordenPagoId`). Si no se paga, el cupo se libera.
+- Se eliminaron `POST /pagos/registrar` y `POST /entradas/comprar`, que acreditaban sin cobrar; los reemplazan `POST /pagos/checkout` y `POST /entradas/checkout`. Front: modal de confirmación, pantallas `/pagos/resultado` y `/pagos/simulador`, sin formularios de tarjeta.
+- Sin `MP_ACCESS_TOKEN` corre la pasarela simulada (desarrollo, E2E y entornos sin credenciales). Los workflows de CD pasan `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET` y `API_PUBLIC_URL` si existen como secrets.
+- Tests: backend (facade, adaptadores, acreditadores, controllers, checkout de cuotas y entradas) y frontend (páginas, API, modal); E2E de compra de entradas pagando con la pasarela y del rechazo y cancelación del pago de una cuota.
 
 ### TASK-50 · DT-45 · La tarjeta del evento no ofrece comprar fuera del período de venta
 **`issue/TASK-50-DT-45-Tarjeta-evento-periodo-venta`** (frontend) · 21/10/2026

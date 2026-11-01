@@ -11,6 +11,8 @@ import { CrearEntradasDto } from './dto/crear-entradas.dto';
 import { ValidarEntradaDto } from './dto/validar-entrada.dto';
 import { ComprarEntradasDto } from './dto/comprar-entradas.dto';
 import { eventoTerminado } from '../eventos/fin-del-evento';
+import { PasarelaService } from '../pasarela/pasarela.service';
+import type { DatosCobroEntradas } from './entradas.acreditador';
 
 /**
  * - Cada entrada tiene un token generado por el sistema.
@@ -23,6 +25,7 @@ export class EntradasService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
+    private readonly pasarela: PasarelaService,
   ) {}
 
   async crearMultiples(dto: CrearEntradasDto, responsableId: number) {
@@ -115,7 +118,11 @@ export class EntradasService {
     return items;
   }
 
-  async comprar(dto: ComprarEntradasDto, usuarioId: number) {
+  /**
+   * US-52 · TASK-51: valida que el evento se pueda comprar y calcula el precio
+   * (con el descuento de socio, si corresponde).
+   */
+  private async cotizarCompra(dto: ComprarEntradasDto, usuarioId: number) {
     const ahora = new Date();
     const evento = await this.prisma.evento.findUnique({ where: { id: dto.eventoId } });
     if (!evento) throw new NotFoundException('Evento no encontrado');
@@ -162,19 +169,37 @@ export class EntradasService {
 
     const descuentoAplicable = esSocio ? (evento.descuentoSocio ?? 0) : 0;
     const precioBase = Number(evento.precio);
-    const precioUnitario = Math.max(0, precioBase * (1 - descuentoAplicable / 100));
-    const montoTotal = precioUnitario * dto.cantidad;
+    const precioUnitario =
+      Math.round(Math.max(0, precioBase * (1 - descuentoAplicable / 100)) * 100) / 100;
+    const montoTotal = Math.round(precioUnitario * dto.cantidad * 100) / 100;
 
-    const tokens = Array.from({ length: dto.cantidad }, () => randomUUID());
+    return { evento, precioUnitario, montoTotal };
+  }
 
-    return this.prisma.$transaction(async (tx) => {
-      if (evento.entradasDisponibles !== null) {
+  /**
+   * US-52 · TASK-51: inicia la compra online. Reserva el cupo junto con la
+   * orden de pago (así no se vende de más mientras el usuario paga) y devuelve
+   * la URL de la pasarela. Las entradas se generan recién cuando la pasarela
+   * confirma el pago (`EntradasAcreditador`); si no se paga, el cupo se libera.
+   */
+  async iniciarCompra(dto: ComprarEntradasDto, usuarioId: number) {
+    const { evento, precioUnitario, montoTotal } = await this.cotizarCompra(dto, usuarioId);
+
+    return this.pasarela.iniciarCobro({
+      concepto: 'ENTRADAS',
+      usuarioId,
+      descripcion: `${dto.cantidad} entrada(s) para "${evento.nombre}"`,
+      items: [{ titulo: `Entrada — ${evento.nombre}`, cantidad: dto.cantidad, precioUnitario }],
+      datos: {
+        eventoId: evento.id,
+        cantidad: dto.cantidad,
+        precioUnitario,
+        montoTotal,
+      } satisfies DatosCobroEntradas,
+      reservar: async (tx) => {
+        if (evento.entradasDisponibles === null) return;
         const stock = await tx.evento.updateMany({
-          where: {
-            id: dto.eventoId,
-            estado: 'PUBLICADO',
-            entradasDisponibles: { gte: dto.cantidad },
-          },
+          where: { id: evento.id, estado: 'PUBLICADO', entradasDisponibles: { gte: dto.cantidad } },
           data: { entradasDisponibles: { decrement: dto.cantidad } },
         });
         if (stock.count === 0) {
@@ -182,33 +207,7 @@ export class EntradasService {
             'Las entradas se agotaron. Actualizá la página e intentá nuevamente.',
           );
         }
-      }
-
-      const compra = await tx.compraEntrada.create({
-        data: {
-          usuarioId,
-          eventoId: dto.eventoId,
-          cantidad: dto.cantidad,
-          precioUnitario,
-          montoTotal,
-        },
-      });
-      const entradas = await tx.entrada.createManyAndReturn({
-        data: tokens.map((token) => ({ token, eventoId: dto.eventoId, compraId: compra.id })),
-      });
-
-      await this.auditoria.registrar(
-        {
-          accion: 'CREAR',
-          entidad: 'CompraEntrada',
-          idEntidad: compra.id,
-          responsableId: usuarioId,
-          detalle: `Compra aprobada de ${dto.cantidad} entrada(s) para "${evento.nombre}" por $${montoTotal.toFixed(2)}`,
-        },
-        tx,
-      );
-
-      return { ...compra, entradas, eventoNombre: evento.nombre };
+      },
     });
   }
 

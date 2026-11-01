@@ -21,6 +21,7 @@ on:
     - cron: '30 */6 * * *' # cada 6 h · reintentar-notificaciones
     - cron: '0 6 1 * *' # día 1, 03:00 ART · rotacion-cuota-social
     - cron: '0 8 * * *' # 05:00 ART · cierre-de-eventos
+    - cron: '15 * * * *' # cada hora · vencer-ordenes-pago
   workflow_dispatch:
     inputs:
       tarea:
@@ -32,6 +33,7 @@ on:
           - reintentar-notificaciones
           - rotacion-cuota-social
           - cierre-de-eventos
+          - vencer-ordenes-pago
 
 permissions:
   contents: read
@@ -53,6 +55,7 @@ jobs:
             '30 */6 * * *') TAREAS='["reintentar-notificaciones"]' ;;
             '0 6 1 * *')    TAREAS='["rotacion-cuota-social"]' ;;
             '0 8 * * *')    TAREAS='["cierre-de-eventos"]' ;;
+            '15 * * * *')   TAREAS='["vencer-ordenes-pago"]' ;;
             *)              TAREAS="[\"$MANUAL\"]" ;;
           esac
           echo "tareas=$TAREAS" >> "$GITHUB_OUTPUT"

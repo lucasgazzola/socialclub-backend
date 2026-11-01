@@ -7,7 +7,8 @@ import {
   ApiOkResponse,
 } from '@nestjs/swagger';
 import { PagosService } from './pagos.service';
-import { RegistrarPagoDto } from './dto/registrar-pago.dto';
+import { IniciarPagoCuotasDto } from './dto/iniciar-pago-cuotas.dto';
+import { OrdenPagoRespuestaDto } from '../pasarela/dto/orden-pago-respuesta.dto';
 import { RegistrarPagoSocioDto } from './dto/registrar-pago-socio.dto';
 import { FindMorososQueryDto } from './dto/find-morosos-query.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -125,30 +126,29 @@ export class PagosController {
     return this.pagosService.getCuotasPendientes(user.id);
   }
 
-  @Post('registrar')
+  @Post('checkout')
   @Roles('SOCIO', 'ADMIN', 'COLABORADOR')
   @ApiOperation({
     summary:
-      'US-10 — Registrar pago de uno o más períodos pendientes de cuota social (Mock pasarela)',
+      'US-10 · TASK-51 — Iniciar el pago online de uno o más períodos de cuota social (devuelve la URL de la pasarela)',
   })
-  @ApiCreatedResponse({ description: 'Pago registrado' })
+  @ApiCreatedResponse({ description: 'Orden de pago creada', type: OrdenPagoRespuestaDto })
   @ApiErrores({
     400: [
       VALIDACION,
       'Debe seleccionar al menos un período para abonar',
-      'El monto total a abonar debe ser superior a cero',
       'El sistema no permite registrar pagos correspondientes a períodos futuros (…)',
       'El sistema no permite registrar pagos por montos iguales o inferiores a cero (la cuota para el período … es $…).',
-      'El socio no posee registros de membresía',
       'El usuario no posee registros de membresía de socio',
     ],
     401: 'Unauthorized',
     403: 'No tenés permisos suficientes para esta operación',
-    404: ['No se encontró una ficha de persona asociada al usuario', 'Socio no encontrado'],
+    404: 'No se encontró una ficha de persona asociada al usuario',
     409: 'No es posible procesar el pago: el/los período(s) […] ya figuran como pagados.',
+    502: 'La pasarela de pagos no respondió. Intentá nuevamente.',
   })
-  registrarPago(@CurrentUser() user: AuthenticatedUser, @Body() dto: RegistrarPagoDto) {
-    return this.pagosService.registrarPago(user.id, dto);
+  iniciarPagoOnline(@CurrentUser() user: AuthenticatedUser, @Body() dto: IniciarPagoCuotasDto) {
+    return this.pagosService.iniciarPagoOnline(user.id, dto);
   }
 
   @Get('historial')
