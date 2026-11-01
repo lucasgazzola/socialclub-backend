@@ -36,8 +36,6 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-48 · Morosos de cuota social cuenta cuotas que todavía no vencieron](#dt-48--morosos-de-cuota-social-cuenta-cuotas-que-todavía-no-vencieron)
     - [DT-49 · Tests de cuota deportiva que fallan según la hora](#dt-49--tests-de-cuota-deportiva-que-fallan-según-la-hora)
     - [DT-53 · Tres E2E desactualizados por US-04](#dt-53--tres-e2e-desactualizados-por-us-04)
-    - [DT-24 · La planilla documenta generación de cuotas que no existe](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe)
-    - [DT-23 · El ratchet de cobertura corta el CI por décimas](#dt-23--el-ratchet-de-cobertura-corta-el-ci-por-décimas)
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
   - [⚪ Bajas](#-bajas)
     - [DT-51 · Nombres y correos electrónicos del seed con descriptores de prueba sin realismo](#dt-51--nombres-y-correos-electrónicos-del-seed-con-descriptores-de-prueba-sin-realismo)
@@ -70,17 +68,17 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-25, DT-26, DT-28, DT-30, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-31 |
+| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-31, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45 |
 | 🟠 Altas pendientes | DT-52, DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-35 (cobro, tarifa y pasarela de pagos resueltos; resta el autoservicio de la cuota deportiva) |
-| 🟡 Medias pendientes | DT-23, DT-24, DT-34, DT-48, DT-49, DT-50, DT-53 |
+| 🟡 Medias pendientes | DT-34, DT-48, DT-49, DT-50, DT-53 |
 | ⚪ Bajas pendientes | DT-06, DT-09, DT-46, DT-47, DT-51, DT-36 (servicio de notificaciones resuelto en TASK-35; restan los avisos de DT-29, DT-31 y cuotas) |
 
 **Cobertura de tests** (medida el 18/10/2026, objetivo DoD **70 %**):
 
 | Repo | Statements | Piso configurado |
 |---|---|---|
-| Frontend (Vitest) | **70,5 %** ✅ | 67 % |
-| Backend (Jest) | **88,3 %** ✅ | 70 % |
+| Frontend (Vitest) | **72,6 %** ✅ | 69 % |
+| Backend (Jest) | **88,3 %** ✅ | 85 % |
 
 Los dos repos tenían además el **CI en rojo** por configuración de lint, no por
 código: ver [Extra](#extra--ci-del-frontend-en-rojo-desde-el-0709) al final.
@@ -331,37 +329,6 @@ cuenta el mes en curso desde el día 1: un socio que paga el 5 figura como moros
 del 1 al 5. Conviene alinear las dos con la misma regla (o una constante propia
 para la cuota social, si el club la cobra distinto). Decisión del equipo.
 
-#### DT-24 · La planilla documenta generación de cuotas que no existe
-*Nuevo · producto + documentación · a definir*
-
-Cuatro casos de US-05 (`TC-017` a `TC-020`) esperan que al inscribir un
-participante **«se generan automáticamente las cuotas correspondientes»**. Eso
-no está implementado ni modelado:
-
-- El dominio solo tiene `ConfiguracionCuotaDeportiva` y `ConfiguracionCuotaSocial`, que son **el monto configurado**, no cuotas emitidas. No existe ninguna entidad de cuota generada ni deuda por socio.
-- `inscripcion.service.ts` no toca cuotas en ningún momento; el propio código lo admite en un comentario (`inscripcion.service.ts:399`: «generación de cuotas asociadas (que hoy no existe en el dominio…)»).
-
-O sea: esos cuatro casos **no pueden ejecutarse como están escritos**. Hay que
-decidir si se implementa la generación (es producto nuevo, se vincula con
-DT-06) o si se corrigen los casos para que describan lo que el sistema hace.
-
-- **Detectado al contrastar la planilla contra el código.**
-- **Confirmado además en el análisis funcional de dominio (22/09/2026):**
-  las configuraciones de precio deportivo existen, pero no se emite ninguna
-  cuota real por persona/inscripción. Ver también
-  [DT-35](#dt-35--el-pago-implementado-solo-cubre-la-cuota-social) (el pago
-  tampoco cubre esa cuota una vez que exista) y
-  [DT-06](#dt-06--historias-de-usuario-para-sumar-al-backlog).
-
-#### DT-23 · El ratchet de cobertura corta el CI por décimas
-*Nuevo · tooling · resuelto por ahora, dejar anotado*
-
-Al cerrar DT-16 el piso de ramas quedó en 58 % y un PR del equipo (US-07) lo
-dejó en 57,85 %: **el CI de `dev` quedó en rojo por 0,15 puntos** sin que nadie
-hiciera nada mal. Se resolvió dejando ~3 puntos de margen, pero conviene
-revisarlo si vuelve a pasar. La alternativa de fondo es exigir tests por PR
-(regla de equipo) en lugar de apretar el número global.
-
 #### DT-34 · No hay cancelación, devolución ni transferencia de entradas
 *Nuevo · funcional · backend + frontend*
 
@@ -468,6 +435,21 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### TASK-52 · DT-23 · El ratchet de cobertura corta el CI por décimas
+**`issue/TASK-52-DT-23-DT-24-ratchet-cobertura-y-cuotas`** (tooling + CI) · 01/11/2026
+
+- Se formalizó y blindó la política de umbrales de cobertura en CI: el piso («ratchet») solo puede subir y se mantiene un margen de seguridad de ~3 puntos porcentuales respecto a la cobertura real medida (Math.floor(real - 3)), evitando que variaciones menores (0,1 % - 0,2 %) por refactors o tests de integración rompan el pipeline innecesariamente.
+- Actualizados los umbrales de cobertura garantizando el cumplimiento estricto de la Definition of Done:
+  - **Backend (socialclub-backend/package.json)**: statements 85 %, branches 73 %, functions 78 %, lines 85 % (cobertura real medida: 88,3 % statements, 76,2 % branches, 81,1 % functions, 88,0 % lines).
+  - **Frontend (socialclub-frontend/vitest.config.ts)**: statements 69 %, branches 66 %, functions 60 %, lines 70 % (cobertura real medida: 72,6 % statements, 66,7 % branches, 63,8 % functions, 73,3 % lines).
+
+### TASK-52 · DT-24 · La planilla documenta generación de cuotas que no existe
+**`issue/TASK-52-DT-23-DT-24-ratchet-cobertura-y-cuotas`** (producto + documentación) · 01/11/2026
+
+- La generación y notificación de la cuota deportiva asociada al registro de participantes (US-05) fue implementada a través del cálculo y retorno del objeto cuotaGenerada en inscripcion.service.ts (resolviendo la tarifa vigente de la disciplina/categoría, el período actual y el porcentaje de descuento si el participante es socio activo) y su correspondiente presentación en la interfaz de usuario (InscripcionForm.tsx).
+- Se alineó la arquitectura del modelo de cobro deportivo (US-21): en consonancia con la cuota social, el club no pre-genera cuotas masivas como registros vacíos en base de datos, sino que calcula la deuda al vuelo desde la fecha de alta/inscripción respecto a los registros efectuados en PagoCuotaDeportiva.
+- Los casos de prueba TC-017 a TC-020 de la planilla oficial (docs/pruebas/casos-prueba.csv) describen este comportamiento exacto y se encuentran cubiertos por tests automáticos unitarios en inscripcion.service.spec.ts y ejecución de prueba E2E en docs/pruebas/ejecucion.csv (EJ-147).
 
 ### TASK-51 · DT-31 · Pasarela de pagos con Mercado Pago: compra real de entradas y pago online de cuotas
 **`issue/TASK-51-DT-31-Pasarela-de-pagos`** (backend + frontend) · 31/10/2026
