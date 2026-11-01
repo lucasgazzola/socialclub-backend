@@ -1056,6 +1056,49 @@ async function main() {
     },
   });
 
+  // 7.12. Marcos Bloqueado (Socio bloqueado en Gimnasio por certificado médico vencido sin excepción - US-25 / US-27)
+  const emailMarcos = 'marcos.bloqueado@socialclub.local';
+  let personaMarcos = await prisma.persona.findUnique({ where: { dni: '88000088' } });
+  if (!personaMarcos) {
+    personaMarcos = await prisma.persona.create({
+      data: {
+        nombre: 'Marcos',
+        apellido: 'DocVencida',
+        dni: '88000088',
+        email: emailMarcos,
+        genero: GeneroDisciplina.MASCULINO,
+        fechaNacimiento: new Date('1994-08-15'),
+        membresias: {
+          create: {
+            categoriaId: categoriasMap.get('Cuota General')!.id,
+            activo: true,
+            fechaAlta: new Date('2025-02-01'),
+          },
+        },
+      },
+    });
+  } else {
+    personaMarcos = await prisma.persona.update({
+      where: { id: personaMarcos.id },
+      data: {
+        genero: GeneroDisciplina.MASCULINO,
+        fechaNacimiento: new Date('1994-08-15'),
+      },
+    });
+  }
+  await prisma.usuario.upsert({
+    where: { email: emailMarcos },
+    update: { personaId: personaMarcos.id, passwordHash },
+    create: {
+      email: emailMarcos,
+      passwordHash,
+      nombre: 'Marcos',
+      apellido: 'DocVencida',
+      personaId: personaMarcos.id,
+      roles: { create: [{ rolId: rolSocio.id }] },
+    },
+  });
+
   // Mapa centralizado de Personas por DNI para vincular inscripciones, documentaciones y pagos
   const personasMap = new Map<string, Persona>();
   personasMap.set('10000001', personaAdmin);
@@ -1069,6 +1112,7 @@ async function main() {
   personasMap.set('90000009', personaSantiago);
   personasMap.set('90000010', personaCamila);
   personasMap.set('70000011', personaRoberto);
+  personasMap.set('88000088', personaMarcos);
 
   // 7.12 a 7.35. Ampliación de Personas, Socios y Usuarios (mínimo ~20 de cada entidad)
   interface SeedPersonaUsuarioData {

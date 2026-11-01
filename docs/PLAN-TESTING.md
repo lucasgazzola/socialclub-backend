@@ -37,7 +37,7 @@ estrategia de testing y su secuencia.
 8 E2E nuevos en `e2e/reservas.spec.ts` (`EJ-310`–`EJ-317`, capturas en
 `pruebas/evidencias/US-60`, `US-61` y `US-62`), que usan las reservas de
 ejemplo del seed (`SEED_RESETEAR_RESERVAS=1`). La suite E2E completa dejó a la
-vista 3 casos desactualizados en `dev` por US-04 (DT-50).
+vista 3 casos desactualizados en `dev` por US-04 (DT-53).
 
 **31/10/2026 · TASK-51 — Pasarela de pagos (Mercado Pago).** 15 casos nuevos
 (`TC-258`–`TC-272`, US-10 y US-52) con su ejecución (`EJ-272`–`EJ-286`,
