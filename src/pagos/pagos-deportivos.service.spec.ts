@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
-import { PagosDeportivosService, periodoActualDeportivo } from './pagos-deportivos.service';
+import { PagosDeportivosService } from './pagos-deportivos.service';
 
 const mockPrisma: any = {
   persona: { findUnique: jest.fn() },
@@ -64,9 +64,12 @@ function tarifa(overrides: Partial<any> = {}) {
 
 describe('PagosDeportivosService · US-21', () => {
   let service: PagosDeportivosService;
+  const FECHA_FIJA = new Date('2026-08-15T12:00:00Z');
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    jest.useFakeTimers();
+    jest.setSystemTime(FECHA_FIJA);
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [
         PagosDeportivosService,
@@ -75,6 +78,10 @@ describe('PagosDeportivosService · US-21', () => {
       ],
     }).compile();
     service = moduleRef.get(PagosDeportivosService);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe('getPendientesPorPersona', () => {
@@ -107,7 +114,7 @@ describe('PagosDeportivosService · US-21', () => {
   });
 
   describe('registrarPago', () => {
-    const periodo = periodoActualDeportivo();
+    const periodo = '2026-08';
 
     it('rechaza lista de períodos vacía (BadRequest)', async () => {
       await expect(service.registrarPago(50, { disciplinaId: 3, periodos: [] }, 1)).rejects.toThrow(
@@ -272,8 +279,8 @@ describe('PagosDeportivosService · US-21', () => {
   });
 
   describe('TASK-33 · tarifa por disciplina y categoría, descuento para socios', () => {
-    const anio = new Date().getFullYear();
-    const mesActual = new Date().getMonth();
+    const anio = 2026;
+    const mesActual = 7; // Agosto (0-indexed)
 
     beforeEach(() => {
       mockPrisma.pagoCuotaDeportiva.findMany.mockResolvedValue([]);
@@ -422,8 +429,8 @@ describe('PagosDeportivosService · US-21', () => {
   });
 
   describe('DT-41 · reinscribirse no pierde la deuda anterior', () => {
-    const anio = new Date().getFullYear();
-    const mesActual = new Date().getMonth();
+    const anio = 2026;
+    const mesActual = 7; // Agosto (0-indexed)
     /** Inscripto ene–mar del año pasado, baja, y reinscripto hace dos meses. */
     const reinscripta = () =>
       participanteBase({
