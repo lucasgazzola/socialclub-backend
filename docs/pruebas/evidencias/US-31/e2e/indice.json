@@ -1,7 +1,7 @@
 {
   "TC-198": {
     "titulo": "Validar el acceso con una entrada válida",
-    "fecha": "10/10/2026",
+    "fecha": "31/10/2026",
     "resultado": "Aprobado",
     "archivo": "eventos-y-entradas.spec.ts",
     "capturas": [
@@ -21,7 +21,7 @@
   },
   "TC-199": {
     "titulo": "Rechazar una entrada ya utilizada",
-    "fecha": "10/10/2026",
+    "fecha": "31/10/2026",
     "resultado": "Aprobado",
     "archivo": "eventos-y-entradas.spec.ts",
     "capturas": [

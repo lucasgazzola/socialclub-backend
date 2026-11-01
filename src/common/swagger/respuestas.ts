@@ -25,7 +25,7 @@ export class ErrorRespuestaDto {
   message: string | string[];
 }
 
-export type CodigoError = 400 | 401 | 403 | 404 | 409 | 413;
+export type CodigoError = 400 | 401 | 403 | 404 | 409 | 413 | 502;
 
 /** Qué significa cada código en esta API. */
 const SIGNIFICADO: Record<CodigoError, string> = {
@@ -35,6 +35,7 @@ const SIGNIFICADO: Record<CodigoError, string> = {
   404: 'No existe el recurso indicado',
   409: 'Conflicto con el estado actual de los datos',
   413: 'El archivo supera el tamaño máximo permitido',
+  502: 'La pasarela de pagos no respondió o rechazó la operación',
 };
 
 /** Mensajes reales que puede devolver un código (los que relevaron los casos de prueba). */

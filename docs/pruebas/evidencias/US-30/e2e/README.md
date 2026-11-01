@@ -9,8 +9,9 @@ reporte HTML (artifact `playwright-report` del CI).
 
 ### TC-069 · Verificar que la compra de varias entradas genera múltiples QRs individuales
 
-Aprobado el 10/10/2026 · `e2e/eventos-y-entradas.spec.ts`
+Aprobado el 31/10/2026 · `e2e/eventos-y-entradas.spec.ts`
 
   - [`TC-069-01.jpg`](TC-069-01.jpg) — 1. Como socio, abrir el evento y elegir 2 entradas
-  - [`TC-069-02.jpg`](TC-069-02.jpg) — 2. Pagar con la pasarela de prueba
-  - [`TC-069-03.jpg`](TC-069-03.jpg) — 3. Confirmar: se generan dos entradas, cada una con su QR y su token
+  - [`TC-069-02.jpg`](TC-069-02.jpg) — 2. Confirmar el pago: el sistema redirige a la pasarela (simulador)
+  - [`TC-069-03.jpg`](TC-069-03.jpg) — 3. Aprobar el pago: vuelve al resultado con el pago acreditado
+  - [`TC-069-04.jpg`](TC-069-04.jpg) — 4. En «Mis entradas» hay dos entradas nuevas, cada una con su QR y su token

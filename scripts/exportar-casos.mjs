@@ -45,7 +45,12 @@ if (!filas.length) {
 
 const maxFromText = (text) => {
   let max = 0;
-  for (const m of text.matchAll(/\bTC-(\d+)\b/g)) max = Math.max(max, Number(m[1]));
+  for (const m of text.matchAll(/\bTC-(\d+)\b/g)) {
+    // Los alias viejos de 4 dígitos con cero adelante (TC-0801, citados en los
+    // títulos de algunos tests) no son IDs de la planilla.
+    if (m[1].length > 3 && m[1].startsWith('0')) continue;
+    max = Math.max(max, Number(m[1]));
+  }
   return max;
 };
 

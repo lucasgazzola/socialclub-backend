@@ -1,0 +1,26 @@
+{
+  "TC-260": {
+    "titulo": "Mantener la cuota pendiente cuando el pago es rechazado y permitir reintentar o cancelar",
+    "fecha": "31/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "pasarela-de-pagos.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-260-01.jpg",
+        "titulo": "1. Como socia, elegir la cuota pendiente más antigua y confirmar el pago"
+      },
+      {
+        "archivo": "TC-260-02.jpg",
+        "titulo": "2. La pasarela muestra el concepto y el total; rechazar el pago"
+      },
+      {
+        "archivo": "TC-260-03.jpg",
+        "titulo": "3. El resultado informa el rechazo y permite reintentar o cancelar"
+      },
+      {
+        "archivo": "TC-260-04.jpg",
+        "titulo": "4. Cancelar: no se cobró nada y la cuota sigue pendiente"
+      }
+    ]
+  }
+}

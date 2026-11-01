@@ -3,6 +3,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { EntradasService } from './entradas.service';
+import { PasarelaService } from '../pasarela/pasarela.service';
 
 /**
  * US-30 · Generar entradas con QR — tests unitarios del EntradasService.
@@ -33,6 +34,9 @@ describe('US-30 · EntradasService', () => {
     $transaction: jest.fn((cb: (tx: typeof txMock) => unknown) => cb(txMock)),
   };
   const auditoriaMock = { registrar: jest.fn() };
+  const pasarelaMock = {
+    iniciarCobro: jest.fn().mockResolvedValue({ referencia: 'ref-1', urlPago: 'https://pagar' }),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -42,6 +46,7 @@ describe('US-30 · EntradasService', () => {
         EntradasService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuditoriaService, useValue: auditoriaMock },
+        { provide: PasarelaService, useValue: pasarelaMock },
       ],
     }).compile();
     service = moduleRef.get(EntradasService);
@@ -141,20 +146,14 @@ describe('US-30 · EntradasService', () => {
     });
   });
 
-  describe('comprar', () => {
-    const dto = {
-      eventoId: 1,
-      cantidad: 2,
-      titular: 'JUAN PEREZ',
-      numeroTarjeta: '4500000000000000',
-      vencimiento: '12/28',
-      cvc: '123',
-    };
+  describe('iniciarCompra (TASK-51)', () => {
+    const dto = { eventoId: 1, cantidad: 2 };
 
     const eventoVenta = {
       id: 1,
       nombre: 'Peña',
       precio: 1500,
+      descuentoSocio: 20,
       requiereEntrada: true,
       estado: 'PUBLICADO',
       inicioVenta: new Date(Date.now() - 60_000),
@@ -164,57 +163,80 @@ describe('US-30 · EntradasService', () => {
       fechaFin: null,
     };
 
-    it('rechaza un evento fuera de la ventana de venta sin tocar stock', async () => {
+    /** Ejecuta la reserva que el servicio le pasó a la pasarela. */
+    const reservaPedida = () => pasarelaMock.iniciarCobro.mock.calls[0][0].reservar(txMock);
+
+    it('rechaza un evento fuera de la ventana de venta sin crear la orden', async () => {
       prismaMock.evento.findUnique.mockResolvedValue({
         ...eventoVenta,
         inicioVenta: new Date(Date.now() + 60_000),
       });
 
-      await expect(service.comprar(dto, 7)).rejects.toBeInstanceOf(BadRequestException);
-      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      await expect(service.iniciarCompra(dto, 7)).rejects.toBeInstanceOf(BadRequestException);
+      expect(pasarelaMock.iniciarCobro).not.toHaveBeenCalled();
     });
 
-    it('emite entradas, descuenta stock y audita dentro de la misma transacción', async () => {
+    it('pide a la pasarela el cobro con el precio del evento y los datos para acreditar', async () => {
+      prismaMock.evento.findUnique.mockResolvedValue(eventoVenta);
+
+      const orden = await service.iniciarCompra(dto, 7);
+
+      expect(orden).toEqual({ referencia: 'ref-1', urlPago: 'https://pagar' });
+      expect(pasarelaMock.iniciarCobro).toHaveBeenCalledWith(
+        expect.objectContaining({
+          concepto: 'ENTRADAS',
+          usuarioId: 7,
+          items: [{ titulo: 'Entrada — Peña', cantidad: 2, precioUnitario: 1500 }],
+          datos: { eventoId: 1, cantidad: 2, precioUnitario: 1500, montoTotal: 3000 },
+        }),
+      );
+    });
+
+    it('a un socio le aplica el descuento del evento', async () => {
+      prismaMock.evento.findUnique.mockResolvedValue(eventoVenta);
+      prismaMock.usuario.findUnique.mockResolvedValueOnce({
+        roles: [{ rol: { nombre: 'SOCIO' } }],
+        persona: { membresias: [] },
+      });
+
+      await service.iniciarCompra(dto, 7);
+
+      expect(pasarelaMock.iniciarCobro.mock.calls[0][0].datos).toEqual(
+        expect.objectContaining({ precioUnitario: 1200, montoTotal: 2400 }),
+      );
+    });
+
+    it('TC-264 · reserva el cupo de forma atómica junto con la orden', async () => {
       prismaMock.evento.findUnique.mockResolvedValue(eventoVenta);
       txMock.evento.updateMany.mockResolvedValue({ count: 1 });
-      txMock.compraEntrada.create.mockResolvedValue({ id: 25, eventoId: 1, cantidad: 2 });
-      txMock.entrada.createManyAndReturn.mockResolvedValue([
-        { id: 1, token: 't1', eventoId: 1, compraId: 25 },
-        { id: 2, token: 't2', eventoId: 1, compraId: 25 },
-      ]);
 
-      const resultado = await service.comprar(dto, 7);
+      await service.iniciarCompra(dto, 7);
+      await reservaPedida();
 
-      expect(txMock.evento.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 1, estado: 'PUBLICADO', entradasDisponibles: { gte: 2 } },
-        }),
-      );
-      expect(txMock.compraEntrada.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ usuarioId: 7, montoTotal: 3000 }),
-        }),
-      );
-      expect(txMock.entrada.createManyAndReturn).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.arrayContaining([expect.objectContaining({ compraId: 25 })]),
-        }),
-      );
-      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
-        expect.objectContaining({ entidad: 'CompraEntrada', idEntidad: 25 }),
-        txMock,
-      );
-      expect(resultado.entradas).toHaveLength(2);
+      expect(txMock.evento.updateMany).toHaveBeenCalledWith({
+        where: { id: 1, estado: 'PUBLICADO', entradasDisponibles: { gte: 2 } },
+        data: { entradasDisponibles: { decrement: 2 } },
+      });
     });
 
-    it('revierte la compra si el stock cambió durante la confirmación', async () => {
+    it('TC-265 · la reserva falla si el cupo se agotó mientras tanto (no se crea la orden)', async () => {
       prismaMock.evento.findUnique.mockResolvedValue(eventoVenta);
       txMock.evento.updateMany.mockResolvedValue({ count: 0 });
 
-      await expect(service.comprar(dto, 7)).rejects.toBeInstanceOf(BadRequestException);
-      expect(txMock.compraEntrada.create).not.toHaveBeenCalled();
-      expect(txMock.entrada.createManyAndReturn).not.toHaveBeenCalled();
-      expect(auditoriaMock.registrar).not.toHaveBeenCalled();
+      await service.iniciarCompra(dto, 7);
+
+      await expect(reservaPedida()).rejects.toThrow(
+        'Las entradas se agotaron. Actualizá la página e intentá nuevamente.',
+      );
+    });
+
+    it('un evento sin cupo definido no reserva nada', async () => {
+      prismaMock.evento.findUnique.mockResolvedValue({ ...eventoVenta, entradasDisponibles: null });
+
+      await service.iniciarCompra(dto, 7);
+      await reservaPedida();
+
+      expect(txMock.evento.updateMany).not.toHaveBeenCalled();
     });
   });
 

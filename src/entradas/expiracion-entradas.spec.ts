@@ -3,6 +3,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { EntradasService } from './entradas.service';
+import { PasarelaService } from '../pasarela/pasarela.service';
 
 /**
  * US-31 · DT-33 · Control de acceso con QR y vencimiento de las entradas: una
@@ -18,6 +19,7 @@ describe('US-31/DT-33 · EntradasService · acceso y vencimiento', () => {
     $transaction: jest.fn(),
   };
   const auditoriaMock = { registrar: jest.fn() };
+  const pasarelaMock = { iniciarCobro: jest.fn() };
 
   const evento = (extra: Record<string, unknown> = {}) => ({
     id: 3,
@@ -48,6 +50,7 @@ describe('US-31/DT-33 · EntradasService · acceso y vencimiento', () => {
         EntradasService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuditoriaService, useValue: auditoriaMock },
+        { provide: PasarelaService, useValue: pasarelaMock },
       ],
     }).compile();
     service = moduleRef.get(EntradasService);
@@ -157,7 +160,7 @@ describe('US-31/DT-33 · EntradasService · acceso y vencimiento', () => {
     });
   });
 
-  describe('comprar', () => {
+  describe('iniciarCompra', () => {
     it('no vende entradas de un evento que ya terminó, aunque la venta no tenga cierre', async () => {
       prismaMock.evento.findUnique.mockResolvedValue(
         evento({
@@ -166,10 +169,10 @@ describe('US-31/DT-33 · EntradasService · acceso y vencimiento', () => {
         }),
       );
 
-      await expect(service.comprar({ eventoId: 3, cantidad: 1 } as never, 9)).rejects.toThrow(
+      await expect(service.iniciarCompra({ eventoId: 3, cantidad: 1 }, 9)).rejects.toThrow(
         new BadRequestException('El evento ya terminó.'),
       );
-      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(pasarelaMock.iniciarCobro).not.toHaveBeenCalled();
     });
   });
 });

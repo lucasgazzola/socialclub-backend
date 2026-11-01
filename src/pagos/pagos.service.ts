@@ -6,7 +6,9 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
-import { RegistrarPagoDto } from './dto/registrar-pago.dto';
+import { IniciarPagoCuotasDto } from './dto/iniciar-pago-cuotas.dto';
+import { PasarelaService } from '../pasarela/pasarela.service';
+import type { DatosCobroCuotaSocial } from './cuota-social.acreditador';
 import { RegistrarPagoSocioDto } from './dto/registrar-pago-socio.dto';
 import {
   CriterioOrdenMorosos,
@@ -33,6 +35,7 @@ export class PagosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
+    private readonly pasarela: PasarelaService,
   ) {}
 
   /** Formatea una fecha o Date object a formato YYYY-MM */
@@ -201,19 +204,23 @@ export class PagosService {
   }
 
   /**
-   * US-17 CA 1-13: Registrar pago de cuota social de un socio por Secretaría
+   * US-17 CA 3, 4, 5, 10 y 11 · TASK-51: valida los períodos a pagar de un socio
+   * y calcula el monto de cada uno. La usan el cobro de secretaría y el pago
+   * online, así las dos vías aplican las mismas reglas.
    */
-  async registrarPagoPorSocio(socioId: number, dto: RegistrarPagoSocioDto, responsableId: number) {
+  async cotizarCuotasSociales(
+    personaId: number,
+    categoriaId: number,
+    periodos: string[],
+  ): Promise<{ items: { periodo: string; monto: number }[]; montoTotal: number }> {
     // CA 10: No permitir registrar pago sin seleccionar al menos un período
-    if (!dto.periodos || dto.periodos.length === 0) {
+    if (!periodos || periodos.length === 0) {
       throw new BadRequestException('Debe seleccionar al menos un período para abonar');
     }
 
-    const { persona, membresia } = await this.getSocioPorPersonaId(socioId);
-
     // CA 4: El sistema no permite registrar pagos correspondientes a períodos futuros
     const actual = periodoActual();
-    const periodosFuturos = dto.periodos.filter((p) => p > actual);
+    const periodosFuturos = periodos.filter((p) => p > actual);
     if (periodosFuturos.length > 0) {
       throw new BadRequestException(
         `El sistema no permite registrar pagos correspondientes a períodos futuros (${periodosFuturos.join(', ')})`,
@@ -223,8 +230,8 @@ export class PagosService {
     // CA 3: El sistema no permite registrar el pago de un período que ya figure como pagado
     const pagosExistentes = await this.prisma.pago.findMany({
       where: {
-        personaId: persona.id,
-        periodo: { in: dto.periodos },
+        personaId,
+        periodo: { in: periodos },
       },
     });
 
@@ -236,23 +243,42 @@ export class PagosService {
     }
 
     // CA 5 & 11: Obtener monto vigente y validar que sea > 0
-    const itemsPago: { periodo: string; monto: number }[] = [];
+    const items: { periodo: string; monto: number }[] = [];
     let montoTotal = 0;
 
-    for (const periodo of dto.periodos) {
-      const monto = await this.getMontoCuotaSocial(membresia.categoriaId, periodo);
+    for (const periodo of periodos) {
+      const monto = await this.getMontoCuotaSocial(categoriaId, periodo);
       if (monto <= 0) {
         throw new BadRequestException(
           `El sistema no permite registrar pagos por montos iguales o inferiores a cero (la cuota para el período ${periodo} es $${monto}).`,
         );
       }
-      itemsPago.push({ periodo, monto });
+      items.push({ periodo, monto });
       montoTotal += monto;
     }
 
     if (montoTotal <= 0) {
       throw new BadRequestException('El monto total a abonar debe ser superior a cero');
     }
+
+    return { items, montoTotal };
+  }
+
+  /**
+   * US-17 CA 1-13: Registrar pago de cuota social de un socio por Secretaría
+   */
+  async registrarPagoPorSocio(socioId: number, dto: RegistrarPagoSocioDto, responsableId: number) {
+    // CA 10: No permitir registrar pago sin seleccionar al menos un período
+    if (!dto.periodos || dto.periodos.length === 0) {
+      throw new BadRequestException('Debe seleccionar al menos un período para abonar');
+    }
+
+    const { persona, membresia } = await this.getSocioPorPersonaId(socioId);
+    const { items: itemsPago, montoTotal } = await this.cotizarCuotasSociales(
+      persona.id,
+      membresia.categoriaId,
+      dto.periodos,
+    );
 
     const metodoPago = dto.metodoPago || 'EFECTIVO';
     const fechaHoraOperacion = new Date();
@@ -316,11 +342,31 @@ export class PagosService {
   }
 
   /**
-   * US-10 CA 2-6: Registrar pago de uno o más períodos pendientes por el socio autenticado
+   * US-10 CA 2-6 · TASK-51: el socio autenticado inicia el pago online de uno
+   * o más períodos. Devuelve la orden con la URL de la pasarela; los pagos se
+   * registran recién cuando la pasarela confirma (`CuotaSocialAcreditador`).
    */
-  async registrarPago(usuarioId: number, dto: RegistrarPagoDto) {
-    const { persona } = await this.getPersonaYSocio(usuarioId);
-    return this.registrarPagoPorSocio(persona.id, dto, usuarioId);
+  async iniciarPagoOnline(usuarioId: number, dto: IniciarPagoCuotasDto) {
+    const { persona, membresia } = await this.getPersonaYSocio(usuarioId);
+    const periodos = [...new Set(dto.periodos)].sort();
+
+    // Una orden anterior sin pagar se reemplaza (si en realidad se pagó, se
+    // acredita y la cotización de abajo rechaza los períodos ya pagos).
+    await this.pasarela.cancelarPendientes(usuarioId, 'CUOTA_SOCIAL');
+    const { items } = await this.cotizarCuotasSociales(persona.id, membresia.categoriaId, periodos);
+
+    const categoria = membresia.categoria?.nombre ?? '';
+    return this.pasarela.iniciarCobro({
+      concepto: 'CUOTA_SOCIAL',
+      usuarioId,
+      descripcion: `Cuota social ${periodos.join(', ')}`,
+      items: items.map((i) => ({
+        titulo: `Cuota social ${i.periodo}${categoria ? ` — ${categoria}` : ''}`,
+        cantidad: 1,
+        precioUnitario: i.monto,
+      })),
+      datos: { personaId: persona.id, periodos: items } satisfies DatosCobroCuotaSocial,
+    });
   }
 
   /**

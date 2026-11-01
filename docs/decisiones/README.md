@@ -9,6 +9,7 @@ no se borra; se marca como *Reemplazada por* y se escribe la nueva.
 |---|---|---|---|
 | [0001](0001-servicio-de-notificaciones.md) | Servicio centralizado de notificaciones | Aceptada | 03/10/2026 |
 | [0002](0002-servicio-de-tareas-automaticas.md) | Servicio centralizado de tareas automáticas | Aceptada | 03/10/2026 |
+| [0003](0003-pasarela-de-pagos.md) | Pasarela de pagos desacoplada (Mercado Pago) | Aceptada | 31/10/2026 |
 | [0004](0004-agenda-de-espacios-y-reservas.md) | Agenda de espacios y reservas | Aceptada | 01/11/2026 |
 
 ## Formato
