@@ -22,6 +22,7 @@ import { ReportesModule } from './reportes/reportes.module';
 import { AlertasModule } from './alertas/alertas.module';
 import { NotificacionesModule } from './notificaciones/notificaciones.module';
 import { TareasModule } from './tareas/tareas.module';
+import { PasarelaModule } from './pasarela/pasarela.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { TareasModule } from './tareas/tareas.module';
     // Servicios transversales (DT-36, DT-22)
     NotificacionesModule,
     TareasModule,
+    PasarelaModule,
   ],
   controllers: [AppController],
 })
