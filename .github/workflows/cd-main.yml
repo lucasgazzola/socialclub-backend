@@ -100,6 +100,18 @@ jobs:
             if [ -n "${{ secrets.APP_URL }}" ]; then
               ENVVARS="$ENVVARS APP_URL=${{ secrets.APP_URL }}"
             fi
+            # TASK-51 · Mercado Pago. Sin MP_ACCESS_TOKEN la API usa la pasarela simulada.
+            if [ -n "${{ secrets.MP_ACCESS_TOKEN }}" ]; then
+              SECRETS="$SECRETS mp-access-token=${{ secrets.MP_ACCESS_TOKEN }}"
+              ENVVARS="$ENVVARS MP_ACCESS_TOKEN=secretref:mp-access-token"
+            fi
+            if [ -n "${{ secrets.MP_WEBHOOK_SECRET }}" ]; then
+              SECRETS="$SECRETS mp-webhook-secret=${{ secrets.MP_WEBHOOK_SECRET }}"
+              ENVVARS="$ENVVARS MP_WEBHOOK_SECRET=secretref:mp-webhook-secret"
+            fi
+            if [ -n "${{ secrets.API_PUBLIC_URL }}" ]; then
+              ENVVARS="$ENVVARS API_PUBLIC_URL=${{ secrets.API_PUBLIC_URL }}"
+            fi
 
             if az containerapp show -g "$RESOURCE_GROUP" -n "$APP_NAME" >/dev/null 2>&1; then
               echo "Actualizando Container App existente..."
