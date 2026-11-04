@@ -71,7 +71,7 @@ describe('PagosService · US-17 & US-10', () => {
       mockPrisma.persona.findUnique.mockResolvedValue({
         id: 20,
         nombre: 'Carlos',
-        apellido: 'SinCuenta',
+        apellido: 'Mendoza',
         dni: '20000002',
         membresias: [
           {
@@ -91,7 +91,7 @@ describe('PagosService · US-17 & US-10', () => {
 
       const res = await service.getCuotasPendientesPorSocio(20);
       expect(res.personaId).toBe(20);
-      expect(res.socioNombre).toBe('Carlos SinCuenta');
+      expect(res.socioNombre).toBe('Carlos Mendoza');
       expect(res.dni).toBe('20000002');
       expect(res.categoria).toBe('Cuota Senior');
       expect(res.estadoFinanciero).toBe('MOROSO');
@@ -106,7 +106,7 @@ describe('PagosService · US-17 & US-10', () => {
       mockPrisma.persona.findUnique.mockResolvedValue({
         id: 20,
         nombre: 'Carlos',
-        apellido: 'SinCuenta',
+        apellido: 'Mendoza',
         dni: '20000002',
         membresias: [
           {
@@ -134,7 +134,7 @@ describe('PagosService · US-17 & US-10', () => {
     const mockPersonaConMembresia = {
       id: 20,
       nombre: 'Carlos',
-      apellido: 'SinCuenta',
+      apellido: 'Mendoza',
       dni: '20000002',
       membresias: [
         {
