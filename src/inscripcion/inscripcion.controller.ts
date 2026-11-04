@@ -13,6 +13,7 @@ import {
 import { InscripcionService } from './inscripcion.service';
 import { CreateInscripcionDto } from './dto/create-inscripcion.dto';
 import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
+import { SolicitarInscripcionDto } from './dto/solicitar-inscripcion.dto';
 import { FindParticipantesQueryDto } from './dto/find-participantes-query.dto';
 import { RequisitosInscripcionQueryDto } from './dto/requisitos-inscripcion-query.dto';
 import { CrearHabilitacionExcepcionalDto } from './dto/crear-habilitacion-excepcional.dto';
@@ -134,6 +135,59 @@ export class InscripcionController {
       query.categoriaDisciplinaId,
       query.personaId,
     );
+  }
+
+  @Get('catalogo')
+  @Roles('ADMIN', 'COLABORADOR', 'DELEGADO', 'SOCIO')
+  @ApiOperation({
+    summary:
+      'US-63 — Catálogo de disciplinas y categorías activas con aranceles y documentación requerida',
+  })
+  @ApiOkResponse({ description: 'Catálogo de disciplinas activas para postulación' })
+  @ApiErrores({
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+  })
+  catalogo(@CurrentUser() user: AuthenticatedUser) {
+    return this.inscripcionService.catalogo(user.id);
+  }
+
+  @Post('solicitar')
+  @Roles('ADMIN', 'COLABORADOR', 'DELEGADO', 'SOCIO')
+  @ApiOperation({ summary: 'US-63 — Solicitar inscripción a una disciplina y categoría activa' })
+  @ApiCreatedResponse({ description: 'Solicitud de inscripción registrada en estado PENDIENTE' })
+  @ApiErrores({
+    400: [
+      VALIDACION,
+      'Debe seleccionar una categoría para inscribirse en esta disciplina',
+      'Disciplina inactiva',
+      'El participante está dado de baja: hay que reactivarlo antes de postularse',
+      'El participante no cumple las restricciones de …. …',
+      'La categoría indicada no pertenece a esta disciplina o no está activa',
+    ],
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: ['Disciplina no encontrada', 'No se encontró una ficha de persona asociada al usuario'],
+    409: [
+      'Ya te encontrás inscripto en esta disciplina',
+      'Ya tenés una solicitud de inscripción pendiente para esta disciplina',
+    ],
+  })
+  solicitar(@Body() dto: SolicitarInscripcionDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.inscripcionService.solicitar(dto, user.id);
+  }
+
+  @Get('mis-solicitudes')
+  @Roles('ADMIN', 'COLABORADOR', 'DELEGADO', 'SOCIO')
+  @ApiOperation({ summary: 'US-63 — Listar solicitudes de inscripción propias del usuario' })
+  @ApiOkResponse({ description: 'Historial de solicitudes de inscripción del socio' })
+  @ApiErrores({
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: 'No se encontró una ficha de persona asociada al usuario',
+  })
+  misSolicitudes(@CurrentUser() user: AuthenticatedUser) {
+    return this.inscripcionService.misSolicitudes(user.id);
   }
 
   @Get('persona/:personaId')

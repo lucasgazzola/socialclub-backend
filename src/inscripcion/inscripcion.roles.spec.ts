@@ -75,6 +75,9 @@ describe('DT-16 · InscripcionController · control de acceso', () => {
         ...handlers,
         'POST /inscripcion/:id/habilitacion-excepcional':
           InscripcionController.prototype.habilitarExcepcional,
+        'POST /inscripcion/solicitar': InscripcionController.prototype.solicitar,
+        'GET /inscripcion/catalogo': InscripcionController.prototype.catalogo,
+        'GET /inscripcion/mis-solicitudes': InscripcionController.prototype.misSolicitudes,
       }).map(([ruta, handler]) => [
         ruta,
         reflector.getAllAndOverride<string[]>('roles', [handler, InscripcionController]) ?? null,
@@ -93,7 +96,22 @@ describe('DT-16 · InscripcionController · control de acceso', () => {
       'PATCH /inscripcion/persona/:personaId/activar': ['ADMIN', 'DELEGADO'],
       'POST /inscripcion/:id/habilitacion-excepcional': ['ADMIN'],
       'GET /inscripcion/:id/habilitaciones-excepcionales': ['ADMIN', 'DELEGADO'],
+      'POST /inscripcion/solicitar': ['ADMIN', 'COLABORADOR', 'DELEGADO', 'SOCIO'],
+      'GET /inscripcion/catalogo': ['ADMIN', 'COLABORADOR', 'DELEGADO', 'SOCIO'],
+      'GET /inscripcion/mis-solicitudes': ['ADMIN', 'COLABORADOR', 'DELEGADO', 'SOCIO'],
     });
+  });
+
+  it('US-63: los endpoints de solicitud y catálogo permiten al rol SOCIO', () => {
+    expect(
+      guard.canActivate(contextoPara(InscripcionController.prototype.solicitar, ['SOCIO'])),
+    ).toBe(true);
+    expect(
+      guard.canActivate(contextoPara(InscripcionController.prototype.catalogo, ['SOCIO'])),
+    ).toBe(true);
+    expect(
+      guard.canActivate(contextoPara(InscripcionController.prototype.misSolicitudes, ['SOCIO'])),
+    ).toBe(true);
   });
 
   it('US-06 · TC-229 / US-07 · TC-025: el COLABORADOR puede listar participantes pero no editarlos, darlos de baja ni reactivarlos', () => {
