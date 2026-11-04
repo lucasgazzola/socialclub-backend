@@ -644,8 +644,8 @@ async function main() {
   if (!personaAdmin) {
     personaAdmin = await prisma.persona.create({
       data: {
-        nombre: 'Administrador',
-        apellido: 'Inicial',
+        nombre: 'Alejandro',
+        apellido: 'Ramos',
         dni: '10000001',
         email: emailAdmin,
         genero: GeneroDisciplina.MASCULINO,
@@ -656,6 +656,9 @@ async function main() {
     personaAdmin = await prisma.persona.update({
       where: { id: personaAdmin.id },
       data: {
+        nombre: 'Alejandro',
+        apellido: 'Ramos',
+        email: emailAdmin,
         genero: GeneroDisciplina.MASCULINO,
         fechaNacimiento: new Date('1985-05-12'),
       },
@@ -663,27 +666,31 @@ async function main() {
   }
 
   const admin = await prisma.usuario.upsert({
-    where: { email: emailAdmin },
-    update: { personaId: personaAdmin.id },
+    where: { personaId: personaAdmin.id },
+    update: {
+      email: emailAdmin,
+      nombre: 'Alejandro',
+      apellido: 'Ramos',
+    },
     create: {
       email: emailAdmin,
       passwordHash,
-      nombre: 'Administrador',
-      apellido: 'Inicial',
+      nombre: 'Alejandro',
+      apellido: 'Ramos',
       personaId: personaAdmin.id,
       roles: { create: [{ rolId: rolAdmin.id }] },
     },
   });
 
-  // 7.2. Carlos SinCuenta (Persona con Membresía activa, sin cuenta de Usuario)
+  // 7.2. Carlos Mendoza (Persona con Membresía activa, sin cuenta de Usuario)
   let personaSocioSinCuenta = await prisma.persona.findUnique({ where: { dni: '20000002' } });
   if (!personaSocioSinCuenta) {
     personaSocioSinCuenta = await prisma.persona.create({
       data: {
         nombre: 'Carlos',
-        apellido: 'SinCuenta',
+        apellido: 'Mendoza',
         dni: '20000002',
-        email: 'carlos.sincuenta@club.local',
+        email: 'carlos.mendoza@club.local',
         telefono: '3514445566',
         genero: GeneroDisciplina.MASCULINO,
         fechaNacimiento: new Date('1965-08-20'),
@@ -700,20 +707,23 @@ async function main() {
     personaSocioSinCuenta = await prisma.persona.update({
       where: { id: personaSocioSinCuenta.id },
       data: {
+        nombre: 'Carlos',
+        apellido: 'Mendoza',
+        email: 'carlos.mendoza@club.local',
         genero: GeneroDisciplina.MASCULINO,
         fechaNacimiento: new Date('1965-08-20'),
       },
     });
   }
 
-  // 7.3. Lucía Registrada (Usuario SOCIO, Membresía activa Cuota General)
-  const emailLucia = 'lucia.registrada@club.local';
+  // 7.3. Lucía Vázquez (Usuario SOCIO, Membresía activa Cuota General)
+  const emailLucia = 'lucia.vazquez@club.local';
   let personaLucia = await prisma.persona.findUnique({ where: { dni: '30000003' } });
   if (!personaLucia) {
     personaLucia = await prisma.persona.create({
       data: {
         nombre: 'Lucía',
-        apellido: 'Registrada',
+        apellido: 'Vázquez',
         dni: '30000003',
         email: emailLucia,
         genero: GeneroDisciplina.FEMENINO,
@@ -731,32 +741,39 @@ async function main() {
     personaLucia = await prisma.persona.update({
       where: { id: personaLucia.id },
       data: {
+        nombre: 'Lucía',
+        apellido: 'Vázquez',
+        email: emailLucia,
         genero: GeneroDisciplina.FEMENINO,
         fechaNacimiento: new Date('1998-11-03'),
       },
     });
   }
   const usuarioLucia = await prisma.usuario.upsert({
-    where: { email: emailLucia },
-    update: { personaId: personaLucia.id },
+    where: { personaId: personaLucia.id },
+    update: {
+      email: emailLucia,
+      nombre: 'Lucía',
+      apellido: 'Vázquez',
+    },
     create: {
       email: emailLucia,
       passwordHash,
       nombre: 'Lucía',
-      apellido: 'Registrada',
+      apellido: 'Vázquez',
       personaId: personaLucia.id,
       roles: { create: [{ rolId: rolSocio.id }] },
     },
   });
 
-  // 7.4. Martín AdminSocio (Usuario con ADMIN + SOCIO y Membresía activa)
-  const emailMartin = 'martin.adminsocio@socialclub.local';
+  // 7.4. Martín Acosta (Usuario con ADMIN + SOCIO y Membresía activa)
+  const emailMartin = 'martin.acosta@socialclub.local';
   let personaMartin = await prisma.persona.findUnique({ where: { dni: '40000004' } });
   if (!personaMartin) {
     personaMartin = await prisma.persona.create({
       data: {
         nombre: 'Martín',
-        apellido: 'AdminSocio',
+        apellido: 'Acosta',
         dni: '40000004',
         email: emailMartin,
         genero: GeneroDisciplina.MASCULINO,
@@ -774,33 +791,40 @@ async function main() {
     personaMartin = await prisma.persona.update({
       where: { id: personaMartin.id },
       data: {
+        nombre: 'Martín',
+        apellido: 'Acosta',
+        email: emailMartin,
         genero: GeneroDisciplina.MASCULINO,
         fechaNacimiento: new Date('1978-04-15'),
       },
     });
   }
   await prisma.usuario.upsert({
-    where: { email: emailMartin },
-    update: { personaId: personaMartin.id },
+    where: { personaId: personaMartin.id },
+    update: {
+      email: emailMartin,
+      nombre: 'Martín',
+      apellido: 'Acosta',
+    },
     create: {
       email: emailMartin,
       passwordHash,
       nombre: 'Martín',
-      apellido: 'AdminSocio',
+      apellido: 'Acosta',
       personaId: personaMartin.id,
       roles: { create: [{ rolId: rolAdmin.id }, { rolId: rolSocio.id }] },
     },
   });
 
-  // 7.5. Esteban Gimnasio (Persona sin cuenta, NO socio, concurre a gimnasio)
+  // 7.5. Esteban Paredes (Persona sin cuenta, NO socio, concurre a gimnasio)
   let personaGimnasio = await prisma.persona.findUnique({ where: { dni: '50000005' } });
   if (!personaGimnasio) {
     personaGimnasio = await prisma.persona.create({
       data: {
         nombre: 'Esteban',
-        apellido: 'Gimnasio',
+        apellido: 'Paredes',
         dni: '50000005',
-        email: 'esteban.gim@externo.local',
+        email: 'esteban.paredes@externo.local',
         genero: GeneroDisciplina.MASCULINO,
         fechaNacimiento: new Date('1995-07-22'),
       },
@@ -809,21 +833,24 @@ async function main() {
     personaGimnasio = await prisma.persona.update({
       where: { id: personaGimnasio.id },
       data: {
+        nombre: 'Esteban',
+        apellido: 'Paredes',
+        email: 'esteban.paredes@externo.local',
         genero: GeneroDisciplina.MASCULINO,
         fechaNacimiento: new Date('1995-07-22'),
       },
     });
   }
 
-  // 7.6. Valeria Histórica (Membresía histórica dada de baja y una activa)
+  // 7.6. Valeria Herrera (Membresía histórica dada de baja y una activa)
   let personaValeria = await prisma.persona.findUnique({ where: { dni: '60000006' } });
   if (!personaValeria) {
     personaValeria = await prisma.persona.create({
       data: {
         nombre: 'Valeria',
-        apellido: 'Historica',
+        apellido: 'Herrera',
         dni: '60000006',
-        email: 'valeria.historica@club.local',
+        email: 'valeria.herrera@club.local',
         genero: GeneroDisciplina.FEMENINO,
         fechaNacimiento: new Date('1992-03-30'),
         membresias: {
@@ -848,20 +875,23 @@ async function main() {
     personaValeria = await prisma.persona.update({
       where: { id: personaValeria.id },
       data: {
+        nombre: 'Valeria',
+        apellido: 'Herrera',
+        email: 'valeria.herrera@club.local',
         genero: GeneroDisciplina.FEMENINO,
         fechaNacimiento: new Date('1992-03-30'),
       },
     });
   }
 
-  // 7.7. Franco Colaborador (Usuario con rol COLABORADOR)
-  const emailColaborador = 'colaborador@socialclub.local';
+  // 7.7. Franco Bustos (Usuario con rol COLABORADOR)
+  const emailColaborador = 'franco.bustos@socialclub.local';
   let personaColaborador = await prisma.persona.findUnique({ where: { dni: '70000007' } });
   if (!personaColaborador) {
     personaColaborador = await prisma.persona.create({
       data: {
         nombre: 'Franco',
-        apellido: 'Colaborador',
+        apellido: 'Bustos',
         dni: '70000007',
         email: emailColaborador,
         genero: GeneroDisciplina.MASCULINO,
@@ -872,32 +902,39 @@ async function main() {
     personaColaborador = await prisma.persona.update({
       where: { id: personaColaborador.id },
       data: {
+        nombre: 'Franco',
+        apellido: 'Bustos',
+        email: emailColaborador,
         genero: GeneroDisciplina.MASCULINO,
         fechaNacimiento: new Date('1990-09-10'),
       },
     });
   }
   const colaborador = await prisma.usuario.upsert({
-    where: { email: emailColaborador },
-    update: { personaId: personaColaborador.id },
+    where: { personaId: personaColaborador.id },
+    update: {
+      email: emailColaborador,
+      nombre: 'Franco',
+      apellido: 'Bustos',
+    },
     create: {
       email: emailColaborador,
       passwordHash,
       nombre: 'Franco',
-      apellido: 'Colaborador',
+      apellido: 'Bustos',
       personaId: personaColaborador.id,
       roles: { create: [{ rolId: rolColaborador.id }] },
     },
   });
 
-  // 7.8. Diego Delegado (Usuario con rol DELEGADO)
-  const emailDelegado = 'delegado@socialclub.local';
+  // 7.8. Diego Navarro (Usuario con rol DELEGADO)
+  const emailDelegado = 'diego.navarro@socialclub.local';
   let personaDelegado = await prisma.persona.findUnique({ where: { dni: '80000008' } });
   if (!personaDelegado) {
     personaDelegado = await prisma.persona.create({
       data: {
         nombre: 'Diego',
-        apellido: 'Delegado',
+        apellido: 'Navarro',
         dni: '80000008',
         email: emailDelegado,
         genero: GeneroDisciplina.MASCULINO,
@@ -908,19 +945,26 @@ async function main() {
     personaDelegado = await prisma.persona.update({
       where: { id: personaDelegado.id },
       data: {
+        nombre: 'Diego',
+        apellido: 'Navarro',
+        email: emailDelegado,
         genero: GeneroDisciplina.MASCULINO,
         fechaNacimiento: new Date('1988-06-14'),
       },
     });
   }
   const usuarioDelegado = await prisma.usuario.upsert({
-    where: { email: emailDelegado },
-    update: { personaId: personaDelegado.id },
+    where: { personaId: personaDelegado.id },
+    update: {
+      email: emailDelegado,
+      nombre: 'Diego',
+      apellido: 'Navarro',
+    },
     create: {
       email: emailDelegado,
       passwordHash,
       nombre: 'Diego',
-      apellido: 'Delegado',
+      apellido: 'Navarro',
       personaId: personaDelegado.id,
       roles: { create: [{ rolId: rolDelegado.id }] },
     },
@@ -940,15 +984,15 @@ async function main() {
     });
   }
 
-  // 7.9. Santiago Menor (Socio infantil con Cuota Juvenil)
+  // 7.9. Santiago Molina (Socio infantil con Cuota Juvenil)
   let personaSantiago = await prisma.persona.findUnique({ where: { dni: '90000009' } });
   if (!personaSantiago) {
     personaSantiago = await prisma.persona.create({
       data: {
         nombre: 'Santiago',
-        apellido: 'Menor',
+        apellido: 'Molina',
         dni: '90000009',
-        email: 'santiago.menor@familia.local',
+        email: 'santiago.molina@familia.local',
         genero: GeneroDisciplina.MASCULINO,
         fechaNacimiento: new Date('2015-04-10'),
         membresias: {
@@ -964,20 +1008,23 @@ async function main() {
     personaSantiago = await prisma.persona.update({
       where: { id: personaSantiago.id },
       data: {
+        nombre: 'Santiago',
+        apellido: 'Molina',
+        email: 'santiago.molina@familia.local',
         genero: GeneroDisciplina.MASCULINO,
         fechaNacimiento: new Date('2015-04-10'),
       },
     });
   }
 
-  // 7.10. Camila Futbolista (Socia con Cuota General y usuario SOCIO)
-  const emailCamila = 'camila.futbol@club.local';
+  // 7.10. Camila Romero (Socia con Cuota General y usuario SOCIO)
+  const emailCamila = 'camila.romero@club.local';
   let personaCamila = await prisma.persona.findUnique({ where: { dni: '90000010' } });
   if (!personaCamila) {
     personaCamila = await prisma.persona.create({
       data: {
         nombre: 'Camila',
-        apellido: 'Futbolista',
+        apellido: 'Romero',
         dni: '90000010',
         email: emailCamila,
         genero: GeneroDisciplina.FEMENINO,
@@ -995,32 +1042,39 @@ async function main() {
     personaCamila = await prisma.persona.update({
       where: { id: personaCamila.id },
       data: {
+        nombre: 'Camila',
+        apellido: 'Romero',
+        email: emailCamila,
         genero: GeneroDisciplina.FEMENINO,
         fechaNacimiento: new Date('2001-09-18'),
       },
     });
   }
   await prisma.usuario.upsert({
-    where: { email: emailCamila },
-    update: { personaId: personaCamila.id },
+    where: { personaId: personaCamila.id },
+    update: {
+      email: emailCamila,
+      nombre: 'Camila',
+      apellido: 'Romero',
+    },
     create: {
       email: emailCamila,
       passwordHash,
       nombre: 'Camila',
-      apellido: 'Futbolista',
+      apellido: 'Romero',
       personaId: personaCamila.id,
       roles: { create: [{ rolId: rolSocio.id }] },
     },
   });
 
-  // 7.11. Roberto Moroso (Socio con 10 meses de morosidad de cuota social - US-19)
-  const emailRoberto = 'roberto.moroso@socialclub.local';
+  // 7.11. Roberto Silva (Socio con 10 meses de morosidad de cuota social - US-19)
+  const emailRoberto = 'roberto.silva@socialclub.local';
   let personaRoberto = await prisma.persona.findUnique({ where: { dni: '70000011' } });
   if (!personaRoberto) {
     personaRoberto = await prisma.persona.create({
       data: {
         nombre: 'Roberto',
-        apellido: 'MorosoDiezMeses',
+        apellido: 'Silva',
         dni: '70000011',
         email: emailRoberto,
         genero: GeneroDisciplina.MASCULINO,
@@ -1038,32 +1092,39 @@ async function main() {
     personaRoberto = await prisma.persona.update({
       where: { id: personaRoberto.id },
       data: {
+        nombre: 'Roberto',
+        apellido: 'Silva',
+        email: emailRoberto,
         genero: GeneroDisciplina.MASCULINO,
         fechaNacimiento: new Date('1985-06-20'),
       },
     });
   }
   await prisma.usuario.upsert({
-    where: { email: emailRoberto },
-    update: { personaId: personaRoberto.id },
+    where: { personaId: personaRoberto.id },
+    update: {
+      email: emailRoberto,
+      nombre: 'Roberto',
+      apellido: 'Silva',
+    },
     create: {
       email: emailRoberto,
       passwordHash,
       nombre: 'Roberto',
-      apellido: 'MorosoDiezMeses',
+      apellido: 'Silva',
       personaId: personaRoberto.id,
       roles: { create: [{ rolId: rolSocio.id }] },
     },
   });
 
-  // 7.12. Marcos Bloqueado (Socio bloqueado en Gimnasio por certificado médico vencido sin excepción - US-25 / US-27)
-  const emailMarcos = 'marcos.bloqueado@socialclub.local';
+  // 7.12. Marcos Benítez (Socio bloqueado en Gimnasio por certificado médico vencido sin excepción - US-25 / US-27)
+  const emailMarcos = 'marcos.benitez@socialclub.local';
   let personaMarcos = await prisma.persona.findUnique({ where: { dni: '88000088' } });
   if (!personaMarcos) {
     personaMarcos = await prisma.persona.create({
       data: {
         nombre: 'Marcos',
-        apellido: 'DocVencida',
+        apellido: 'Benítez',
         dni: '88000088',
         email: emailMarcos,
         genero: GeneroDisciplina.MASCULINO,
@@ -1081,19 +1142,27 @@ async function main() {
     personaMarcos = await prisma.persona.update({
       where: { id: personaMarcos.id },
       data: {
+        nombre: 'Marcos',
+        apellido: 'Benítez',
+        email: emailMarcos,
         genero: GeneroDisciplina.MASCULINO,
         fechaNacimiento: new Date('1994-08-15'),
       },
     });
   }
   await prisma.usuario.upsert({
-    where: { email: emailMarcos },
-    update: { personaId: personaMarcos.id, passwordHash },
+    where: { personaId: personaMarcos.id },
+    update: {
+      email: emailMarcos,
+      nombre: 'Marcos',
+      apellido: 'Benítez',
+      passwordHash,
+    },
     create: {
       email: emailMarcos,
       passwordHash,
       nombre: 'Marcos',
-      apellido: 'DocVencida',
+      apellido: 'Benítez',
       personaId: personaMarcos.id,
       roles: { create: [{ rolId: rolSocio.id }] },
     },
@@ -1137,23 +1206,23 @@ async function main() {
   }
 
   const nuevasPersonasData: SeedPersonaUsuarioData[] = [
-    // 7.12. Mariana Colaboradora (Personal operativo del club)
+    // 7.12. Mariana Ríos (Personal operativo del club)
     {
       dni: '70000012',
       nombre: 'Mariana',
-      apellido: 'Colaboradora',
-      email: 'mariana.colaboradora@socialclub.local',
+      apellido: 'Ríos',
+      email: 'mariana.rios@socialclub.local',
       telefono: '3515551212',
       genero: GeneroDisciplina.FEMENINO,
       fechaNacimiento: new Date('1993-04-18'),
       usuario: { roles: ['COLABORADOR'], activo: true },
     },
-    // 7.13. Pablo Delegado (Delegado a cargo de Básquet y Gimnasio)
+    // 7.13. Pablo Castro (Delegado a cargo de Básquet y Gimnasio)
     {
       dni: '80000013',
       nombre: 'Pablo',
-      apellido: 'Delegado',
-      email: 'pablo.delegado@socialclub.local',
+      apellido: 'Castro',
+      email: 'pablo.castro@socialclub.local',
       telefono: '3515551313',
       genero: GeneroDisciplina.MASCULINO,
       fechaNacimiento: new Date('1986-11-25'),
@@ -1606,8 +1675,9 @@ async function main() {
       });
 
       const usuario = await prisma.usuario.upsert({
-        where: { email: pData.email },
+        where: { personaId: persona.id },
         update: {
+          email: pData.email,
           personaId: persona.id,
           nombre: pData.nombre,
           apellido: pData.apellido,
@@ -2414,7 +2484,7 @@ async function main() {
 
   // ── 12. Pagos de Cuota Deportiva (US-21) ───────────────────────────────────
   const pagosDeportivosData = [
-    // Carlos SinCuenta en Fútbol Mayor (Senior +35): pagó 2026-08 y 2026-09
+    // Carlos Mendoza en Fútbol Mayor (Senior +35): pagó 2026-08 y 2026-09
     {
       personaId: personaSocioSinCuenta.id,
       disciplinaNombre: 'Fútbol Mayor',
@@ -2433,7 +2503,7 @@ async function main() {
       fechaPago: new Date('2026-09-06T10:30:00Z'),
       responsableId: colaborador.id,
     },
-    // Camila Futbolista en Fútbol Femenino: pagó 2026-08 y 2026-09 con descuento de socia (20% de $14000 = $11200)
+    // Camila Romero en Fútbol Femenino: pagó 2026-08 y 2026-09 con descuento de socia (20% de $14000 = $11200)
     {
       personaId: personaCamila.id,
       disciplinaNombre: 'Fútbol Femenino',

@@ -41,7 +41,7 @@ describe('US-60/61/62 · ReservasService', () => {
       persona: {
         id: 30,
         nombre: 'Lucía',
-        apellido: 'Registrada',
+        apellido: 'Vázquez',
         dni: '30000003',
         telefono: '3534000000',
         membresias: [{ id: 1 }],
@@ -114,7 +114,7 @@ describe('US-60/61/62 · ReservasService', () => {
 
       expect(fila.solicitante).toEqual({
         usuarioId: 7,
-        nombre: 'Lucía Registrada',
+        nombre: 'Lucía Vázquez',
         dni: '30000003',
         telefono: '3534000000',
         email: 'lucia@club.local',

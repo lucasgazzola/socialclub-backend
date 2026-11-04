@@ -289,28 +289,6 @@ quién reembolsar.
 
 ### ⚪ Bajas
 
-#### DT-51 · Nombres y correos electrónicos del seed con descriptores de prueba sin realismo
-*Nuevo · backend + frontend · datos de prueba*
-
-Las personas y usuarios generados por el seed (`prisma/seed.ts`) y consumidos en pruebas E2E/fixtures fueron nombrados utilizando descriptores literales de su rol o caso de prueba en lugar de nombres y apellidos de personas reales:
-- `Administrador Inicial` (`admin@socialclub.local`)
-- `Carlos SinCuenta` (`carlos.sincuenta@club.local`)
-- `Lucía Registrada` (`lucia.registrada@club.local`)
-- `Martín AdminSocio` (`martin.adminsocio@socialclub.local`)
-- `Esteban Gimnasio` (`esteban.gim@externo.local`)
-- `Valeria Historica` (`valeria.historica@club.local`)
-- `Franco Colaborador` (`colaborador@socialclub.local`)
-- `Diego Delegado` (`delegado@socialclub.local`)
-- `Santiago Menor` (`santiago.menor@familia.local`)
-- `Camila Futbolista` (`camila.futbol@club.local`)
-- `Roberto MorosoDiezMeses` (`roberto.moroso@socialclub.local`)
-- `Marcos DocVencida` (`marcos.bloqueado@socialclub.local`)
-
-Esto afecta la presentación del sistema en demostraciones y revisiones de producto. Para resolverlo se requiere:
-1. Reemplazar los apellidos y correos en `prisma/seed.ts` por nombres y dominios coherentes.
-2. Asegurar que `usuario.upsert` en el seed use `personaId` como clave de búsqueda/actualización (`where: { personaId }`) para permitir actualizar bases de datos ya sembradas sin violar la restricción de unicidad de `personaId`.
-3. Actualizar en sincronía las referencias en las pruebas E2E (`e2e/soporte/fixtures.ts`, `morosos-cuota-deportiva.spec.ts`) y los mocks de pruebas unitarias (`pagos.service.spec.ts`, `ModalCobroCuotaSocio.spec.tsx`).
-
 #### DT-09 · Imágenes en eventos
 *backend + frontend · 5 SP*
 

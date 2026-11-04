@@ -337,7 +337,7 @@ describe('SociosService', () => {
       const personaConHistorial = {
         id: 30,
         nombre: 'Valeria',
-        apellido: 'Historica',
+        apellido: 'Herrera',
         dni: '25111222',
         email: 'valeria@club.com',
         telefono: null,
@@ -555,7 +555,7 @@ describe('SociosService', () => {
       const personaGimnasio = {
         id: 50,
         nombre: 'Esteban',
-        apellido: 'Gimnasio',
+        apellido: 'Paredes',
         dni: '50000005',
         email: 'esteban@externo.local',
         usuario: null,
