@@ -105,7 +105,42 @@ describe('US-55 · EspaciosService', () => {
       );
     });
 
-    it('TC-ESP02 · no permite asociar disciplinas a un espacio de tipo SOCIAL (Criterio 2)', async () => {
+    it('TC-ESP-02 · crea un espacio social (sin disciplinas, modalidad DIA_COMPLETO) exitosamente', async () => {
+      const dtoSocialValido: CreateEspacioDto = {
+        nombre: 'Salón de Fiestas y Eventos',
+        tipo: TipoEspacio.SOCIAL,
+        capacidadMaxima: 120,
+        modalidad: ModalidadReserva.DIA_COMPLETO,
+        precio: 85000,
+        montoSena: 30000,
+      };
+
+      mockPrisma.espacio.create.mockResolvedValue({ id: 20, ...dtoSocialValido });
+      mockPrisma.espacio.findUniqueOrThrow.mockResolvedValue({
+        id: 20,
+        nombre: 'Salón de Fiestas y Eventos',
+        tipo: TipoEspacio.SOCIAL,
+        disciplinas: [],
+        bloqueos: [],
+      });
+
+      const resultado = await service.create(dtoSocialValido, 99);
+
+      expect(resultado.id).toBe(20);
+      expect(mockPrisma.espacio.create).toHaveBeenCalled();
+      expect(mockPrisma.espacioDisciplina.createMany).not.toHaveBeenCalled();
+      expect(mockAuditoria.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'CREAR',
+          entidad: 'Espacio',
+          idEntidad: 20,
+          responsableId: 99,
+        }),
+        mockPrisma,
+      );
+    });
+
+    it('TC-ESP-03 · no permite asociar disciplinas a un espacio de tipo SOCIAL (Criterio 2)', async () => {
       const dtoSocial: CreateEspacioDto = {
         ...dtoValido,
         tipo: TipoEspacio.SOCIAL,
@@ -160,6 +195,45 @@ describe('US-55 · EspaciosService', () => {
       };
 
       await expect(service.create(dtoSinDias, 99)).rejects.toThrow(BadRequestException);
+    });
+
+    it('TC-ESP-05b · valida bloqueo recurrente sin horaInicio/horaFin o sin vigenteHasta', async () => {
+      mockPrisma.disciplina.findMany.mockResolvedValue([{ id: 1 }]);
+
+      const dtoSinHorarios: CreateEspacioDto = {
+        ...dtoValido,
+        bloqueos: [
+          {
+            tipo: TipoBloqueo.RECURRENTE,
+            diasSemana: [1],
+            vigenteHasta: '2026-12-31',
+          },
+        ],
+      };
+
+      await expect(service.create(dtoSinHorarios, 99)).rejects.toThrow(
+        new BadRequestException(
+          'Los bloqueos recurrentes deben indicar franja horaria completa (horaInicio y horaFin).',
+        ),
+      );
+
+      const dtoSinVigencia: CreateEspacioDto = {
+        ...dtoValido,
+        bloqueos: [
+          {
+            tipo: TipoBloqueo.RECURRENTE,
+            diasSemana: [1],
+            horaInicio: '10:00',
+            horaFin: '12:00',
+          },
+        ],
+      };
+
+      await expect(service.create(dtoSinVigencia, 99)).rejects.toThrow(
+        new BadRequestException(
+          'Los bloqueos recurrentes deben indicar la fecha límite de vigencia (vigenteHasta).',
+        ),
+      );
     });
 
     it('TC-ESP06 · valida reglas de bloqueo recurrente: horaFin posterior a horaInicio', async () => {
@@ -386,10 +460,21 @@ describe('US-55 · EspaciosService', () => {
         { id: 1, nombre: 'Quincho Principal', tipo: TipoEspacio.SOCIAL },
       ]);
 
-      const lista = await service.findAll({ busqueda: 'Quincho' });
+      const lista = await service.findAll({
+        busqueda: 'Quincho',
+        tipo: TipoEspacio.SOCIAL,
+        activo: true,
+      });
 
       expect(lista).toHaveLength(1);
-      expect(mockPrisma.espacio.findMany).toHaveBeenCalled();
+      expect(mockPrisma.espacio.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tipo: TipoEspacio.SOCIAL,
+            activo: true,
+          }),
+        }),
+      );
     });
 
     it('findOne · devuelve detalle del espacio o 404 si no existe', async () => {

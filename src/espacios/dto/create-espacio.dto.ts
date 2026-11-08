@@ -34,7 +34,10 @@ export class CreateEspacioDto {
   @IsEnum(ModalidadReserva, { message: 'La modalidad debe ser POR_HORA o DIA_COMPLETO' })
   modalidad: ModalidadReserva;
 
-  @ApiPropertyOptional({ description: 'Ubicación o sector del espacio', example: 'Sector Polideportivo Norte' })
+  @ApiPropertyOptional({
+    description: 'Ubicación o sector del espacio',
+    example: 'Sector Polideportivo Norte',
+  })
   @IsOptional()
   @IsString({ message: 'La ubicación debe ser una cadena de texto' })
   ubicacion?: string;

@@ -1,14 +1,4 @@
-import {
-  IsArray,
-  IsEnum,
-  IsInt,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  Matches,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsArray, IsEnum, IsInt, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TipoBloqueo } from '@prisma/client';
 
@@ -72,7 +62,10 @@ export class CreateBloqueoDto {
   @IsInt({ message: 'disciplinaId debe ser un número entero' })
   disciplinaId?: number;
 
-  @ApiPropertyOptional({ description: 'Motivo o detalle del bloqueo', example: 'Entrenamiento Fútbol Mayor' })
+  @ApiPropertyOptional({
+    description: 'Motivo o detalle del bloqueo',
+    example: 'Entrenamiento Fútbol Mayor',
+  })
   @IsOptional()
   @IsString()
   motivo?: string;
