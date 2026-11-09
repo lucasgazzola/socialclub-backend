@@ -8,7 +8,7 @@ import { Prisma, TipoBloqueo, TipoEspacio } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { intervalosDeBloqueo, seSolapan } from '../reservas/agenda';
-import { CreateEspacioDto } from './dto/create-espacio.dto';
+import { CreateEspacioDto, CreateSubespacioDto } from './dto/create-espacio.dto';
 import { CreateBloqueoDto } from './dto/create-bloqueo.dto';
 import { FindEspaciosQueryDto } from './dto/find-espacios-query.dto';
 
@@ -20,8 +20,8 @@ export class EspaciosService {
   ) {}
 
   /**
-   * US-55 — Registrar un nuevo espacio físico con disciplinas compatibles y
-   * bloqueos de agenda iniciales.
+   * US-55 — Registrar un nuevo espacio físico (único o contenedor con sub-espacios
+   * bajo el Patrón Composite), disciplinas compatibles y bloqueos de agenda.
    */
   async create(dto: CreateEspacioDto, responsableId: number) {
     // Criterio 2: disciplinas compatibles solo para DEPORTIVO o MULTIUSO
@@ -29,6 +29,37 @@ export class EspaciosService {
       throw new BadRequestException(
         'Los espacios de tipo SOCIAL no pueden asociarse a disciplinas deportivas.',
       );
+    }
+
+    // Validación de montos principales
+    if (dto.montoSena > dto.precio) {
+      throw new BadRequestException(
+        'El monto de la seña requerida no puede ser superior al precio total de alquiler.',
+      );
+    }
+
+    // Validación de jerarquía Composite (espacioPadreId)
+    if (dto.espacioPadreId) {
+      if ((dto.cantidadSubespacios && dto.cantidadSubespacios > 0) || (dto.subespacios && dto.subespacios.length > 0)) {
+        throw new BadRequestException(
+          'Un sub-espacio que ya pertenece a un espacio padre no puede subdividirse en más niveles.',
+        );
+      }
+
+      const padre = await this.prisma.espacio.findUnique({
+        where: { id: dto.espacioPadreId },
+        select: { id: true, activo: true, espacioPadreId: true },
+      });
+
+      if (!padre || !padre.activo) {
+        throw new NotFoundException('El espacio padre indicado no existe o se encuentra inactivo.');
+      }
+
+      if (padre.espacioPadreId !== null) {
+        throw new BadRequestException(
+          'No se puede asignar como padre a un sub-espacio; la jerarquía admite dos niveles (Padre -> Sub-espacio).',
+        );
+      }
     }
 
     // Verificar existencia de disciplinas si fueron enviadas
@@ -45,11 +76,27 @@ export class EspaciosService {
       }
     }
 
-    // Validación de montos
-    if (dto.montoSena > dto.precio) {
-      throw new BadRequestException(
-        'El monto de la seña requerida no puede ser superior al precio total de alquiler.',
-      );
+    // Preparar unidades hijas (Patrón Composite: por lista explícita o por lote)
+    const unidadesHijas: CreateSubespacioDto[] = [];
+    if (dto.subespacios && dto.subespacios.length > 0) {
+      for (const sub of dto.subespacios) {
+        const precioSub = sub.precio ?? dto.precio;
+        const senaSub = sub.montoSena ?? dto.montoSena;
+        if (senaSub > precioSub) {
+          throw new BadRequestException(
+            `El monto de la seña del sub-espacio "${sub.nombre}" no puede superar su precio de alquiler.`,
+          );
+        }
+        unidadesHijas.push(sub);
+      }
+    } else if (dto.cantidadSubespacios && dto.cantidadSubespacios > 0) {
+      const prefijo = dto.prefijoSubespacio?.trim() || dto.nombre.trim();
+      for (let i = 1; i <= dto.cantidadSubespacios; i++) {
+        unidadesHijas.push({
+          nombre: `${prefijo} ${i}`,
+          capacidadMaxima: dto.capacidadSubespacio ?? dto.capacidadMaxima,
+        });
+      }
     }
 
     // Validar bloqueos iniciales si fueron provistos
@@ -60,7 +107,7 @@ export class EspaciosService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // 1. Crear espacio
+      // 1. Crear espacio principal (único o padre contenedor)
       const espacio = await tx.espacio.create({
         data: {
           nombre: dto.nombre.trim(),
@@ -69,6 +116,7 @@ export class EspaciosService {
           modalidad: dto.modalidad,
           ubicacion: dto.ubicacion?.trim() || null,
           descripcion: dto.descripcion?.trim() || null,
+          espacioPadreId: dto.espacioPadreId ?? null,
           precio: new Prisma.Decimal(dto.precio),
           precioSocio: dto.precioSocio ? new Prisma.Decimal(dto.precioSocio) : null,
           montoSena: new Prisma.Decimal(dto.montoSena),
@@ -76,7 +124,7 @@ export class EspaciosService {
         },
       });
 
-      // 2. Asociar disciplinas compatibles
+      // 2. Asociar disciplinas compatibles al espacio principal
       if (dto.disciplinaIds && dto.disciplinaIds.length > 0) {
         await tx.espacioDisciplina.createMany({
           data: dto.disciplinaIds.map((disciplinaId) => ({
@@ -86,7 +134,42 @@ export class EspaciosService {
         });
       }
 
-      // 3. Crear bloqueos de agenda iniciales
+      // 3. Crear sub-espacios hijos si corresponde (Patrón Composite)
+      if (unidadesHijas.length > 0) {
+        for (const sub of unidadesHijas) {
+          const hijo = await tx.espacio.create({
+            data: {
+              nombre: sub.nombre.trim(),
+              tipo: dto.tipo,
+              capacidadMaxima: sub.capacidadMaxima ?? dto.capacidadMaxima,
+              modalidad: dto.modalidad,
+              ubicacion: dto.ubicacion?.trim() || null,
+              descripcion: sub.descripcion?.trim() || dto.descripcion?.trim() || null,
+              espacioPadreId: espacio.id,
+              precio: new Prisma.Decimal(sub.precio ?? dto.precio),
+              precioSocio:
+                sub.precioSocio !== undefined
+                  ? new Prisma.Decimal(sub.precioSocio)
+                  : dto.precioSocio
+                    ? new Prisma.Decimal(dto.precioSocio)
+                    : null,
+              montoSena: new Prisma.Decimal(sub.montoSena ?? dto.montoSena),
+              activo: true,
+            },
+          });
+
+          if (dto.disciplinaIds && dto.disciplinaIds.length > 0) {
+            await tx.espacioDisciplina.createMany({
+              data: dto.disciplinaIds.map((disciplinaId) => ({
+                espacioId: hijo.id,
+                disciplinaId,
+              })),
+            });
+          }
+        }
+      }
+
+      // 4. Crear bloqueos de agenda iniciales
       if (dto.bloqueos && dto.bloqueos.length > 0) {
         for (const b of dto.bloqueos) {
           await tx.bloqueoAgenda.create({
@@ -108,14 +191,16 @@ export class EspaciosService {
         }
       }
 
-      // 4. Registro de auditoría inalterable (RN-ESP04 / RN14)
+      // 5. Registro de auditoría inalterable (RN-ESP04 / RN14)
+      const sufijoSubespacios =
+        unidadesHijas.length > 0 ? ` con ${unidadesHijas.length} sub-espacios` : '';
       await this.auditoria.registrar(
         {
           accion: 'CREAR',
           entidad: 'Espacio',
           idEntidad: espacio.id,
           responsableId,
-          detalle: `Creación de espacio: ${espacio.nombre} (${espacio.tipo}, capacidad: ${espacio.capacidadMaxima})`,
+          detalle: `Creación de espacio: ${espacio.nombre} (${espacio.tipo}, capacidad: ${espacio.capacidadMaxima})${sufijoSubespacios}`,
         },
         tx,
       );
@@ -125,6 +210,11 @@ export class EspaciosService {
         include: {
           disciplinas: { include: { disciplina: { select: { id: true, nombre: true } } } },
           bloqueos: { where: { activo: true } },
+          espacioPadre: { select: { id: true, nombre: true } },
+          subespacios: {
+            where: { activo: true },
+            orderBy: { id: 'asc' },
+          },
         },
       });
     });
@@ -132,12 +222,16 @@ export class EspaciosService {
 
   /**
    * US-55 / US-56 — Configurar un nuevo bloqueo de agenda para un espacio.
-   * Criterio 6: Si choca con alquileres particulares aprobados, advierte el conflicto.
+   * Criterio 6 + Patrón Composite: Si choca con alquileres particulares aprobados
+   * en el propio espacio, en su padre o en cualquiera de sus sub-espacios hijos, advierte el conflicto.
    */
   async agregarBloqueo(espacioId: number, dto: CreateBloqueoDto, responsableId: number) {
     const espacio = await this.prisma.espacio.findUnique({
       where: { id: espacioId },
-      include: { disciplinas: true },
+      include: {
+        disciplinas: true,
+        subespacios: { where: { activo: true }, select: { id: true, nombre: true } },
+      },
     });
 
     if (!espacio || !espacio.activo) {
@@ -147,13 +241,25 @@ export class EspaciosService {
     const disciplinasCompatibles = espacio.disciplinas.map((d) => d.disciplinaId);
     this.validarBloqueo(dto, disciplinasCompatibles);
 
+    // Patrón Composite: recolectar todos los IDs de espacios afectados por este bloqueo
+    // (el propio espacio + su padre si es sub-espacio + sus hijos si es espacio contenedor)
+    const idsEspaciosRelacionados: number[] = [espacioId];
+    if (espacio.espacioPadreId) {
+      idsEspaciosRelacionados.push(espacio.espacioPadreId);
+    }
+    if (espacio.subespacios && espacio.subespacios.length > 0) {
+      for (const sub of espacio.subespacios) {
+        idsEspaciosRelacionados.push(sub.id);
+      }
+    }
+
     // Criterio 6: validar conflicto con alquileres particulares ya aprobados o confirmados
     const reservasOcupan = await this.prisma.reserva.findMany({
       where: {
-        espacioId,
+        espacioId: { in: idsEspaciosRelacionados },
         estado: { in: ['APROBADA_PENDIENTE_PAGO', 'CONFIRMADA'] },
       },
-      select: { id: true, codigo: true, inicio: true, fin: true },
+      select: { id: true, codigo: true, inicio: true, fin: true, espacioId: true },
     });
 
     if (reservasOcupan.length > 0) {
@@ -217,7 +323,7 @@ export class EspaciosService {
   }
 
   /**
-   * Listar espacios físicos con sus disciplinas asociadas.
+   * Listar espacios físicos con sus disciplinas asociadas y sub-espacios (Patrón Composite).
    */
   async findAll(query: FindEspaciosQueryDto) {
     const where: Prisma.EspacioWhereInput = {
@@ -226,6 +332,12 @@ export class EspaciosService {
 
     if (query.tipo) {
       where.tipo = query.tipo;
+    }
+
+    if (query.espacioPadreId !== undefined) {
+      where.espacioPadreId = query.espacioPadreId;
+    } else if (query.soloRaiz) {
+      where.espacioPadreId = null;
     }
 
     if (query.busqueda && query.busqueda.trim()) {
@@ -245,10 +357,27 @@ export class EspaciosService {
             disciplina: { select: { id: true, nombre: true } },
           },
         },
+        espacioPadre: {
+          select: { id: true, nombre: true },
+        },
+        subespacios: {
+          where: { activo: true },
+          orderBy: { id: 'asc' },
+          select: {
+            id: true,
+            nombre: true,
+            capacidadMaxima: true,
+            precio: true,
+            precioSocio: true,
+            montoSena: true,
+            activo: true,
+          },
+        },
         _count: {
           select: {
             bloqueos: { where: { activo: true } },
             reservas: true,
+            subespacios: { where: { activo: true } },
           },
         },
       },
@@ -256,7 +385,7 @@ export class EspaciosService {
   }
 
   /**
-   * Consultar detalle de un espacio específico.
+   * Consultar detalle de un espacio específico con su jerarquía Composite.
    */
   async findOne(id: number) {
     const espacio = await this.prisma.espacio.findUnique({
@@ -266,6 +395,13 @@ export class EspaciosService {
           include: {
             disciplina: { select: { id: true, nombre: true } },
           },
+        },
+        espacioPadre: {
+          select: { id: true, nombre: true, ubicacion: true },
+        },
+        subespacios: {
+          where: { activo: true },
+          orderBy: { id: 'asc' },
         },
         bloqueos: {
           where: { activo: true },

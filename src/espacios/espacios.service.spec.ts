@@ -378,6 +378,85 @@ describe('US-55 · EspaciosService', () => {
         ),
       );
     });
+
+    it('TC-ESP11 · Patrón Composite: crea un espacio padre y genera sus N sub-espacios en lote (ej. 3 canchas de tenis)', async () => {
+      const dtoConLote: CreateEspacioDto = {
+        nombre: 'Complejo de Tenis',
+        tipo: TipoEspacio.DEPORTIVO,
+        capacidadMaxima: 12,
+        modalidad: ModalidadReserva.POR_HORA,
+        ubicacion: 'Sede Central',
+        precio: 10000,
+        precioSocio: 8000,
+        montoSena: 3000,
+        disciplinaIds: [1],
+        cantidadSubespacios: 3,
+        prefijoSubespacio: 'Cancha de Tenis',
+        capacidadSubespacio: 4,
+      };
+
+      mockPrisma.espacio.create
+        .mockResolvedValueOnce({ id: 20, nombre: 'Complejo de Tenis', tipo: TipoEspacio.DEPORTIVO, capacidadMaxima: 12 })
+        .mockResolvedValueOnce({ id: 21, nombre: 'Cancha de Tenis 1', espacioPadreId: 20 })
+        .mockResolvedValueOnce({ id: 22, nombre: 'Cancha de Tenis 2', espacioPadreId: 20 })
+        .mockResolvedValueOnce({ id: 23, nombre: 'Cancha de Tenis 3', espacioPadreId: 20 });
+
+      mockPrisma.espacio.findUniqueOrThrow.mockResolvedValue({
+        id: 20,
+        nombre: 'Complejo de Tenis',
+        subespacios: [
+          { id: 21, nombre: 'Cancha de Tenis 1' },
+          { id: 22, nombre: 'Cancha de Tenis 2' },
+          { id: 23, nombre: 'Cancha de Tenis 3' },
+        ],
+      });
+
+      const resultado = await service.create(dtoConLote, 99);
+
+      expect(resultado.subespacios).toHaveLength(3);
+      // 1 padre + 3 hijos = 4 llamadas a espacio.create
+      expect(mockPrisma.espacio.create).toHaveBeenCalledTimes(4);
+      expect(mockAuditoria.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          detalle: expect.stringContaining('con 3 sub-espacios'),
+        }),
+        mockPrisma,
+      );
+    });
+
+    it('TC-ESP12 · Patrón Composite: crea sub-espacios personalizados validando seña <= precio', async () => {
+      const dtoSubInvalido: CreateEspacioDto = {
+        ...dtoValido,
+        subespacios: [{ nombre: 'Cancha VIP', precio: 5000, montoSena: 9000 }],
+      };
+
+      await expect(service.create(dtoSubInvalido, 99)).rejects.toThrow(
+        new BadRequestException(
+          'El monto de la seña del sub-espacio "Cancha VIP" no puede superar su precio de alquiler.',
+        ),
+      );
+    });
+
+    it('TC-ESP13 · Patrón Composite: valida existencia de espacioPadreId y máximo 2 niveles de jerarquía', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce(null);
+      await expect(
+        service.create({ ...dtoValido, espacioPadreId: 999 }, 99),
+      ).rejects.toThrow(NotFoundException);
+
+      // Si el padre ya es un sub-espacio (tiene espacioPadreId !== null), rechaza 3er nivel
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 50,
+        activo: true,
+        espacioPadreId: 10,
+      });
+      await expect(
+        service.create({ ...dtoValido, espacioPadreId: 50 }, 99),
+      ).rejects.toThrow(
+        new BadRequestException(
+          'No se puede asignar como padre a un sub-espacio; la jerarquía admite dos niveles (Padre -> Sub-espacio).',
+        ),
+      );
+    });
   });
 
   describe('US-55 / US-56 · agregarBloqueo (Conflicto con reservas y alquileres)', () => {
@@ -450,6 +529,39 @@ describe('US-55 · EspaciosService', () => {
 
       await expect(service.agregarBloqueo(999, bloqueoPuntual, 99)).rejects.toThrow(
         NotFoundException,
+      );
+    });
+
+    it('TC-ESP14 · Patrón Composite: al bloquear un espacio padre, detecta conflicto (409) si uno de sus sub-espacios hijos tiene reserva aprobada', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValue({
+        id: 10,
+        nombre: 'Sector Parrillas Belgrano 245',
+        activo: true,
+        espacioPadreId: null,
+        disciplinas: [],
+        subespacios: [
+          { id: 11, nombre: 'Parrilla 1' },
+          { id: 15, nombre: 'Parrilla 5' },
+        ],
+      });
+
+      const resInicio = new Date('2026-11-20T21:00:00.000Z');
+      const resFin = new Date('2026-11-20T23:00:00.000Z');
+
+      mockPrisma.reserva.findMany.mockResolvedValue([
+        {
+          id: 88,
+          codigo: 'RES-PARR05',
+          espacioId: 15,
+          inicio: resInicio,
+          fin: resFin,
+        },
+      ]);
+
+      await expect(service.agregarBloqueo(10, bloqueoPuntual, 99)).rejects.toThrow(
+        new ConflictException(
+          'El bloqueo entra en conflicto con la reserva particular aprobada RES-PARR05. Debe gestionar la cancelación manual justificada de la reserva antes de bloquear el turno.',
+        ),
       );
     });
   });

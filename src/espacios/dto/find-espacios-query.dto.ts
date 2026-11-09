@@ -1,5 +1,5 @@
-import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { TipoEspacio } from '@prisma/client';
 
@@ -23,4 +23,25 @@ export class FindEspaciosQueryDto {
   @IsOptional()
   @IsString()
   busqueda?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filtrar sub-espacios de un espacio padre específico (Patrón Composite)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  espacioPadreId?: number;
+
+  @ApiPropertyOptional({
+    description: 'Si es true, lista únicamente espacios raíz (espacioPadreId = null) con sus sub-espacios anidados',
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return undefined;
+  })
+  @IsBoolean()
+  soloRaiz?: boolean;
 }

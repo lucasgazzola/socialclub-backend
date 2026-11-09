@@ -545,4 +545,50 @@ describe('US-55 · EspaciosController (e2e / Integración con Supertest)', () =>
       expect(res.body).toHaveLength(1);
     });
   });
+
+  describe('TC-ESP-09 · Patrón Composite (Espacio Padre con Sub-espacios en Lote)', () => {
+    it('crea un sector de parrillas padre con 3 sub-espacios generados en lote (201 Created)', async () => {
+      prismaMock.espacio.create
+        .mockResolvedValueOnce({
+          id: 40,
+          nombre: 'Sector Asadores Belgrano 245',
+          tipo: 'SOCIAL',
+          capacidadMaxima: 45,
+        })
+        .mockResolvedValueOnce({ id: 41, nombre: 'Parrilla 1', espacioPadreId: 40 })
+        .mockResolvedValueOnce({ id: 42, nombre: 'Parrilla 2', espacioPadreId: 40 })
+        .mockResolvedValueOnce({ id: 43, nombre: 'Parrilla 3', espacioPadreId: 40 });
+
+      prismaMock.espacio.findUniqueOrThrow.mockResolvedValue({
+        id: 40,
+        nombre: 'Sector Asadores Belgrano 245',
+        tipo: 'SOCIAL',
+        subespacios: [
+          { id: 41, nombre: 'Parrilla 1' },
+          { id: 42, nombre: 'Parrilla 2' },
+          { id: 43, nombre: 'Parrilla 3' },
+        ],
+      });
+
+      const res = await request(getHttpServer())
+        .post('/espacios')
+        .send({
+          nombre: 'Sector Asadores Belgrano 245',
+          tipo: 'SOCIAL',
+          capacidadMaxima: 45,
+          modalidad: 'DIA_COMPLETO',
+          ubicacion: 'Manuel Belgrano 245',
+          precio: 15000,
+          precioSocio: 10000,
+          montoSena: 5000,
+          cantidadSubespacios: 3,
+          prefijoSubespacio: 'Parrilla',
+          capacidadSubespacio: 15,
+        })
+        .expect(201);
+
+      expect(res.body.subespacios).toHaveLength(3);
+      expect(res.body.subespacios[0].nombre).toBe('Parrilla 1');
+    });
+  });
 });
