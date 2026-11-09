@@ -40,7 +40,10 @@ export class EspaciosService {
 
     // Validación de jerarquía Composite (espacioPadreId)
     if (dto.espacioPadreId) {
-      if ((dto.cantidadSubespacios && dto.cantidadSubespacios > 0) || (dto.subespacios && dto.subespacios.length > 0)) {
+      if (
+        (dto.cantidadSubespacios && dto.cantidadSubespacios > 0) ||
+        (dto.subespacios && dto.subespacios.length > 0)
+      ) {
         throw new BadRequestException(
           'Un sub-espacio que ya pertenece a un espacio padre no puede subdividirse en más niveles.',
         );
@@ -324,63 +327,144 @@ export class EspaciosService {
 
   /**
    * Listar espacios físicos con sus disciplinas asociadas y sub-espacios (Patrón Composite).
+   * Si se solicita con paginación o filtro de pestaña (`pagina`, `porPagina` o `estado`),
+   * devuelve `{ items, total, pagina, porPagina, counts: { todos, activos, inactivos } }`.
    */
   async findAll(query: FindEspaciosQueryDto) {
-    const where: Prisma.EspacioWhereInput = {
-      activo: query.activo !== undefined ? query.activo : true,
-    };
+    const whereBase: Prisma.EspacioWhereInput = {};
 
     if (query.tipo) {
-      where.tipo = query.tipo;
+      whereBase.tipo = query.tipo;
+    }
+
+    if (query.modalidad) {
+      whereBase.modalidad = query.modalidad;
     }
 
     if (query.espacioPadreId !== undefined) {
-      where.espacioPadreId = query.espacioPadreId;
+      whereBase.espacioPadreId = query.espacioPadreId;
     } else if (query.soloRaiz) {
-      where.espacioPadreId = null;
+      whereBase.espacioPadreId = null;
     }
 
     if (query.busqueda && query.busqueda.trim()) {
       const busqueda = query.busqueda.trim();
-      where.OR = [
+      whereBase.OR = [
         { nombre: { contains: busqueda, mode: 'insensitive' } },
         { ubicacion: { contains: busqueda, mode: 'insensitive' } },
       ];
     }
 
-    return this.prisma.espacio.findMany({
-      where,
-      orderBy: { nombre: 'asc' },
-      include: {
-        disciplinas: {
-          include: {
-            disciplina: { select: { id: true, nombre: true } },
-          },
-        },
-        espacioPadre: {
-          select: { id: true, nombre: true },
-        },
-        subespacios: {
-          where: { activo: true },
-          orderBy: { id: 'asc' },
-          select: {
-            id: true,
-            nombre: true,
-            capacidadMaxima: true,
-            precio: true,
-            precioSocio: true,
-            montoSena: true,
-            activo: true,
-          },
-        },
-        _count: {
-          select: {
-            bloqueos: { where: { activo: true } },
-            reservas: true,
-            subespacios: { where: { activo: true } },
-          },
+    const direccion: 'asc' | 'desc' = query.orden?.toLowerCase() === 'desc' ? 'desc' : 'asc';
+    let orderBy: Prisma.EspacioOrderByWithRelationInput = { nombre: 'asc' };
+
+    if (query.ordenarPor) {
+      switch (query.ordenarPor.toLowerCase()) {
+        case 'tipo':
+          orderBy = { tipo: direccion };
+          break;
+        case 'capacidadmaxima':
+        case 'capacidad':
+          orderBy = { capacidadMaxima: direccion };
+          break;
+        case 'precio':
+          orderBy = { precio: direccion };
+          break;
+        case 'montosena':
+        case 'sena':
+          orderBy = { montoSena: direccion };
+          break;
+        case 'nombre':
+        default:
+          orderBy = { nombre: direccion };
+          break;
+      }
+    }
+
+    const include = {
+      disciplinas: {
+        include: {
+          disciplina: { select: { id: true, nombre: true } },
         },
       },
+      espacioPadre: {
+        select: { id: true, nombre: true },
+      },
+      subespacios: {
+        where: { activo: true },
+        orderBy: { id: 'asc' as const },
+        select: {
+          id: true,
+          nombre: true,
+          capacidadMaxima: true,
+          precio: true,
+          precioSocio: true,
+          montoSena: true,
+          activo: true,
+        },
+      },
+      _count: {
+        select: {
+          bloqueos: { where: { activo: true } },
+          reservas: true,
+          subespacios: { where: { activo: true } },
+        },
+      },
+    };
+
+    const usaContratoPaginado =
+      query.pagina !== undefined || query.porPagina !== undefined || query.estado !== undefined;
+
+    if (usaContratoPaginado) {
+      const pagina = query.pagina ?? 1;
+      const porPagina = query.porPagina ?? 10;
+      const whereActivos: Prisma.EspacioWhereInput = { ...whereBase, activo: true };
+      const whereInactivos: Prisma.EspacioWhereInput = { ...whereBase, activo: false };
+
+      let where: Prisma.EspacioWhereInput = whereBase;
+      if (query.estado === 'activos' || query.activo === true) {
+        where = whereActivos;
+      } else if (query.estado === 'inactivos' || query.activo === false) {
+        where = whereInactivos;
+      }
+
+      const [items, total, totalTodos, totalActivos, totalInactivos] =
+        await this.prisma.$transaction([
+          this.prisma.espacio.findMany({
+            where,
+            orderBy,
+            skip: (pagina - 1) * porPagina,
+            take: porPagina,
+            include,
+          }),
+          this.prisma.espacio.count({ where }),
+          this.prisma.espacio.count({ where: whereBase }),
+          this.prisma.espacio.count({ where: whereActivos }),
+          this.prisma.espacio.count({ where: whereInactivos }),
+        ]);
+
+      return {
+        items,
+        total,
+        pagina,
+        porPagina,
+        counts: {
+          todos: totalTodos,
+          activos: totalActivos,
+          inactivos: totalInactivos,
+        },
+      };
+    }
+
+    const whereSimple: Prisma.EspacioWhereInput = {
+      ...whereBase,
+      activo: query.activo !== undefined ? query.activo : true,
+    };
+
+    return this.prisma.espacio.findMany({
+      where: whereSimple,
+      orderBy,
+      include,
     });
   }
 

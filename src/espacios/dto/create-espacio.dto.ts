@@ -128,7 +128,8 @@ export class CreateEspacioDto {
   cantidadSubespacios?: number;
 
   @ApiPropertyOptional({
-    description: 'Prefijo para nombrar los sub-espacios generados en lote (ej. "Parrilla" -> "Parrilla 1")',
+    description:
+      'Prefijo para nombrar los sub-espacios generados en lote (ej. "Parrilla" -> "Parrilla 1")',
     example: 'Parrilla',
   })
   @IsOptional()

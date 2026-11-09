@@ -591,4 +591,152 @@ describe('US-55 · EspaciosController (e2e / Integración con Supertest)', () =>
       expect(res.body.subespacios[0].nombre).toBe('Parrilla 1');
     });
   });
+
+  describe('TC-ESP-10 · Patrón Composite (Límite de Jerarquía)', () => {
+    it('responde 404 si el espacioPadreId no existe o está inactivo', async () => {
+      prismaMock.espacio.findUnique.mockResolvedValueOnce(null);
+
+      const res = await request(getHttpServer())
+        .post('/espacios')
+        .send({
+          nombre: 'Parrilla Extra',
+          tipo: 'SOCIAL',
+          capacidadMaxima: 15,
+          modalidad: 'DIA_COMPLETO',
+          precio: 15000,
+          montoSena: 5000,
+          espacioPadreId: 9999,
+        })
+        .expect(404);
+
+      expect(res.body.message).toContain(
+        'El espacio padre indicado no existe o se encuentra inactivo.',
+      );
+    });
+
+    it('rechaza con 400 si se intenta asignar como padre a un sub-espacio (máximo 2 niveles)', async () => {
+      prismaMock.espacio.findUnique.mockResolvedValueOnce({
+        id: 41,
+        activo: true,
+        espacioPadreId: 40,
+      });
+
+      const res = await request(getHttpServer())
+        .post('/espacios')
+        .send({
+          nombre: 'Parrilla Sub-nivel',
+          tipo: 'SOCIAL',
+          capacidadMaxima: 15,
+          modalidad: 'DIA_COMPLETO',
+          precio: 15000,
+          montoSena: 5000,
+          espacioPadreId: 41,
+        })
+        .expect(400);
+
+      expect(res.body.message).toContain(
+        'No se puede asignar como padre a un sub-espacio; la jerarquía admite dos niveles (Padre -> Sub-espacio).',
+      );
+    });
+  });
+
+  describe('TC-ESP-11 · Patrón Composite (Propagación de Conflictos Padre/Hijo)', () => {
+    it('responde 409 Conflict si se intenta bloquear un espacio padre cuando un sub-espacio hijo está reservado', async () => {
+      prismaMock.espacio.findUnique.mockResolvedValue({
+        id: 40,
+        nombre: 'Sector Asadores',
+        activo: true,
+        espacioPadreId: null,
+        disciplinas: [],
+        subespacios: [{ id: 41, nombre: 'Parrilla 1' }],
+      });
+
+      prismaMock.reserva.findMany.mockResolvedValue([
+        {
+          id: 91,
+          codigo: 'RES-HIJO41',
+          espacioId: 41,
+          inicio: new Date('2026-11-20T21:00:00.000Z'),
+          fin: new Date('2026-11-20T23:00:00.000Z'),
+        },
+      ]);
+
+      const res = await request(getHttpServer())
+        .post('/espacios/40/bloqueos')
+        .send({
+          tipo: 'PUNTUAL',
+          fecha: '2026-11-20',
+          horaInicio: '18:00',
+          horaFin: '20:00',
+          motivo: 'Fumigación general del sector',
+        })
+        .expect(409);
+
+      expect(res.body.message).toContain(
+        'El bloqueo entra en conflicto con la reserva particular aprobada RES-HIJO41.',
+      );
+    });
+
+    it('responde 409 Conflict si se intenta bloquear un sub-espacio hijo cuando el espacio padre está reservado', async () => {
+      prismaMock.espacio.findUnique.mockResolvedValue({
+        id: 41,
+        nombre: 'Parrilla 1',
+        activo: true,
+        espacioPadreId: 40,
+        disciplinas: [],
+        subespacios: [],
+      });
+
+      prismaMock.reserva.findMany.mockResolvedValue([
+        {
+          id: 92,
+          codigo: 'RES-PADRE40',
+          espacioId: 40,
+          inicio: new Date('2026-11-20T21:00:00.000Z'),
+          fin: new Date('2026-11-20T23:00:00.000Z'),
+        },
+      ]);
+
+      const res = await request(getHttpServer())
+        .post('/espacios/41/bloqueos')
+        .send({
+          tipo: 'PUNTUAL',
+          fecha: '2026-11-20',
+          horaInicio: '18:00',
+          horaFin: '20:00',
+          motivo: 'Mantenimiento parrilla individual',
+        })
+        .expect(409);
+
+      expect(res.body.message).toContain(
+        'El bloqueo entra en conflicto con la reserva particular aprobada RES-PADRE40.',
+      );
+    });
+  });
+
+  describe('Filtros Composite en GET /espacios', () => {
+    it('soporta filtro soloRaiz=true y espacioPadreId', async () => {
+      prismaMock.espacio.findMany.mockResolvedValue([{ id: 40, nombre: 'Sector Asadores' }]);
+
+      await request(getHttpServer()).get('/espacios?soloRaiz=true').expect(200);
+
+      expect(prismaMock.espacio.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            espacioPadreId: null,
+          }),
+        }),
+      );
+
+      await request(getHttpServer()).get('/espacios?espacioPadreId=40').expect(200);
+
+      expect(prismaMock.espacio.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            espacioPadreId: 40,
+          }),
+        }),
+      );
+    });
+  });
 });

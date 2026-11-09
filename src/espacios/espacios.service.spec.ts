@@ -19,6 +19,7 @@ describe('US-55 · EspaciosService', () => {
         findUnique: jest.fn(),
         findUniqueOrThrow: jest.fn(),
         findMany: jest.fn(),
+        count: jest.fn(),
       },
       espacioDisciplina: {
         createMany: jest.fn(),
@@ -32,7 +33,7 @@ describe('US-55 · EspaciosService', () => {
       reserva: {
         findMany: jest.fn(),
       },
-      $transaction: jest.fn((callback) => callback(mockPrisma)),
+      $transaction: jest.fn((arg) => (Array.isArray(arg) ? Promise.all(arg) : arg(mockPrisma))),
     };
 
     mockAuditoria = {
@@ -396,7 +397,12 @@ describe('US-55 · EspaciosService', () => {
       };
 
       mockPrisma.espacio.create
-        .mockResolvedValueOnce({ id: 20, nombre: 'Complejo de Tenis', tipo: TipoEspacio.DEPORTIVO, capacidadMaxima: 12 })
+        .mockResolvedValueOnce({
+          id: 20,
+          nombre: 'Complejo de Tenis',
+          tipo: TipoEspacio.DEPORTIVO,
+          capacidadMaxima: 12,
+        })
         .mockResolvedValueOnce({ id: 21, nombre: 'Cancha de Tenis 1', espacioPadreId: 20 })
         .mockResolvedValueOnce({ id: 22, nombre: 'Cancha de Tenis 2', espacioPadreId: 20 })
         .mockResolvedValueOnce({ id: 23, nombre: 'Cancha de Tenis 3', espacioPadreId: 20 });
@@ -439,9 +445,9 @@ describe('US-55 · EspaciosService', () => {
 
     it('TC-ESP13 · Patrón Composite: valida existencia de espacioPadreId y máximo 2 niveles de jerarquía', async () => {
       mockPrisma.espacio.findUnique.mockResolvedValueOnce(null);
-      await expect(
-        service.create({ ...dtoValido, espacioPadreId: 999 }, 99),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.create({ ...dtoValido, espacioPadreId: 999 }, 99)).rejects.toThrow(
+        NotFoundException,
+      );
 
       // Si el padre ya es un sub-espacio (tiene espacioPadreId !== null), rechaza 3er nivel
       mockPrisma.espacio.findUnique.mockResolvedValueOnce({
@@ -449,9 +455,7 @@ describe('US-55 · EspaciosService', () => {
         activo: true,
         espacioPadreId: 10,
       });
-      await expect(
-        service.create({ ...dtoValido, espacioPadreId: 50 }, 99),
-      ).rejects.toThrow(
+      await expect(service.create({ ...dtoValido, espacioPadreId: 50 }, 99)).rejects.toThrow(
         new BadRequestException(
           'No se puede asignar como padre a un sub-espacio; la jerarquía admite dos niveles (Padre -> Sub-espacio).',
         ),
@@ -564,6 +568,36 @@ describe('US-55 · EspaciosService', () => {
         ),
       );
     });
+
+    it('TC-ESP14b · Patrón Composite: al bloquear un sub-espacio hijo, detecta conflicto (409) si el espacio padre tiene reserva aprobada', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValue({
+        id: 15,
+        nombre: 'Parrilla 5',
+        activo: true,
+        espacioPadreId: 10,
+        disciplinas: [],
+        subespacios: [],
+      });
+
+      const resInicio = new Date('2026-11-20T21:00:00.000Z');
+      const resFin = new Date('2026-11-20T23:00:00.000Z');
+
+      mockPrisma.reserva.findMany.mockResolvedValue([
+        {
+          id: 77,
+          codigo: 'RES-PADRE10',
+          espacioId: 10,
+          inicio: resInicio,
+          fin: resFin,
+        },
+      ]);
+
+      await expect(service.agregarBloqueo(15, bloqueoPuntual, 99)).rejects.toThrow(
+        new ConflictException(
+          'El bloqueo entra en conflicto con la reserva particular aprobada RES-PADRE10. Debe gestionar la cancelación manual justificada de la reserva antes de bloquear el turno.',
+        ),
+      );
+    });
   });
 
   describe('Consultas de espacios', () => {
@@ -587,6 +621,57 @@ describe('US-55 · EspaciosService', () => {
           }),
         }),
       );
+    });
+
+    it('findAll · soporta filtros soloRaiz y espacioPadreId (Patrón Composite)', async () => {
+      mockPrisma.espacio.findMany.mockResolvedValue([]);
+
+      await service.findAll({ soloRaiz: true });
+      expect(mockPrisma.espacio.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            espacioPadreId: null,
+          }),
+        }),
+      );
+
+      await service.findAll({ espacioPadreId: 10 });
+      expect(mockPrisma.espacio.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            espacioPadreId: 10,
+          }),
+        }),
+      );
+    });
+
+    it('findAll · devuelve estructura paginada con counts (todos, activos, inactivos) cuando se envía pagina o estado', async () => {
+      mockPrisma.espacio.findMany.mockResolvedValue([]);
+      mockPrisma.espacio.count
+        .mockResolvedValueOnce(0) // total del tab inactivos
+        .mockResolvedValueOnce(3) // todos
+        .mockResolvedValueOnce(3) // activos
+        .mockResolvedValueOnce(0); // inactivos
+
+      const res: any = await service.findAll({
+        estado: 'inactivos',
+        pagina: 1,
+        porPagina: 10,
+        ordenarPor: 'precio',
+        orden: 'desc',
+      });
+
+      expect(res).toEqual({
+        items: [],
+        total: 0,
+        pagina: 1,
+        porPagina: 10,
+        counts: {
+          todos: 3,
+          activos: 3,
+          inactivos: 0,
+        },
+      });
     });
 
     it('findOne · devuelve detalle del espacio o 404 si no existe', async () => {
