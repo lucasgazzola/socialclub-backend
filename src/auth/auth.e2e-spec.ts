@@ -108,6 +108,9 @@ describe('AuthController (e2e) — US-38', () => {
     apellido: 'Pérez',
     email: 'ana@test.com',
     password: 'Nuevo123!',
+    confirmarPassword: 'Nuevo123!',
+    fechaNacimiento: '1990-01-01',
+    genero: 'MASCULINO',
   };
 
   describe('TC-077: registrarse con datos válidos', () => {

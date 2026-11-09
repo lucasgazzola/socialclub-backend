@@ -30,6 +30,7 @@ enum GeneroDisciplina {
   FEMENINO
   MASCULINO
   NO_BINARIO_NO_ESPECIFICADO
+  PREFIERO_NO_DECIRLO
 }
 
 /// Catálogo cerrado de documentación que puede exigirse por disciplina.

@@ -34,17 +34,12 @@ import { ApiErrores, VALIDACION } from '../common/swagger/respuestas';
 @ApiTags('inscripcion')
 @ApiCookieAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-// DT-16: los roles se declaran a nivel de clase, no por handler. RolesGuard
-// deja pasar cuando no hay roles requeridos, así que un handler sin @Roles
-// queda abierto a cualquier usuario autenticado: con la restricción acá, lo
-// que se agregue después nace protegido y hay que optar explícitamente por
-// ampliarlo.
-@Roles('ADMIN', 'DELEGADO')
 @Controller('inscripcion')
 export class InscripcionController {
   constructor(private readonly inscripcionService: InscripcionService) {}
 
   @Post()
+  @Roles('ADMIN', 'DELEGADO')
   @ApiOperation({ summary: 'US — Inscribir a un participante en una disciplina' })
   @ApiCreatedResponse({ description: 'Inscripción creada (o reactivada) con su estado documental' })
   @ApiErrores({
@@ -72,6 +67,7 @@ export class InscripcionController {
   }
 
   @Patch(':id')
+  @Roles('ADMIN', 'DELEGADO')
   @ApiOperation({
     summary: 'US-06 — Editar participante (datos básicos, disciplina y/o categoría)',
   })
@@ -118,6 +114,7 @@ export class InscripcionController {
   }
 
   @Get('requisitos')
+  @Roles('ADMIN', 'DELEGADO')
   @ApiOperation({
     summary:
       'US-05 — Restricciones y documentación exigida para una disciplina/categoría (antes de inscribir)',
@@ -138,7 +135,6 @@ export class InscripcionController {
   }
 
   @Get('catalogo')
-  @Roles('ADMIN', 'COLABORADOR', 'DELEGADO', 'SOCIO')
   @ApiOperation({
     summary:
       'US-63 — Catálogo de disciplinas y categorías activas con aranceles y documentación requerida',
@@ -153,7 +149,6 @@ export class InscripcionController {
   }
 
   @Post('solicitar')
-  @Roles('ADMIN', 'COLABORADOR', 'DELEGADO', 'SOCIO')
   @ApiOperation({ summary: 'US-63 — Solicitar inscripción a una disciplina y categoría activa' })
   @ApiCreatedResponse({ description: 'Solicitud de inscripción registrada en estado PENDIENTE' })
   @ApiErrores({
@@ -178,7 +173,6 @@ export class InscripcionController {
   }
 
   @Get('mis-solicitudes')
-  @Roles('ADMIN', 'COLABORADOR', 'DELEGADO', 'SOCIO')
   @ApiOperation({ summary: 'US-63 — Listar solicitudes de inscripción propias del usuario' })
   @ApiOkResponse({ description: 'Historial de solicitudes de inscripción del socio' })
   @ApiErrores({
@@ -191,6 +185,7 @@ export class InscripcionController {
   }
 
   @Get('persona/:personaId')
+  @Roles('ADMIN', 'DELEGADO')
   @ApiOperation({
     summary:
       'Obtener inscripciones de una persona (por defecto solo vigentes; ?incluirBajas=true las incluye todas)',
@@ -209,6 +204,7 @@ export class InscripcionController {
   }
 
   @Get(':id')
+  @Roles('ADMIN', 'DELEGADO')
   @ApiOperation({ summary: 'Obtener una inscripción por id' })
   @ApiOkResponse({ description: 'Inscripción' })
   @ApiErrores({
@@ -222,6 +218,7 @@ export class InscripcionController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN', 'DELEGADO')
   @ApiOperation({ summary: 'Dar de baja una inscripción (baja lógica, auditada)' })
   @ApiOkResponse({ description: 'Inscripción dada de baja' })
   @ApiErrores({
@@ -235,6 +232,7 @@ export class InscripcionController {
   }
 
   @Delete('persona/:personaId')
+  @Roles('ADMIN', 'DELEGADO')
   @ApiOperation({
     summary: 'US-07 — Dar de baja a un participante (baja lógica en todas sus disciplinas)',
   })
@@ -253,6 +251,7 @@ export class InscripcionController {
   }
 
   @Patch('persona/:personaId/activar')
+  @Roles('ADMIN', 'DELEGADO')
   @ApiOperation({
     summary: 'US-07 — Reactivar a un participante dado de baja',
   })

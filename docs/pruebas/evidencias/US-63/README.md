@@ -95,3 +95,4 @@ Tests       18 passed (18)
 | `npm run lint` / ESLint | **Aprobado** (0 errores) | **Aprobado** (0 errores) |
 | `npm run build` | **Aprobado** (`nest build`) | **Aprobado** (`vite build`) |
 | Cobertura código nuevo (`SolicitarInscripcionDto`, etc.) | **100%** | **100%** |
+
