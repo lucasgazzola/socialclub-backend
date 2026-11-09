@@ -5,9 +5,12 @@ import { PagosService } from '../pagos/pagos.service';
 import { PagosDeportivosService } from '../pagos/pagos-deportivos.service';
 import { estadoDeInscripcion, type DocumentoPresentado } from '../documentacion/estado-documental';
 import {
+  ComposicionIntegrantesDto,
   DashboardEventoDto,
   DashboardResponseDto,
+  DisciplinaResumenDashboardDto,
   InscripcionesIrregularesDto,
+  MorosidadPorConceptoDto,
 } from './dto/dashboard-response.dto';
 
 const REQUISITO_SELECT = {
@@ -30,10 +33,10 @@ const DOCUMENTO_SELECT = {
  * US-34 · Ver dashboard de la organización.
  *
  * Módulo de agregación que consolida los indicadores clave del club:
- * - Integrantes activos (socios y participantes con membresía o inscripción activa).
- * - Porcentaje y cantidad de morosos (personas únicas, sobre integrantes activos).
+ * - Integrantes activos (socios y participantes con membresía o inscripción activa) y su composición.
+ * - Porcentaje y cantidad de morosos (personas únicas, sobre integrantes activos) y desglose por concepto.
  * - Documentos por vencer en los próximos 10 días (horario America/Argentina/Cordoba).
- * - Inscripciones irregulares (pendientes o bloqueadas según el motor documental puro).
+ * - Inscripciones irregulares y habilitadas (según el motor documental puro) y distribución por disciplina.
  * - Próximos hasta 5 eventos publicados.
  */
 @Injectable()
@@ -74,7 +77,11 @@ export class DashboardService {
             { inscripciones: { some: { activo: true } } },
           ],
         },
-        select: { id: true },
+        select: {
+          id: true,
+          membresias: { where: { activo: true }, select: { id: true } },
+          inscripciones: { where: { activo: true }, select: { id: true } },
+        },
       }),
 
       // 2. Morosos de cuota social y deportiva (reutilización de servicios existentes)
@@ -128,26 +135,72 @@ export class DashboardService {
           categoriaDisciplinaId: true,
           fechaInscripcion: true,
           requisitosDesde: true,
+          disciplina: { select: { nombre: true } },
           habilitacionesExcepcionales: { select: { hasta: true } },
         },
       }),
     ]);
 
-    // ── Cálculo de morosidad ──────────────────────────────────────────────────
+    // ── Composición de integrantes activos ────────────────────────────────────
     const totalIntegrantesActivos = integrantesActivos.length;
     const activosSet = new Set(integrantesActivos.map((p) => p.id));
 
+    let soloSocios = 0;
+    let sociosDeportistas = 0;
+    let soloDeportistas = 0;
+
+    for (const p of integrantesActivos as Array<{
+      id: number;
+      membresias?: Array<{ id: number }>;
+      inscripciones?: Array<{ id: number }>;
+    }>) {
+      const esSocio = (p.membresias?.length ?? 0) > 0;
+      const esDeportista = (p.inscripciones?.length ?? 0) > 0;
+      if (esSocio && esDeportista) {
+        sociosDeportistas++;
+      } else if (esSocio) {
+        soloSocios++;
+      } else if (esDeportista) {
+        soloDeportistas++;
+      }
+    }
+
+    const composicionIntegrantes: ComposicionIntegrantesDto = {
+      soloSocios,
+      sociosDeportistas,
+      soloDeportistas,
+    };
+
+    // ── Cálculo de morosidad total y por concepto ─────────────────────────────
+    const morososSocialSet = new Set<number>();
+    const morososDeportivoSet = new Set<number>();
     const morososUnicos = new Set<number>();
+
     for (const item of morososSociales.items) {
       if (activosSet.has(item.personaId)) {
+        morososSocialSet.add(item.personaId);
         morososUnicos.add(item.personaId);
       }
     }
     for (const item of morososDeportivos.items) {
       if (activosSet.has(item.personaId)) {
+        morososDeportivoSet.add(item.personaId);
         morososUnicos.add(item.personaId);
       }
     }
+
+    let ambasCuotas = 0;
+    for (const personaId of morososSocialSet) {
+      if (morososDeportivoSet.has(personaId)) {
+        ambasCuotas++;
+      }
+    }
+
+    const morosidadPorConcepto: MorosidadPorConceptoDto = {
+      cuotaSocial: morososSocialSet.size,
+      cuotaDeportiva: morososDeportivoSet.size,
+      ambasCuotas,
+    };
 
     const cantidadMorosos = morososUnicos.size;
     const porcentajeMorosos =
@@ -155,7 +208,7 @@ export class DashboardService {
         ? 0
         : Number(((cantidadMorosos / totalIntegrantesActivos) * 100).toFixed(1));
 
-    // ── Evaluación documental de inscripciones (sin N+1) ──────────────────────
+    // ── Evaluación documental de inscripciones y ranking por disciplina (sin N+1)
     const disciplinaIds = [...new Set(inscripciones.map((i) => i.disciplinaId))];
     const personaIds = [...new Set(inscripciones.map((i) => i.personaId))];
 
@@ -202,10 +255,15 @@ export class DashboardService {
       lista.push(req);
     }
 
+    let habilitadas = 0;
     let pendientes = 0;
     let bloqueadas = 0;
 
-    for (const insc of inscripciones) {
+    const conteoDisciplinas = new Map<number, DisciplinaResumenDashboardDto>();
+
+    for (const insc of inscripciones as Array<
+      (typeof inscripciones)[number] & { disciplina?: { nombre: string } }
+    >) {
       const reqs = (reqsPorDisciplina.get(insc.disciplinaId) ?? []).filter(
         (r) =>
           r.categoriaDisciplinaId === null ||
@@ -223,17 +281,40 @@ export class DashboardService {
         ahora,
       );
 
+      let resumenDisc = conteoDisciplinas.get(insc.disciplinaId);
+      if (!resumenDisc) {
+        resumenDisc = {
+          disciplinaId: insc.disciplinaId,
+          nombre: insc.disciplina?.nombre ?? `Disciplina ${insc.disciplinaId}`,
+          inscriptos: 0,
+          habilitados: 0,
+          irregulares: 0,
+        };
+        conteoDisciplinas.set(insc.disciplinaId, resumenDisc);
+      }
+      resumenDisc.inscriptos++;
+
       if (evaluacion.estado === 'PENDIENTE') {
         pendientes++;
+        resumenDisc.irregulares++;
       } else if (evaluacion.estado === 'BLOQUEADO') {
         bloqueadas++;
+        resumenDisc.irregulares++;
+      } else {
+        habilitadas++;
+        resumenDisc.habilitados++;
       }
     }
+
+    const participantesPorDisciplina = [...conteoDisciplinas.values()].sort(
+      (a, b) => b.inscriptos - a.inscriptos || a.nombre.localeCompare(b.nombre),
+    );
 
     const inscripcionesIrregulares: InscripcionesIrregularesDto = {
       total: pendientes + bloqueadas,
       pendientes,
       bloqueadas,
+      habilitadas,
     };
 
     // ── Mapeo de eventos ──────────────────────────────────────────────────────
@@ -264,6 +345,9 @@ export class DashboardService {
       documentosPorVencer,
       inscripcionesIrregulares,
       proximosEventos,
+      composicionIntegrantes,
+      morosidadPorConcepto,
+      participantesPorDisciplina,
     };
   }
 }

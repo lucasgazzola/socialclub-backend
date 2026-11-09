@@ -51,6 +51,64 @@ export class InscripcionesIrregularesDto {
     description: 'Inscripciones bloqueadas por documentación vencida o plazo agotado',
   })
   bloqueadas: number;
+
+  @ApiProperty({
+    example: 20,
+    required: false,
+    description: 'Inscripciones activas con documentación habilitada al día',
+  })
+  habilitadas?: number;
+}
+
+export class ComposicionIntegrantesDto {
+  @ApiProperty({ example: 10, description: 'Personas activas que solo poseen membresía social' })
+  soloSocios: number;
+
+  @ApiProperty({
+    example: 12,
+    description: 'Personas activas que poseen tanto membresía social como inscripción deportiva',
+  })
+  sociosDeportistas: number;
+
+  @ApiProperty({
+    example: 5,
+    description: 'Personas activas que solo poseen inscripción deportiva',
+  })
+  soloDeportistas: number;
+}
+
+export class MorosidadPorConceptoDto {
+  @ApiProperty({ example: 14, description: 'Personas activas con deuda de cuota social' })
+  cuotaSocial: number;
+
+  @ApiProperty({ example: 9, description: 'Personas activas con deuda de cuota deportiva' })
+  cuotaDeportiva: number;
+
+  @ApiProperty({
+    example: 5,
+    description: 'Personas activas que adeudan simultáneamente cuota social y deportiva',
+  })
+  ambasCuotas: number;
+}
+
+export class DisciplinaResumenDashboardDto {
+  @ApiProperty({ example: 1, description: 'ID de la disciplina' })
+  disciplinaId: number;
+
+  @ApiProperty({ example: 'Fútbol', description: 'Nombre de la disciplina' })
+  nombre: string;
+
+  @ApiProperty({ example: 15, description: 'Total de inscripciones activas en la disciplina' })
+  inscriptos: number;
+
+  @ApiProperty({ example: 11, description: 'Inscripciones habilitadas en la disciplina' })
+  habilitados: number;
+
+  @ApiProperty({
+    example: 4,
+    description: 'Inscripciones pendientes o bloqueadas en la disciplina',
+  })
+  irregulares: number;
 }
 
 export class DashboardResponseDto {
@@ -77,7 +135,7 @@ export class DashboardResponseDto {
 
   @ApiProperty({
     type: InscripcionesIrregularesDto,
-    description: 'Desglose de inscripciones irregulares',
+    description: 'Desglose de inscripciones irregulares y habilitadas',
   })
   inscripcionesIrregulares: InscripcionesIrregularesDto;
 
@@ -86,4 +144,25 @@ export class DashboardResponseDto {
     description: 'Listado de los próximos hasta 5 eventos publicados',
   })
   proximosEventos: DashboardEventoDto[];
+
+  @ApiProperty({
+    type: ComposicionIntegrantesDto,
+    required: false,
+    description: 'Desglose de integrantes activos según vínculo social y/o deportivo',
+  })
+  composicionIntegrantes?: ComposicionIntegrantesDto;
+
+  @ApiProperty({
+    type: MorosidadPorConceptoDto,
+    required: false,
+    description: 'Desglose de personas morosas según tipo de cuota adeudada',
+  })
+  morosidadPorConcepto?: MorosidadPorConceptoDto;
+
+  @ApiProperty({
+    type: [DisciplinaResumenDashboardDto],
+    required: false,
+    description: 'Ranking de disciplinas por cantidad de inscripciones activas',
+  })
+  participantesPorDisciplina?: DisciplinaResumenDashboardDto[];
 }

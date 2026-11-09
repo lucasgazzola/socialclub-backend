@@ -48,51 +48,54 @@ Para la estructuración formal de la User Story **US-34: Ver dashboard**, se rea
 
 ## 2. ESTADÍSTICAS E INDICADORES A MOSTRAR
 
-Para garantizar que el dashboard provea una visión ejecutiva y operativa clara sin abrumar al usuario no técnico *(RNF01)*, los 5 indicadores requeridos por los Criterios de Aceptación se estructuran a continuación:
+Para garantizar que el dashboard provea una visión ejecutiva y operativa clara sin abrumar al usuario no técnico *(RNF01)*, los 5 indicadores requeridos por los Criterios de Aceptación se estructuran a continuación en la página exclusiva `/dashboard` (`DashboardGestionPage`), manteniendo la pantalla de inicio (`/`, `DashboardPage`) sin cambios y con su comportamiento original (incluidas las alertas de documentación de US-26):
 
 ### 2.1. Tabla de Indicadores Principales
 
 | Nombre del Indicador | Definición Exacta y Fórmula de Cálculo | Criterio de Inclusión / Exclusión (Definición de Estados) | Fuente de Datos (Entidad / Módulo) | Forma de Visualización |
 | :--- | :--- | :--- | :--- | :--- |
 | **Total de Integrantes Activos** (`totalIntegrantesActivos`) | Conteo único de personas físicas registradas con `activo = true` que mantienen al menos una membresía social activa o al menos una inscripción deportiva activa.<br><br>$$N_{\text{activos}} = \| \{ p \in \text{Persona} \mid p.\text{activo} = \text{true} \land (\exists m \in p.\text{membresias}: m.\text{activo} \lor \exists i \in p.\text{inscripciones}: i.\text{activo}) \} \|$$ | **Incluye**: Personas con `activo = true` que posean al menos una `Membresia` con `activo = true` o al menos una `Inscripcion` con `activo = true`.<br>**Excluye**: Personas con baja lógica (`activo = false`) o sin membresías ni inscripciones activas. | Módulo Socios y Participantes (`Persona`, `Membresia`, `Inscripcion`) | Tarjeta de KPI numérica (*KPI Card*) con icono representativo y navegación a `/socios` |
-| **Porcentaje de Morosos** (`porcentajeMorosos` y `cantidadMorosos`) | Proporción de personas únicas activas que presentan al menos una cuota social o deportiva vencida impaga sobre el total de integrantes activos.<br><br>$$P_{\text{morosos}} = \left( \frac{N_{\text{morosos}}}{N_{\text{activos}}} \right) \times 100$$ | **Cuenta como "Moroso"**: Persona activa (`id` en el conjunto de integrantes activos) presente en la unión de resultados de `PagosService.getMorososCuotaSocial` y `PagosDeportivosService.getMorosos` (personas únicas, no cantidad de deudas).<br>**Excluye**: Personas al día, personas inactivas o cuotas aún no vencidas.<br>**Manejo de cero activos**: Si $N_{\text{activos}} = 0$, $P_{\text{morosos}} = 0.0\%$. | Módulo Pagos (`PagosService`, `PagosDeportivosService`) | Tarjeta de KPI con porcentaje (1 decimal), cantidad absoluta ($N_{\text{morosos}}$) y semáforo visual configurable (Verde < 15%, Amarillo 15-30%, Rojo > 30%) |
+| **Porcentaje de Morosos** (`porcentajeMorosos` y `cantidadMorosos`) | Proporción de personas únicas activas que presentan al menos una cuota social o deportiva vencida impaga sobre el total de integrantes activos.<br><br>$$P_{\text{morosos}} = \left( \frac{N_{\text{morosos}}}{N_{\text{activos}}} \right) \times 100$$ | **Cuenta como "Moroso"**: Persona activa (`id` en el conjunto de integrantes activos) presente en la unión de resultados de `PagosService.getMorososCuotaSocial` y `PagosDeportivosService.getMorosos` (personas únicas, no cantidad de deudas).<br>**Excluye**: Personas al día, personas inactivas o cuotas aún no vencidas.<br>**Manejo de cero activos**: Si $N_{\text{activos}} = 0$, $P_{\text{morosos}} = 0.0\%$. | Módulo Pagos (`PagosService`, `PagosDeportivosService`) | Tarjeta de KPI con porcentaje (1 decimal), cantidad absoluta ($N_{\text{morosos}}$), semáforo visual configurable (Verde < 15%, Amarillo 15-30%, Rojo > 30%) y gráfico de dona `Recharts` **"Morosos vs. Al día"** con etiquetas y valores |
 | **Documentos por Vencer (Próximos 10 Días)** (`documentosPorVencer`) | Conteo de documentos cargados de personas activas cuya `fechaVencimiento` cae entre hoy (`00:00:00` UTC del día en Córdoba) y hoy + 10 días (`23:59:59.999` UTC del día +10 en Córdoba).<br><br>$$N_{\text{vencer}} = \| \{ d \in \text{Documentacion} \mid d.\text{persona}.\text{activo} = \text{true} \land T_{\text{hoy}} \le d.\text{fechaVencimiento} \le T_{\text{hoy}} + 10\text{d} \} \|$$ | **Cuenta como "Por vencer"**: Todo registro en `Documentacion` con `fechaVencimiento` entre `hoy` y `hoy + 10 días` (en zona horaria `America/Argentina/Cordoba`) de personas con `activo = true`.<br>**Excluye**: Documentos sin vencimiento (`null`), ya vencidos ($< T_{\text{hoy}}$), con vencimiento posterior a 10 días o de personas inactivas. | Módulo Gestión Documental (`Documentacion`, `Persona`) | Tarjeta de KPI con aviso de ventana de 10 días y navegación a `/participantes` |
-| **Inscripciones Irregulares** (`inscripcionesIrregulares: { total, pendientes, bloqueadas }`) | Conteo de inscripciones activas de personas activas cuyo estado documental calculado en lote resulta en `PENDIENTE` o `BLOQUEADO`.<br><br>$$N_{\text{irregulares}} = N_{\text{pendientes}} + N_{\text{bloqueadas}}$$ | **Cuenta como `pendientes`**: Inscripción activa con estado documental `'PENDIENTE'` (documento obligatorio faltante dentro del plazo de tolerancia).<br>**Cuenta como `bloqueadas`**: Inscripción activa con estado documental `'BLOQUEADO'` (documento vencido o plazo de presentación vencido sin habilitación excepcional vigente).<br>**Excluye**: Inscripciones en estado `'HABILITADO'` o inactivas. | Módulo Documentación e Inscripciones (`Inscripcion`, `DisciplinaRequerimientoDoc`, `Documentacion`, `estadoDeInscripcion`) | Tarjeta de KPI con total y desglose en badges (`Pendientes` vs `Bloqueadas`) |
+| **Inscripciones Irregulares** (`inscripcionesIrregulares: { total, pendientes, bloqueadas }`) | Conteo de inscripciones activas de personas activas cuyo estado documental calculado en lote resulta en `PENDIENTE` o `BLOQUEADO`.<br><br>$$N_{\text{irregulares}} = N_{\text{pendientes}} + N_{\text{bloqueadas}}$$ | **Cuenta como `pendientes`**: Inscripción activa con estado documental `'PENDIENTE'` (documento obligatorio faltante dentro del plazo de tolerancia).<br>**Cuenta como `bloqueadas`**: Inscripción activa con estado documental `'BLOQUEADO'` (documento vencido o plazo de presentación vencido sin habilitación excepcional vigente).<br>**Excluye**: Inscripciones en estado `'HABILITADO'` o inactivas. | Módulo Documentación e Inscripciones (`Inscripcion`, `DisciplinaRequerimientoDoc`, `Documentacion`, `estadoDeInscripcion`) | Tarjeta de KPI con total y desglose en badges (`Pendientes` vs `Bloqueadas`) y gráfico de barras `Recharts` **"Inscripciones pendientes vs. bloqueadas"** con etiquetas y valores |
 | **Próximos Eventos** (`proximosEventos`) | Listado resumido de hasta 5 eventos en estado `PUBLICADO` que aún no han finalizado. | **Incluye**: Eventos con `estado = PUBLICADO` y (`fechaFin >= ahora` o, si `fechaFin` es `null`, `fechaEvento >= ahora`).<br>**Excluye**: Eventos en estado `BORRADOR`, `PAUSADO`, `CANCELADO` o `FINALIZADO`, o ya finalizados.<br>**Límite y Orden**: Máximo 5 eventos, ordenados por `fechaEvento ASC`. | Módulo de Eventos (`Evento`) | Tabla a ancho completo con: Nombre, Fecha y Hora (`DD/MM/YYYY HH:mm`), Lugar de Acreditación y Entradas (`entradasVendidas / capacidadMaxima` y `entradasDisponibles`) |
 
 ---
 
 ## 3. CRITERIOS DE ACEPTACIÓN MEJORADOS (FORMATO GHERKIN)
 
-### Escenario 1: Restricción de acceso a usuarios no autorizados (`SOCIO`, `DELEGADO` o Anónimo)
-*   **Dado** que un usuario se encuentra autenticado en el sistema con el rol `SOCIO` o `DELEGADO`
-*   **O** un usuario no autenticado (visitante/anónimo) intenta acceder al endpoint `GET /dashboard` o a la ruta `/dashboard`
-*   **Cuando** solicita ingresar al dashboard administrativo
-*   **Entonces** el backend deniega el acceso mediante `JwtAuthGuard` (`401 Unauthorized` si es anónimo) y `RolesGuard` (`403 Forbidden` si no posee rol `ADMIN` ni `COLABORADOR`)
-*   **Y** en el frontend redirige automáticamente al usuario `SOCIO` autenticado a `/mi-perfil` (o a `/login` en caso de visitantes no autenticados)
-*   **Y** muestra el mensaje de error de autorización: *"No posee permisos para acceder al dashboard de gestión de la organización"*.
+### Escenario 1: Restricción de acceso a usuarios no autorizados (`SOCIO`, `DELEGADO` o Anónimo) y visibilidad del menú
+*   **Dado** que un usuario se encuentra autenticado en el sistema con el rol `SOCIO` o `DELEGADO`, o es un visitante no autenticado (anónimo)
+*   **Cuando** visualiza el menú lateral o intenta ingresar directamente a la ruta `/dashboard` (o al endpoint `GET /dashboard`)
+*   **Entonces** la entrada **"Dashboard"** del menú lateral permanece oculta (siendo visible únicamente para `ADMIN` y `COLABORADOR`)
+*   **Y** el backend deniega el acceso mediante `JwtAuthGuard` (`401 Unauthorized` si es anónimo) y `RolesGuard` (`403 Forbidden` si no posee rol `ADMIN` ni `COLABORADOR`)
+*   **Y** en el frontend redirige automáticamente a los usuarios autenticados `SOCIO` y `DELEGADO` a `/mi-perfil` mostrando el mensaje de falta de permisos: *"No posee permisos para acceder al dashboard de gestión de la organización"*
+*   **Y** redirige a los visitantes no autenticados (anónimos) a `/login`.
 
-### Escenario 2: Acceso exitoso y carga del dashboard para roles autorizados (`ADMIN` y `COLABORADOR`)
+### Escenario 2: Acceso exitoso y carga de `/dashboard` como página propia para roles autorizados (`ADMIN` y `COLABORADOR`)
 *   **Dado** que un usuario se encuentra autenticado en el sistema con el rol `ADMIN` o `COLABORADOR`
-*   **Cuando** accede al dashboard administrativo (`/` o `/dashboard`)
-*   **Entonces** el sistema valida su token JWT mediante cookie `httpOnly` en `GET /dashboard`
+*   **Cuando** selecciona la entrada **"Dashboard"** en el menú lateral o navega a `/dashboard`
+*   **Entonces** la pantalla de inicio (`/`) conserva su comportamiento original (accesos a módulos y alertas de documentación de US-26), mientras que `/dashboard` se renderiza como una página independiente (`DashboardGestionPage`)
+*   **Y** el sistema valida su token JWT mediante cookie `httpOnly` en `GET /dashboard`
 *   **Y** calcula y renderiza los indicadores clave de la organización:
-    *   Tarjeta 1: **Total de Integrantes Activos** (`totalIntegrantesActivos`).
-    *   Tarjeta 2: **Porcentaje de Morosos** (`porcentajeMorosos` con 1 decimal, `cantidadMorosos` y semáforo visual).
-    *   Tarjeta 3: **Documentos por Vencer** (`documentosPorVencer` entre hoy y hoy + 10 días en horario de Córdoba).
-    *   Tarjeta 4: **Inscripciones Irregulares** (`inscripcionesIrregulares.total` con desglose de `pendientes` y `bloqueadas`).
-    *   Tabla 5: **Próximos Eventos** (`proximosEventos` en estado `PUBLICADO`).
+     *   Tarjeta 1: **Total de Integrantes Activos** (`totalIntegrantesActivos`).
+     *   Tarjeta 2: **Porcentaje de Morosos** (`porcentajeMorosos` con 1 decimal, `cantidadMorosos` y semáforo visual).
+     *   Tarjeta 3: **Documentos por Vencer** (`documentosPorVencer` entre hoy y hoy + 10 días en horario de Córdoba).
+     *   Tarjeta 4: **Inscripciones Irregulares** (`inscripcionesIrregulares.total` con desglose de `pendientes` y `bloqueadas`).
+     *   Gráficos comparativos: Dona **"Morosos vs. Al día"** y Barras **"Inscripciones pendientes vs. bloqueadas"**.
+     *   Tabla 5: **Próximos Eventos** (`proximosEventos` en estado `PUBLICADO`).
 
 ### Escenario 3: Manejo de casos borde (Organización sin integrantes activos o base vacía)
-*   **Dado** que un usuario autorizado ingresa al dashboard cuando no existen integrantes activos registrados ($N_{\text{activos}} = 0$)
+*   **Dado** que un usuario autorizado ingresa a `/dashboard` cuando no existen integrantes activos registrados ($N_{\text{activos}} = 0$) ni inscripciones irregulares
 *   **Cuando** el sistema procesa el cálculo de métricas
 *   **Entonces** el indicador "Total de Integrantes Activos" muestra el valor `0`
 *   **Y** el indicador "Porcentaje de Morosos" evita el error de división por cero y muestra `0.0%`
 *   **Y** el indicador "Documentos por Vencer" muestra `0`
-*   **Y** el indicador "Inscripciones Irregulares" muestra `0`.
+*   **Y** el indicador "Inscripciones Irregulares" muestra `0`
+*   **Y** los gráficos muestran sus respectivos estados vacíos informativos sin arrojar errores de renderizado.
 
 ### Escenario 4: Manejo de casos borde en la lista de próximos eventos (Sin eventos publicados)
-*   **Dado** que un usuario autorizado visualiza el dashboard
+*   **Dado** que un usuario autorizado visualiza `/dashboard`
 *   **Y** no existen eventos con estado `PUBLICADO` vigentes o futuros
 *   **Cuando** se renderiza la sección de "Próximos Eventos"
 *   **Entonces** el sistema no muestra una tabla vacía sin formato
@@ -100,7 +103,7 @@ Para garantizar que el dashboard provea una visión ejecutiva y operativa clara 
 
 ### Escenario 5: Especificación del listado de Próximos Eventos (Formato, orden y límites)
 *   **Dado** que existen múltiples eventos registrados en la base de datos con distintos estados y fechas
-*   **Cuando** un usuario autorizado carga el dashboard
+*   **Cuando** un usuario autorizado carga `/dashboard`
 *   **Entonces** el sistema filtra y muestra únicamente aquellos eventos que cumplan simultáneamente:
     1.  `estado == "PUBLICADO"` (excluyendo `BORRADOR`, `PAUSADO`, `CANCELADO` y `FINALIZADO`).
     2.  `fechaFin >= ahora` o, si `fechaFin` es `null`, `fechaEvento >= ahora`.
@@ -109,11 +112,20 @@ Para garantizar que el dashboard provea una visión ejecutiva y operativa clara 
 *   **Y** muestra para cada evento: Nombre (`nombre`), Fecha y Hora de inicio en formato `DD/MM/YYYY HH:mm` (`fechaEvento`), Lugar de Acreditación (`lugarAcreditacion`) y Entradas (`entradasVendidas / capacidadMaxima` y `entradasDisponibles`).
 
 ### Escenario 6: Manejo de errores de conectividad o fallo del servidor al cargar métricas
-*   **Dado** que un usuario autorizado ingresa al dashboard
+*   **Dado** que un usuario autorizado ingresa a `/dashboard`
 *   **Cuando** la petición `GET /dashboard` se encuentra en curso o falla
 *   **Entonces** durante la carga inicial el frontend muestra un *skeleton loader* con la estructura del dashboard
 *   **Y** ante un error despliega el mensaje controlado: *"No se pudieron cargar las métricas del dashboard. Por favor, reintente en unos minutos."*
 *   **Y** provee un botón explícito de **"Reintentar carga"**.
+
+### Escenario 7: Visualización con gráficos (Dona de morosidad y Barras de inscripciones)
+*   **Dado** que un usuario autorizado (`ADMIN` o `COLABORADOR`) visualiza la página `/dashboard`
+*   **Cuando** se reciben los datos del endpoint `GET /dashboard`
+*   **Entonces** el sistema renderiza con `Recharts` dos gráficos responsive utilizando exclusivamente los datos de `GET /dashboard`:
+    1.  Gráfico de dona **"Morosos vs. Al día"** comparando `cantidadMorosos` frente a `totalIntegrantesActivos - cantidadMorosos`.
+    2.  Gráfico de barras **"Inscripciones pendientes vs. bloqueadas"** comparando `inscripcionesIrregulares.pendientes` frente a `inscripcionesIrregulares.bloqueadas`.
+*   **Y** ambos gráficos muestran explícitamente etiqueta y valor numérico (sin depender únicamente del color)
+*   **Y** cuando los valores de un gráfico son `0`, muestra un estado vacío informativo sin errores.
 
 ---
 
@@ -121,15 +133,15 @@ Para garantizar que el dashboard provea una visión ejecutiva y operativa clara 
 
 ### 4.1. Reglas de Negocio Aplicables (RN)
 
-1.  **RN-DASH-01 (RBAC Estricto)**: Únicamente los usuarios con rol `ADMIN` o `COLABORADOR` tienen acceso a `GET /dashboard`. Los roles `DELEGADO` y `SOCIO`, así como usuarios no autenticados, son rechazados.
+1.  **RN-DASH-01 (RBAC Estricto y Entrada de Menú)**: Únicamente los usuarios con rol `ADMIN` o `COLABORADOR` visualizan la entrada **"Dashboard"** en el menú lateral y tienen acceso a `/dashboard` y `GET /dashboard`. Los roles `DELEGADO` y `SOCIO` son redirigidos a `/mi-perfil` con mensaje de falta de permisos, y los usuarios anónimos son redirigidos a `/login`.
 2.  **RN-DASH-02 (Cálculo Automático de Morosidad)**: Se reutilizan `PagosService.getMorososCuotaSocial` y `PagosDeportivosService.getMorosos`, contando personas únicas activas sobre el total de integrantes activos.
 3.  **RN-DASH-03 (Ventana Temporal de Alerta Documental)**: Computa todo documento con `fechaVencimiento` entre hoy y hoy + 10 días inclusive (zona `America/Argentina/Cordoba`) perteneciente a personas activas (`persona.activo = true`).
 4.  **RN-DASH-04 (Sin Auditoría de Lectura)**: El endpoint `GET /dashboard` es una consulta de solo lectura y no registra entradas en `registros_auditoria` (el enum `AccionAuditoria` se reserva para mutaciones y eventos de sesión).
 
 ### 4.2. Requisitos No Funcionales (RNF)
 
-1.  **RNF01: Simplicidad de Interfaz (Usabilidad)**: Diseño claro de tarjetas KPI con jerarquía tipográfica, iconos de `lucide-react` y semáforo semántico (verde/amarillo/rojo).
-2.  **RNF02: Diseño Web Responsive**: Grilla de 4 columnas en escritorio (`lg:grid-cols-4`), 2 en tablet (`sm:grid-cols-2`) y 1 en móvil (`grid-cols-1`).
+1.  **RNF01: Simplicidad de Interfaz y Accesibilidad (Usabilidad)**: Diseño claro de tarjetas KPI y gráficos `Recharts` con etiquetas y valores visibles (no solo color), jerarquía tipográfica, iconos de `lucide-react` y semáforo semántico (verde/amarillo/rojo).
+2.  **RNF02: Diseño Web Responsive**: Grilla de 4 columnas en escritorio (`lg:grid-cols-4`), 2 en tablet (`sm:grid-cols-2`) y 1 en móvil (`grid-cols-1`) para las tarjetas KPI; grilla de 2 columnas en escritorio (`lg:grid-cols-2`) y 1 en móvil para los gráficos.
 3.  **RNF-PERF-01: Rendimiento de Carga (< 2.0 s, sin N+1)**: Las consultas en `DashboardService` se ejecutan en paralelo con `Promise.all` y la evaluación documental de inscripciones se realiza en memoria sobre 3 consultas en lote (`inscripcion.findMany`, `disciplinaRequerimientoDoc.findMany`, `documentacion.findMany`), garantizando 0 consultas N+1.
 4.  **RNF-SEC-01: Autenticación JWT y Cookies httpOnly**: Protegido mediante `JwtAuthGuard` y `RolesGuard`.
 
@@ -137,23 +149,32 @@ Para garantizar que el dashboard provea una visión ejecutiva y operativa clara 
 
 ## 5. DECISIONES DE DISEÑO IMPLEMENTADAS
 
-### 5.1. Actualización de datos en pantalla
+### 5.1. Separación entre Pantalla de Inicio (`/`) y Dashboard (`/dashboard`)
+*   **Decisión**: La ruta `/` (`DashboardPage`) conserva intacto su comportamiento original de pantalla de inicio por rol (incluidas las alertas de documentación de US-26 para `ADMIN` y `DELEGADO`), mientras que el dashboard ejecutivo de la US-34 vive en su propia página independiente en la ruta `/dashboard` (`DashboardGestionPage`), accesible desde la entrada **"Dashboard"** del menú lateral (visible solo para `ADMIN` y `COLABORADOR`).
+
+### 5.2. Actualización de datos en pantalla
 *   **Decisión**: Uso de `TanStack Query` (`useDashboard`) con `staleTime: 30000` (30 s), `refetchOnWindowFocus: true`, botón **"Actualizar"** y texto **"Última actualización: HH:mm"** calculado en zona horaria `America/Argentina/Cordoba`.
 
-### 5.2. Límite del listado de próximos eventos
+### 5.3. Límite del listado de próximos eventos
 *   **Decisión**: Máximo **5 eventos** en estado `PUBLICADO`, filtrados por `fechaFin >= ahora` (o `fechaEvento >= ahora` si `fechaFin` es `null`), ordenados por `fechaEvento ASC`, con enlace **"Ver todos"** hacia `/eventos`.
 
-### 5.3. Layout y navegación de las tarjetas KPI
-*   **Decisión**: Grilla superior de **4 tarjetas KPI** (Total de Integrantes Activos $\rightarrow$ `/socios`, Porcentaje de Morosos $\rightarrow$ `/cuotas/social/morosos`, Documentos por Vencer $\rightarrow$ `/participantes`, Inscripciones Irregulares $\rightarrow$ `/participantes`) y tabla de **Próximos Eventos a ancho completo** debajo.
+### 5.4. Layout y navegación de las tarjetas KPI
+*   **Decisión**: Grilla superior de **4 tarjetas KPI** (Total de Integrantes Activos $\rightarrow$ `/socios`, Porcentaje de Morosos $\rightarrow$ `/cuotas/social/morosos`, Documentos por Vencer $\rightarrow$ `/participantes`, Inscripciones Irregulares $\rightarrow$ `/participantes`), seguida de la sección de gráficos comparativos y la tabla de **Próximos Eventos a ancho completo** debajo.
 
-### 5.4. Caché del backend
+### 5.5. Visualización con gráficos
+*   **Decisión**: Incorporación de dos gráficos con `Recharts` (`DashboardGraficos`) alimentados exclusivamente con los datos devueltos por `GET /dashboard`:
+    1.  **Dona "Morosos vs. Al día"**: compara `cantidadMorosos` frente a `totalIntegrantesActivos - cantidadMorosos`.
+    2.  **Barras "Inscripciones pendientes vs. bloqueadas"**: compara `inscripcionesIrregulares.pendientes` frente a `inscripcionesIrregulares.bloqueadas`.
+    Ambos gráficos son responsive (`ResponsiveContainer`), exponen etiqueta y valor numérico (no dependiendo únicamente del color para su interpretación) y muestran un estado vacío controlado sin errores cuando los totales son `0`.
+
+### 5.6. Caché del backend
 *   **Decisión**: **Sin caché en el backend**. Consultas agregadas y en lote con Prisma ORM.
 
-### 5.5. Zona horaria y cálculo de "hoy"
+### 5.7. Zona horaria y cálculo de "hoy"
 *   **Decisión**: Todos los cálculos de ventana de fechas y formateo visual utilizan la zona horaria **`America/Argentina/Cordoba`** (UTC-3).
 
-### 5.6. Semáforo del Porcentaje de Morosos
+### 5.8. Semáforo del Porcentaje de Morosos
 *   **Decisión**: Umbrales definidos en la constante exportada `UMBRALES_MOROSIDAD` (`AMARILLO_DESDE: 15`, `ROJO_DESDE: 30`): **verde < 15 %**, **amarillo 15-30 %**, **rojo > 30 %**.
 
-### 5.7. Auditoría de lecturas
+### 5.9. Auditoría de lecturas
 *   **Decisión**: No se agrega `CONSULTAR_DASHBOARD` ni migración en `AccionAuditoria`; las consultas `GET /dashboard` no generan registros en `registros_auditoria`.

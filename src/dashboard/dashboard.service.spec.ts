@@ -146,6 +146,14 @@ describe('DashboardService', () => {
         total: 2,
         pendientes: 1,
         bloqueadas: 1,
+        habilitadas: 0,
+      });
+
+      // Verificación de desglose de morosidad por concepto
+      expect(resultado.morosidadPorConcepto).toEqual({
+        cuotaSocial: 2,
+        cuotaDeportiva: 2,
+        ambasCuotas: 1,
       });
 
       // Verificación de Eventos (entradasVendidas = capacidadMaxima - entradasDisponibles)
@@ -191,6 +199,7 @@ describe('DashboardService', () => {
         total: 0,
         pendientes: 0,
         bloqueadas: 0,
+        habilitadas: 0,
       });
       expect(resultado.proximosEventos).toEqual([]);
     });
