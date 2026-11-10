@@ -23,6 +23,20 @@ export class FindEspaciosQueryDto {
   @IsEnum(ModalidadReserva, { message: 'La modalidad debe ser POR_HORA o DIA_COMPLETO' })
   modalidad?: ModalidadReserva;
 
+  @ApiPropertyOptional({ description: 'Capacidad mínima de personas' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  capacidadMin?: number;
+
+  @ApiPropertyOptional({ description: 'Capacidad máxima de personas' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  capacidadMax?: number;
+
   @ApiPropertyOptional({
     enum: ['todos', 'activos', 'inactivos'],
     description: 'Filtro de pestaña de estado (todos | activos | inactivos)',

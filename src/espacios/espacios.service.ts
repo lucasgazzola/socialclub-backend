@@ -331,8 +331,10 @@ export class EspaciosService {
    * Listar espacios físicos con sus disciplinas asociadas y sub-espacios (Patrón Composite).
    * Si se solicita con paginación o filtro de pestaña (`pagina`, `porPagina` o `estado`),
    * devuelve `{ items, total, pagina, porPagina, counts: { todos, activos, inactivos } }`.
+   * Criterio US-58: Si el usuario no es ADMIN ni COLABORADOR, el filtro de estado se restringe a sólo activos.
    */
-  async findAll(query: FindEspaciosQueryDto) {
+  async findAll(query: FindEspaciosQueryDto, userRole?: string) {
+    const esAdminOColaborador = userRole === 'ADMIN' || userRole === 'COLABORADOR';
     const whereBase: Prisma.EspacioWhereInput = {};
 
     if (query.tipo) {
@@ -341,6 +343,13 @@ export class EspaciosService {
 
     if (query.modalidad) {
       whereBase.modalidad = query.modalidad;
+    }
+
+    if (query.capacidadMin !== undefined || query.capacidadMax !== undefined) {
+      whereBase.capacidadMaxima = {
+        ...(query.capacidadMin !== undefined ? { gte: query.capacidadMin } : {}),
+        ...(query.capacidadMax !== undefined ? { lte: query.capacidadMax } : {}),
+      };
     }
 
     if (query.espacioPadreId !== undefined) {
@@ -424,7 +433,11 @@ export class EspaciosService {
       const whereInactivos: Prisma.EspacioWhereInput = { ...whereBase, activo: false };
 
       let where: Prisma.EspacioWhereInput = whereBase;
-      if (query.estado === 'activos' || query.activo === true) {
+
+      // Criterio US-58: usuarios estándar (socios/visitantes) siempre ven únicamente activos
+      if (!esAdminOColaborador) {
+        where = whereActivos;
+      } else if (query.estado === 'activos' || query.activo === true) {
         where = whereActivos;
       } else if (query.estado === 'inactivos' || query.activo === false) {
         where = whereInactivos;
@@ -440,9 +453,9 @@ export class EspaciosService {
             include,
           }),
           this.prisma.espacio.count({ where }),
-          this.prisma.espacio.count({ where: whereBase }),
+          this.prisma.espacio.count({ where: esAdminOColaborador ? whereBase : whereActivos }),
           this.prisma.espacio.count({ where: whereActivos }),
-          this.prisma.espacio.count({ where: whereInactivos }),
+          this.prisma.espacio.count({ where: esAdminOColaborador ? whereInactivos : { id: -1 } }),
         ]);
 
       return {
@@ -451,16 +464,16 @@ export class EspaciosService {
         pagina,
         porPagina,
         counts: {
-          todos: totalTodos,
+          todos: esAdminOColaborador ? totalTodos : totalActivos,
           activos: totalActivos,
-          inactivos: totalInactivos,
+          inactivos: esAdminOColaborador ? totalInactivos : 0,
         },
       };
     }
 
     const whereSimple: Prisma.EspacioWhereInput = {
       ...whereBase,
-      activo: query.activo !== undefined ? query.activo : true,
+      activo: esAdminOColaborador && query.activo !== undefined ? query.activo : true,
     };
 
     return this.prisma.espacio.findMany({

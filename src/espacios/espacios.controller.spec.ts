@@ -63,19 +63,19 @@ describe('US-55 · EspaciosController', () => {
   it('findAll · delega en service.findAll con los filtros recibidos', async () => {
     service.findAll.mockResolvedValue([{ id: 1, nombre: 'Cancha 1' }] as any);
 
-    const resultado = await controller.findAll({ tipo: TipoEspacio.DEPORTIVO });
+    const resultado = await controller.findAll({ tipo: TipoEspacio.DEPORTIVO }, mockUser);
 
     expect(resultado).toHaveLength(1);
-    expect(service.findAll).toHaveBeenCalledWith({ tipo: TipoEspacio.DEPORTIVO });
+    expect(service.findAll).toHaveBeenCalledWith({ tipo: TipoEspacio.DEPORTIVO }, 'ADMIN');
   });
 
   it('findAll · delega con filtros de jerarquía composite soloRaiz y espacioPadreId', async () => {
     service.findAll.mockResolvedValue([{ id: 10, nombre: 'Padre' }] as any);
 
-    const resultado = await controller.findAll({ soloRaiz: true, espacioPadreId: 10 });
+    const resultado = await controller.findAll({ soloRaiz: true, espacioPadreId: 10 }, mockUser);
 
     expect(resultado).toHaveLength(1);
-    expect(service.findAll).toHaveBeenCalledWith({ soloRaiz: true, espacioPadreId: 10 });
+    expect(service.findAll).toHaveBeenCalledWith({ soloRaiz: true, espacioPadreId: 10 }, 'ADMIN');
   });
 
   it('findOne · delega en service.findOne con el ID numérico', async () => {

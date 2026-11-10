@@ -65,8 +65,9 @@ export class EspaciosController {
   @ApiOperation({ summary: 'Listar espacios físicos del club' })
   @ApiOkResponse({ description: 'Listado de espacios físicos' })
   @ApiErrores({ 401: 'Unauthorized', 403: SIN_PERMISO })
-  findAll(@Query() query: FindEspaciosQueryDto) {
-    return this.espaciosService.findAll(query);
+  findAll(@Query() query: FindEspaciosQueryDto, @CurrentUser() user: AuthenticatedUser) {
+    const rolPrincipal = user?.roles?.[0] ?? (user as any)?.rol;
+    return this.espaciosService.findAll(query, rolPrincipal);
   }
 
   @Get(':id')
