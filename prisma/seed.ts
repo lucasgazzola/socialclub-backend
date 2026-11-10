@@ -2943,6 +2943,28 @@ async function main() {
       montoSena: 15000,
       disciplinas: [] as string[],
     },
+    {
+      nombre: 'Sector Parrillas Belgrano 245',
+      tipo: 'SOCIAL' as const,
+      capacidadMaxima: 60,
+      modalidad: 'POR_HORA' as const,
+      ubicacion: 'Sede Central - Área recreativa',
+      precio: 10000,
+      precioSocio: 7500,
+      montoSena: 3000,
+      disciplinas: [] as string[],
+    },
+    {
+      nombre: 'Complejo de Tenis y Pádel',
+      tipo: 'DEPORTIVO' as const,
+      capacidadMaxima: 16,
+      modalidad: 'POR_HORA' as const,
+      ubicacion: 'Predio deportivo - Sector Canchas',
+      precio: 18000,
+      precioSocio: 14000,
+      montoSena: 6000,
+      disciplinas: ['Pelota Paleta'],
+    },
   ];
   const espacios = new Map<string, { id: number }>();
   for (const { disciplinas, ...datos } of espaciosData) {
@@ -2962,6 +2984,66 @@ async function main() {
       }));
     espacios.set(datos.nombre, espacio);
   }
+
+  // ── Sub-espacios (Patrón Composite: Parrillas individuales y Canchas) ───────
+  const sectorParrillas = espacios.get('Sector Parrillas Belgrano 245')!;
+  for (let i = 1; i <= 6; i++) {
+    const nombreSub = `Parrilla ${i}`;
+    const existenteSub = await prisma.espacio.findFirst({ where: { nombre: nombreSub, espacioPadreId: sectorParrillas.id } });
+    if (!existenteSub) {
+      const sub = await prisma.espacio.create({
+        data: {
+          nombre: nombreSub,
+          tipo: 'SOCIAL',
+          capacidadMaxima: 10,
+          modalidad: 'POR_HORA',
+          ubicacion: `Sector Parrillas - Módulo ${i}`,
+          descripcion: `Parrilla individual ${i} equipada con mesa, bancos y asador techado.`,
+          precio: 2500,
+          precioSocio: 1800,
+          montoSena: 1000,
+          espacioPadreId: sectorParrillas.id,
+          activo: true,
+        },
+      });
+      espacios.set(nombreSub, sub);
+    } else {
+      espacios.set(nombreSub, existenteSub);
+    }
+  }
+
+  const complejoTenis = espacios.get('Complejo de Tenis y Pádel')!;
+  for (let i = 1; i <= 3; i++) {
+    const nombreCancha = `Cancha de Tenis ${i}`;
+    const existenteCancha = await prisma.espacio.findFirst({ where: { nombre: nombreCancha, espacioPadreId: complejoTenis.id } });
+    if (!existenteCancha) {
+      const sub = await prisma.espacio.create({
+        data: {
+          nombre: nombreCancha,
+          tipo: 'DEPORTIVO',
+          capacidadMaxima: 4,
+          modalidad: 'POR_HORA',
+          ubicacion: `Complejo Tenis - Cancha ${i}`,
+          descripcion: `Cancha de tenis de polvo de ladrillo con iluminación LED.`,
+          precio: 8000,
+          precioSocio: 6000,
+          montoSena: 3000,
+          espacioPadreId: complejoTenis.id,
+          activo: true,
+          disciplinas: {
+            create: ['Pelota Paleta']
+              .map((n) => disciplinasMap.get(n))
+              .filter((d): d is Disciplina => !!d)
+              .map((d) => ({ disciplinaId: d.id })),
+          },
+        },
+      });
+      espacios.set(nombreCancha, sub);
+    } else {
+      espacios.set(nombreCancha, existenteCancha);
+    }
+  }
+
   const cancha = espacios.get('Cancha de fútbol 5')!;
   if (!(await prisma.bloqueoAgenda.findFirst({ where: { espacioId: cancha.id } }))) {
     await prisma.bloqueoAgenda.create({
