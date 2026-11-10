@@ -72,4 +72,49 @@ describe('US-55 · EspaciosController · Control de acceso (RBAC)', () => {
       expect(() => guard.canActivate(contextoPara(handler, [rol]))).toThrow(ForbiddenException);
     });
   });
+
+  describe('PATCH /espacios/:id (update) — Exclusivo ADMIN', () => {
+    const handler = EspaciosController.prototype.update;
+
+    it('permite el acceso al rol ADMIN', () => {
+      expect(guard.canActivate(contextoPara(handler, ['ADMIN']))).toBe(true);
+    });
+
+    it.each(['COLABORADOR', 'SOCIO', 'DELEGADO', 'PROFESOR'])(
+      'rechaza al rol %s con 403 ForbiddenException',
+      (rol) => {
+        expect(() => guard.canActivate(contextoPara(handler, [rol]))).toThrow(ForbiddenException);
+      },
+    );
+  });
+
+  describe('PATCH /espacios/:id/bloqueos/:bloqueoId (updateBloqueo) — Exclusivo ADMIN', () => {
+    const handler = EspaciosController.prototype.updateBloqueo;
+
+    it('permite el acceso al rol ADMIN', () => {
+      expect(guard.canActivate(contextoPara(handler, ['ADMIN']))).toBe(true);
+    });
+
+    it.each(['COLABORADOR', 'SOCIO', 'DELEGADO', 'PROFESOR'])(
+      'rechaza al rol %s con 403 ForbiddenException',
+      (rol) => {
+        expect(() => guard.canActivate(contextoPara(handler, [rol]))).toThrow(ForbiddenException);
+      },
+    );
+  });
+
+  describe('DELETE /espacios/:id/bloqueos/:bloqueoId (deleteBloqueo) — Exclusivo ADMIN', () => {
+    const handler = EspaciosController.prototype.deleteBloqueo;
+
+    it('permite el acceso al rol ADMIN', () => {
+      expect(guard.canActivate(contextoPara(handler, ['ADMIN']))).toBe(true);
+    });
+
+    it.each(['COLABORADOR', 'SOCIO', 'DELEGADO', 'PROFESOR'])(
+      'rechaza al rol %s con 403 ForbiddenException',
+      (rol) => {
+        expect(() => guard.canActivate(contextoPara(handler, [rol]))).toThrow(ForbiddenException);
+      },
+    );
+  });
 });

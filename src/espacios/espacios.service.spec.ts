@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { ModalidadReserva, TipoBloqueo, TipoEspacio } from '@prisma/client';
+import { ModalidadReserva, Prisma, TipoBloqueo, TipoEspacio } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { EspaciosService } from './espacios.service';
@@ -16,6 +16,7 @@ describe('US-55 · EspaciosService', () => {
     mockPrisma = {
       espacio: {
         create: jest.fn(),
+        update: jest.fn(),
         findUnique: jest.fn(),
         findUniqueOrThrow: jest.fn(),
         findMany: jest.fn(),
@@ -23,9 +24,12 @@ describe('US-55 · EspaciosService', () => {
       },
       espacioDisciplina: {
         createMany: jest.fn(),
+        deleteMany: jest.fn(),
       },
       bloqueoAgenda: {
         create: jest.fn(),
+        update: jest.fn(),
+        findFirst: jest.fn(),
       },
       disciplina: {
         findMany: jest.fn().mockResolvedValue([{ id: 1, nombre: 'Pádel' }]),
@@ -681,6 +685,172 @@ describe('US-55 · EspaciosService', () => {
 
       mockPrisma.espacio.findUnique.mockResolvedValue(null);
       await expect(service.findOne(99)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('US-56 · Editar espacios y bloqueos', () => {
+    it('TC-ESP-ED01 · modifica información, capacidad y tarifas de un espacio', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 1,
+        nombre: 'Cancha 1',
+        tipo: TipoEspacio.DEPORTIVO,
+        precio: new Prisma.Decimal(15000),
+        montoSena: new Prisma.Decimal(5000),
+        capacidadMaxima: 10,
+        modalidad: ModalidadReserva.POR_HORA,
+        activo: true,
+        disciplinas: [{ disciplinaId: 1 }],
+      });
+
+      mockPrisma.disciplina.findMany.mockResolvedValueOnce([{ id: 1 }, { id: 2 }]);
+      mockPrisma.espacio.update.mockResolvedValueOnce({
+        id: 1,
+        nombre: 'Cancha 1 Renovada',
+        capacidadMaxima: 12,
+        modalidad: ModalidadReserva.DIA_COMPLETO,
+      });
+
+      mockPrisma.espacio.findUniqueOrThrow.mockResolvedValueOnce({
+        id: 1,
+        nombre: 'Cancha 1 Renovada',
+        capacidadMaxima: 12,
+        modalidad: ModalidadReserva.DIA_COMPLETO,
+        disciplinas: [],
+        bloqueos: [],
+      });
+
+      const res = await service.update(
+        1,
+        {
+          nombre: 'Cancha 1 Renovada',
+          capacidadMaxima: 12,
+          modalidad: ModalidadReserva.DIA_COMPLETO,
+          disciplinaIds: [1, 2],
+        },
+        99,
+      );
+
+      expect(res.nombre).toBe('Cancha 1 Renovada');
+      expect(mockAuditoria.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'EDITAR',
+          entidad: 'Espacio',
+          idEntidad: 1,
+          responsableId: 99,
+        }),
+        mockPrisma,
+      );
+    });
+
+    it('TC-ESP-ED02 · rechaza con 400 si se intenta asociar disciplinas a un espacio SOCIAL', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 2,
+        nombre: 'Salón',
+        tipo: TipoEspacio.SOCIAL,
+        precio: new Prisma.Decimal(30000),
+        montoSena: new Prisma.Decimal(10000),
+        activo: true,
+        disciplinas: [],
+      });
+
+      await expect(
+        service.update(2, { disciplinaIds: [1] }, 99),
+      ).rejects.toThrow(
+        new BadRequestException('Los espacios de tipo SOCIAL no pueden asociarse a disciplinas deportivas.'),
+      );
+    });
+
+    it('TC-ESP-ED03 · rechaza con 400 si montoSena > precio al editar', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 1,
+        nombre: 'Cancha 1',
+        tipo: TipoEspacio.DEPORTIVO,
+        precio: new Prisma.Decimal(15000),
+        montoSena: new Prisma.Decimal(5000),
+        activo: true,
+        disciplinas: [],
+      });
+
+      await expect(
+        service.update(1, { montoSena: 20000 }, 99),
+      ).rejects.toThrow(
+        new BadRequestException('El monto de la seña requerida no puede ser superior al precio total de alquiler.'),
+      );
+    });
+
+    it('TC-ESP-ED04 · modifica un bloqueo y audita la acción', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 1,
+        nombre: 'Cancha 1',
+        activo: true,
+        disciplinas: [{ disciplinaId: 1 }],
+        subespacios: [],
+      });
+
+      mockPrisma.bloqueoAgenda.findFirst.mockResolvedValueOnce({
+        id: 50,
+        espacioId: 1,
+        tipo: TipoBloqueo.PUNTUAL,
+        fecha: new Date('2026-11-20'),
+        horaInicio: '10:00',
+        horaFin: '12:00',
+        motivo: 'Mantenimiento',
+        activo: true,
+      });
+
+      mockPrisma.reserva.findMany.mockResolvedValueOnce([]);
+      mockPrisma.bloqueoAgenda.update.mockResolvedValueOnce({
+        id: 50,
+        motivo: 'Mantenimiento general pintura',
+        tipo: TipoBloqueo.PUNTUAL,
+      });
+
+      const res = await service.updateBloqueo(
+        1,
+        50,
+        { motivo: 'Mantenimiento general pintura' },
+        99,
+      );
+
+      expect(res.motivo).toBe('Mantenimiento general pintura');
+      expect(mockAuditoria.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'EDITAR',
+          entidad: 'BloqueoAgenda',
+          idEntidad: 50,
+        }),
+        mockPrisma,
+      );
+    });
+
+    it('TC-ESP-ED05 · elimina lógicamente un bloqueo y audita la acción', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 1,
+        nombre: 'Cancha 1',
+      });
+
+      mockPrisma.bloqueoAgenda.findFirst.mockResolvedValueOnce({
+        id: 50,
+        espacioId: 1,
+        tipo: TipoBloqueo.PUNTUAL,
+        activo: true,
+      });
+
+      mockPrisma.bloqueoAgenda.update.mockResolvedValueOnce({
+        id: 50,
+        activo: false,
+      });
+
+      const res = await service.deleteBloqueo(1, 50, 99);
+      expect(res.mensaje).toBe('Bloqueo eliminado exitosamente');
+      expect(mockAuditoria.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'BAJA',
+          entidad: 'BloqueoAgenda',
+          idEntidad: 50,
+        }),
+        mockPrisma,
+      );
     });
   });
 });

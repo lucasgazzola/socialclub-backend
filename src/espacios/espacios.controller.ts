@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiCookieAuth,
   ApiCreatedResponse,
@@ -16,6 +27,8 @@ import { EspaciosService } from './espacios.service';
 import { CreateEspacioDto } from './dto/create-espacio.dto';
 import { CreateBloqueoDto } from './dto/create-bloqueo.dto';
 import { FindEspaciosQueryDto } from './dto/find-espacios-query.dto';
+import { UpdateEspacioDto } from './dto/update-espacio.dto';
+import { UpdateBloqueoDto } from './dto/update-bloqueo.dto';
 
 const SIN_PERMISO = 'No tenés permisos suficientes para esta operación';
 const NO_ENCONTRADO = 'Espacio no encontrado';
@@ -84,5 +97,70 @@ export class EspaciosController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.espaciosService.agregarBloqueo(id, dto, user.id);
+  }
+
+  @Patch(':id')
+  @Roles('ADMIN')
+  @ApiOperation({
+    summary: 'US-56 — Modificar información, tarifas, capacidad, modalidades y disciplinas compatibles',
+  })
+  @ApiOkResponse({ description: 'Espacio modificado exitosamente' })
+  @ApiErrores({
+    400: [
+      VALIDACION,
+      'Los espacios de tipo SOCIAL no pueden asociarse a disciplinas deportivas.',
+      'El monto de la seña requerida no puede ser superior al precio total de alquiler.',
+    ],
+    401: 'Unauthorized',
+    403: SIN_PERMISO,
+    404: NO_ENCONTRADO,
+  })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateEspacioDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.espaciosService.update(id, dto, user.id);
+  }
+
+  @Patch(':id/bloqueos/:bloqueoId')
+  @Roles('ADMIN')
+  @ApiOperation({
+    summary: 'US-56 — Modificar un bloqueo existente de agenda',
+  })
+  @ApiOkResponse({ description: 'Bloqueo modificado exitosamente' })
+  @ApiErrores({
+    400: [VALIDACION, 'La hora de fin del bloqueo debe ser posterior a la hora de inicio.'],
+    401: 'Unauthorized',
+    403: SIN_PERMISO,
+    404: NO_ENCONTRADO,
+    409: 'El bloqueo entra en conflicto con una reserva particular aprobada.',
+  })
+  updateBloqueo(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('bloqueoId', ParseIntPipe) bloqueoId: number,
+    @Body() dto: UpdateBloqueoDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.espaciosService.updateBloqueo(id, bloqueoId, dto, user.id);
+  }
+
+  @Delete(':id/bloqueos/:bloqueoId')
+  @Roles('ADMIN')
+  @ApiOperation({
+    summary: 'US-56 — Eliminar un bloqueo de agenda',
+  })
+  @ApiOkResponse({ description: 'Bloqueo eliminado exitosamente' })
+  @ApiErrores({
+    401: 'Unauthorized',
+    403: SIN_PERMISO,
+    404: NO_ENCONTRADO,
+  })
+  deleteBloqueo(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('bloqueoId', ParseIntPipe) bloqueoId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.espaciosService.deleteBloqueo(id, bloqueoId, user.id);
   }
 }
