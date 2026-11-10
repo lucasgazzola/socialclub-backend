@@ -163,4 +163,23 @@ export class EspaciosController {
   ) {
     return this.espaciosService.deleteBloqueo(id, bloqueoId, user.id);
   }
+
+  @Delete(':id')
+  @Roles('ADMIN')
+  @ApiOperation({
+    summary: 'US-57 — Dar de baja un espacio físico (Baja lógica)',
+  })
+  @ApiOkResponse({ description: 'Espacio dado de baja exitosamente' })
+  @ApiErrores({
+    401: 'Unauthorized',
+    403: SIN_PERMISO,
+    404: 'Espacio no encontrado o ya dado de baja',
+    409: 'No se puede dar de baja el espacio porque tiene reservas futuras activas o pendientes.',
+  })
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.espaciosService.remove(id, user.id);
+  }
 }

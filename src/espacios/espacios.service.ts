@@ -792,6 +792,83 @@ export class EspaciosService {
   }
 
   /**
+   * US-57 — Eliminar espacio (Baja Lógica).
+   * Valida que no tenga reservas futuras pendientes o confirmadas.
+   * Aplica baja lógica (activo = false) tanto al espacio como a sus sub-espacios si los tuviera.
+   * Registra la operación en la auditoría inalterable.
+   */
+  async remove(id: number, responsableId: number) {
+    const espacio = await this.prisma.espacio.findUnique({
+      where: { id },
+      include: {
+        subespacios: { where: { activo: true }, select: { id: true, nombre: true } },
+      },
+    });
+
+    if (!espacio || !espacio.activo) {
+      throw new NotFoundException('Espacio no encontrado o ya dado de baja');
+    }
+
+    const idsEspaciosAfectados: number[] = [id, ...(espacio.subespacios?.map((s) => s.id) ?? [])];
+
+    const ahora = new Date();
+    // Validar reservas futuras pendientes o confirmadas
+    const reservasFuturas = await this.prisma.reserva.findMany({
+      where: {
+        espacioId: { in: idsEspaciosAfectados },
+        fin: { gte: ahora },
+        estado: { in: ['PENDIENTE_APROBACION', 'APROBADA_PENDIENTE_PAGO', 'CONFIRMADA'] },
+      },
+      select: { id: true, codigo: true, inicio: true, fin: true, estado: true },
+    });
+
+    if (reservasFuturas.length > 0) {
+      const codigos = reservasFuturas.map((r) => r.codigo).join(', ');
+      throw new ConflictException(
+        `No se puede dar de baja el espacio porque tiene reservas futuras activas o pendientes (${codigos}). Debe resolverlas o cancelarlas previamente.`,
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Baja lógica del espacio
+      await tx.espacio.update({
+        where: { id },
+        data: { activo: false },
+      });
+
+      // Si tiene subespacios activos, también baja lógica
+      if (espacio.subespacios && espacio.subespacios.length > 0) {
+        await tx.espacio.updateMany({
+          where: { espacioPadreId: id, activo: true },
+          data: { activo: false },
+        });
+      }
+
+      // Desactivar bloqueos vigentes asociados
+      await tx.bloqueoAgenda.updateMany({
+        where: { espacioId: { in: idsEspaciosAfectados }, activo: true },
+        data: { activo: false },
+      });
+
+      await this.auditoria.registrar(
+        {
+          accion: 'BAJA',
+          entidad: 'Espacio',
+          idEntidad: id,
+          responsableId,
+          detalle: `Baja lógica de espacio: ${espacio.nombre}${espacio.subespacios?.length ? ` y sus ${espacio.subespacios.length} sub-espacios` : ''}`,
+        },
+        tx,
+      );
+
+      return {
+        mensaje: 'Espacio dado de baja exitosamente',
+        id,
+      };
+    });
+  }
+
+  /**
    * Validación interna de reglas de bloqueo (Criterios 3, 4 y 7).
    */
   private validarBloqueo(bloqueo: CreateBloqueoDto, disciplinasCompatibles?: number[]) {

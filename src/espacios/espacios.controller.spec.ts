@@ -25,6 +25,7 @@ describe('US-55 · EspaciosController', () => {
       update: jest.fn(),
       updateBloqueo: jest.fn(),
       deleteBloqueo: jest.fn(),
+      remove: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -119,6 +120,14 @@ describe('US-55 · EspaciosController', () => {
       const res = await controller.deleteBloqueo(1, 50, mockUser);
       expect(res.mensaje).toBe('Bloqueo eliminado exitosamente');
       expect(service.deleteBloqueo).toHaveBeenCalledWith(1, 50, 1);
+    });
+
+    it('remove · delega en service.remove (US-57 baja lógica)', async () => {
+      service.remove.mockResolvedValue({ mensaje: 'Espacio dado de baja exitosamente', id: 1 } as any);
+
+      const res = await controller.remove(1, mockUser);
+      expect(res.mensaje).toBe('Espacio dado de baja exitosamente');
+      expect(service.remove).toHaveBeenCalledWith(1, 1);
     });
   });
 });

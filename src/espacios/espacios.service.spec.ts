@@ -17,6 +17,7 @@ describe('US-55 · EspaciosService', () => {
       espacio: {
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
         findUnique: jest.fn(),
         findUniqueOrThrow: jest.fn(),
         findMany: jest.fn(),
@@ -29,6 +30,7 @@ describe('US-55 · EspaciosService', () => {
       bloqueoAgenda: {
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
         findFirst: jest.fn(),
       },
       disciplina: {
@@ -851,6 +853,74 @@ describe('US-55 · EspaciosService', () => {
         }),
         mockPrisma,
       );
+    });
+  });
+
+  describe('US-57 · Eliminar espacio (Baja Lógica)', () => {
+    it('TC-ESP-DEL01 · aplica baja lógica al espacio y a sus sub-espacios si no hay reservas futuras', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 10,
+        nombre: 'Sector Parrillas',
+        activo: true,
+        subespacios: [{ id: 11, nombre: 'Parrilla 1' }],
+      });
+
+      mockPrisma.reserva.findMany.mockResolvedValueOnce([]); // Sin reservas futuras
+      mockPrisma.espacio.update.mockResolvedValueOnce({ id: 10, activo: false });
+      mockPrisma.espacio.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockPrisma.bloqueoAgenda.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      const res = await service.remove(10, 99);
+
+      expect(res.mensaje).toBe('Espacio dado de baja exitosamente');
+      expect(res.id).toBe(10);
+      expect(mockPrisma.espacio.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 10 },
+          data: { activo: false },
+        }),
+      );
+      expect(mockPrisma.espacio.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { espacioPadreId: 10, activo: true },
+          data: { activo: false },
+        }),
+      );
+      expect(mockAuditoria.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'BAJA',
+          entidad: 'Espacio',
+          idEntidad: 10,
+          responsableId: 99,
+        }),
+        mockPrisma,
+      );
+    });
+
+    it('TC-ESP-DEL02 · rechaza con 409 Conflict si el espacio tiene reservas futuras activas o pendientes', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 10,
+        nombre: 'Sector Parrillas',
+        activo: true,
+        subespacios: [],
+      });
+
+      mockPrisma.reserva.findMany.mockResolvedValueOnce([
+        {
+          id: 50,
+          codigo: 'RES-FUTURA-01',
+          inicio: new Date(Date.now() + 86400000),
+          fin: new Date(Date.now() + 90000000),
+          estado: 'CONFIRMADA',
+        },
+      ]);
+
+      await expect(service.remove(10, 99)).rejects.toThrow(ConflictException);
+    });
+
+    it('TC-ESP-DEL03 · rechaza con 404 si el espacio no existe o ya está inactivo', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce(null);
+      await expect(service.remove(999, 99)).rejects.toThrow(NotFoundException);
     });
   });
 });
