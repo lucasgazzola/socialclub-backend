@@ -103,7 +103,8 @@ export class EspaciosController {
   @Patch(':id')
   @Roles('ADMIN')
   @ApiOperation({
-    summary: 'US-56 — Modificar información, tarifas, capacidad, modalidades y disciplinas compatibles',
+    summary:
+      'US-56 — Modificar información, tarifas, capacidad, modalidades y disciplinas compatibles',
   })
   @ApiOkResponse({ description: 'Espacio modificado exitosamente' })
   @ApiErrores({
@@ -177,10 +178,7 @@ export class EspaciosController {
     404: 'Espacio no encontrado o ya dado de baja',
     409: 'No se puede dar de baja el espacio porque tiene reservas futuras activas o pendientes.',
   })
-  remove(
-    @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
     return this.espaciosService.remove(id, user.id);
   }
 }

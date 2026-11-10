@@ -575,7 +575,9 @@ export class EspaciosService {
           ...(dto.capacidadMaxima ? { capacidadMaxima: dto.capacidadMaxima } : {}),
           ...(dto.modalidad ? { modalidad: dto.modalidad } : {}),
           ...(dto.ubicacion !== undefined ? { ubicacion: dto.ubicacion?.trim() || null } : {}),
-          ...(dto.descripcion !== undefined ? { descripcion: dto.descripcion?.trim() || null } : {}),
+          ...(dto.descripcion !== undefined
+            ? { descripcion: dto.descripcion?.trim() || null }
+            : {}),
           ...(dto.precio !== undefined ? { precio: new Prisma.Decimal(dto.precio) } : {}),
           ...(dto.precioSocio !== undefined
             ? { precioSocio: dto.precioSocio ? new Prisma.Decimal(dto.precioSocio) : null }
@@ -656,13 +658,19 @@ export class EspaciosService {
     const diasSemanaFinal = dto.diasSemana ?? bloqueoActual.diasSemana;
     const horaInicioFinal = dto.horaInicio ?? bloqueoActual.horaInicio;
     const horaFinFinal = dto.horaFin ?? bloqueoActual.horaFin;
-    const fechaFinal = dto.fecha ?? (bloqueoActual.fecha ? bloqueoActual.fecha.toISOString().split('T')[0] : undefined);
+    const fechaFinal =
+      dto.fecha ??
+      (bloqueoActual.fecha ? bloqueoActual.fecha.toISOString().split('T')[0] : undefined);
     const vigenteDesdeFinal =
       dto.vigenteDesde ??
-      (bloqueoActual.vigenteDesde ? bloqueoActual.vigenteDesde.toISOString().split('T')[0] : undefined);
+      (bloqueoActual.vigenteDesde
+        ? bloqueoActual.vigenteDesde.toISOString().split('T')[0]
+        : undefined);
     const vigenteHastaFinal =
       dto.vigenteHasta ??
-      (bloqueoActual.vigenteHasta ? bloqueoActual.vigenteHasta.toISOString().split('T')[0] : undefined);
+      (bloqueoActual.vigenteHasta
+        ? bloqueoActual.vigenteHasta.toISOString().split('T')[0]
+        : undefined);
     const disciplinaIdFinal =
       dto.disciplinaId !== undefined ? dto.disciplinaId : bloqueoActual.disciplinaId;
     const motivoFinal = dto.motivo !== undefined ? dto.motivo : bloqueoActual.motivo;

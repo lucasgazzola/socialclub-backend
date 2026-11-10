@@ -1,0 +1,123 @@
+================================================================================
+EVIDENCIA DE PRUEBAS AUTOMATIZADAS - US-56, US-57 y US-58
+Módulo de Gestión de Espacios Físicos (SocialClub Backend)
+Equipo NullPointer - QA & Testing (Mateo Gerbaudo)
+Fecha: 09/11/2026
+Rama: feature/US-58-consultar-espacios
+================================================================================
+
+1. RESUMEN EJECUTIVO DE EJECUCIÓN
+--------------------------------------------------------------------------------
+Herramientas: Jest v29.4.11, Supertest v7.2.2, ts-jest, NestJS TestingModule
+Entorno: Node.js v22.x, PostgreSQL 16 (mock aislado PrismaService), Prisma v6.19.3
+Total Suites: 4 suites de prueba (100% PASS)
+Total Tests: 121 pruebas unitarias, de RBAC y de integración E2E (121 passed)
+
+Test Suites Ejecutadas:
+  - PASS src/espacios/espacios.roles.spec.ts (8 tests)
+  - PASS src/espacios/espacios.controller.spec.ts (15 tests)
+  - PASS src/espacios/espacios.service.spec.ts (63 tests)
+  - PASS src/espacios/espacios.e2e-spec.ts (35 tests)
+
+--------------------------------------------------------------------------------
+2. MÉTRICAS DE COBERTURA DE CÓDIGO (JEST COVERAGE)
+--------------------------------------------------------------------------------
+Umbral mínimo obligatorio por AGENTS.md: 70%
+Umbral global backend (package.json): Stmts 85% | Branch 73% | Funcs 78% | Lines 85%
+
+------------------------|---------|----------|---------|---------|-------------------------------------------------------------------
+File                    | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                                                 
+------------------------|---------|----------|---------|---------|-------------------------------------------------------------------
+All files               |   92.28 |    76.41 |   97.05 |   92.33 |                                                                   
+ espacios.controller.ts |     100 |      100 |     100 |     100 |                                                                   
+ espacios.service.ts    |   91.16 |     76.3 |      96 |   91.25 | 49,95,375-380,386-391,441,443,536,563,644,652,688,691-692,772,780 
+------------------------|---------|----------|---------|---------|-------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+3. MATRIZ DE CASOS DE PRUEBA VERIFICADOS
+--------------------------------------------------------------------------------
+
+[US-56: EDITAR ESPACIO Y BLOQUEOS DE AGENDA]
+- TC-ESP-ED01 (Edición de Espacio Deportivo):
+  * Modifica nombre, tarifas diferenciadas (socio/no socio), seña y disciplinas deportivas asociadas (200 OK).
+  * Verifica registro inalterable en AuditoriaService con acción EDITAR y responsableId.
+  * PASS en unitario (service.spec.ts) e integración e2e (espacios.e2e-spec.ts).
+
+- TC-ESP-ED02 (Validación Regla Espacio Social):
+  * Rechaza con 400 Bad Request si se intenta vincular disciplinaIds a un espacio con tipo SOCIAL.
+  * Mensaje: "Los espacios de tipo SOCIAL no pueden asociarse a disciplinas deportivas."
+  * PASS en unitario (service.spec.ts) e integración e2e (espacios.e2e-spec.ts).
+
+- TC-ESP-ED03 (Validación Monetaria de Seña):
+  * Rechaza con 400 Bad Request si se especifica montoSena superior al precio de alquiler.
+  * Mensaje: "El monto de la seña requerida no puede ser superior al precio total de alquiler."
+  * PASS en unitario (service.spec.ts) e integración e2e (espacios.e2e-spec.ts).
+
+- TC-ESP-ED04 (Modificación de Bloqueo de Agenda sin conflicto):
+  * Actualiza franja horaria y motivo de un bloqueo existente sin colisiones (200 OK).
+  * AuditoriaService registra acción EDITAR sobre la entidad BloqueoAgenda.
+  * PASS en unitario (service.spec.ts) e integración e2e (espacios.e2e-spec.ts).
+
+- TC-ESP-ED05 (Detección de Conflicto de Agenda en Bloqueo - Criterio 6):
+  * Rechaza con 409 Conflict si la nueva fecha/horario de un bloqueo colisiona con un alquiler particular aprobado (APROBADA_PENDIENTE_PAGO o CONFIRMADA).
+  * Valida solapamiento tanto en el espacio propio como en su espacio padre o sub-espacios hijos (Composite).
+  * Mensaje: "El bloqueo modificado entra en conflicto con la reserva particular aprobada RES-MOD-01..."
+  * PASS en unitario (service.spec.ts) e integración e2e (espacios.e2e-spec.ts).
+
+- TC-ESP-ED06 (Baja Lógica de Bloqueo de Agenda):
+  * Marca activo = false en el bloqueo correspondiente (200 OK).
+  * AuditoriaService registra acción BAJA sobre la entidad BloqueoAgenda con responsableId.
+  * PASS en unitario (service.spec.ts) e integración e2e (espacios.e2e-spec.ts).
+
+[US-57: ELIMINAR / BAJA LÓGICA DE ESPACIO FÍSICO]
+- TC-ESP-DEL01 (Baja Lógica Exitosa en Cascada):
+  * Marca activo = false sobre el espacio físico (200 OK) cuando no posee reservas activas.
+  * Ejecuta transacción atómica que desactiva en cascada los sub-espacios hijos y los bloqueos vigentes asociados.
+  * Registra evento de auditoría con acción BAJA sobre la entidad Espacio.
+  * PASS en unitario (service.spec.ts) e integración e2e (espacios.e2e-spec.ts).
+
+- TC-ESP-DEL02 (Protección contra Baja con Reservas Futuras):
+  * Rechaza con 409 Conflict si el espacio o cualquiera de sus sub-espacios tiene reservas en estado PENDIENTE_APROBACION, APROBADA_PENDIENTE_PAGO o CONFIRMADA.
+  * Mensaje: "No se puede dar de baja el espacio porque tiene reservas futuras pendientes o confirmadas (ej: RES-FUTURA-01)..."
+  * PASS en unitario (service.spec.ts) e integración e2e (espacios.e2e-spec.ts).
+
+- TC-ESP-DEL03 (Espacio Inexistente o Ya Inactivo):
+  * Rechaza con 404 Not Found si el espacio no existe en BD o si ya posee activo = false.
+  * Mensaje: "Espacio no encontrado o ya inactivo"
+  * PASS en unitario (service.spec.ts) e integración e2e (espacios.e2e-spec.ts).
+
+[US-58: CONSULTAR CATÁLOGO DE ESPACIOS FÍSICOS]
+- TC-ESP-CON01 (Contrato Paginado Full-Stack y Conteos Administrativos):
+  * Retorna estructura estándar { items, total, pagina, porPagina, counts: { todos, activos, inactivos } }.
+  * Permite a ADMIN y COLABORADOR alternar entre pestañas y filtrar por estado activo/inactivo.
+  * PASS en unitario (service.spec.ts) e integración e2e (espacios.e2e-spec.ts).
+
+- TC-ESP-CON02 (Visibilidad Restringida para Rol Socio):
+  * Cuando la consulta es invocada por un usuario con rol SOCIO, restringe automáticamente la cláusula where a activo: true.
+  * Oculta el conteo de espacios inactivos forzando counts.inactivos = 0.
+  * PASS en unitario (service.spec.ts) e integración e2e (espacios.e2e-spec.ts).
+
+- TC-ESP-CON03 (Filtrado Multicriterio):
+  * Aplica filtros combinados por rango de capacidad (capacidadMin <= capacidadMaxima <= capacidadMax), tipo de espacio (DEPORTIVO, SOCIAL) y modalidad de alquiler (POR_HORA, DIA_COMPLETO).
+  * PASS en unitario (service.spec.ts) e integración e2e (espacios.e2e-spec.ts).
+
+- TC-ESP-CON04 (Navegación de Jerarquía Composite):
+  * Soporta soloRaiz = true para listar únicamente espacios principales/contenedores.
+  * Soporta espacioPadreId = X para consultar los sub-espacios directos de una unidad física.
+  * PASS en unitario (service.spec.ts) e integración e2e (espacios.e2e-spec.ts).
+
+--------------------------------------------------------------------------------
+4. CONTROL DE ACCESO BASADO EN ROLES (RBAC)
+--------------------------------------------------------------------------------
+- POST /espacios -> ADMIN (403 Forbidden para SOCIO/COLABORADOR/PROFESOR)
+- POST /espacios/:id/bloqueos -> ADMIN (403 Forbidden para roles no autorizados)
+- PATCH /espacios/:id -> ADMIN (403 Forbidden para SOCIO/COLABORADOR)
+- PATCH /espacios/:id/bloqueos/:bloqueoId -> ADMIN (403 Forbidden para SOCIO)
+- DELETE /espacios/:id/bloqueos/:bloqueoId -> ADMIN (403 Forbidden para SOCIO)
+- DELETE /espacios/:id -> ADMIN (403 Forbidden para SOCIO/COLABORADOR)
+- GET /espacios -> ADMIN, COLABORADOR, SOCIO (200 OK con vistas diferenciadas)
+- GET /espacios/:id -> ADMIN, COLABORADOR, SOCIO (200 OK)
+
+================================================================================
+FIN DE REPORTE DE EVIDENCIA - 100% TESTS PASSING - COBERTURA 92.28%
+================================================================================

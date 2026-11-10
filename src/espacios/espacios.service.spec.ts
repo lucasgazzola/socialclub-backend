@@ -680,6 +680,53 @@ describe('US-55 · EspaciosService', () => {
       });
     });
 
+    it('TC-ESP-CON02 · para rol SOCIO solo devuelve espacios activos y oculta inactivos (counts.inactivos = 0)', async () => {
+      mockPrisma.espacio.findMany.mockResolvedValue([]);
+      mockPrisma.espacio.count
+        .mockResolvedValueOnce(5) // total activos
+        .mockResolvedValueOnce(5) // total activos
+        .mockResolvedValueOnce(5) // total activos
+        .mockResolvedValueOnce(0); // inactivos
+
+      const res: any = await service.findAll(
+        {
+          pagina: 1,
+          porPagina: 10,
+        },
+        'SOCIO',
+      );
+
+      expect(res.counts.inactivos).toBe(0);
+      expect(mockPrisma.espacio.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            activo: true,
+          }),
+        }),
+      );
+    });
+
+    it('TC-ESP-CON03 · filtra por rango de capacidad (capacidadMin, capacidadMax), tipo y modalidad', async () => {
+      mockPrisma.espacio.findMany.mockResolvedValue([]);
+
+      await service.findAll({
+        capacidadMin: 10,
+        capacidadMax: 50,
+        tipo: TipoEspacio.DEPORTIVO,
+        modalidad: ModalidadReserva.POR_HORA,
+      });
+
+      expect(mockPrisma.espacio.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tipo: TipoEspacio.DEPORTIVO,
+            modalidad: ModalidadReserva.POR_HORA,
+            capacidadMaxima: { gte: 10, lte: 50 },
+          }),
+        }),
+      );
+    });
+
     it('findOne · devuelve detalle del espacio o 404 si no existe', async () => {
       mockPrisma.espacio.findUnique.mockResolvedValue({ id: 1, nombre: 'Cancha 1' });
       const espacio = await service.findOne(1);
@@ -755,10 +802,10 @@ describe('US-55 · EspaciosService', () => {
         disciplinas: [],
       });
 
-      await expect(
-        service.update(2, { disciplinaIds: [1] }, 99),
-      ).rejects.toThrow(
-        new BadRequestException('Los espacios de tipo SOCIAL no pueden asociarse a disciplinas deportivas.'),
+      await expect(service.update(2, { disciplinaIds: [1] }, 99)).rejects.toThrow(
+        new BadRequestException(
+          'Los espacios de tipo SOCIAL no pueden asociarse a disciplinas deportivas.',
+        ),
       );
     });
 
@@ -773,10 +820,10 @@ describe('US-55 · EspaciosService', () => {
         disciplinas: [],
       });
 
-      await expect(
-        service.update(1, { montoSena: 20000 }, 99),
-      ).rejects.toThrow(
-        new BadRequestException('El monto de la seña requerida no puede ser superior al precio total de alquiler.'),
+      await expect(service.update(1, { montoSena: 20000 }, 99)).rejects.toThrow(
+        new BadRequestException(
+          'El monto de la seña requerida no puede ser superior al precio total de alquiler.',
+        ),
       );
     });
 
@@ -825,7 +872,52 @@ describe('US-55 · EspaciosService', () => {
       );
     });
 
-    it('TC-ESP-ED05 · elimina lógicamente un bloqueo y audita la acción', async () => {
+    it('TC-ESP-ED05 · rechaza con 409 Conflict si la modificación de un bloqueo se superpone con un alquiler particular aprobado', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 1,
+        nombre: 'Cancha 1',
+        activo: true,
+        disciplinas: [],
+        subespacios: [],
+      });
+
+      mockPrisma.bloqueoAgenda.findFirst.mockResolvedValueOnce({
+        id: 50,
+        espacioId: 1,
+        tipo: TipoBloqueo.PUNTUAL,
+        fecha: new Date('2026-11-20'),
+        horaInicio: '10:00',
+        horaFin: '12:00',
+        motivo: 'Mantenimiento',
+        activo: true,
+      });
+
+      mockPrisma.reserva.findMany.mockResolvedValueOnce([
+        {
+          id: 99,
+          codigo: 'RES-CONFLICT-01',
+          espacioId: 1,
+          inicio: new Date('2026-11-20T21:00:00.000Z'),
+          fin: new Date('2026-11-20T23:00:00.000Z'),
+        },
+      ]);
+
+      await expect(
+        service.updateBloqueo(
+          1,
+          50,
+          {
+            fecha: '2026-11-20',
+            horaInicio: '18:00',
+            horaFin: '20:00',
+            motivo: 'Mantenimiento extendido',
+          },
+          99,
+        ),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('TC-ESP-ED06 · baja lógica de un bloqueo de agenda (200 OK) y auditoría con acción BAJA', async () => {
       mockPrisma.espacio.findUnique.mockResolvedValueOnce({
         id: 1,
         nombre: 'Cancha 1',

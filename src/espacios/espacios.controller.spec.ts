@@ -115,7 +115,10 @@ describe('US-55 · EspaciosController', () => {
     });
 
     it('deleteBloqueo · delega en service.deleteBloqueo', async () => {
-      service.deleteBloqueo.mockResolvedValue({ mensaje: 'Bloqueo eliminado exitosamente', bloqueoId: 50 } as any);
+      service.deleteBloqueo.mockResolvedValue({
+        mensaje: 'Bloqueo eliminado exitosamente',
+        bloqueoId: 50,
+      } as any);
 
       const res = await controller.deleteBloqueo(1, 50, mockUser);
       expect(res.mensaje).toBe('Bloqueo eliminado exitosamente');
@@ -123,7 +126,10 @@ describe('US-55 · EspaciosController', () => {
     });
 
     it('remove · delega en service.remove (US-57 baja lógica)', async () => {
-      service.remove.mockResolvedValue({ mensaje: 'Espacio dado de baja exitosamente', id: 1 } as any);
+      service.remove.mockResolvedValue({
+        mensaje: 'Espacio dado de baja exitosamente',
+        id: 1,
+      } as any);
 
       const res = await controller.remove(1, mockUser);
       expect(res.mensaje).toBe('Espacio dado de baja exitosamente');

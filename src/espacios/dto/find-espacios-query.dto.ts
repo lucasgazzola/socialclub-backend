@@ -1,13 +1,4 @@
-import {
-  IsBoolean,
-  IsEnum,
-  IsIn,
-  IsInt,
-  IsOptional,
-  IsString,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsBoolean, IsEnum, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { ModalidadReserva, TipoEspacio } from '@prisma/client';
@@ -47,7 +38,9 @@ export class FindEspaciosQueryDto {
   })
   estado?: 'todos' | 'activos' | 'inactivos';
 
-  @ApiPropertyOptional({ description: 'Filtrar por activo booleano (default: true en catálogo simple)' })
+  @ApiPropertyOptional({
+    description: 'Filtrar por activo booleano (default: true en catálogo simple)',
+  })
   @IsOptional()
   @Transform(({ value }) => {
     if (value === 'true' || value === true) return true;
