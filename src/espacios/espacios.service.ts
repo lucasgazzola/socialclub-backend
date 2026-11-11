@@ -7,7 +7,7 @@ import {
 import { Prisma, TipoBloqueo, TipoEspacio } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
-import { intervalosDeBloqueo, seSolapan } from '../reservas/agenda';
+import { intervalosDeBloqueo, obtenerIdsEspaciosRelacionados, seSolapan } from '../reservas/agenda';
 import { CreateEspacioDto, CreateSubespacioDto } from './dto/create-espacio.dto';
 import { CreateBloqueoDto } from './dto/create-bloqueo.dto';
 import { FindEspaciosQueryDto } from './dto/find-espacios-query.dto';
@@ -248,15 +248,7 @@ export class EspaciosService {
 
     // Patrón Composite: recolectar todos los IDs de espacios afectados por este bloqueo
     // (el propio espacio + su padre si es sub-espacio + sus hijos si es espacio contenedor)
-    const idsEspaciosRelacionados: number[] = [espacioId];
-    if (espacio.espacioPadreId) {
-      idsEspaciosRelacionados.push(espacio.espacioPadreId);
-    }
-    if (espacio.subespacios && espacio.subespacios.length > 0) {
-      for (const sub of espacio.subespacios) {
-        idsEspaciosRelacionados.push(sub.id);
-      }
-    }
+    const idsEspaciosRelacionados = await obtenerIdsEspaciosRelacionados(this.prisma, espacio);
 
     // Criterio 6: validar conflicto con alquileres particulares ya aprobados o confirmados
     const reservasOcupan = await this.prisma.reserva.findMany({
@@ -690,16 +682,8 @@ export class EspaciosService {
     const disciplinasCompatibles = espacio.disciplinas.map((d) => d.disciplinaId);
     this.validarBloqueo(dummyDto, disciplinasCompatibles);
 
-    // Conflictos con reservas particulares
-    const idsEspaciosRelacionados: number[] = [espacioId];
-    if (espacio.espacioPadreId) {
-      idsEspaciosRelacionados.push(espacio.espacioPadreId);
-    }
-    if (espacio.subespacios && espacio.subespacios.length > 0) {
-      for (const sub of espacio.subespacios) {
-        idsEspaciosRelacionados.push(sub.id);
-      }
-    }
+    // Conflictos con reservas particulares (Patrón Composite)
+    const idsEspaciosRelacionados = await obtenerIdsEspaciosRelacionados(this.prisma, espacio);
 
     const reservasOcupan = await this.prisma.reserva.findMany({
       where: {
