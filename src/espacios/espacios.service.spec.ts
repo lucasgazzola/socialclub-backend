@@ -825,6 +825,48 @@ describe('US-55 · EspaciosService', () => {
       );
     });
 
+    it('TC-ESP-ED04b · al editar un bloqueo del espacio padre, detecta conflicto (409) si un sub-espacio hijo tiene reserva aprobada', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 10,
+        nombre: 'Sector Parrillas',
+        activo: true,
+        disciplinas: [],
+        subespacios: [{ id: 11, nombre: 'Parrilla 1', activo: true }],
+      });
+
+      mockPrisma.bloqueoAgenda.findFirst.mockResolvedValueOnce({
+        id: 60,
+        espacioId: 10,
+        tipo: TipoBloqueo.PUNTUAL,
+        fecha: new Date('2026-11-20'),
+        horaInicio: '18:00',
+        horaFin: '20:00',
+        motivo: 'Mantenimiento',
+        activo: true,
+      });
+
+      // Conflicto con reserva de Parrilla 1 (sub-espacio hijo)
+      const resInicio = new Date('2026-11-20T21:00:00.000Z');
+      const resFin = new Date('2026-11-20T23:00:00.000Z');
+      mockPrisma.reserva.findMany.mockResolvedValueOnce([
+        {
+          id: 99,
+          codigo: 'RES-PARR01',
+          espacioId: 11,
+          inicio: resInicio,
+          fin: resFin,
+        },
+      ]);
+
+      await expect(
+        service.updateBloqueo(10, 60, { horaInicio: '18:00', horaFin: '20:00' }, 99),
+      ).rejects.toThrow(
+        new ConflictException(
+          'El bloqueo modificado entra en conflicto con la reserva particular aprobada RES-PARR01. Debe gestionar la cancelación manual justificada de la reserva antes de bloquear el turno.',
+        ),
+      );
+    });
+
     it('TC-ESP-ED05 · elimina lógicamente un bloqueo y audita la acción', async () => {
       mockPrisma.espacio.findUnique.mockResolvedValueOnce({
         id: 1,
