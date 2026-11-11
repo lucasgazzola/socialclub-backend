@@ -110,6 +110,80 @@ export function intervalosDeBloqueo(bloqueo: BloqueoDeAgenda, rango: Intervalo):
   return fechas.map((f) => intervaloEnFecha(bloqueo, f)).filter((i) => seSolapan(i, rango));
 }
 
+export interface EspacioJerarquia {
+  id: number;
+  nombre?: string;
+  espacioPadreId?: number | null;
+  subespacios?: { id: number; nombre?: string; activo?: boolean }[];
+}
+
+export type PrismaEspacioClient = {
+  espacio?: {
+    findUnique: (args: {
+      where: { id: number };
+      select?: any;
+    }) => Promise<EspacioJerarquia | null>;
+  };
+};
+
+/**
+ * Patrón Composite (RN-ESP01):
+ * Devuelve los IDs de los espacios relacionados que comparten disponibilidad:
+ * [propio, padre?, ...hijos activos].
+ * Los hermanos NO se afectan entre sí.
+ * Puede recibir el cliente Prisma y un ID (hace la consulta), o directamente
+ * el objeto del espacio ya cargado en memoria para evitar consultas duplicadas.
+ */
+export async function obtenerIdsEspaciosRelacionados(
+  prisma: PrismaEspacioClient,
+  espacioOId: number | EspacioJerarquia,
+): Promise<number[]> {
+  if (typeof espacioOId !== 'number') {
+    const ids: number[] = [espacioOId.id];
+    if (espacioOId.espacioPadreId) {
+      ids.push(espacioOId.espacioPadreId);
+    }
+    if (espacioOId.subespacios && Array.isArray(espacioOId.subespacios)) {
+      for (const sub of espacioOId.subespacios) {
+        if (sub.activo !== false) {
+          ids.push(sub.id);
+        }
+      }
+    }
+    return ids;
+  }
+
+  const espacioId = espacioOId;
+  if (!prisma?.espacio?.findUnique) return [espacioId];
+
+  const espacio = await prisma.espacio.findUnique({
+    where: { id: espacioId },
+    select: {
+      id: true,
+      espacioPadreId: true,
+      subespacios: {
+        where: { activo: true },
+        select: { id: true, activo: true },
+      },
+    },
+  });
+
+  if (!espacio) return [espacioId];
+
+  const ids: number[] = [espacio.id];
+  if (espacio.espacioPadreId) {
+    ids.push(espacio.espacioPadreId);
+  }
+  if (espacio.subespacios && Array.isArray(espacio.subespacios)) {
+    for (const sub of espacio.subespacios) {
+      if (sub.activo !== false) {
+        ids.push(sub.id);
+      }
+    }
+  }
+  return ids;
+}
+
 export interface ConflictoAgenda {
   tipo: 'RESERVA' | 'BLOQUEO';
   id: number;
@@ -121,36 +195,62 @@ export interface ConflictoAgenda {
 /**
  * Qué ocupa un intervalo de un espacio: reservas en estado que ocupa y
  * bloqueos (RN-ESP01: el espacio compartido se ocupa entero, sin importar la
- * disciplina). `excluirReservaId` deja fuera la propia reserva al aprobarla.
+ * disciplina; Patrón Composite: padre e hijos comparten disponibilidad).
+ * `excluirReservaId` deja fuera la propia reserva al aprobarla.
+ * `espacioConsultadoId` indica el espacio evaluado; si el conflicto proviene de un
+ * espacio relacionado (padre o subespacio), se adjunta su nombre en `detalle`.
  */
 export function conflictosDe(
   intervalo: Intervalo,
   ocupacion: {
-    reservas: { id: number; codigo: string; estado: EstadoReserva; inicio: Date; fin: Date }[];
-    bloqueos: (BloqueoDeAgenda & { id: number; motivo: string | null })[];
+    reservas: {
+      id: number;
+      codigo: string;
+      estado: EstadoReserva;
+      inicio: Date;
+      fin: Date;
+      espacioId?: number;
+      espacio?: { id: number; nombre: string } | null;
+    }[];
+    bloqueos: (BloqueoDeAgenda & {
+      id: number;
+      motivo: string | null;
+      espacioId?: number;
+      espacio?: { id: number; nombre: string } | null;
+    })[];
   },
   excluirReservaId?: number,
+  espacioConsultadoId?: number,
 ): ConflictoAgenda[] {
   const conflictos: ConflictoAgenda[] = [];
   for (const r of ocupacion.reservas) {
     if (r.id === excluirReservaId || !ESTADOS_QUE_OCUPAN.includes(r.estado)) continue;
     if (seSolapan(intervalo, r)) {
+      const nombreOrigen =
+        espacioConsultadoId && r.espacioId && r.espacioId !== espacioConsultadoId && r.espacio?.nombre
+          ? ` (${r.espacio.nombre})`
+          : '';
       conflictos.push({
         tipo: 'RESERVA',
         id: r.id,
         inicio: r.inicio,
         fin: r.fin,
-        detalle: `Reserva ${r.codigo}`,
+        detalle: `Reserva ${r.codigo}${nombreOrigen}`,
       });
     }
   }
   for (const b of ocupacion.bloqueos) {
     for (const i of intervalosDeBloqueo(b, intervalo)) {
+      const motivoBase = b.motivo ?? 'Bloqueo de agenda';
+      const nombreOrigen =
+        espacioConsultadoId && b.espacioId && b.espacioId !== espacioConsultadoId && b.espacio?.nombre
+          ? ` (${b.espacio.nombre})`
+          : '';
       conflictos.push({
         tipo: 'BLOQUEO',
         id: b.id,
         ...i,
-        detalle: b.motivo ?? 'Bloqueo de agenda',
+        detalle: `${motivoBase}${nombreOrigen}`,
       });
     }
   }

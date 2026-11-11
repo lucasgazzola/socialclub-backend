@@ -7,6 +7,7 @@ import {
   generarCodigoReserva,
   instanteClub,
   intervalosDeBloqueo,
+  obtenerIdsEspaciosRelacionados,
   seSolapan,
 } from './agenda';
 
@@ -142,6 +143,162 @@ describe('TASK-52 · agenda de espacios', () => {
       expect(conflictos).toEqual([
         expect.objectContaining({ tipo: 'BLOQUEO', detalle: 'Entrenamiento de fútbol' }),
       ]);
+    });
+
+    it('indica el espacio de origen en el detalle si proviene de un espacio relacionado (padre o hijo)', () => {
+      const conflictos = conflictosDe(
+        turno,
+        {
+          reservas: [
+            {
+              id: 5,
+              codigo: 'RES-HIJO01',
+              estado: 'CONFIRMADA',
+              inicio: instanteClub(2026, 11, 3, '19:30'),
+              fin: instanteClub(2026, 11, 3, '20:30'),
+              espacioId: 11,
+              espacio: { id: 11, nombre: 'Parrilla 1' },
+            },
+          ],
+          bloqueos: [
+            {
+              ...bloqueo({ diasSemana: [2], motivo: null }),
+              id: 99,
+              espacioId: 10,
+              espacio: { id: 10, nombre: 'Sector Parrillas' },
+            },
+          ],
+        },
+        undefined,
+        12, // Evaluando Parrilla 2 (espacio 12)
+      );
+
+      expect(conflictos).toEqual([
+        expect.objectContaining({
+          tipo: 'BLOQUEO',
+          id: 99,
+          detalle: 'Bloqueo de agenda (Sector Parrillas)',
+        }),
+        expect.objectContaining({
+          tipo: 'RESERVA',
+          id: 5,
+          detalle: 'Reserva RES-HIJO01 (Parrilla 1)',
+        }),
+      ]);
+    });
+
+    it('conserva el detalle estándar sin paréntesis si el conflicto es del mismo espacio', () => {
+      const conflictos = conflictosDe(
+        turno,
+        {
+          reservas: [
+            {
+              id: 5,
+              codigo: 'RES-MISMO',
+              estado: 'CONFIRMADA',
+              inicio: instanteClub(2026, 11, 3, '19:30'),
+              fin: instanteClub(2026, 11, 3, '20:30'),
+              espacioId: 10,
+              espacio: { id: 10, nombre: 'Sector Parrillas' },
+            },
+          ],
+          bloqueos: [
+            {
+              ...bloqueo({ diasSemana: [2], motivo: 'Mantenimiento' }),
+              id: 88,
+              espacioId: 10,
+              espacio: { id: 10, nombre: 'Sector Parrillas' },
+            },
+          ],
+        },
+        undefined,
+        10, // Mismo espacio
+      );
+
+      expect(conflictos[0].detalle).toBe('Mantenimiento');
+      expect(conflictos[1].detalle).toBe('Reserva RES-MISMO');
+    });
+  });
+
+  describe('obtenerIdsEspaciosRelacionados (Patrón Composite RN-ESP01)', () => {
+    it('devuelve solo su ID si es un espacio individual sin padre ni hijos', async () => {
+      const prismaMock = {
+        espacio: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 1,
+            espacioPadreId: null,
+            subespacios: [],
+          }),
+        },
+      };
+
+      const ids = await obtenerIdsEspaciosRelacionados(prismaMock, 1);
+      expect(ids).toEqual([1]);
+    });
+
+    it('para un espacio padre devuelve su ID y los IDs de sus hijos activos, omitiendo inactivos', async () => {
+      const prismaMock = {
+        espacio: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 10,
+            espacioPadreId: null,
+            subespacios: [
+              { id: 11, activo: true },
+              { id: 12, activo: true },
+              { id: 13, activo: false },
+            ],
+          }),
+        },
+      };
+
+      const ids = await obtenerIdsEspaciosRelacionados(prismaMock, 10);
+      expect(ids).toEqual([10, 11, 12]);
+    });
+
+    it('para un espacio hijo devuelve su ID y el de su padre, pero NO el de sus hermanos', async () => {
+      const prismaMock = {
+        espacio: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 11,
+            espacioPadreId: 10,
+            subespacios: [],
+          }),
+        },
+      };
+
+      const ids = await obtenerIdsEspaciosRelacionados(prismaMock, 11);
+      expect(ids).toEqual([11, 10]);
+      expect(ids).not.toContain(12);
+    });
+
+    it('soporta recibir directamente el objeto de espacio en memoria sin llamar a Prisma', async () => {
+      const prismaMock = { espacio: { findUnique: jest.fn() } };
+      const espacioObj = {
+        id: 20,
+        espacioPadreId: null,
+        subespacios: [
+          { id: 21, activo: true },
+          { id: 22, activo: false },
+        ],
+      };
+
+      const ids = await obtenerIdsEspaciosRelacionados(prismaMock, espacioObj);
+      expect(ids).toEqual([20, 21]);
+      expect(prismaMock.espacio.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('devuelve [espacioId] si el espacio no existe o si no hay findUnique configurado', async () => {
+      const prismaMock = {
+        espacio: {
+          findUnique: jest.fn().mockResolvedValue(null),
+        },
+      };
+
+      const ids = await obtenerIdsEspaciosRelacionados(prismaMock, 999);
+      expect(ids).toEqual([999]);
+
+      const idsSinPrisma = await obtenerIdsEspaciosRelacionados({} as any, 5);
+      expect(idsSinPrisma).toEqual([5]);
     });
   });
 
