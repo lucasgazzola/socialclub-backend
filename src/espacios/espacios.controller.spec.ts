@@ -26,6 +26,7 @@ describe('US-55 · EspaciosController', () => {
       updateBloqueo: jest.fn(),
       deleteBloqueo: jest.fn(),
       remove: jest.fn(),
+      reactivate: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -134,6 +135,17 @@ describe('US-55 · EspaciosController', () => {
       const res = await controller.remove(1, mockUser);
       expect(res.mensaje).toBe('Espacio dado de baja exitosamente');
       expect(service.remove).toHaveBeenCalledWith(1, 1);
+    });
+
+    it('reactivate · delega en service.reactivate (US-57 complemento reactivación)', async () => {
+      service.reactivate.mockResolvedValue({
+        mensaje: 'Espacio reactivado exitosamente',
+        id: 1,
+      } as any);
+
+      const res = await controller.reactivate(1, mockUser);
+      expect(res.mensaje).toBe('Espacio reactivado exitosamente');
+      expect(service.reactivate).toHaveBeenCalledWith(1, 1);
     });
   });
 });
