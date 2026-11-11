@@ -67,6 +67,7 @@ describe('US-60/61/62 · ReservasService', () => {
   beforeEach(() => {
     tx = { reserva: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) } };
     prisma = {
+      espacio: { findUnique: jest.fn().mockResolvedValue(null) },
       reserva: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
       bloqueoAgenda: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn((cb: (t: unknown) => unknown) => cb(tx)),
@@ -535,6 +536,206 @@ describe('US-60/61/62 · ReservasService', () => {
       expect(turnoLegible({ ...turno, espacio: { modalidad: 'DIA_COMPLETO' } })).toBe(
         'sáb 07/11/2026 (día completo)',
       );
+    });
+  });
+
+  describe('Patrón Composite (RN-ESP01 / RN11) · Propagación de disponibilidad y bloqueos', () => {
+    const ahoraTurno = new Date(ahora + 5 * 24 * H);
+    const finTurno = new Date(ahora + 5 * 24 * H + 2 * H);
+
+    it('1. Bloqueo en padre => reserva en hijo da conflicto (con detalle claro)', async () => {
+      // Padre: id 10 ("Sector Parrillas")
+      // Hijo: id 11 ("Parrilla 1", espacioPadreId: 10)
+      const resHijo = reserva({
+        id: 101,
+        codigo: 'RES-HIJO11',
+        espacioId: 11,
+        inicio: ahoraTurno,
+        fin: finTurno,
+        espacio: { id: 11, nombre: 'Parrilla 1' },
+      });
+
+      encadenar(resHijo);
+
+      // findUnique para el hijo 11 devuelve su padre 10
+      prisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 11,
+        espacioPadreId: 10,
+        subespacios: [],
+      });
+
+      // El bloqueo activo está en el padre 10
+      prisma.bloqueoAgenda.findMany.mockResolvedValueOnce([
+        {
+          id: 55,
+          espacioId: 10,
+          tipo: 'PUNTUAL',
+          diasSemana: [],
+          fecha: ahoraTurno,
+          horaInicio: null,
+          horaFin: null,
+          vigenteDesde: null,
+          vigenteHasta: null,
+          motivo: 'Mantenimiento de techos',
+          activo: true,
+          espacio: { id: 10, nombre: 'Sector Parrillas' },
+        },
+      ]);
+
+      await expect(service.aprobar(101, 1)).rejects.toThrow(
+        /El turno ya no está disponible: se superpone con Mantenimiento de techos \(Sector Parrillas\)/,
+      );
+    });
+
+    it('2. Reserva aprobada en hijo => reserva del padre completo da conflicto', async () => {
+      // Padre: id 10 ("Sector Parrillas")
+      // Hijo: id 11 ("Parrilla 1")
+      const resPadre = reserva({
+        id: 201,
+        codigo: 'RES-PADRE10',
+        espacioId: 10,
+        inicio: ahoraTurno,
+        fin: finTurno,
+        espacio: { id: 10, nombre: 'Sector Parrillas' },
+      });
+
+      encadenar(resPadre);
+
+      // findUnique para el padre 10 devuelve subespacio hijo 11
+      prisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 10,
+        espacioPadreId: null,
+        subespacios: [{ id: 11, nombre: 'Parrilla 1', activo: true }],
+      });
+
+      // Ya existe una reserva confirmada en el hijo 11
+      prisma.reserva.findMany.mockResolvedValueOnce([
+        {
+          id: 301,
+          codigo: 'RES-HIJO11',
+          estado: 'CONFIRMADA',
+          inicio: ahoraTurno,
+          fin: finTurno,
+          espacioId: 11,
+          espacio: { id: 11, nombre: 'Parrilla 1' },
+        },
+      ]);
+
+      await expect(service.aprobar(201, 1)).rejects.toThrow(
+        /El turno ya no está disponible: se superpone con Reserva RES-HIJO11 \(Parrilla 1\)/,
+      );
+    });
+
+    it('3. Reserva aprobada en hijo => reserva en hermano NO da conflicto', async () => {
+      // Hermano 1: id 11 ("Parrilla 1", espacioPadreId: 10)
+      // Hermano 2: id 12 ("Parrilla 2", espacioPadreId: 10)
+      const resHermano2 = reserva({
+        id: 402,
+        codigo: 'RES-HERMANO2',
+        espacioId: 12,
+        inicio: ahoraTurno,
+        fin: finTurno,
+        espacio: { id: 12, nombre: 'Parrilla 2' },
+      });
+
+      encadenar(resHermano2, { estado: 'APROBADA_PENDIENTE_PAGO' });
+
+      // findUnique para el hermano 12 devuelve padre 10 (NO incluye al hermano 11)
+      prisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 12,
+        espacioPadreId: 10,
+        subespacios: [],
+      });
+
+      // No hay reservas en [12, 10]
+      prisma.reserva.findMany.mockResolvedValueOnce([]);
+      prisma.bloqueoAgenda.findMany.mockResolvedValueOnce([]);
+
+      const aprobada = await service.aprobar(402, 1);
+      expect(aprobada).toBeDefined();
+      expect(tx.reserva.updateMany).toHaveBeenCalled();
+    });
+
+    it('4. Bloqueo en hijo => padre en conflicto, hermano sin conflicto', async () => {
+      // Bloqueo en hijo 11
+      const bloqueoHijo11 = {
+        id: 88,
+        espacioId: 11,
+        tipo: 'PUNTUAL',
+        diasSemana: [],
+        fecha: ahoraTurno,
+        horaInicio: null,
+        horaFin: null,
+        vigenteDesde: null,
+        vigenteHasta: null,
+        motivo: 'Arreglo de parrilla',
+        activo: true,
+        espacio: { id: 11, nombre: 'Parrilla 1' },
+      };
+
+      // 4a. Evaluar reserva en padre 10: choca con bloqueo de hijo 11
+      const resPadre = reserva({
+        id: 501,
+        espacioId: 10,
+        inicio: ahoraTurno,
+        fin: finTurno,
+        espacio: { id: 10, nombre: 'Sector Parrillas' },
+      });
+      encadenar(resPadre);
+      prisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 10,
+        espacioPadreId: null,
+        subespacios: [{ id: 11, activo: true }],
+      });
+      prisma.bloqueoAgenda.findMany.mockResolvedValueOnce([bloqueoHijo11]);
+
+      await expect(service.aprobar(501, 1)).rejects.toThrow(
+        /El turno ya no está disponible: se superpone con Arreglo de parrilla \(Parrilla 1\)/,
+      );
+
+      // 4b. Evaluar reserva en hermano 12: no choca con bloqueo de hijo 11
+      const resHermano12 = reserva({
+        id: 502,
+        espacioId: 12,
+        inicio: ahoraTurno,
+        fin: finTurno,
+        espacio: { id: 12, nombre: 'Parrilla 2' },
+      });
+      encadenar(resHermano12, { estado: 'APROBADA_PENDIENTE_PAGO' });
+      prisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 12,
+        espacioPadreId: 10,
+        subespacios: [],
+      });
+      prisma.bloqueoAgenda.findMany.mockResolvedValueOnce([]); // no hay bloqueos en [12, 10]
+
+      const aprobadaHermano = await service.aprobar(502, 1);
+      expect(aprobadaHermano).toBeDefined();
+    });
+
+    it('5. Bloqueo inactivo o hijo inactivo => no genera conflicto', async () => {
+      const resPadre = reserva({
+        id: 601,
+        espacioId: 10,
+        inicio: ahoraTurno,
+        fin: finTurno,
+        espacio: { id: 10, nombre: 'Sector Parrillas' },
+      });
+      encadenar(resPadre, { estado: 'APROBADA_PENDIENTE_PAGO' });
+
+      // Subespacio inactivo 13 es filtrado
+      prisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 10,
+        espacioPadreId: null,
+        subespacios: [{ id: 13, activo: false }],
+      });
+
+      // Bloqueo inactivo (activo: false) no se devuelve por findMany activo: true
+      prisma.bloqueoAgenda.findMany.mockResolvedValueOnce([]);
+      prisma.reserva.findMany.mockResolvedValueOnce([]);
+
+      const aprobada = await service.aprobar(601, 1);
+      expect(aprobada).toBeDefined();
     });
   });
 });
