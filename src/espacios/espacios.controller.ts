@@ -182,4 +182,20 @@ export class EspaciosController {
   ) {
     return this.espaciosService.remove(id, user.id);
   }
+
+  @Patch(':id/reactivar')
+  @Roles('ADMIN')
+  @ApiOperation({
+    summary: 'US-57 (complemento) — Reactivar un espacio físico dado de baja',
+  })
+  @ApiOkResponse({ description: 'Espacio reactivado exitosamente' })
+  @ApiErrores({
+    400: 'El espacio ya se encuentra activo',
+    401: 'Unauthorized',
+    403: SIN_PERMISO,
+    404: NO_ENCONTRADO,
+  })
+  reactivate(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.espaciosService.reactivate(id, user.id);
+  }
 }

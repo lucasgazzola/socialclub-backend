@@ -898,6 +898,71 @@ export class EspaciosService {
   }
 
   /**
+   * US-57 (complemento) — Reactivar un espacio físico dado de baja lógica.
+   * Restaura el estado activo a true.
+   * Si es un espacio padre, también reactiva sus subespacios.
+   * Si es un subespacio cuyo padre está inactivo, también reactiva al padre.
+   * Registra la operación en la auditoría inalterable con acción REACTIVAR.
+   */
+  async reactivate(id: number, responsableId: number) {
+    const espacio = await this.prisma.espacio.findUnique({
+      where: { id },
+      include: {
+        espacioPadre: true,
+        subespacios: true,
+      },
+    });
+
+    if (!espacio) {
+      throw new NotFoundException('Espacio no encontrado');
+    }
+
+    if (espacio.activo) {
+      throw new BadRequestException('El espacio ya se encuentra activo');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Reactivar el espacio
+      await tx.espacio.update({
+        where: { id },
+        data: { activo: true },
+      });
+
+      // Si es contenedor (padre) y tiene subespacios, reactivarlos en lote
+      if (espacio.subespacios && espacio.subespacios.length > 0) {
+        await tx.espacio.updateMany({
+          where: { espacioPadreId: id },
+          data: { activo: true },
+        });
+      }
+
+      // Si es un subespacio cuyo padre estaba inactivo, reactivar también al padre para mantener la consistencia jerárquica
+      if (espacio.espacioPadreId && espacio.espacioPadre && !espacio.espacioPadre.activo) {
+        await tx.espacio.update({
+          where: { id: espacio.espacioPadreId },
+          data: { activo: true },
+        });
+      }
+
+      await this.auditoria.registrar(
+        {
+          accion: 'REACTIVAR',
+          entidad: 'Espacio',
+          idEntidad: id,
+          responsableId,
+          detalle: `Reactivación de espacio: ${espacio.nombre}${espacio.subespacios?.length ? ` y sus ${espacio.subespacios.length} sub-espacios` : ''}`,
+        },
+        tx,
+      );
+
+      return {
+        mensaje: 'Espacio reactivado exitosamente',
+        id,
+      };
+    });
+  }
+
+  /**
    * Validación interna de reglas de bloqueo (Criterios 3, 4 y 7).
    */
   private validarBloqueo(bloqueo: CreateBloqueoDto, disciplinasCompatibles?: number[]) {
