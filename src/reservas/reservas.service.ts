@@ -13,7 +13,13 @@ import { AuditoriaService } from '../auditoria/auditoria.service';
 import { NotificacionesService } from '../notificaciones/notificaciones.service';
 import { PagosService } from '../pagos/pagos.service';
 import { PasarelaService } from '../pasarela/pasarela.service';
-import { conflictosDe, ESTADOS_QUE_OCUPAN, ESTADOS_VIGENTES, HUSO_CLUB_MINUTOS } from './agenda';
+import {
+  conflictosDe,
+  ESTADOS_QUE_OCUPAN,
+  ESTADOS_VIGENTES,
+  HUSO_CLUB_MINUTOS,
+  obtenerIdsEspaciosRelacionados,
+} from './agenda';
 import { ReservasPlantilla, type NovedadReserva } from './reservas.plantilla';
 import type { FindSolicitudesQueryDto } from './dto/find-solicitudes-query.dto';
 import type { DatosCobroReserva } from './reserva.acreditador';
@@ -184,20 +190,35 @@ export class ReservasService {
   private async conflictosDe(
     reserva: Pick<ReservaConDatos, 'id' | 'espacioId' | 'inicio' | 'fin'>,
   ) {
+    const idsEspacios = await obtenerIdsEspaciosRelacionados(this.prisma, reserva.espacioId);
+
     const [reservas, bloqueos] = await Promise.all([
       this.prisma.reserva.findMany({
         where: {
-          espacioId: reserva.espacioId,
+          espacioId: { in: idsEspacios },
           id: { not: reserva.id },
           estado: { in: [...ESTADOS_QUE_OCUPAN] },
           inicio: { lt: reserva.fin },
           fin: { gt: reserva.inicio },
         },
-        select: { id: true, codigo: true, estado: true, inicio: true, fin: true },
+        select: {
+          id: true,
+          codigo: true,
+          estado: true,
+          inicio: true,
+          fin: true,
+          espacioId: true,
+          espacio: { select: { id: true, nombre: true } },
+        },
       }),
-      this.prisma.bloqueoAgenda.findMany({ where: { espacioId: reserva.espacioId, activo: true } }),
+      this.prisma.bloqueoAgenda.findMany({
+        where: { espacioId: { in: idsEspacios }, activo: true },
+        include: {
+          espacio: { select: { id: true, nombre: true } },
+        },
+      }),
     ]);
-    return conflictosDe(reserva, { reservas, bloqueos }, reserva.id);
+    return conflictosDe(reserva, { reservas, bloqueos }, reserva.id, reserva.espacioId);
   }
 
   private async aBandeja(reserva: ReservaConDatos) {
