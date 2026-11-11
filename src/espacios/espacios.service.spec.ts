@@ -965,4 +965,108 @@ describe('US-55 · EspaciosService', () => {
       await expect(service.remove(999, 99)).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('US-57 (complemento) · Reactivar espacio (Volver a habilitar)', () => {
+    it('TC-ESP-REC01 · reactiva un espacio individual inactivo y audita REACTIVAR', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 1,
+        nombre: 'Cancha 1',
+        activo: false,
+        subespacios: [],
+        espacioPadre: null,
+      });
+
+      mockPrisma.espacio.update.mockResolvedValueOnce({
+        id: 1,
+        activo: true,
+      });
+
+      const res = await service.reactivate(1, 99);
+
+      expect(res.mensaje).toBe('Espacio reactivado exitosamente');
+      expect(res.id).toBe(1);
+      expect(mockPrisma.espacio.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: { activo: true },
+        }),
+      );
+      expect(mockAuditoria.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'REACTIVAR',
+          entidad: 'Espacio',
+          idEntidad: 1,
+          responsableId: 99,
+        }),
+        mockPrisma,
+      );
+    });
+
+    it('TC-ESP-REC02 · reactiva un espacio contenedor (padre) y todos sus subespacios', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 10,
+        nombre: 'Sector Parrillas',
+        activo: false,
+        subespacios: [
+          { id: 11, nombre: 'Parrilla 1', activo: false },
+          { id: 12, nombre: 'Parrilla 2', activo: false },
+        ],
+        espacioPadre: null,
+      });
+
+      mockPrisma.espacio.update.mockResolvedValueOnce({ id: 10, activo: true });
+      mockPrisma.espacio.updateMany.mockResolvedValueOnce({ count: 2 });
+
+      const res = await service.reactivate(10, 99);
+
+      expect(res.id).toBe(10);
+      expect(mockPrisma.espacio.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { espacioPadreId: 10 },
+          data: { activo: true },
+        }),
+      );
+    });
+
+    it('TC-ESP-REC03 · al reactivar un subespacio cuyo padre está inactivo, reactiva también al padre', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 11,
+        nombre: 'Parrilla 1',
+        activo: false,
+        espacioPadreId: 10,
+        espacioPadre: { id: 10, nombre: 'Sector Parrillas', activo: false },
+        subespacios: [],
+      });
+
+      mockPrisma.espacio.update.mockResolvedValue({ activo: true });
+
+      await service.reactivate(11, 99);
+
+      // Debe haber actualizado el subespacio (11) y el padre (10)
+      expect(mockPrisma.espacio.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 11 }, data: { activo: true } }),
+      );
+      expect(mockPrisma.espacio.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 10 }, data: { activo: true } }),
+      );
+    });
+
+    it('TC-ESP-REC04 · lanza BadRequestException si el espacio ya se encuentra activo', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 1,
+        nombre: 'Cancha 1',
+        activo: true,
+      });
+
+      await expect(service.reactivate(1, 99)).rejects.toThrow(
+        new BadRequestException('El espacio ya se encuentra activo'),
+      );
+    });
+
+    it('TC-ESP-REC05 · lanza NotFoundException si el espacio no existe', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce(null);
+
+      await expect(service.reactivate(999, 99)).rejects.toThrow(NotFoundException);
+    });
+  });
 });
