@@ -661,16 +661,8 @@ export class EspaciosService {
     const disciplinasCompatibles = espacio.disciplinas.map((d) => d.disciplinaId);
     this.validarBloqueo(dummyDto, disciplinasCompatibles);
 
-    // Conflictos con reservas particulares
-    const idsEspaciosRelacionados: number[] = [espacioId];
-    if (espacio.espacioPadreId) {
-      idsEspaciosRelacionados.push(espacio.espacioPadreId);
-    }
-    if (espacio.subespacios && espacio.subespacios.length > 0) {
-      for (const sub of espacio.subespacios) {
-        idsEspaciosRelacionados.push(sub.id);
-      }
-    }
+    // Conflictos con reservas particulares (Patrón Composite)
+    const idsEspaciosRelacionados = await obtenerIdsEspaciosRelacionados(this.prisma, espacio);
 
     const reservasOcupan = await this.prisma.reserva.findMany({
       where: {
