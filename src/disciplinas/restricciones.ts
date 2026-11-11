@@ -18,6 +18,7 @@ export const ETIQUETA_GENERO: Record<GeneroDisciplina, string> = {
   FEMENINO: 'Femenino',
   MASCULINO: 'Masculino',
   NO_BINARIO_NO_ESPECIFICADO: 'No binario / No especificado',
+  PREFIERO_NO_DECIRLO: 'Prefiero no decirlo',
 };
 
 /** Edad que se cumple en el año indicado (por defecto, el actual). */

@@ -13,6 +13,7 @@ import {
 import { InscripcionService } from './inscripcion.service';
 import { CreateInscripcionDto } from './dto/create-inscripcion.dto';
 import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
+import { SolicitarInscripcionDto } from './dto/solicitar-inscripcion.dto';
 import { FindParticipantesQueryDto } from './dto/find-participantes-query.dto';
 import { RequisitosInscripcionQueryDto } from './dto/requisitos-inscripcion-query.dto';
 import { CrearHabilitacionExcepcionalDto } from './dto/crear-habilitacion-excepcional.dto';
@@ -33,17 +34,12 @@ import { ApiErrores, VALIDACION } from '../common/swagger/respuestas';
 @ApiTags('inscripcion')
 @ApiCookieAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-// DT-16: los roles se declaran a nivel de clase, no por handler. RolesGuard
-// deja pasar cuando no hay roles requeridos, así que un handler sin @Roles
-// queda abierto a cualquier usuario autenticado: con la restricción acá, lo
-// que se agregue después nace protegido y hay que optar explícitamente por
-// ampliarlo.
-@Roles('ADMIN', 'DELEGADO')
 @Controller('inscripcion')
 export class InscripcionController {
   constructor(private readonly inscripcionService: InscripcionService) {}
 
   @Post()
+  @Roles('ADMIN', 'DELEGADO')
   @ApiOperation({ summary: 'US — Inscribir a un participante en una disciplina' })
   @ApiCreatedResponse({ description: 'Inscripción creada (o reactivada) con su estado documental' })
   @ApiErrores({
@@ -71,6 +67,7 @@ export class InscripcionController {
   }
 
   @Patch(':id')
+  @Roles('ADMIN', 'DELEGADO')
   @ApiOperation({
     summary: 'US-06 — Editar participante (datos básicos, disciplina y/o categoría)',
   })
@@ -117,6 +114,7 @@ export class InscripcionController {
   }
 
   @Get('requisitos')
+  @Roles('ADMIN', 'DELEGADO')
   @ApiOperation({
     summary:
       'US-05 — Restricciones y documentación exigida para una disciplina/categoría (antes de inscribir)',
@@ -136,7 +134,58 @@ export class InscripcionController {
     );
   }
 
+  @Get('catalogo')
+  @ApiOperation({
+    summary:
+      'US-63 — Catálogo de disciplinas y categorías activas con aranceles y documentación requerida',
+  })
+  @ApiOkResponse({ description: 'Catálogo de disciplinas activas para postulación' })
+  @ApiErrores({
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+  })
+  catalogo(@CurrentUser() user: AuthenticatedUser) {
+    return this.inscripcionService.catalogo(user.id);
+  }
+
+  @Post('solicitar')
+  @ApiOperation({ summary: 'US-63 — Solicitar inscripción a una disciplina y categoría activa' })
+  @ApiCreatedResponse({ description: 'Solicitud de inscripción registrada en estado PENDIENTE' })
+  @ApiErrores({
+    400: [
+      VALIDACION,
+      'Debe seleccionar una categoría para inscribirse en esta disciplina',
+      'Disciplina inactiva',
+      'El participante está dado de baja: hay que reactivarlo antes de postularse',
+      'El participante no cumple las restricciones de …. …',
+      'La categoría indicada no pertenece a esta disciplina o no está activa',
+    ],
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: ['Disciplina no encontrada', 'No se encontró una ficha de persona asociada al usuario'],
+    409: [
+      'Ya te encontrás inscripto en esta disciplina',
+      'Ya tenés una solicitud de inscripción pendiente para esta disciplina',
+    ],
+  })
+  solicitar(@Body() dto: SolicitarInscripcionDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.inscripcionService.solicitar(dto, user.id);
+  }
+
+  @Get('mis-solicitudes')
+  @ApiOperation({ summary: 'US-63 — Listar solicitudes de inscripción propias del usuario' })
+  @ApiOkResponse({ description: 'Historial de solicitudes de inscripción del socio' })
+  @ApiErrores({
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: 'No se encontró una ficha de persona asociada al usuario',
+  })
+  misSolicitudes(@CurrentUser() user: AuthenticatedUser) {
+    return this.inscripcionService.misSolicitudes(user.id);
+  }
+
   @Get('persona/:personaId')
+  @Roles('ADMIN', 'DELEGADO')
   @ApiOperation({
     summary:
       'Obtener inscripciones de una persona (por defecto solo vigentes; ?incluirBajas=true las incluye todas)',
@@ -155,6 +204,7 @@ export class InscripcionController {
   }
 
   @Get(':id')
+  @Roles('ADMIN', 'DELEGADO')
   @ApiOperation({ summary: 'Obtener una inscripción por id' })
   @ApiOkResponse({ description: 'Inscripción' })
   @ApiErrores({
@@ -168,6 +218,7 @@ export class InscripcionController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN', 'DELEGADO')
   @ApiOperation({ summary: 'Dar de baja una inscripción (baja lógica, auditada)' })
   @ApiOkResponse({ description: 'Inscripción dada de baja' })
   @ApiErrores({
@@ -181,6 +232,7 @@ export class InscripcionController {
   }
 
   @Delete('persona/:personaId')
+  @Roles('ADMIN', 'DELEGADO')
   @ApiOperation({
     summary: 'US-07 — Dar de baja a un participante (baja lógica en todas sus disciplinas)',
   })
@@ -199,6 +251,7 @@ export class InscripcionController {
   }
 
   @Patch('persona/:personaId/activar')
+  @Roles('ADMIN', 'DELEGADO')
   @ApiOperation({
     summary: 'US-07 — Reactivar a un participante dado de baja',
   })

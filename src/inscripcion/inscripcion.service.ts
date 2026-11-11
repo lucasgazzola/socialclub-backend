@@ -4,11 +4,12 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { EstadoSolicitudInscripcion, Prisma } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateInscripcionDto } from './dto/create-inscripcion.dto';
 import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
+import { SolicitarInscripcionDto } from './dto/solicitar-inscripcion.dto';
 import { CrearHabilitacionExcepcionalDto } from './dto/crear-habilitacion-excepcional.dto';
 import {
   EstadoInscripcionFiltro,
@@ -1180,6 +1181,278 @@ export class InscripcionService {
         responsable: {
           select: { id: true, nombre: true, apellido: true, email: true },
         },
+      },
+    });
+  }
+
+  /**
+   * US-63: Catálogo de disciplinas y categorías activas para que los socios
+   * puedan consultar aranceles, documentación requerida y restricciones.
+   */
+  async catalogo(usuarioId: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      include: {
+        persona: {
+          include: {
+            membresias: { where: { activo: true } },
+            inscripciones: { where: { activo: true } },
+            solicitudesInscripcion: { where: { estado: EstadoSolicitudInscripcion.PENDIENTE } },
+          },
+        },
+      },
+    });
+
+    const persona = usuario?.persona ?? null;
+    const esSocio = (persona?.membresias?.length ?? 0) > 0;
+    const periodo = periodoActual();
+
+    const disciplinas = await this.prisma.disciplina.findMany({
+      where: { activo: true },
+      orderBy: { nombre: 'asc' },
+      include: {
+        categorias: {
+          where: { activo: true },
+          orderBy: { nombre: 'asc' },
+          include: {
+            requerimientosDoc: {
+              orderBy: { tipoDocumento: 'asc' },
+            },
+          },
+        },
+        requerimientosDoc: {
+          where: { categoriaDisciplinaId: null },
+          orderBy: { tipoDocumento: 'asc' },
+        },
+        configuracionesCuotaDeportiva: {
+          where: { activo: true },
+          orderBy: { periodoAplicacion: 'desc' },
+        },
+      },
+    });
+
+    const items = disciplinas.map((d) => {
+      const tarifasDeporte = d.configuracionesCuotaDeportiva.map((c) => ({
+        id: c.id,
+        categoriaDisciplinaId: c.categoriaDisciplinaId,
+        periodoAplicacion: c.periodoAplicacion,
+        monto: Number(c.monto),
+        descuentoSocioPorcentaje: c.descuentoSocioPorcentaje,
+        activo: c.activo,
+      }));
+
+      const tarifaDisc = tarifaVigente(tarifasDeporte, null, periodo);
+      const arancelDisciplina = tarifaDisc ? montoACobrar(tarifaDisc, esSocio) : 0;
+
+      const docsDisciplina = d.requerimientosDoc.map((r) => ({
+        tipoDocumento: r.tipoDocumento,
+        nombre: ETIQUETA_TIPO_DOCUMENTO[r.tipoDocumento] || r.tipoDocumento,
+        plazoDiasTolerancia: r.plazoDiasTolerancia,
+      }));
+
+      const categorias = d.categorias.map((cat) => {
+        const tarifaCat = tarifaVigente(tarifasDeporte, cat.id, periodo);
+        const arancelCat = tarifaCat ? montoACobrar(tarifaCat, esSocio) : arancelDisciplina;
+
+        const tiposYaIncluidos = new Set(docsDisciplina.map((r) => r.tipoDocumento));
+        const docsCategoria = [
+          ...docsDisciplina,
+          ...cat.requerimientosDoc
+            .filter((r) => !tiposYaIncluidos.has(r.tipoDocumento))
+            .map((r) => ({
+              tipoDocumento: r.tipoDocumento,
+              nombre: ETIQUETA_TIPO_DOCUMENTO[r.tipoDocumento] || r.tipoDocumento,
+              plazoDiasTolerancia: r.plazoDiasTolerancia,
+            })),
+        ];
+
+        const motivos = persona
+          ? motivosDeIncumplimiento(persona, restriccionesEfectivas(d, cat))
+          : [];
+
+        return {
+          id: cat.id,
+          nombre: cat.nombre,
+          genero: cat.genero,
+          edadMinima: cat.edadMinima,
+          edadMaxima: cat.edadMaxima,
+          arancelMensual: arancelCat,
+          documentosObligatorios: docsCategoria,
+          cumpleRestricciones: motivos.length === 0,
+          motivosIncumplimiento: motivos,
+        };
+      });
+
+      const motivosDisc = persona
+        ? motivosDeIncumplimiento(persona, restriccionesEfectivas(d, null))
+        : [];
+
+      const inscripto = persona?.inscripciones.some((i) => i.disciplinaId === d.id) ?? false;
+      const solicitudPendiente =
+        persona?.solicitudesInscripcion.some((s) => s.disciplinaId === d.id) ?? false;
+
+      return {
+        id: d.id,
+        nombre: d.nombre,
+        descripcion: d.descripcion,
+        genero: d.genero,
+        edadMinima: d.edadMinima,
+        edadMaxima: d.edadMaxima,
+        solicitaDocumentacion: d.solicitaDocumentacion,
+        arancelMensual: arancelDisciplina,
+        descuentoSocioPorcentaje: tarifaDisc?.descuentoSocioPorcentaje ?? 0,
+        documentosObligatorios: docsDisciplina,
+        categorias,
+        cumpleRestricciones: motivosDisc.length === 0,
+        motivosIncumplimiento: motivosDisc,
+        inscripto,
+        solicitudPendiente,
+      };
+    });
+
+    return {
+      esSocio,
+      items,
+    };
+  }
+
+  /**
+   * US-63: Solicitar inscripción a una disciplina y categoría activa.
+   */
+  async solicitar(dto: SolicitarInscripcionDto, usuarioId: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      include: {
+        persona: {
+          include: {
+            membresias: { where: { activo: true } },
+            inscripciones: { where: { activo: true } },
+          },
+        },
+      },
+    });
+
+    if (!usuario?.persona) {
+      throw new NotFoundException('No se encontró una ficha de persona asociada al usuario');
+    }
+
+    const persona = usuario.persona;
+    if (!persona.activo) {
+      throw new BadRequestException(
+        'El participante está dado de baja: hay que reactivarlo antes de postularse',
+      );
+    }
+
+    const disciplina = await this.prisma.disciplina.findUnique({
+      where: { id: dto.disciplinaId },
+      include: {
+        categorias: true,
+        requerimientosDoc: true,
+      },
+    });
+
+    if (!disciplina) {
+      throw new NotFoundException('Disciplina no encontrada');
+    }
+    if (!disciplina.activo) {
+      throw new BadRequestException('Disciplina inactiva');
+    }
+
+    let categoria: (typeof disciplina.categorias)[0] | null = null;
+    const categoriasActivas = disciplina.categorias.filter((c) => c.activo);
+    if (categoriasActivas.length > 0 && !dto.categoriaDisciplinaId) {
+      throw new BadRequestException(
+        'Debe seleccionar una categoría para inscribirse en esta disciplina',
+      );
+    }
+
+    if (dto.categoriaDisciplinaId) {
+      categoria = disciplina.categorias.find((c) => c.id === dto.categoriaDisciplinaId) ?? null;
+      if (!categoria || !categoria.activo) {
+        throw new BadRequestException(
+          'La categoría indicada no pertenece a esta disciplina o no está activa',
+        );
+      }
+    }
+
+    // Validación de restricciones de edad y género
+    this.validarRestricciones(persona, disciplina, categoria);
+
+    // Validación de duplicidad: inscripción activa o solicitud previa en estado PENDIENTE
+    const inscripcionActiva = await this.prisma.inscripcion.findFirst({
+      where: {
+        personaId: persona.id,
+        disciplinaId: disciplina.id,
+        activo: true,
+      },
+    });
+    if (inscripcionActiva) {
+      throw new ConflictException('Ya te encontrás inscripto en esta disciplina');
+    }
+
+    const solicitudPendiente = await this.prisma.solicitudInscripcion.findFirst({
+      where: {
+        personaId: persona.id,
+        disciplinaId: disciplina.id,
+        estado: EstadoSolicitudInscripcion.PENDIENTE,
+      },
+    });
+    if (solicitudPendiente) {
+      throw new ConflictException(
+        'Ya tenés una solicitud de inscripción pendiente para esta disciplina',
+      );
+    }
+
+    const ahora = new Date();
+    return this.prisma.$transaction(async (tx) => {
+      const solicitud = await tx.solicitudInscripcion.create({
+        data: {
+          personaId: persona.id,
+          disciplinaId: disciplina.id,
+          categoriaDisciplinaId: categoria?.id ?? null,
+          estado: EstadoSolicitudInscripcion.PENDIENTE,
+          fechaSolicitud: ahora,
+        },
+        include: {
+          disciplina: { select: { id: true, nombre: true } },
+          categoriaDisciplina: { select: { id: true, nombre: true } },
+          persona: { select: { id: true, nombre: true, apellido: true, dni: true } },
+        },
+      });
+
+      await this.auditoria.registrar(
+        {
+          accion: 'CREAR',
+          entidad: 'SolicitudInscripcion',
+          idEntidad: solicitud.id,
+          responsableId: usuarioId,
+          detalle: `Solicitud de inscripción a ${disciplina.nombre}${categoria ? ` (${categoria.nombre})` : ''} registrada por ${persona.apellido} ${persona.nombre} (DNI ${persona.dni})`,
+        },
+        tx,
+      );
+
+      return solicitud;
+    });
+  }
+
+  /**
+   * US-63: Listar solicitudes de inscripción de la persona asociada al usuario autenticado.
+   */
+  async misSolicitudes(usuarioId: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { personaId: true },
+    });
+    if (!usuario?.personaId) {
+      throw new NotFoundException('No se encontró una ficha de persona asociada al usuario');
+    }
+
+    return this.prisma.solicitudInscripcion.findMany({
+      where: { personaId: usuario.personaId },
+      orderBy: { fechaSolicitud: 'desc' },
+      include: {
+        disciplina: { select: { id: true, nombre: true, descripcion: true } },
+        categoriaDisciplina: { select: { id: true, nombre: true } },
       },
     });
   }

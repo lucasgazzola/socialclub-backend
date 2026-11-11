@@ -6,10 +6,9 @@ import { InscripcionController } from './inscripcion.controller';
 /**
  * DT-16 · Control de acceso de los endpoints de inscripción.
  *
- * `GET /inscripcion`, `GET /inscripcion/:id` y `DELETE /inscripcion/:id` no
- * declaraban `@Roles`, y `RolesGuard` deja pasar cuando no hay roles
- * requeridos: cualquier usuario autenticado —incluido un SOCIO— podía listar a
- * todos los participantes con su DNI y borrar inscripciones.
+ * Los endpoints administrativos declaran sus roles individualmente. Los
+ * endpoints de US-63 no declaran `@Roles`, por lo que `JwtAuthGuard` permite
+ * utilizarlos a cualquier usuario autenticado, incluso sin rol SOCIO.
  *
  * Estos casos ejercen el guard real contra los handlers reales del controller,
  * que es donde estaba el agujero: la metadata y el guard juntos. Si alguien
@@ -75,6 +74,9 @@ describe('DT-16 · InscripcionController · control de acceso', () => {
         ...handlers,
         'POST /inscripcion/:id/habilitacion-excepcional':
           InscripcionController.prototype.habilitarExcepcional,
+        'POST /inscripcion/solicitar': InscripcionController.prototype.solicitar,
+        'GET /inscripcion/catalogo': InscripcionController.prototype.catalogo,
+        'GET /inscripcion/mis-solicitudes': InscripcionController.prototype.misSolicitudes,
       }).map(([ruta, handler]) => [
         ruta,
         reflector.getAllAndOverride<string[]>('roles', [handler, InscripcionController]) ?? null,
@@ -93,7 +95,28 @@ describe('DT-16 · InscripcionController · control de acceso', () => {
       'PATCH /inscripcion/persona/:personaId/activar': ['ADMIN', 'DELEGADO'],
       'POST /inscripcion/:id/habilitacion-excepcional': ['ADMIN'],
       'GET /inscripcion/:id/habilitaciones-excepcionales': ['ADMIN', 'DELEGADO'],
+      'POST /inscripcion/solicitar': null,
+      'GET /inscripcion/catalogo': null,
+      'GET /inscripcion/mis-solicitudes': null,
     });
+  });
+
+  it('US-63: los endpoints de solicitud y catálogo permiten al rol SOCIO', () => {
+    expect(
+      guard.canActivate(contextoPara(InscripcionController.prototype.solicitar, ['SOCIO'])),
+    ).toBe(true);
+    expect(
+      guard.canActivate(contextoPara(InscripcionController.prototype.catalogo, ['SOCIO'])),
+    ).toBe(true);
+    expect(
+      guard.canActivate(contextoPara(InscripcionController.prototype.misSolicitudes, ['SOCIO'])),
+    ).toBe(true);
+  });
+
+  it('US-63: los endpoints de solicitud y catálogo permiten a un usuario autenticado sin roles', () => {
+    expect(guard.canActivate(contextoPara(InscripcionController.prototype.solicitar, []))).toBe(true);
+    expect(guard.canActivate(contextoPara(InscripcionController.prototype.catalogo, []))).toBe(true);
+    expect(guard.canActivate(contextoPara(InscripcionController.prototype.misSolicitudes, []))).toBe(true);
   });
 
   it('US-06 · TC-229 / US-07 · TC-025: el COLABORADOR puede listar participantes pero no editarlos, darlos de baja ni reactivarlos', () => {
