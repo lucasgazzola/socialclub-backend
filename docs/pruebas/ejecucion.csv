@@ -528,3 +528,25 @@ PASS SolicitarInscripcionPage.test.tsx («TC-292: valida duplicidad mostrando es
 "EJ-322","6.0","04/11/2026","TC-293","US-63","Rodriguez Gonzalo","Aprobado","PASS SolicitarInscripcionPage.test.tsx («TC-293: socio completa el formulario de postulación y recibe feedback claro en pantalla (toast vía sonner)»)","","1 test(s) automatizado(s) (Vitest). Feedback confirmado vía toast de Sonner. DoD cumplido."
 "EJ-323","6.0","04/11/2026","TC-294","US-63","Rodriguez Gonzalo","Aprobado","PASS solicitar-inscripcion.spec.ts («TC-294: US-63 · Bloquear solicitud de inscripción a participantes inactivos o sin sesión»)
 PASS inscripcion.roles.spec.ts («US-63: los endpoints de solicitud y catálogo permiten al rol SOCIO»)","","2 test(s) automatizado(s) (Jest). DoD cumplido."
+"EJ-324","6.0","08/11/2026","TC-295","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-01 · Happy Path - Espacio Deportivo con disciplinas y bloqueo)
+PASS espacios.service.spec.ts (TC-ESP01 · crea un espacio deportivo)","","Prueba de integración con Supertest y NestJS TestModule. Verificada persistencia y auditoría inalterable."
+"EJ-325","6.0","08/11/2026","TC-296","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-02 · Happy Path - Espacio Social sin disciplinas)
+PASS espacios.service.spec.ts (TC-ESP-02 · crea un espacio social)","","Prueba de integración con Supertest. Modalidad DIA_COMPLETO sin disciplinas deportivas."
+"EJ-326","6.0","08/11/2026","TC-297","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-03 · Validación Regla Social)
+PASS espacios.service.spec.ts (TC-ESP-03 · no permite asociar disciplinas a SOCIAL)","","Verificada restricción de regla de negocio Criterio 2."
+"EJ-327","6.0","08/11/2026","TC-298","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-04 · Validaciones Monetarias y Capacidad)
+PASS espacios.service.spec.ts (TC-ESP04 · seña mayor a precio)","","Verificadas 4 condiciones: capacidad <= 0, precio <= 0, seña <= 0 y seña > precio."
+"EJ-328","6.0","08/11/2026","TC-299","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-05 · Validación Bloqueo Recurrente)
+PASS espacios.service.spec.ts (TC-ESP05, TC-ESP-05b, TC-ESP06)","","Verificadas reglas de bloqueo recurrente: días de la semana, coherencia horaria y vigencia."
+"EJ-329","6.0","08/11/2026","TC-300","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-06 · Validación Bloqueo Puntual)
+PASS espacios.service.spec.ts (TC-ESP07, TC-ESP07b, TC-ESP07c)","","Verificadas reglas de bloqueo puntual: obligatoriedad de fecha y motivo."
+"EJ-330","6.0","08/11/2026","TC-301","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-07 · Conflicto de Agenda)
+PASS espacios.service.spec.ts (TC-ESP08 · Criterio 6 conflicto 409)","","Verificada detección de solapamiento con reservas particulares aprobadas/confirmadas."
+"EJ-331","6.0","08/11/2026","TC-302","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-08 · Auditoría Inalterable)
+PASS espacios.roles.spec.ts (Control de acceso RBAC)","","Verificado registro inalterable en registros_auditoria y ausencia de endpoints PUT/DELETE."
+"EJ-332","6.0","09/11/2026","TC-303","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-09 · Patrón Composite - Espacio Padre con Sub-espacios en Lote)
+PASS espacios.service.spec.ts (TC-ESP11 · crea espacio padre y genera N sub-espacios)","","Verificada creación transaccional atómica de N sub-espacios hijos y auditoría con conteo."
+"EJ-333","6.0","09/11/2026","TC-304","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-10 · Patrón Composite - Límite de Jerarquía)
+PASS espacios.service.spec.ts (TC-ESP13 · valida espacioPadreId y máx 2 niveles)","","Verificado rechazo 400 ante intento de 3er nivel de jerarquía y 404 si el padre no existe."
+"EJ-334","6.0","09/11/2026","TC-305","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-11 · Patrón Composite - Propagación de Conflictos Padre/Hijo)
+PASS espacios.service.spec.ts (TC-ESP14, TC-ESP14b)","","Verificada propagación bidireccional de conflictos: 409 al bloquear padre o hijo con reserva activa."
