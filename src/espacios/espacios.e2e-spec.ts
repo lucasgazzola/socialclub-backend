@@ -2,7 +2,7 @@ import { INestApplication, ExecutionContext, ValidationPipe } from '@nestjs/comm
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import type { Server } from 'http';
-import { ModalidadReserva, TipoBloqueo, TipoEspacio } from '@prisma/client';
+import { ModalidadReserva, Prisma, TipoBloqueo, TipoEspacio } from '@prisma/client';
 import { EspaciosController } from './espacios.controller';
 import { EspaciosService } from './espacios.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -22,15 +22,19 @@ describe('US-55 · EspaciosController (e2e / Integración con Supertest)', () =>
   const prismaMock: any = {
     espacio: {
       create: jest.fn(),
+      update: jest.fn(),
       findUnique: jest.fn(),
       findUniqueOrThrow: jest.fn(),
       findMany: jest.fn(),
     },
     espacioDisciplina: {
       createMany: jest.fn(),
+      deleteMany: jest.fn(),
     },
     bloqueoAgenda: {
       create: jest.fn(),
+      update: jest.fn(),
+      findFirst: jest.fn(),
     },
     disciplina: {
       findMany: jest.fn(),
@@ -513,7 +517,7 @@ describe('US-55 · EspaciosController (e2e / Integración con Supertest)', () =>
       );
     });
 
-    it('verifica inalterabilidad: no expone endpoints PUT, PATCH ni DELETE en /espacios', async () => {
+    it('verifica inalterabilidad: no expone endpoints PUT ni DELETE directos en /espacios', async () => {
       await request(getHttpServer()).delete('/espacios/1').expect(404);
       await request(getHttpServer()).put('/espacios/1').expect(404);
     });
@@ -736,6 +740,127 @@ describe('US-55 · EspaciosController (e2e / Integración con Supertest)', () =>
             espacioPadreId: 40,
           }),
         }),
+      );
+    });
+  });
+
+  describe('US-56 · Endpoints de edición e2e', () => {
+    it('modifica un espacio existente (200 OK) y audita la acción', async () => {
+      prismaMock.espacio.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Cancha 1',
+        tipo: 'DEPORTIVO',
+        precio: new Prisma.Decimal(15000),
+        montoSena: new Prisma.Decimal(5000),
+        capacidadMaxima: 10,
+        modalidad: 'POR_HORA',
+        activo: true,
+        disciplinas: [],
+      });
+
+      prismaMock.espacio.update.mockResolvedValue({
+        id: 1,
+        nombre: 'Cancha 1 Pro',
+        capacidadMaxima: 12,
+        modalidad: 'POR_HORA',
+      });
+
+      prismaMock.espacio.findUniqueOrThrow.mockResolvedValue({
+        id: 1,
+        nombre: 'Cancha 1 Pro',
+        capacidadMaxima: 12,
+        modalidad: 'POR_HORA',
+        disciplinas: [],
+        bloqueos: [],
+      });
+
+      const res = await request(getHttpServer())
+        .patch('/espacios/1')
+        .send({ nombre: 'Cancha 1 Pro', capacidadMaxima: 12 })
+        .expect(200);
+
+      expect(res.body.nombre).toBe('Cancha 1 Pro');
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'EDITAR',
+          entidad: 'Espacio',
+          idEntidad: 1,
+        }),
+        prismaMock,
+      );
+    });
+
+    it('modifica un bloqueo existente (200 OK) y audita la acción', async () => {
+      prismaMock.espacio.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Cancha 1',
+        activo: true,
+        disciplinas: [],
+        subespacios: [],
+      });
+
+      prismaMock.bloqueoAgenda.findFirst.mockResolvedValue({
+        id: 10,
+        espacioId: 1,
+        tipo: 'PUNTUAL',
+        fecha: new Date('2026-11-20'),
+        motivo: 'Pintura',
+        activo: true,
+      });
+
+      prismaMock.reserva.findMany.mockResolvedValue([]);
+      prismaMock.bloqueoAgenda.update.mockResolvedValue({
+        id: 10,
+        motivo: 'Pintura y lijado',
+        tipo: 'PUNTUAL',
+      });
+
+      const res = await request(getHttpServer())
+        .patch('/espacios/1/bloqueos/10')
+        .send({ motivo: 'Pintura y lijado' })
+        .expect(200);
+
+      expect(res.body.motivo).toBe('Pintura y lijado');
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'EDITAR',
+          entidad: 'BloqueoAgenda',
+          idEntidad: 10,
+        }),
+        prismaMock,
+      );
+    });
+
+    it('elimina un bloqueo existente (200 OK) y audita la acción', async () => {
+      prismaMock.espacio.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Cancha 1',
+      });
+
+      prismaMock.bloqueoAgenda.findFirst.mockResolvedValue({
+        id: 10,
+        espacioId: 1,
+        tipo: 'PUNTUAL',
+        activo: true,
+      });
+
+      prismaMock.bloqueoAgenda.update.mockResolvedValue({
+        id: 10,
+        activo: false,
+      });
+
+      const res = await request(getHttpServer())
+        .delete('/espacios/1/bloqueos/10')
+        .expect(200);
+
+      expect(res.body.mensaje).toBe('Bloqueo eliminado exitosamente');
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'BAJA',
+          entidad: 'BloqueoAgenda',
+          idEntidad: 10,
+        }),
+        prismaMock,
       );
     });
   });

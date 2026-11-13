@@ -22,6 +22,9 @@ describe('US-55 · EspaciosController', () => {
       findAll: jest.fn(),
       findOne: jest.fn(),
       agregarBloqueo: jest.fn(),
+      update: jest.fn(),
+      updateBloqueo: jest.fn(),
+      deleteBloqueo: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -91,5 +94,31 @@ describe('US-55 · EspaciosController', () => {
 
     expect(resultado.id).toBe(50);
     expect(service.agregarBloqueo).toHaveBeenCalledWith(2, dtoBloqueo, 1);
+  });
+
+  describe('US-56 · Endpoints de edición', () => {
+    it('update · delega en service.update con id y body', async () => {
+      service.update.mockResolvedValue({ id: 1, nombre: 'Modificado' } as any);
+
+      const res = await controller.update(1, { nombre: 'Modificado' }, mockUser);
+      expect(res.nombre).toBe('Modificado');
+      expect(service.update).toHaveBeenCalledWith(1, { nombre: 'Modificado' }, 1);
+    });
+
+    it('updateBloqueo · delega en service.updateBloqueo', async () => {
+      service.updateBloqueo.mockResolvedValue({ id: 50, motivo: 'Nuevo motivo' } as any);
+
+      const res = await controller.updateBloqueo(1, 50, { motivo: 'Nuevo motivo' }, mockUser);
+      expect(res.motivo).toBe('Nuevo motivo');
+      expect(service.updateBloqueo).toHaveBeenCalledWith(1, 50, { motivo: 'Nuevo motivo' }, 1);
+    });
+
+    it('deleteBloqueo · delega en service.deleteBloqueo', async () => {
+      service.deleteBloqueo.mockResolvedValue({ mensaje: 'Bloqueo eliminado exitosamente', bloqueoId: 50 } as any);
+
+      const res = await controller.deleteBloqueo(1, 50, mockUser);
+      expect(res.mensaje).toBe('Bloqueo eliminado exitosamente');
+      expect(service.deleteBloqueo).toHaveBeenCalledWith(1, 50, 1);
+    });
   });
 });
