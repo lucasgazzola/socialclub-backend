@@ -112,6 +112,21 @@ export class EspaciosService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const descuentoPadre =
+        dto.descuentoSocio !== undefined
+          ? dto.descuentoSocio
+          : dto.precioSocio && dto.precio
+            ? Math.max(0, Math.min(100, Math.round((1 - dto.precioSocio / dto.precio) * 100)))
+            : 0;
+
+      const precioPadre = Number(dto.precio);
+      const precioSocioPadre =
+        descuentoPadre > 0
+          ? new Prisma.Decimal(Math.max(0, Math.round(precioPadre * (1 - descuentoPadre / 100))))
+          : dto.precioSocio
+            ? new Prisma.Decimal(dto.precioSocio)
+            : null;
+
       // 1. Crear espacio principal (único o padre contenedor)
       const espacio = await tx.espacio.create({
         data: {
@@ -123,7 +138,8 @@ export class EspaciosService {
           descripcion: dto.descripcion?.trim() || null,
           espacioPadreId: dto.espacioPadreId ?? null,
           precio: new Prisma.Decimal(dto.precio),
-          precioSocio: dto.precioSocio ? new Prisma.Decimal(dto.precioSocio) : null,
+          descuentoSocio: descuentoPadre,
+          precioSocio: precioSocioPadre,
           montoSena: new Prisma.Decimal(dto.montoSena),
           activo: true,
         },
@@ -142,6 +158,21 @@ export class EspaciosService {
       // 3. Crear sub-espacios hijos si corresponde (Patrón Composite)
       if (unidadesHijas.length > 0) {
         for (const sub of unidadesHijas) {
+          const precioSub = Number(sub.precio ?? dto.precio);
+          const descuentoSub =
+            sub.descuentoSocio !== undefined
+              ? sub.descuentoSocio
+              : sub.precioSocio && sub.precio
+                ? Math.max(0, Math.min(100, Math.round((1 - sub.precioSocio / sub.precio) * 100)))
+                : descuentoPadre;
+
+          const precioSocioSub =
+            descuentoSub > 0
+              ? new Prisma.Decimal(Math.max(0, Math.round(precioSub * (1 - descuentoSub / 100))))
+              : sub.precioSocio !== undefined
+                ? new Prisma.Decimal(sub.precioSocio)
+                : precioSocioPadre;
+
           const hijo = await tx.espacio.create({
             data: {
               nombre: sub.nombre.trim(),
@@ -151,13 +182,9 @@ export class EspaciosService {
               ubicacion: dto.ubicacion?.trim() || null,
               descripcion: sub.descripcion?.trim() || dto.descripcion?.trim() || null,
               espacioPadreId: espacio.id,
-              precio: new Prisma.Decimal(sub.precio ?? dto.precio),
-              precioSocio:
-                sub.precioSocio !== undefined
-                  ? new Prisma.Decimal(sub.precioSocio)
-                  : dto.precioSocio
-                    ? new Prisma.Decimal(dto.precioSocio)
-                    : null,
+              precio: new Prisma.Decimal(precioSub),
+              descuentoSocio: descuentoSub,
+              precioSocio: precioSocioSub,
               montoSena: new Prisma.Decimal(sub.montoSena ?? dto.montoSena),
               activo: true,
             },
@@ -401,6 +428,7 @@ export class EspaciosService {
           nombre: true,
           capacidadMaxima: true,
           precio: true,
+          descuentoSocio: true,
           precioSocio: true,
           montoSena: true,
           activo: true,
@@ -557,6 +585,22 @@ export class EspaciosService {
       }
     }
 
+    const nuevoPrecio = dto.precio !== undefined ? Number(dto.precio) : Number(espacioActual.precio);
+    let nuevoDescuento = dto.descuentoSocio !== undefined ? dto.descuentoSocio : espacioActual.descuentoSocio;
+    let nuevoPrecioSocio: Prisma.Decimal | null | undefined = undefined;
+
+    if (dto.descuentoSocio !== undefined || dto.precio !== undefined) {
+      nuevoPrecioSocio =
+        nuevoDescuento > 0
+          ? new Prisma.Decimal(Math.max(0, Math.round(nuevoPrecio * (1 - nuevoDescuento / 100))))
+          : null;
+    } else if (dto.precioSocio !== undefined) {
+      nuevoPrecioSocio = dto.precioSocio ? new Prisma.Decimal(dto.precioSocio) : null;
+      nuevoDescuento = dto.precioSocio
+        ? Math.max(0, Math.min(100, Math.round((1 - dto.precioSocio / nuevoPrecio) * 100)))
+        : 0;
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const espacioModificado = await tx.espacio.update({
         where: { id },
@@ -570,9 +614,10 @@ export class EspaciosService {
             ? { descripcion: dto.descripcion?.trim() || null }
             : {}),
           ...(dto.precio !== undefined ? { precio: new Prisma.Decimal(dto.precio) } : {}),
-          ...(dto.precioSocio !== undefined
-            ? { precioSocio: dto.precioSocio ? new Prisma.Decimal(dto.precioSocio) : null }
+          ...(dto.descuentoSocio !== undefined || dto.precioSocio !== undefined
+            ? { descuentoSocio: nuevoDescuento }
             : {}),
+          ...(nuevoPrecioSocio !== undefined ? { precioSocio: nuevoPrecioSocio } : {}),
           ...(dto.montoSena !== undefined ? { montoSena: new Prisma.Decimal(dto.montoSena) } : {}),
         },
       });
