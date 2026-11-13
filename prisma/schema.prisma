@@ -30,6 +30,7 @@ enum GeneroDisciplina {
   FEMENINO
   MASCULINO
   NO_BINARIO_NO_ESPECIFICADO
+  PREFIERO_NO_DECIRLO
 }
 
 /// Catálogo cerrado de documentación que puede exigirse por disciplina.
@@ -207,6 +208,8 @@ model Usuario {
   reservasEvaluadas           Reserva[]                 @relation("evaluadorReserva")
   reservasCanceladas          Reserva[]                 @relation("canceladorReserva")
   bloqueosAgenda              BloqueoAgenda[]
+  /// US-63: solicitudes de inscripción a disciplinas revisadas.
+  solicitudesInscripcionRevisadas SolicitudInscripcion[] @relation("revisorSolicitudInscripcion")
 
   @@map("usuarios")
 }
@@ -277,6 +280,7 @@ model Disciplina {
   /// TASK-52: espacios donde se practica y bloqueos de agenda de su grilla.
   espacios                      EspacioDisciplina[]
   bloqueosAgenda                BloqueoAgenda[]
+  solicitudesInscripcion        SolicitudInscripcion[]
 
   @@map("disciplinas")
 }
@@ -401,6 +405,7 @@ model Persona {
   documentaciones Documentacion[]
   pagos           Pago[]
   pagosDeportivos PagoCuotaDeportiva[]
+  solicitudesInscripcion SolicitudInscripcion[]
 
   @@index([apellido, nombre])
   @@index([activo])
@@ -518,6 +523,7 @@ model CategoriaDisciplina {
   inscripciones     Inscripcion[]
   requerimientosDoc DisciplinaRequerimientoDoc[]
   tarifas           ConfiguracionCuotaDeportiva[]
+  solicitudesInscripcion SolicitudInscripcion[]
 
   @@unique([disciplinaId, nombre])
   @@unique([id, disciplinaId])
@@ -569,6 +575,37 @@ model PeriodoInscripcion {
 
   @@index([inscripcionId])
   @@map("periodos_inscripcion")
+}
+
+/// Estados de una solicitud de inscripción a una disciplina (US-63).
+enum EstadoSolicitudInscripcion {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+  CANCELADA
+}
+
+/// Solicitud de inscripción que un socio envía para una disciplina y categoría (US-63).
+model SolicitudInscripcion {
+  id                    Int                        @id @default(autoincrement())
+  personaId             Int
+  persona               Persona                    @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  disciplinaId          Int
+  disciplina            Disciplina                 @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
+  categoriaDisciplinaId Int?
+  categoriaDisciplina   CategoriaDisciplina?       @relation(fields: [categoriaDisciplinaId], references: [id], onDelete: SetNull)
+  estado                EstadoSolicitudInscripcion @default(PENDIENTE)
+  fechaSolicitud        DateTime                   @default(now())
+  fechaResolucion       DateTime?
+  motivoRechazo         String?
+  revisadoPorId         Int?
+  revisadoPor           Usuario?                   @relation("revisorSolicitudInscripcion", fields: [revisadoPorId], references: [id], onDelete: SetNull)
+  creadoEn              DateTime                   @default(now())
+  actualizadoEn         DateTime                   @updatedAt
+
+  @@index([personaId, estado])
+  @@index([disciplinaId, estado])
+  @@map("solicitudes_inscripcion")
 }
 
 /// Documentación obligatoria de un participante (US-24). Habilita la
@@ -777,6 +814,8 @@ model Espacio {
   subespacios     Espacio[]           @relation("Subespacios")
   /// Tarifa para no socios: por hora (POR_HORA) o por día (DIA_COMPLETO).
   precio          Decimal             @db.Decimal(12, 2)
+  /// Porcentaje de descuento para socios activos al día (0 a 100%).
+  descuentoSocio  Int                 @default(0)
   /// Tarifa para socios activos al día. Null = misma que `precio`.
   precioSocio     Decimal?            @db.Decimal(12, 2)
   /// Seña que se exige para confirmar una reserva aprobada.

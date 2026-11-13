@@ -1,4 +1,4 @@
-﻿"ID Ejecución","Sprint","Fecha","ID Caso","US asociada","Ejecutor","Resultado","Evidencia","Defecto asociado","Observaciones"
+"ID Ejecución","Sprint","Fecha","ID Caso","US asociada","Ejecutor","Resultado","Evidencia","Defecto asociado","Observaciones"
 "EJ-01","2.0","31/07/2026","TC-001","US-1","Guajardo Lautaro","Aprobado","PASS  src/usuarios/usuarios.service.spec.ts (16.109 s)","",""
 "EJ-02","2.0","31/07/2026","TC-002","US-1","Guajardo Lautaro","Aprobado","","",""
 "EJ-03","2.0","31/07/2026","TC-003","US-1","Guajardo Lautaro","Aprobado","","",""
@@ -518,25 +518,35 @@ PASS MisReservasPage.test.tsx («TC-288 · sin reservas muestra un mensaje infor
 "EJ-315","6.0","01/11/2026","TC-287","US-62","CI (Playwright)","Aprobado","Playwright E2E (front + API + Postgres), 1 paso(s): evidencias/US-62/e2e/TC-287-01…01.jpg","","Ejecución automática del flujo completo en el navegador (1.4 s). Spec: e2e/reservas.spec.ts."
 "EJ-316","6.0","01/11/2026","TC-279","US-60","CI (Playwright)","Aprobado","Playwright E2E (front + API + Postgres), 3 paso(s): evidencias/US-60/e2e/TC-279-01…03.jpg","","Ejecución automática del flujo completo en el navegador (2.1 s). Spec: e2e/reservas.spec.ts."
 "EJ-317","6.0","01/11/2026","TC-284","US-61","CI (Playwright)","Aprobado","Playwright E2E (front + API + Postgres), 2 paso(s): evidencias/US-61/e2e/TC-284-01…02.jpg","","Ejecución automática del flujo completo en el navegador (2.1 s). Spec: e2e/reservas.spec.ts."
-"EJ-318","6.0","08/11/2026","TC-289","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-01 · Happy Path - Espacio Deportivo con disciplinas y bloqueo)
+"EJ-318","6.0","04/11/2026","TC-289","US-63","Rodriguez Gonzalo","Aprobado","PASS solicitar-inscripcion.spec.ts («TC-289: US-63 · Validar restricciones de edad y género al solicitar inscripción»)
+PASS SolicitarInscripcionPage.test.tsx («TC-289: bloquea la confirmación si la categoría no cumple con las restricciones de edad o género»)","","2 test(s) automatizado(s) (Jest, Vitest) con dependencias simuladas. DoD cumplido."
+"EJ-319","6.0","04/11/2026","TC-290","US-63","Rodriguez Gonzalo","Aprobado","PASS solicitar-inscripcion.spec.ts («TC-290: US-63 · Registrar solicitud de inscripción en estado Pendiente y auditar la operación»)","","1 test(s) automatizado(s) (Jest) con dependencias simuladas. DoD cumplido."
+"EJ-320","6.0","04/11/2026","TC-291","US-63","Rodriguez Gonzalo","Aprobado","PASS solicitar-inscripcion.spec.ts («TC-291: US-63 · Listar catálogo de disciplinas y categorías activas con arancel y documentos obligatorios»)
+PASS SolicitarInscripcionPage.test.tsx («TC-291: muestra el catálogo de disciplinas activas con arancel y documentos obligatorios»)","","2 test(s) automatizado(s) (Jest, Vitest) con dependencias simuladas. DoD cumplido."
+"EJ-321","6.0","04/11/2026","TC-292","US-63","Rodriguez Gonzalo","Aprobado","PASS solicitar-inscripcion.spec.ts («TC-292: US-63 · Validar duplicidad impidiendo solicitar inscripción si ya está inscripto o tiene solicitud pendiente»)
+PASS SolicitarInscripcionPage.test.tsx («TC-292: valida duplicidad mostrando estado y deshabilitando postulación si ya está inscripto o tiene solicitud pendiente»)","","2 test(s) automatizado(s) (Jest, Vitest) con dependencias simuladas. DoD cumplido."
+"EJ-322","6.0","04/11/2026","TC-293","US-63","Rodriguez Gonzalo","Aprobado","PASS SolicitarInscripcionPage.test.tsx («TC-293: socio completa el formulario de postulación y recibe feedback claro en pantalla (toast vía sonner)»)","","1 test(s) automatizado(s) (Vitest). Feedback confirmado vía toast de Sonner. DoD cumplido."
+"EJ-323","6.0","04/11/2026","TC-294","US-63","Rodriguez Gonzalo","Aprobado","PASS solicitar-inscripcion.spec.ts («TC-294: US-63 · Bloquear solicitud de inscripción a participantes inactivos o sin sesión»)
+PASS inscripcion.roles.spec.ts («US-63: los endpoints de solicitud y catálogo permiten al rol SOCIO»)","","2 test(s) automatizado(s) (Jest). DoD cumplido."
+"EJ-324","6.0","08/11/2026","TC-295","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-01 · Happy Path - Espacio Deportivo con disciplinas y bloqueo)
 PASS espacios.service.spec.ts (TC-ESP01 · crea un espacio deportivo)","","Prueba de integración con Supertest y NestJS TestModule. Verificada persistencia y auditoría inalterable."
-"EJ-319","6.0","08/11/2026","TC-290","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-02 · Happy Path - Espacio Social sin disciplinas)
+"EJ-325","6.0","08/11/2026","TC-296","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-02 · Happy Path - Espacio Social sin disciplinas)
 PASS espacios.service.spec.ts (TC-ESP-02 · crea un espacio social)","","Prueba de integración con Supertest. Modalidad DIA_COMPLETO sin disciplinas deportivas."
-"EJ-320","6.0","08/11/2026","TC-291","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-03 · Validación Regla Social)
+"EJ-326","6.0","08/11/2026","TC-297","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-03 · Validación Regla Social)
 PASS espacios.service.spec.ts (TC-ESP-03 · no permite asociar disciplinas a SOCIAL)","","Verificada restricción de regla de negocio Criterio 2."
-"EJ-321","6.0","08/11/2026","TC-292","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-04 · Validaciones Monetarias y Capacidad)
+"EJ-327","6.0","08/11/2026","TC-298","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-04 · Validaciones Monetarias y Capacidad)
 PASS espacios.service.spec.ts (TC-ESP04 · seña mayor a precio)","","Verificadas 4 condiciones: capacidad <= 0, precio <= 0, seña <= 0 y seña > precio."
-"EJ-322","6.0","08/11/2026","TC-293","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-05 · Validación Bloqueo Recurrente)
+"EJ-328","6.0","08/11/2026","TC-299","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-05 · Validación Bloqueo Recurrente)
 PASS espacios.service.spec.ts (TC-ESP05, TC-ESP-05b, TC-ESP06)","","Verificadas reglas de bloqueo recurrente: días de la semana, coherencia horaria y vigencia."
-"EJ-323","6.0","08/11/2026","TC-294","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-06 · Validación Bloqueo Puntual)
+"EJ-329","6.0","08/11/2026","TC-300","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-06 · Validación Bloqueo Puntual)
 PASS espacios.service.spec.ts (TC-ESP07, TC-ESP07b, TC-ESP07c)","","Verificadas reglas de bloqueo puntual: obligatoriedad de fecha y motivo."
-"EJ-324","6.0","08/11/2026","TC-295","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-07 · Conflicto de Agenda)
+"EJ-330","6.0","08/11/2026","TC-301","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-07 · Conflicto de Agenda)
 PASS espacios.service.spec.ts (TC-ESP08 · Criterio 6 conflicto 409)","","Verificada detección de solapamiento con reservas particulares aprobadas/confirmadas."
-"EJ-325","6.0","08/11/2026","TC-296","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-08 · Auditoría Inalterable)
+"EJ-331","6.0","08/11/2026","TC-302","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-08 · Auditoría Inalterable)
 PASS espacios.roles.spec.ts (Control de acceso RBAC)","","Verificado registro inalterable en registros_auditoria y ausencia de endpoints PUT/DELETE."
-"EJ-326","6.0","09/11/2026","TC-297","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-09 · Patrón Composite - Espacio Padre con Sub-espacios en Lote)
+"EJ-332","6.0","09/11/2026","TC-303","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-09 · Patrón Composite - Espacio Padre con Sub-espacios en Lote)
 PASS espacios.service.spec.ts (TC-ESP11 · crea espacio padre y genera N sub-espacios)","","Verificada creación transaccional atómica de N sub-espacios hijos y auditoría con conteo."
-"EJ-327","6.0","09/11/2026","TC-298","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-10 · Patrón Composite - Límite de Jerarquía)
+"EJ-333","6.0","09/11/2026","TC-304","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-10 · Patrón Composite - Límite de Jerarquía)
 PASS espacios.service.spec.ts (TC-ESP13 · valida espacioPadreId y máx 2 niveles)","","Verificado rechazo 400 ante intento de 3er nivel de jerarquía y 404 si el padre no existe."
-"EJ-328","6.0","09/11/2026","TC-299","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-11 · Patrón Composite - Propagación de Conflictos Padre/Hijo)
+"EJ-334","6.0","09/11/2026","TC-305","US-55","Gerbaudo Mateo","Aprobado","PASS espacios.e2e-spec.ts (TC-ESP-11 · Patrón Composite - Propagación de Conflictos Padre/Hijo)
 PASS espacios.service.spec.ts (TC-ESP14, TC-ESP14b)","","Verificada propagación bidireccional de conflictos: 409 al bloquear padre o hijo con reserva activa."
