@@ -23,6 +23,7 @@ describe('US-55 · EspaciosController (e2e / Integración con Supertest)', () =>
     espacio: {
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       findUnique: jest.fn(),
       findUniqueOrThrow: jest.fn(),
       findMany: jest.fn(),
@@ -34,6 +35,7 @@ describe('US-55 · EspaciosController (e2e / Integración con Supertest)', () =>
     bloqueoAgenda: {
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       findFirst: jest.fn(),
     },
     disciplina: {
@@ -517,8 +519,7 @@ describe('US-55 · EspaciosController (e2e / Integración con Supertest)', () =>
       );
     });
 
-    it('verifica inalterabilidad: no expone endpoints PUT ni DELETE directos en /espacios', async () => {
-      await request(getHttpServer()).delete('/espacios/1').expect(404);
+    it('verifica inalterabilidad: no expone endpoints PUT en /espacios', async () => {
       await request(getHttpServer()).put('/espacios/1').expect(404);
     });
   });
@@ -862,6 +863,57 @@ describe('US-55 · EspaciosController (e2e / Integración con Supertest)', () =>
         }),
         prismaMock,
       );
+    });
+
+    it('US-57 · da de baja un espacio existente (200 OK) y audita la acción', async () => {
+      prismaMock.espacio.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Cancha 1',
+        activo: true,
+        subespacios: [],
+      });
+
+      prismaMock.reserva.findMany.mockResolvedValue([]);
+      prismaMock.espacio.update.mockResolvedValue({ id: 1, activo: false });
+      prismaMock.bloqueoAgenda.updateMany.mockResolvedValue({ count: 0 });
+
+      const res = await request(getHttpServer())
+        .delete('/espacios/1')
+        .expect(200);
+
+      expect(res.body.mensaje).toBe('Espacio dado de baja exitosamente');
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'BAJA',
+          entidad: 'Espacio',
+          idEntidad: 1,
+        }),
+        prismaMock,
+      );
+    });
+
+    it('US-57 · rechaza con 409 Conflict si el espacio tiene reservas futuras activas', async () => {
+      prismaMock.espacio.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Cancha 1',
+        activo: true,
+        subespacios: [],
+      });
+
+      prismaMock.reserva.findMany.mockResolvedValue([
+        {
+          id: 99,
+          codigo: 'RES-FUT-01',
+          fin: new Date(Date.now() + 100000000),
+          estado: 'CONFIRMADA',
+        },
+      ]);
+
+      const res = await request(getHttpServer())
+        .delete('/espacios/1')
+        .expect(409);
+
+      expect(res.body.message).toContain('No se puede dar de baja el espacio porque tiene reservas futuras');
     });
   });
 });

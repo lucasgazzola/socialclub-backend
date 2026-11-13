@@ -117,4 +117,34 @@ describe('US-55 · EspaciosController · Control de acceso (RBAC)', () => {
       },
     );
   });
+
+  describe('DELETE /espacios/:id (remove) — Exclusivo ADMIN', () => {
+    const handler = EspaciosController.prototype.remove;
+
+    it('permite el acceso al rol ADMIN', () => {
+      expect(guard.canActivate(contextoPara(handler, ['ADMIN']))).toBe(true);
+    });
+
+    it.each(['COLABORADOR', 'SOCIO', 'DELEGADO', 'PROFESOR'])(
+      'rechaza al rol %s con 403 ForbiddenException',
+      (rol) => {
+        expect(() => guard.canActivate(contextoPara(handler, [rol]))).toThrow(ForbiddenException);
+      },
+    );
+  });
+
+  describe('PATCH /espacios/:id/reactivar (reactivate) — Exclusivo ADMIN', () => {
+    const handler = EspaciosController.prototype.reactivate;
+
+    it('permite el acceso al rol ADMIN', () => {
+      expect(guard.canActivate(contextoPara(handler, ['ADMIN']))).toBe(true);
+    });
+
+    it.each(['COLABORADOR', 'SOCIO', 'DELEGADO', 'PROFESOR'])(
+      'rechaza al rol %s con 403 ForbiddenException',
+      (rol) => {
+        expect(() => guard.canActivate(contextoPara(handler, [rol]))).toThrow(ForbiddenException);
+      },
+    );
+  });
 });
