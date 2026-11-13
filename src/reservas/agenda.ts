@@ -119,10 +119,7 @@ export interface EspacioJerarquia {
 
 export type PrismaEspacioClient = {
   espacio?: {
-    findUnique: (args: {
-      where: { id: number };
-      select?: any;
-    }) => Promise<EspacioJerarquia | null>;
+    findUnique: (args: { where: { id: number }; select?: any }) => Promise<EspacioJerarquia | null>;
   };
 };
 
@@ -227,7 +224,10 @@ export function conflictosDe(
     if (r.id === excluirReservaId || !ESTADOS_QUE_OCUPAN.includes(r.estado)) continue;
     if (seSolapan(intervalo, r)) {
       const nombreOrigen =
-        espacioConsultadoId && r.espacioId && r.espacioId !== espacioConsultadoId && r.espacio?.nombre
+        espacioConsultadoId &&
+        r.espacioId &&
+        r.espacioId !== espacioConsultadoId &&
+        r.espacio?.nombre
           ? ` (${r.espacio.nombre})`
           : '';
       conflictos.push({
@@ -243,7 +243,10 @@ export function conflictosDe(
     for (const i of intervalosDeBloqueo(b, intervalo)) {
       const motivoBase = b.motivo ?? 'Bloqueo de agenda';
       const nombreOrigen =
-        espacioConsultadoId && b.espacioId && b.espacioId !== espacioConsultadoId && b.espacio?.nombre
+        espacioConsultadoId &&
+        b.espacioId &&
+        b.espacioId !== espacioConsultadoId &&
+        b.espacio?.nombre
           ? ` (${b.espacio.nombre})`
           : '';
       conflictos.push({

@@ -1,13 +1,4 @@
-import {
-  IsBoolean,
-  IsEnum,
-  IsIn,
-  IsInt,
-  IsOptional,
-  IsString,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsBoolean, IsEnum, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { ModalidadReserva, TipoEspacio } from '@prisma/client';
@@ -23,6 +14,20 @@ export class FindEspaciosQueryDto {
   @IsEnum(ModalidadReserva, { message: 'La modalidad debe ser POR_HORA o DIA_COMPLETO' })
   modalidad?: ModalidadReserva;
 
+  @ApiPropertyOptional({ description: 'Capacidad mínima de personas' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  capacidadMin?: number;
+
+  @ApiPropertyOptional({ description: 'Capacidad máxima de personas' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  capacidadMax?: number;
+
   @ApiPropertyOptional({
     enum: ['todos', 'activos', 'inactivos'],
     description: 'Filtro de pestaña de estado (todos | activos | inactivos)',
@@ -33,7 +38,9 @@ export class FindEspaciosQueryDto {
   })
   estado?: 'todos' | 'activos' | 'inactivos';
 
-  @ApiPropertyOptional({ description: 'Filtrar por activo booleano (default: true en catálogo simple)' })
+  @ApiPropertyOptional({
+    description: 'Filtrar por activo booleano (default: true en catálogo simple)',
+  })
   @IsOptional()
   @Transform(({ value }) => {
     if (value === 'true' || value === true) return true;

@@ -350,8 +350,10 @@ export class EspaciosService {
    * Listar espacios físicos con sus disciplinas asociadas y sub-espacios (Patrón Composite).
    * Si se solicita con paginación o filtro de pestaña (`pagina`, `porPagina` o `estado`),
    * devuelve `{ items, total, pagina, porPagina, counts: { todos, activos, inactivos } }`.
+   * Criterio US-58: Si el usuario no es ADMIN ni COLABORADOR, el filtro de estado se restringe a sólo activos.
    */
-  async findAll(query: FindEspaciosQueryDto) {
+  async findAll(query: FindEspaciosQueryDto, userRole?: string) {
+    const esAdminOColaborador = userRole === 'ADMIN' || userRole === 'COLABORADOR';
     const whereBase: Prisma.EspacioWhereInput = {};
 
     if (query.tipo) {
@@ -360,6 +362,13 @@ export class EspaciosService {
 
     if (query.modalidad) {
       whereBase.modalidad = query.modalidad;
+    }
+
+    if (query.capacidadMin !== undefined || query.capacidadMax !== undefined) {
+      whereBase.capacidadMaxima = {
+        ...(query.capacidadMin !== undefined ? { gte: query.capacidadMin } : {}),
+        ...(query.capacidadMax !== undefined ? { lte: query.capacidadMax } : {}),
+      };
     }
 
     if (query.espacioPadreId !== undefined) {
@@ -412,7 +421,7 @@ export class EspaciosService {
         select: { id: true, nombre: true },
       },
       subespacios: {
-        where: { activo: true },
+        ...(esAdminOColaborador ? {} : { where: { activo: true } }),
         orderBy: { id: 'asc' as const },
         select: {
           id: true,
@@ -429,7 +438,7 @@ export class EspaciosService {
         select: {
           bloqueos: { where: { activo: true } },
           reservas: true,
-          subespacios: { where: { activo: true } },
+          subespacios: esAdminOColaborador ? true : { where: { activo: true } },
         },
       },
     };
@@ -444,7 +453,11 @@ export class EspaciosService {
       const whereInactivos: Prisma.EspacioWhereInput = { ...whereBase, activo: false };
 
       let where: Prisma.EspacioWhereInput = whereBase;
-      if (query.estado === 'activos' || query.activo === true) {
+
+      // Criterio US-58: usuarios estándar (socios/visitantes) siempre ven únicamente activos
+      if (!esAdminOColaborador) {
+        where = whereActivos;
+      } else if (query.estado === 'activos' || query.activo === true) {
         where = whereActivos;
       } else if (query.estado === 'inactivos' || query.activo === false) {
         where = whereInactivos;
@@ -460,9 +473,9 @@ export class EspaciosService {
             include,
           }),
           this.prisma.espacio.count({ where }),
-          this.prisma.espacio.count({ where: whereBase }),
+          this.prisma.espacio.count({ where: esAdminOColaborador ? whereBase : whereActivos }),
           this.prisma.espacio.count({ where: whereActivos }),
-          this.prisma.espacio.count({ where: whereInactivos }),
+          this.prisma.espacio.count({ where: esAdminOColaborador ? whereInactivos : { id: -1 } }),
         ]);
 
       return {
@@ -471,16 +484,16 @@ export class EspaciosService {
         pagina,
         porPagina,
         counts: {
-          todos: totalTodos,
+          todos: esAdminOColaborador ? totalTodos : totalActivos,
           activos: totalActivos,
-          inactivos: totalInactivos,
+          inactivos: esAdminOColaborador ? totalInactivos : 0,
         },
       };
     }
 
     const whereSimple: Prisma.EspacioWhereInput = {
       ...whereBase,
-      activo: query.activo !== undefined ? query.activo : true,
+      activo: esAdminOColaborador && query.activo !== undefined ? query.activo : true,
     };
 
     return this.prisma.espacio.findMany({
@@ -506,7 +519,6 @@ export class EspaciosService {
           select: { id: true, nombre: true, ubicacion: true },
         },
         subespacios: {
-          where: { activo: true },
           orderBy: { id: 'asc' },
         },
         bloqueos: {
@@ -573,8 +585,10 @@ export class EspaciosService {
       }
     }
 
-    const nuevoPrecio = dto.precio !== undefined ? Number(dto.precio) : Number(espacioActual.precio);
-    let nuevoDescuento = dto.descuentoSocio !== undefined ? dto.descuentoSocio : espacioActual.descuentoSocio;
+    const nuevoPrecio =
+      dto.precio !== undefined ? Number(dto.precio) : Number(espacioActual.precio);
+    let nuevoDescuento =
+      dto.descuentoSocio !== undefined ? dto.descuentoSocio : espacioActual.descuentoSocio;
     let nuevoPrecioSocio: Prisma.Decimal | null | undefined = undefined;
 
     if (dto.descuentoSocio !== undefined || dto.precio !== undefined) {
@@ -598,7 +612,9 @@ export class EspaciosService {
           ...(dto.capacidadMaxima ? { capacidadMaxima: dto.capacidadMaxima } : {}),
           ...(dto.modalidad ? { modalidad: dto.modalidad } : {}),
           ...(dto.ubicacion !== undefined ? { ubicacion: dto.ubicacion?.trim() || null } : {}),
-          ...(dto.descripcion !== undefined ? { descripcion: dto.descripcion?.trim() || null } : {}),
+          ...(dto.descripcion !== undefined
+            ? { descripcion: dto.descripcion?.trim() || null }
+            : {}),
           ...(dto.precio !== undefined ? { precio: new Prisma.Decimal(dto.precio) } : {}),
           ...(dto.descuentoSocio !== undefined || dto.precioSocio !== undefined
             ? { descuentoSocio: nuevoDescuento }
@@ -680,13 +696,19 @@ export class EspaciosService {
     const diasSemanaFinal = dto.diasSemana ?? bloqueoActual.diasSemana;
     const horaInicioFinal = dto.horaInicio ?? bloqueoActual.horaInicio;
     const horaFinFinal = dto.horaFin ?? bloqueoActual.horaFin;
-    const fechaFinal = dto.fecha ?? (bloqueoActual.fecha ? bloqueoActual.fecha.toISOString().split('T')[0] : undefined);
+    const fechaFinal =
+      dto.fecha ??
+      (bloqueoActual.fecha ? bloqueoActual.fecha.toISOString().split('T')[0] : undefined);
     const vigenteDesdeFinal =
       dto.vigenteDesde ??
-      (bloqueoActual.vigenteDesde ? bloqueoActual.vigenteDesde.toISOString().split('T')[0] : undefined);
+      (bloqueoActual.vigenteDesde
+        ? bloqueoActual.vigenteDesde.toISOString().split('T')[0]
+        : undefined);
     const vigenteHastaFinal =
       dto.vigenteHasta ??
-      (bloqueoActual.vigenteHasta ? bloqueoActual.vigenteHasta.toISOString().split('T')[0] : undefined);
+      (bloqueoActual.vigenteHasta
+        ? bloqueoActual.vigenteHasta.toISOString().split('T')[0]
+        : undefined);
     const disciplinaIdFinal =
       dto.disciplinaId !== undefined ? dto.disciplinaId : bloqueoActual.disciplinaId;
     const motivoFinal = dto.motivo !== undefined ? dto.motivo : bloqueoActual.motivo;

@@ -27,6 +27,7 @@ describe('US-55 · EspaciosController (e2e / Integración con Supertest)', () =>
       findUnique: jest.fn(),
       findUniqueOrThrow: jest.fn(),
       findMany: jest.fn(),
+      count: jest.fn(),
     },
     espacioDisciplina: {
       createMany: jest.fn(),
@@ -44,7 +45,12 @@ describe('US-55 · EspaciosController (e2e / Integración con Supertest)', () =>
     reserva: {
       findMany: jest.fn(),
     },
-    $transaction: jest.fn((callback: (tx: any) => any) => callback(prismaMock)),
+    $transaction: jest.fn((arg: any) => {
+      if (Array.isArray(arg)) {
+        return Promise.all(arg);
+      }
+      return arg(prismaMock);
+    }),
   };
 
   const auditoriaMock = {
@@ -850,9 +856,7 @@ describe('US-55 · EspaciosController (e2e / Integración con Supertest)', () =>
         activo: false,
       });
 
-      const res = await request(getHttpServer())
-        .delete('/espacios/1/bloqueos/10')
-        .expect(200);
+      const res = await request(getHttpServer()).delete('/espacios/1/bloqueos/10').expect(200);
 
       expect(res.body.mensaje).toBe('Bloqueo eliminado exitosamente');
       expect(auditoriaMock.registrar).toHaveBeenCalledWith(
@@ -877,9 +881,7 @@ describe('US-55 · EspaciosController (e2e / Integración con Supertest)', () =>
       prismaMock.espacio.update.mockResolvedValue({ id: 1, activo: false });
       prismaMock.bloqueoAgenda.updateMany.mockResolvedValue({ count: 0 });
 
-      const res = await request(getHttpServer())
-        .delete('/espacios/1')
-        .expect(200);
+      const res = await request(getHttpServer()).delete('/espacios/1').expect(200);
 
       expect(res.body.mensaje).toBe('Espacio dado de baja exitosamente');
       expect(auditoriaMock.registrar).toHaveBeenCalledWith(
@@ -909,11 +911,180 @@ describe('US-55 · EspaciosController (e2e / Integración con Supertest)', () =>
         },
       ]);
 
+      const res = await request(getHttpServer()).delete('/espacios/1').expect(409);
+
+      expect(res.body.message).toContain(
+        'No se puede dar de baja el espacio porque tiene reservas futuras',
+      );
+    });
+
+    it('TC-ESP-DEL03 · rechaza con 404 Not Found si el espacio no existe o ya está inactivo', async () => {
+      prismaMock.espacio.findUnique.mockResolvedValueOnce(null);
+
+      await request(getHttpServer()).delete('/espacios/999').expect(404);
+    });
+
+    it('TC-ESP-ED02 · rechaza con 400 si se intenta asociar disciplinas a un espacio SOCIAL', async () => {
+      prismaMock.espacio.findUnique.mockResolvedValueOnce({
+        id: 2,
+        nombre: 'Salón Principal',
+        tipo: 'SOCIAL',
+        precio: new Prisma.Decimal(50000),
+        montoSena: new Prisma.Decimal(20000),
+        activo: true,
+        disciplinas: [],
+      });
+
       const res = await request(getHttpServer())
-        .delete('/espacios/1')
+        .patch('/espacios/2')
+        .send({ disciplinaIds: [1] })
+        .expect(400);
+
+      expect(res.body.message).toContain(
+        'Los espacios de tipo SOCIAL no pueden asociarse a disciplinas deportivas.',
+      );
+    });
+
+    it('TC-ESP-ED03 · rechaza con 400 si montoSena > precio al editar', async () => {
+      prismaMock.espacio.findUnique.mockResolvedValueOnce({
+        id: 1,
+        nombre: 'Cancha 1',
+        tipo: 'DEPORTIVO',
+        precio: new Prisma.Decimal(15000),
+        montoSena: new Prisma.Decimal(5000),
+        activo: true,
+        disciplinas: [],
+      });
+
+      const res = await request(getHttpServer())
+        .patch('/espacios/1')
+        .send({ montoSena: 25000 })
+        .expect(400);
+
+      expect(res.body.message).toContain(
+        'El monto de la seña requerida no puede ser superior al precio total de alquiler.',
+      );
+    });
+
+    it('TC-ESP-ED05 · rechaza con 409 Conflict si la modificación del bloqueo se superpone con reserva aprobada', async () => {
+      prismaMock.espacio.findUnique.mockResolvedValueOnce({
+        id: 1,
+        nombre: 'Cancha 1',
+        activo: true,
+        disciplinas: [],
+        subespacios: [],
+      });
+
+      prismaMock.bloqueoAgenda.findFirst.mockResolvedValueOnce({
+        id: 10,
+        espacioId: 1,
+        tipo: 'PUNTUAL',
+        fecha: new Date('2026-11-20'),
+        horaInicio: '10:00',
+        horaFin: '12:00',
+        motivo: 'Mantenimiento preventivo',
+        activo: true,
+      });
+
+      prismaMock.reserva.findMany.mockResolvedValueOnce([
+        {
+          id: 55,
+          codigo: 'RES-MOD-01',
+          espacioId: 1,
+          inicio: new Date('2026-11-20T21:00:00.000Z'),
+          fin: new Date('2026-11-20T23:00:00.000Z'),
+        },
+      ]);
+
+      const res = await request(getHttpServer())
+        .patch('/espacios/1/bloqueos/10')
+        .send({
+          fecha: '2026-11-20',
+          horaInicio: '18:00',
+          horaFin: '20:00',
+          motivo: 'Mantenimiento urgente',
+        })
         .expect(409);
 
-      expect(res.body.message).toContain('No se puede dar de baja el espacio porque tiene reservas futuras');
+      expect(res.body.message).toContain(
+        'El bloqueo modificado entra en conflicto con la reserva particular aprobada RES-MOD-01.',
+      );
+    });
+  });
+
+  describe('US-58 · Consultas de espacios e2e', () => {
+    it('TC-ESP-CON01 · consulta paginada con contrato completo y counts para ADMIN', async () => {
+      prismaMock.espacio.findMany.mockResolvedValue([
+        { id: 1, nombre: 'Cancha 1', tipo: 'DEPORTIVO', activo: true },
+      ]);
+      prismaMock.espacio.count
+        .mockResolvedValueOnce(1) // total
+        .mockResolvedValueOnce(3) // todos
+        .mockResolvedValueOnce(2) // activos
+        .mockResolvedValueOnce(1); // inactivos
+
+      const res = await request(getHttpServer()).get('/espacios?pagina=1&porPagina=10').expect(200);
+
+      expect(res.body).toEqual({
+        items: expect.any(Array),
+        total: 1,
+        pagina: 1,
+        porPagina: 10,
+        counts: {
+          todos: 3,
+          activos: 2,
+          inactivos: 1,
+        },
+      });
+    });
+
+    it('TC-ESP-CON02 · para rol SOCIO solo devuelve activos y oculta inactivos (counts.inactivos = 0)', async () => {
+      currentUser = { id: 2, email: 'socio@test.com', roles: ['SOCIO'] };
+
+      prismaMock.espacio.findMany.mockResolvedValue([
+        { id: 1, nombre: 'Cancha 1', tipo: 'DEPORTIVO', activo: true },
+      ]);
+      prismaMock.espacio.count
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(0);
+
+      const res = await request(getHttpServer()).get('/espacios?pagina=1&porPagina=10').expect(200);
+
+      expect(res.body.counts.inactivos).toBe(0);
+      expect(prismaMock.espacio.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            activo: true,
+          }),
+        }),
+      );
+    });
+
+    it('TC-ESP-CON03 · filtrado por rango de capacidad, tipo y modalidad', async () => {
+      prismaMock.espacio.findMany.mockResolvedValue([]);
+      prismaMock.espacio.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0);
+
+      await request(getHttpServer())
+        .get(
+          '/espacios?pagina=1&porPagina=10&capacidadMin=10&capacidadMax=50&tipo=DEPORTIVO&modalidad=POR_HORA',
+        )
+        .expect(200);
+
+      expect(prismaMock.espacio.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tipo: 'DEPORTIVO',
+            modalidad: 'POR_HORA',
+            capacidadMaxima: { gte: 10, lte: 50 },
+          }),
+        }),
+      );
     });
   });
 });
