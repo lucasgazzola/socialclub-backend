@@ -19,6 +19,7 @@ import { InscripcionModule } from './inscripcion/inscripcion.module';
 import { DocumentacionModule } from './documentacion/documentacion.module';
 import { PagosModule } from './pagos/pagos.module';
 import { ReportesModule } from './reportes/reportes.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { AlertasModule } from './alertas/alertas.module';
 import { NotificacionesModule } from './notificaciones/notificaciones.module';
 import { TareasModule } from './tareas/tareas.module';
@@ -50,6 +51,7 @@ import { ReservasModule } from './reservas/reservas.module';
     DocumentacionModule,
     PagosModule,
     ReportesModule,
+    DashboardModule,
     AlertasModule,
     // Servicios transversales (DT-36, DT-22)
     NotificacionesModule,
