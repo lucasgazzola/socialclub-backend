@@ -735,6 +735,26 @@ describe('US-55 · EspaciosService', () => {
       mockPrisma.espacio.findUnique.mockResolvedValue(null);
       await expect(service.findOne(99)).rejects.toThrow(NotFoundException);
     });
+
+    it('findOne · consulta subespacios sin filtrar por activo para que sigan visibles al estar inactivos', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Sector Parrillas',
+        activo: false,
+        subespacios: [{ id: 2, nombre: 'Parrilla 1', activo: false }],
+      });
+      const espacio = await service.findOne(1);
+      expect(espacio.subespacios).toHaveLength(1);
+      expect(mockPrisma.espacio.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: expect.objectContaining({
+            subespacios: {
+              orderBy: { id: 'asc' },
+            },
+          }),
+        }),
+      );
+    });
   });
 
   describe('US-56 · Editar espacios y bloqueos', () => {

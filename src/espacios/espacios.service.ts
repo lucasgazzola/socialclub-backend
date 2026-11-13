@@ -394,7 +394,7 @@ export class EspaciosService {
         select: { id: true, nombre: true },
       },
       subespacios: {
-        where: { activo: true },
+        ...(esAdminOColaborador ? {} : { where: { activo: true } }),
         orderBy: { id: 'asc' as const },
         select: {
           id: true,
@@ -410,7 +410,7 @@ export class EspaciosService {
         select: {
           bloqueos: { where: { activo: true } },
           reservas: true,
-          subespacios: { where: { activo: true } },
+          subespacios: esAdminOColaborador ? true : { where: { activo: true } },
         },
       },
     };
@@ -491,7 +491,6 @@ export class EspaciosService {
           select: { id: true, nombre: true, ubicacion: true },
         },
         subespacios: {
-          where: { activo: true },
           orderBy: { id: 'asc' },
         },
         bloqueos: {
