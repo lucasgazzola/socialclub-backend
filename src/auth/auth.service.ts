@@ -55,6 +55,8 @@ export class AuthService {
             nombre: dto.nombre,
             apellido: dto.apellido,
             email,
+            fechaNacimiento: new Date(`${dto.fechaNacimiento}T00:00:00.000Z`),
+            genero: dto.genero,
           },
         });
         personaId = nuevaPersona.id;
@@ -283,6 +285,7 @@ export class AuthService {
       email: persona.email,
       telefono: persona.telefono,
       fechaNacimiento: persona.fechaNacimiento,
+      genero: persona.genero,
       membresias: persona.membresias.map((m) => ({
         id: m.id,
         categoriaId: m.categoriaId,
