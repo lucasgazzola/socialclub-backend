@@ -964,6 +964,41 @@ describe('US-55 · EspaciosService', () => {
       mockPrisma.espacio.findUnique.mockResolvedValueOnce(null);
       await expect(service.remove(999, 99)).rejects.toThrow(NotFoundException);
     });
+
+    it('TC-ESP-DEL04 · da de baja un sub-espacio individual sin alterar el estado de sus hermanos ni de su espacio padre', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 11,
+        nombre: 'Parrilla 1',
+        activo: true,
+        espacioPadreId: 10,
+        subespacios: [], // Es un nodo hoja, no tiene subespacios
+      });
+
+      mockPrisma.reserva.findMany.mockResolvedValueOnce([]); // Sin reservas futuras
+      mockPrisma.espacio.update.mockResolvedValueOnce({ id: 11, activo: false });
+      mockPrisma.bloqueoAgenda.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      const res = await service.remove(11, 99);
+
+      expect(res.mensaje).toBe('Espacio dado de baja exitosamente');
+      expect(res.id).toBe(11);
+      // Solo actualiza el sub-espacio objetivo
+      expect(mockPrisma.espacio.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 11 },
+          data: { activo: false },
+        }),
+      );
+      // No debe llamar a updateMany sobre subespacios (no tiene hijos)
+      expect(mockPrisma.espacio.updateMany).not.toHaveBeenCalled();
+      // Solo desactiva bloqueos del sub-espacio 11
+      expect(mockPrisma.bloqueoAgenda.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { espacioId: { in: [11] }, activo: true },
+          data: { activo: false },
+        }),
+      );
+    });
   });
 
   describe('US-57 (complemento) · Reactivar espacio (Volver a habilitar)', () => {
@@ -1067,6 +1102,33 @@ describe('US-55 · EspaciosService', () => {
       mockPrisma.espacio.findUnique.mockResolvedValueOnce(null);
 
       await expect(service.reactivate(999, 99)).rejects.toThrow(NotFoundException);
+    });
+
+    it('TC-ESP-REC06 · reactiva un sub-espacio puntual sin afectar el estado inactivo de sus hermanos', async () => {
+      mockPrisma.espacio.findUnique.mockResolvedValueOnce({
+        id: 11,
+        nombre: 'Parrilla 1',
+        activo: false,
+        espacioPadreId: 10,
+        espacioPadre: { id: 10, nombre: 'Sector Parrillas', activo: true }, // Padre ya activo
+        subespacios: [],
+      });
+
+      mockPrisma.espacio.update.mockResolvedValueOnce({ id: 11, activo: true });
+
+      const res = await service.reactivate(11, 99);
+
+      expect(res.id).toBe(11);
+      // Solo actualiza el sub-espacio objetivo a activo: true
+      expect(mockPrisma.espacio.update).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.espacio.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 11 },
+          data: { activo: true },
+        }),
+      );
+      // No actualiza hijos ni hermanos en lote
+      expect(mockPrisma.espacio.updateMany).not.toHaveBeenCalled();
     });
   });
 });
