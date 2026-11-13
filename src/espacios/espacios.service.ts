@@ -585,8 +585,10 @@ export class EspaciosService {
       }
     }
 
-    const nuevoPrecio = dto.precio !== undefined ? Number(dto.precio) : Number(espacioActual.precio);
-    let nuevoDescuento = dto.descuentoSocio !== undefined ? dto.descuentoSocio : espacioActual.descuentoSocio;
+    const nuevoPrecio =
+      dto.precio !== undefined ? Number(dto.precio) : Number(espacioActual.precio);
+    let nuevoDescuento =
+      dto.descuentoSocio !== undefined ? dto.descuentoSocio : espacioActual.descuentoSocio;
     let nuevoPrecioSocio: Prisma.Decimal | null | undefined = undefined;
 
     if (dto.descuentoSocio !== undefined || dto.precio !== undefined) {
