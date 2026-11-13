@@ -54,7 +54,12 @@ describe('DashboardController', () => {
 
   it('getMetricas debe delegar en DashboardService.getMetricas', async () => {
     const resultado = await controller.getMetricas();
-    expect(service.getMetricas).toHaveBeenCalledTimes(1);
+    expect(service.getMetricas).toHaveBeenCalledWith(undefined, false);
     expect(resultado).toEqual(mockDashboardResponse);
+  });
+
+  it('getMetricas con ?forzar=true debe forzar el recálculo', async () => {
+    await controller.getMetricas('true');
+    expect(service.getMetricas).toHaveBeenCalledWith(undefined, true);
   });
 });

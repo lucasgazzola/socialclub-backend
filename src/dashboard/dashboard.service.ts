@@ -41,13 +41,34 @@ const DOCUMENTO_SELECT = {
  */
 @Injectable()
 export class DashboardService {
+  /** Tiempo de vida de la caché en memoria (5 minutos en milisegundos). */
+  private static readonly CACHE_TTL_MS = 5 * 60 * 1000;
+
+  /** Caché en memoria para evitar consultas analíticas masivas recurrentes contra la BD. */
+  private cache: {
+    data: DashboardResponseDto;
+    timestamp: number;
+  } | null = null;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly pagosService: PagosService,
     private readonly pagosDeportivosService: PagosDeportivosService,
   ) {}
 
-  async getMetricas(ahora: Date = new Date()): Promise<DashboardResponseDto> {
+  /** Invalida la caché actual forzando un recálculo en la próxima consulta. */
+  invalidarCache(): void {
+    this.cache = null;
+  }
+
+  async getMetricas(ahora: Date = new Date(), forzarRecalculo = false): Promise<DashboardResponseDto> {
+    const ahoraMs = ahora.getTime();
+
+    // Si la caché está vigente y no se forzó el recálculo, responder inmediatamente desde memoria
+    if (!forzarRecalculo && this.cache && ahoraMs - this.cache.timestamp < DashboardService.CACHE_TTL_MS) {
+      return this.cache.data;
+    }
+
     // Cálculo de fechas en huso horario America/Argentina/Cordoba (UTC-3)
     const formatter = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'America/Argentina/Cordoba',
@@ -338,7 +359,7 @@ export class DashboardService {
       };
     });
 
-    return {
+    const respuesta: DashboardResponseDto = {
       totalIntegrantesActivos,
       porcentajeMorosos,
       cantidadMorosos,
@@ -349,5 +370,13 @@ export class DashboardService {
       morosidadPorConcepto,
       participantesPorDisciplina,
     };
+
+    // Actualizar la caché en memoria con el nuevo cálculo
+    this.cache = {
+      data: respuesta,
+      timestamp: ahoraMs,
+    };
+
+    return respuesta;
   }
 }

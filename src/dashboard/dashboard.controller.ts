@@ -1,5 +1,5 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
-import { ApiCookieAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { ApiCookieAuth, ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -24,7 +24,13 @@ export class DashboardController {
   @ApiOperation({
     summary: 'US-34 — Ver dashboard con métricas clave de la organización',
     description:
-      'Retorna total de integrantes activos, porcentaje de morosos, cantidad de documentos por vencer, inscripciones irregulares y próximos eventos.',
+      'Retorna total de integrantes activos, porcentaje de morosos, cantidad de documentos por vencer, inscripciones irregulares y próximos eventos. Cuenta con caché en memoria de 5 minutos.',
+  })
+  @ApiQuery({
+    name: 'forzar',
+    required: false,
+    type: Boolean,
+    description: 'Si es true, invalida la caché en memoria y reejecuta el cálculo contra la base de datos.',
   })
   @ApiOkResponse({
     type: DashboardResponseDto,
@@ -34,7 +40,8 @@ export class DashboardController {
     401: 'Unauthorized',
     403: 'No tenés permisos suficientes para esta operación',
   })
-  getMetricas(): Promise<DashboardResponseDto> {
-    return this.dashboardService.getMetricas();
+  getMetricas(@Query('forzar') forzar?: string): Promise<DashboardResponseDto> {
+    const forzarRecalculo = forzar === 'true' || forzar === '1';
+    return this.dashboardService.getMetricas(undefined, forzarRecalculo);
   }
 }

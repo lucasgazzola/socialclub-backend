@@ -204,6 +204,31 @@ describe('DashboardService', () => {
       expect(resultado.proximosEventos).toEqual([]);
     });
 
+    it('utiliza la caché en memoria y no vuelve a consultar la base de datos dentro del TTL de 5 minutos', async () => {
+      prisma.persona.findMany.mockResolvedValue([{ id: 1 }]);
+      pagosService.getMorososCuotaSocial.mockResolvedValue({ items: [], total: 0 });
+      pagosDeportivosService.getMorosos.mockResolvedValue({ items: [], total: 0 });
+      prisma.documentacion.count.mockResolvedValue(0);
+      prisma.evento.findMany.mockResolvedValue([]);
+      prisma.inscripcion.findMany.mockResolvedValue([]);
+
+      const t0 = new Date('2026-11-08T10:00:00.000Z');
+      const primerLlamado = await service.getMetricas(t0);
+
+      // Segunda llamada 2 minutos después (dentro del TTL de 5 minutos)
+      const t1 = new Date('2026-11-08T10:02:00.000Z');
+      const segundoLlamado = await service.getMetricas(t1);
+
+      expect(segundoLlamado).toBe(primerLlamado);
+      // Las consultas analíticas a Prisma solo debieron ejecutarse 1 vez
+      expect(prisma.persona.findMany).toHaveBeenCalledTimes(1);
+
+      // Tercera llamada forzando recálculo
+      const tercerLlamado = await service.getMetricas(t1, true);
+      expect(tercerLlamado).toBeDefined();
+      expect(prisma.persona.findMany).toHaveBeenCalledTimes(2);
+    });
+
     it('calcula correctamente el rango de fechas en horario America/Argentina/Cordoba', async () => {
       prisma.persona.findMany.mockResolvedValue([]);
       pagosService.getMorososCuotaSocial.mockResolvedValue({ items: [], total: 0 });
