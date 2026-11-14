@@ -15,14 +15,20 @@ import { PagosService } from '../pagos/pagos.service';
 import { PasarelaService } from '../pasarela/pasarela.service';
 import {
   conflictosDe,
+  diaCompleto,
   ESTADOS_QUE_OCUPAN,
   ESTADOS_VIGENTES,
+  fechaClub,
+  generarCodigoReserva,
   HUSO_CLUB_MINUTOS,
+  instanteClub,
   obtenerIdsEspaciosRelacionados,
 } from './agenda';
 import { ReservasPlantilla, type NovedadReserva } from './reservas.plantilla';
+import type { DisponibilidadQueryDto } from './dto/disponibilidad-query.dto';
 import type { FindSolicitudesQueryDto } from './dto/find-solicitudes-query.dto';
 import type { DatosCobroReserva } from './reserva.acreditador';
+import type { CreateReservaDto, PresupuestoReservaDto } from './dto/solicitar-reserva.dto';
 
 /** Plazos por defecto (decisión 0004); se cambian con variables de entorno. */
 export const HORAS_LIMITE_SENA = 48;
@@ -510,6 +516,318 @@ export class ReservasService {
       }
     }
     return { revisadas: vencidas.length, canceladas };
+  }
+
+  // ── US-59 · Solicitud de reserva ──────────────────────────────────────────
+
+  /** US-59: lista los espacios activos disponibles para reservar (sin restricción de rol). */
+  async listarEspaciosDisponibles() {
+    const espacios = await this.prisma.espacio.findMany({
+      where: { activo: true },
+      orderBy: { nombre: 'asc' },
+      include: {
+        espacioPadre: { select: { id: true, nombre: true } },
+        subespacios: { where: { activo: true }, select: { id: true, nombre: true } },
+        disciplinas: { include: { disciplina: { select: { id: true, nombre: true } } } },
+      },
+    });
+    return espacios.map((e) => ({
+      id: e.id,
+      nombre: e.nombre,
+      tipo: e.tipo,
+      capacidadMaxima: e.capacidadMaxima,
+      modalidad: e.modalidad,
+      ubicacion: e.ubicacion,
+      descripcion: e.descripcion,
+      espacioPadreId: e.espacioPadreId,
+      espacioPadre: e.espacioPadre,
+      subespacios: e.subespacios,
+      precio: Number(e.precio),
+      descuentoSocio: e.descuentoSocio,
+      precioSocio: e.precioSocio !== null ? Number(e.precioSocio) : null,
+      montoSena: Number(e.montoSena),
+      disciplinas: e.disciplinas.map((d) => d.disciplina),
+    }));
+  }
+
+  /** US-59 CA 1 & 4: intervalos ocupados por bloqueos o reservas en el espacio y sus relacionados. */
+  async consultarDisponibilidad(query: DisponibilidadQueryDto) {
+    const espacio = await this.prisma.espacio.findFirst({
+      where: { id: query.espacioId, activo: true },
+      select: { id: true, modalidad: true },
+    });
+    if (!espacio) {
+      throw new NotFoundException('Espacio no encontrado o inactivo');
+    }
+
+    const desdeDate = this.parsearFechaIso(query.desde, 'desde');
+    const hastaDate = this.parsearFechaIso(query.hasta, 'hasta');
+    if (hastaDate < desdeDate) {
+      throw new BadRequestException('La fecha hasta debe ser mayor o igual a la fecha desde');
+    }
+    const diasRango = (hastaDate.getTime() - desdeDate.getTime()) / 86_400_000 + 1;
+    if (diasRango > 62) {
+      throw new BadRequestException('El rango máximo de consulta es de 62 días');
+    }
+
+    const [a1, m1, d1] = [
+      desdeDate.getUTCFullYear(),
+      desdeDate.getUTCMonth() + 1,
+      desdeDate.getUTCDate(),
+    ];
+    const rango = {
+      inicio: instanteClub(a1, m1, d1, '00:00'),
+      fin: diaCompleto(hastaDate).fin,
+    };
+
+    const conflictos = await this.conflictosEnIntervalo(espacio.id, rango);
+    return {
+      espacioId: espacio.id,
+      modalidad: espacio.modalidad,
+      desde: query.desde,
+      hasta: query.hasta,
+      ocupados: conflictos.map((c) => ({
+        tipo: c.tipo,
+        inicio: c.inicio,
+        fin: c.fin,
+        detalle: c.detalle,
+      })),
+    };
+  }
+
+  /** US-59 CA 4, 5 & 6: verifica disponibilidad en tiempo real y calcula presupuesto + seña. */
+  async calcularPresupuesto(usuarioId: number, dto: PresupuestoReservaDto) {
+    const espacio = await this.prisma.espacio.findFirst({
+      where: { id: dto.espacioId, activo: true },
+    });
+    if (!espacio) {
+      throw new NotFoundException('Espacio no encontrado o inactivo');
+    }
+
+    const { inicio, fin, horas } = this.resolverTurno(espacio.modalidad, dto);
+    const [conflictos, tarifa] = await Promise.all([
+      this.conflictosEnIntervalo(espacio.id, { inicio, fin }),
+      this.condicionTarifaUsuario(usuarioId),
+    ]);
+
+    const precioRegularUnitario = Number(espacio.precio);
+    const precioSocioUnitario =
+      espacio.precioSocio !== null
+        ? Number(espacio.precioSocio)
+        : Math.round(precioRegularUnitario * (1 - espacio.descuentoSocio / 100) * 100) / 100;
+    const precioUnitario = tarifa.aplicaTarifaSocio ? precioSocioUnitario : precioRegularUnitario;
+    const cantidad = espacio.modalidad === 'DIA_COMPLETO' ? 1 : horas;
+    const montoRegular = Math.round(precioRegularUnitario * cantidad * 100) / 100;
+    const montoTotal = Math.round(precioUnitario * cantidad * 100) / 100;
+    const descuentoAplicado = Math.round((montoRegular - montoTotal) * 100) / 100;
+    const montoSena = Math.min(Number(espacio.montoSena), montoTotal);
+
+    return {
+      disponible: conflictos.length === 0,
+      conflictos: conflictos.map((c) => ({
+        tipo: c.tipo,
+        inicio: c.inicio,
+        fin: c.fin,
+        detalle: c.detalle,
+      })),
+      inicio,
+      fin,
+      modalidad: espacio.modalidad,
+      cantidad,
+      esSocio: tarifa.esSocio,
+      alDia: tarifa.alDia,
+      aplicaTarifaSocio: tarifa.aplicaTarifaSocio,
+      cuotasAdeudadas: tarifa.cuotasAdeudadas,
+      precioRegularUnitario,
+      precioSocioUnitario,
+      descuentoSocioPct: espacio.descuentoSocio,
+      montoRegular,
+      descuentoAplicado,
+      montoTotal,
+      montoSena,
+    };
+  }
+
+  /** US-59 CA 7: registra la solicitud en PENDIENTE_APROBACION y emite código RES-XXXXXX. */
+  async solicitarReserva(usuarioId: number, dto: CreateReservaDto) {
+    const presupuesto = await this.calcularPresupuesto(usuarioId, dto);
+    if (!presupuesto.disponible) {
+      throw new ConflictException(
+        `El espacio no está disponible en ese horario: ${presupuesto.conflictos[0].detalle}`,
+      );
+    }
+
+    const pendienteDuplicada = await this.prisma.reserva.findFirst({
+      where: {
+        usuarioId,
+        espacioId: dto.espacioId,
+        estado: 'PENDIENTE_APROBACION',
+        inicio: { lt: presupuesto.fin },
+        fin: { gt: presupuesto.inicio },
+      },
+      select: { codigo: true },
+    });
+    if (pendienteDuplicada) {
+      throw new ConflictException(
+        `Ya tenés una solicitud pendiente (${pendienteDuplicada.codigo}) para este espacio en ese horario`,
+      );
+    }
+
+    const codigo = await this.generarCodigoUnico();
+    const creada = await this.prisma.$transaction(async (tx) => {
+      const reserva = await tx.reserva.create({
+        data: {
+          codigo,
+          espacioId: dto.espacioId,
+          usuarioId,
+          inicio: presupuesto.inicio,
+          fin: presupuesto.fin,
+          estado: 'PENDIENTE_APROBACION',
+          esSocio: presupuesto.aplicaTarifaSocio,
+          montoTotal: presupuesto.montoTotal,
+          montoSena: presupuesto.montoSena,
+        },
+        include: INCLUIR,
+      });
+
+      await this.auditoria.registrar(
+        {
+          accion: 'CREAR',
+          entidad: 'Reserva',
+          idEntidad: reserva.id,
+          responsableId: usuarioId,
+          detalle: `Solicitud de reserva ${reserva.codigo} creada para ${reserva.espacio.nombre} (${turnoLegible(reserva)}).`,
+        },
+        tx,
+      );
+
+      return reserva;
+    });
+
+    return {
+      mensaje: `Solicitud ${creada.codigo} enviada. Queda pendiente de aprobación.`,
+      reserva: this.resumen(creada),
+    };
+  }
+
+  private async condicionTarifaUsuario(usuarioId: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: {
+        persona: {
+          select: {
+            id: true,
+            membresias: { where: { activo: true }, select: { id: true } },
+          },
+        },
+      },
+    });
+    const persona = usuario?.persona;
+    const esSocio = (persona?.membresias.length ?? 0) > 0;
+    if (!persona || !esSocio) {
+      return { esSocio: false, alDia: false, aplicaTarifaSocio: false, cuotasAdeudadas: 0 };
+    }
+    try {
+      const { cuotasPendientes } = await this.pagos.getCuotasPendientesPorSocio(persona.id);
+      const cuotasAdeudadas = cuotasPendientes.length;
+      const alDia = cuotasAdeudadas === 0;
+      return { esSocio: true, alDia, aplicaTarifaSocio: alDia, cuotasAdeudadas };
+    } catch {
+      return { esSocio: true, alDia: false, aplicaTarifaSocio: false, cuotasAdeudadas: 0 };
+    }
+  }
+
+  private async conflictosEnIntervalo(espacioId: number, rango: { inicio: Date; fin: Date }) {
+    const idsEspacios = await obtenerIdsEspaciosRelacionados(this.prisma, espacioId);
+    const [reservas, bloqueos] = await Promise.all([
+      this.prisma.reserva.findMany({
+        where: {
+          espacioId: { in: idsEspacios },
+          estado: { in: [...ESTADOS_QUE_OCUPAN] },
+          inicio: { lt: rango.fin },
+          fin: { gt: rango.inicio },
+        },
+        select: {
+          id: true,
+          codigo: true,
+          estado: true,
+          inicio: true,
+          fin: true,
+          espacioId: true,
+          espacio: { select: { id: true, nombre: true } },
+        },
+      }),
+      this.prisma.bloqueoAgenda.findMany({
+        where: { espacioId: { in: idsEspacios }, activo: true },
+        include: { espacio: { select: { id: true, nombre: true } } },
+      }),
+    ]);
+    return conflictosDe(rango, { reservas, bloqueos }, undefined, espacioId);
+  }
+
+  private parsearFechaIso(valor: string, campo: string): Date {
+    const [anio, mes, dia] = valor.split('-').map(Number);
+    const fecha = new Date(Date.UTC(anio, mes - 1, dia));
+    if (
+      Number.isNaN(fecha.getTime()) ||
+      fecha.getUTCFullYear() !== anio ||
+      fecha.getUTCMonth() + 1 !== mes ||
+      fecha.getUTCDate() !== dia
+    ) {
+      throw new BadRequestException(`La fecha ${campo} no es válida`);
+    }
+    return fecha;
+  }
+
+  private resolverTurno(modalidad: string, dto: PresupuestoReservaDto) {
+    const fechaDate = this.parsearFechaIso(dto.fecha, 'fecha');
+    const hoyClub = fechaClub(new Date());
+
+    if (modalidad === 'DIA_COMPLETO') {
+      if (fechaDate <= hoyClub) {
+        throw new BadRequestException(
+          'Para espacios de día completo, la reserva debe solicitarse al menos para mañana',
+        );
+      }
+      const { inicio, fin } = diaCompleto(fechaDate);
+      return { inicio, fin, horas: 24 };
+    }
+
+    if (!dto.horaInicio || !dto.horaFin) {
+      throw new BadRequestException('Debés indicar hora de inicio y hora de fin');
+    }
+
+    const [anio, mes, dia] = [
+      fechaDate.getUTCFullYear(),
+      fechaDate.getUTCMonth() + 1,
+      fechaDate.getUTCDate(),
+    ];
+    const inicio = instanteClub(anio, mes, dia, dto.horaInicio);
+    const fin =
+      dto.horaFin === '24:00'
+        ? diaCompleto(fechaDate).fin
+        : instanteClub(anio, mes, dia, dto.horaFin);
+
+    if (fin <= inicio) {
+      throw new BadRequestException('La hora de fin debe ser posterior a la hora de inicio');
+    }
+    if (inicio <= new Date()) {
+      throw new BadRequestException('El turno seleccionado ya pasó');
+    }
+    const horas = (fin.getTime() - inicio.getTime()) / 3_600_000;
+    return { inicio, fin, horas };
+  }
+
+  private async generarCodigoUnico(): Promise<string> {
+    for (let i = 0; i < 8; i++) {
+      const codigo = generarCodigoReserva();
+      const existe = await this.prisma.reserva.findUnique({
+        where: { codigo },
+        select: { id: true },
+      });
+      if (!existe) return codigo;
+    }
+    throw new ConflictException('No se pudo generar un código de reserva único, reintentá');
   }
 
   // ── US-62 · Mis Reservas ──────────────────────────────────────────────────
