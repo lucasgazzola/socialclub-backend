@@ -61,11 +61,18 @@ export class DashboardService {
     this.cache = null;
   }
 
-  async getMetricas(ahora: Date = new Date(), forzarRecalculo = false): Promise<DashboardResponseDto> {
+  async getMetricas(
+    ahora: Date = new Date(),
+    forzarRecalculo = false,
+  ): Promise<DashboardResponseDto> {
     const ahoraMs = ahora.getTime();
 
     // Si la caché está vigente y no se forzó el recálculo, responder inmediatamente desde memoria
-    if (!forzarRecalculo && this.cache && ahoraMs - this.cache.timestamp < DashboardService.CACHE_TTL_MS) {
+    if (
+      !forzarRecalculo &&
+      this.cache &&
+      ahoraMs - this.cache.timestamp < DashboardService.CACHE_TTL_MS
+    ) {
       return this.cache.data;
     }
 
