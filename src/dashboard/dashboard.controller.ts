@@ -30,7 +30,8 @@ export class DashboardController {
     name: 'forzar',
     required: false,
     type: Boolean,
-    description: 'Si es true, invalida la caché en memoria y reejecuta el cálculo contra la base de datos.',
+    description:
+      'Si es true, invalida la caché en memoria y reejecuta el cálculo contra la base de datos.',
   })
   @ApiOkResponse({
     type: DashboardResponseDto,

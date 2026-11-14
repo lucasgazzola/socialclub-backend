@@ -50,7 +50,10 @@ export class CreateSubespacioDto {
   @IsPositive({ message: 'El precio para socios del sub-espacio debe ser mayor a cero' })
   precioSocio?: number;
 
-  @ApiPropertyOptional({ description: 'Porcentaje de descuento para socios (0 a 100%)', example: 20 })
+  @ApiPropertyOptional({
+    description: 'Porcentaje de descuento para socios (0 a 100%)',
+    example: 20,
+  })
   @IsOptional()
   @IsInt({ message: 'El descuento para socios debe ser un número entero' })
   @Min(0, { message: 'El descuento no puede ser negativo' })
@@ -103,7 +106,10 @@ export class CreateEspacioDto {
   @IsPositive({ message: 'El precio de alquiler debe ser mayor a cero' })
   precio: number;
 
-  @ApiPropertyOptional({ description: 'Porcentaje de descuento para socios activos (0 a 100%)', example: 20 })
+  @ApiPropertyOptional({
+    description: 'Porcentaje de descuento para socios activos (0 a 100%)',
+    example: 20,
+  })
   @IsOptional()
   @IsInt({ message: 'El descuento para socios debe ser un número entero' })
   @Min(0, { message: 'El descuento no puede ser negativo' })

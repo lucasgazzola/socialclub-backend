@@ -19,4 +19,3 @@ export class SolicitarInscripcionDto {
   @IsPositive()
   categoriaDisciplinaId?: number;
 }
-

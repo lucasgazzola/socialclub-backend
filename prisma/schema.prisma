@@ -577,9 +577,10 @@ model PeriodoInscripcion {
   @@map("periodos_inscripcion")
 }
 
-/// Estados de una solicitud de inscripción a una disciplina (US-63).
+/// Estados de una solicitud de inscripción a una disciplina (US-63 / US-64).
 enum EstadoSolicitudInscripcion {
   PENDIENTE
+  PENDIENTE_DOCUMENTACION
   APROBADA
   RECHAZADA
   CANCELADA

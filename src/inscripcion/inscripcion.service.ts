@@ -1436,9 +1436,11 @@ export class InscripcionService {
   }
 
   /**
-   * US-63: Listar solicitudes de inscripción de la persona asociada al usuario autenticado.
+   * US-63 / US-64: Listar solicitudes de inscripción de la persona asociada al usuario autenticado.
+   * Ordenadas cronológicamente de la más reciente a la más antigua (fechaSolicitud DESC).
+   * Opcionalmente filtradas por estado.
    */
-  async misSolicitudes(usuarioId: number) {
+  async misSolicitudes(usuarioId: number, estado?: EstadoSolicitudInscripcion) {
     const usuario = await this.prisma.usuario.findUnique({
       where: { id: usuarioId },
       select: { personaId: true },
@@ -1448,7 +1450,10 @@ export class InscripcionService {
     }
 
     return this.prisma.solicitudInscripcion.findMany({
-      where: { personaId: usuario.personaId },
+      where: {
+        personaId: usuario.personaId,
+        ...(estado ? { estado } : {}),
+      },
       orderBy: { fechaSolicitud: 'desc' },
       include: {
         disciplina: { select: { id: true, nombre: true, descripcion: true } },
