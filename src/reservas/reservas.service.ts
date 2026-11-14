@@ -33,6 +33,7 @@ import type { CreateReservaDto, PresupuestoReservaDto } from './dto/solicitar-re
 /** Plazos por defecto (decisión 0004); se cambian con variables de entorno. */
 export const HORAS_LIMITE_SENA = 48;
 export const HORAS_PENALIZACION = 48;
+export const MINUTOS_ANTICIPACION_SENA = 30;
 
 /** Cómo pagar la seña, para «Mis Reservas» (US-62). */
 export const INSTRUCCIONES_SENA =
@@ -292,7 +293,16 @@ export class ReservasService {
         `El turno ya no está disponible: se superpone con ${conflicto.detalle} (${enHoraClub(conflicto.inicio)} a ${enHoraClub(conflicto.fin).slice(-5)}).`,
       );
     }
-    const limitePagoSena = new Date(Date.now() + this.horasLimiteSena * MS_HORA);
+    const ahora = Date.now();
+    const topeAntesDelTurno = reserva.inicio.getTime() - MINUTOS_ANTICIPACION_SENA * 60_000;
+    if (topeAntesDelTurno <= ahora) {
+      throw new BadRequestException(
+        `No se puede aprobar: faltan menos de ${MINUTOS_ANTICIPACION_SENA} minutos para el inicio del turno y ya no hay margen para abonar la seña`,
+      );
+    }
+    const limitePagoSena = new Date(
+      Math.min(ahora + this.horasLimiteSena * MS_HORA, topeAntesDelTurno),
+    );
     const aprobada = await this.transicionar(
       reserva,
       ['PENDIENTE_APROBACION'],
@@ -813,6 +823,11 @@ export class ReservasService {
     }
     if (inicio <= new Date()) {
       throw new BadRequestException('El turno seleccionado ya pasó');
+    }
+    if (inicio.getTime() <= Date.now() + MINUTOS_ANTICIPACION_SENA * 60_000) {
+      throw new BadRequestException(
+        `La reserva debe solicitarse con al menos ${MINUTOS_ANTICIPACION_SENA} minutos de anticipación para poder abonar la seña`,
+      );
     }
     const horas = (fin.getTime() - inicio.getTime()) / 3_600_000;
     return { inicio, fin, horas };

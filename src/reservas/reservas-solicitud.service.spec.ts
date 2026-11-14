@@ -328,6 +328,93 @@ describe('US-59 · ReservasService (Solicitud de reserva)', () => {
         }),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('rechaza si faltan menos de 30 minutos para el inicio del turno (sin margen para pagar la seña)', async () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-11-20T20:45:00.000Z')); // 17:45 AR
+      try {
+        prisma.espacio.findFirst.mockResolvedValueOnce(espacioPorHora());
+
+        await expect(
+          service.calcularPresupuesto(7, {
+            espacioId: 1,
+            fecha: '2026-11-20',
+            horaInicio: '18:00',
+            horaFin: '19:00',
+          }),
+        ).rejects.toThrow(BadRequestException);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('topea el límite de pago de seña en 30 minutos antes del inicio cuando el turno es dentro de las próximas 48 horas', async () => {
+      const inicioEn4Horas = new Date(Date.now() + 4 * 3_600_000);
+      const finEn6Horas = new Date(Date.now() + 6 * 3_600_000);
+      const baseReserva = {
+        id: 22,
+        codigo: 'RES-CERC22',
+        espacioId: 1,
+        usuarioId: 7,
+        inicio: inicioEn4Horas,
+        fin: finEn6Horas,
+        estado: 'PENDIENTE_APROBACION',
+        esSocio: true,
+        montoTotal: 24000,
+        montoSena: 6000,
+        observaciones: null,
+        limitePagoSena: null,
+        senaPagadaEn: null,
+        metodoPagoSena: null,
+        motivoRechazo: null,
+        motivoCancelacion: null,
+        creadoEn: new Date(),
+        espacio: { id: 1, nombre: 'Cancha Fútbol 5', modalidad: 'POR_HORA' },
+        usuario: { id: 7, email: 'lucia@club.local', persona: null },
+      };
+      prisma.reserva.findUnique
+        .mockResolvedValueOnce(baseReserva)
+        .mockResolvedValueOnce({
+          ...baseReserva,
+          estado: 'APROBADA_PENDIENTE_PAGO',
+          limitePagoSena: new Date(inicioEn4Horas.getTime() - 30 * 60_000),
+        });
+      prisma.espacio.findUnique.mockResolvedValueOnce({ espacioPadreId: null, subespacios: [] });
+
+      await service.aprobar(22, 1);
+
+      const updateCall = tx.reserva.updateMany.mock.calls[0][0];
+      expect(updateCall.data.limitePagoSena.getTime()).toBe(
+        inicioEn4Horas.getTime() - 30 * 60_000,
+      );
+    });
+
+    it('rechaza aprobar si faltan menos de 30 minutos para el inicio del turno', async () => {
+      prisma.reserva.findUnique.mockResolvedValueOnce({
+        id: 23,
+        codigo: 'RES-TARDE1',
+        espacioId: 1,
+        usuarioId: 7,
+        inicio: new Date(Date.now() + 20 * 60_000),
+        fin: new Date(Date.now() + 80 * 60_000),
+        estado: 'PENDIENTE_APROBACION',
+        esSocio: false,
+        montoTotal: 15000,
+        montoSena: 6000,
+        observaciones: null,
+        limitePagoSena: null,
+        senaPagadaEn: null,
+        metodoPagoSena: null,
+        motivoRechazo: null,
+        motivoCancelacion: null,
+        creadoEn: new Date(),
+        espacio: { id: 1, nombre: 'Cancha Fútbol 5', modalidad: 'POR_HORA' },
+        usuario: { id: 7, email: 'lucia@club.local', persona: null },
+      });
+      prisma.espacio.findUnique.mockResolvedValueOnce({ espacioPadreId: null, subespacios: [] });
+
+      await expect(service.aprobar(23, 1)).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('solicitarReserva', () => {
