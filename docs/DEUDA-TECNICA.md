@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 01/11/2026 (TASK-57 · DT-46 y DT-47: error en formulario de usuario y formato de DNI unificado; TASK-56 · DT-06, DT-09, DT-36: confirmación de compra de entradas y actualización de deuda técnica; US-60/61/62 · reservas, DT-53 nueva; registro DT-50, DT-51 y DT-52; TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
+- **Última actualización:** 02/11/2026 (devolución del profesor en la 3ra reunión: DT-54, DT-55, DT-56 y DT-57 nuevas); 01/11/2026 (TASK-57 · DT-46 y DT-47: error en formulario de usuario y formato de DNI unificado; TASK-56 · DT-06, DT-09, DT-36: confirmación de compra de entradas y actualización de deuda técnica; US-60/61/62 · reservas, DT-53 nueva; registro DT-50, DT-51 y DT-52; TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -14,7 +14,9 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 > adelante** salieron de la revisión del código del 15/09/2026 y están
 > marcados como tal. Los **DT-27 en adelante** salieron del análisis
 > funcional de dominio del 22/09/2026 (documentación, inscripciones, entradas
-> y cuotas) y están marcados como `Nuevo · funcional`.
+> y cuotas) y están marcados como `Nuevo · funcional`. Los **DT-54 a DT-57**
+> son la devolución del profesor en la 3ra reunión formal (02/11/2026) y están
+> marcados como `Nuevo · devolución del profesor`.
 
 ---
 
@@ -31,8 +33,12 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-27 · Documentación por disciplina: requisitos, estados y vigencia](#dt-27--documentación-por-disciplina-requisitos-estados-y-vigencia)
     - [DT-29 · No existe solicitud de inscripción con aprobación](#dt-29--no-existe-solicitud-de-inscripción-con-aprobación)
     - [DT-35 · El pago implementado solo cubre la cuota social](#dt-35--el-pago-implementado-solo-cubre-la-cuota-social)
+    - [DT-54 · El alta de usuario no verifica el email ni deja que la persona elija su contraseña](#dt-54--el-alta-de-usuario-no-verifica-el-email-ni-deja-que-la-persona-elija-su-contraseña)
   - [🟡 Medias](#-medias)
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
+    - [DT-55 · La inscripción es de a una disciplina por vez](#dt-55--la-inscripción-es-de-a-una-disciplina-por-vez)
+    - [DT-56 · Faltan filtros por rango de fechas en morosos y reportes](#dt-56--faltan-filtros-por-rango-de-fechas-en-morosos-y-reportes)
+    - [DT-57 · El QR de una entrada no muestra si está vigente, usada o vencida](#dt-57--el-qr-de-una-entrada-no-muestra-si-está-vigente-usada-o-vencida)
   - [⚪ Bajas](#-bajas)
     - [DT-51 · Nombres y correos electrónicos del seed con descriptores de prueba sin realismo](#dt-51--nombres-y-correos-electrónicos-del-seed-con-descriptores-de-prueba-sin-realismo)
     - [DT-09 · Imágenes en eventos](#dt-09--imágenes-en-eventos)
@@ -62,8 +68,8 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
 | ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-31, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48, DT-49, DT-50, DT-53, DT-06, DT-46, DT-47 |
-| 🟠 Altas pendientes | DT-52, DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-35 (cobro, tarifa y pasarela de pagos resueltos; resta el autoservicio de la cuota deportiva) |
-| 🟡 Medias pendientes | DT-34 |
+| 🟠 Altas pendientes | DT-52, DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-35 (cobro, tarifa y pasarela de pagos resueltos; resta el autoservicio de la cuota deportiva), DT-54 |
+| 🟡 Medias pendientes | DT-34, DT-55, DT-56, DT-57 |
 | ⚪ Bajas pendientes | DT-09 (campo e interfaz listos, subida pendiente de DT-15), DT-51, DT-36 (servicio resuelto en TASK-35, alertas en US-26, reservas en US-60/61/62, compra de entradas en TASK-56; restan DT-29 y cuotas) |
 
 **Cobertura de tests** (medida el 01/11/2026, objetivo DoD **70 %**):
@@ -270,6 +276,49 @@ deportiva.
 - **Relacionado:** [DT-24](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe), [DT-06](#dt-06--historias-de-usuario-para-sumar-al-backlog).
 - **Detectado en el análisis funcional de dominio (22/09/2026); cobro implementado en US-21 (26/09/2026).**
 
+#### DT-54 · El alta de usuario no verifica el email ni deja que la persona elija su contraseña
+*Nuevo · devolución del profesor · backend + frontend*
+
+Hoy quien da de alta un usuario (`POST /usuarios`, `UsuariosService.create`)
+carga también su contraseña (`CreateUsuarioDto.password`): la persona recibe
+una clave que eligió otro y nadie confirma que el email sea suyo. El alta de
+un socio o participante crea la `Persona`, pero no le avisa nada por email.
+
+**Lo que pidió el profesor:**
+- Al dar de alta un socio o participante con email, enviarle un **link para
+  establecer su contraseña y verificar el email**.
+- Mientras no lo use, el usuario queda **pendiente de verificación** y **no
+  puede iniciar sesión**, porque todavía no tiene contraseña.
+
+**Arreglo propuesto:**
+- **Modelo:** en `Usuario`, `passwordHash` pasa a ser opcional y se suma
+  `emailVerificadoEn` (o un estado `PENDIENTE_VERIFICACION` / `ACTIVO`). Una
+  tabla `tokens_usuario` guarda el hash del token (nunca el token en claro),
+  su propósito (`ACTIVACION`, y más adelante `RECUPERO`), la fecha de
+  vencimiento y la fecha de uso. Cada token sirve una sola vez.
+- **Backend:** el alta deja de pedir la contraseña, crea el usuario pendiente y
+  manda el link con una `PlantillaEmail` vía `NotificacionesService` (regla
+  del CLAUDE.md). Un endpoint público `POST /auth/activar` recibe el token y
+  la contraseña nueva, verifica el email y activa la cuenta. El login rechaza
+  a los usuarios pendientes con un mensaje claro. También hacen falta un
+  endpoint para reenviar el link (con un límite de envíos) y el registro en
+  auditoría del alta, el envío y la activación.
+- **Frontend:** una página pública para establecer la contraseña desde el link,
+  el estado «Pendiente de verificación» en la grilla de usuarios y la acción
+  «Reenviar invitación».
+- **Sirve además para:** el recupero de contraseña (hoy solo existe
+  `PATCH /auth/cambiar-contrasena` con sesión iniciada), que usa el mismo
+  token con otro propósito.
+- **Afecta:** el seed (los usuarios de prueba tienen que seguir entrando con
+  `Admin123!`, o sea, nacer verificados), los E2E que dan de alta usuarios y
+  el formulario de alta de usuario (DT-46).
+- **Detectado en la 3ra reunión con el profesor (02/11/2026).**
+- **En curso (11/11/2026):** TASK-59, rama `issue/TASK-59-DT-54-Alta-con-verificacion-de-email`
+  en los dos repos. Cubre las altas de usuario, socio y participante y el
+  registro público; el email se escribe dos veces. Diseño en la
+  [decisión 0005](decisiones/0005-verificacion-de-email.md). Queda afuera:
+  volver a verificar cuando el administrador cambia un email ya verificado.
+
 ### 🟡 Medias
 
 #### DT-34 · No hay cancelación, devolución ni transferencia de entradas
@@ -286,6 +335,80 @@ quién reembolsar.
 - **Depende de:** DT-31 (resuelta en TASK-51: la compra ya pasa por la pasarela y queda asociada a su `OrdenPago`).
 - **Detectado en el análisis funcional de dominio (22/09/2026).**
 - **Rama sugerida:** `issue/TASK-27-DT-34-Cancelacion-devolucion-transferencia-entradas`
+
+#### DT-55 · La inscripción es de a una disciplina por vez
+*Nuevo · devolución del profesor · backend + frontend*
+
+`CreateInscripcionDto` recibe un solo `disciplinaId`, así que un participante
+que juega fútbol y hace natación se carga con dos altas separadas, y cada
+una repite los datos y la documentación. El profesor pidió poder
+**inscribirse a varias disciplinas al mismo tiempo**.
+
+**Arreglo propuesto:** el alta acepta una lista de pares disciplina y
+categoría. Valida cada uno con las reglas de hoy (edad y género por categoría,
+DT-39; inscripción duplicada; requisitos documentales, DT-27) y crea todas las
+inscripciones en una transacción. Si una falla, no se crea ninguna y el error
+dice cuál. La pantalla de nuevo participante permite sumar varias
+disciplinas y muestra los requisitos de documentación unificados (un DNI
+exigido por dos disciplinas se pide una sola vez). Conviene que la solicitud
+de inscripción (DT-29, US-63) nazca con la misma forma de lista.
+
+- **Detectado en la 3ra reunión con el profesor (02/11/2026).**
+- **Relacionado:** [DT-29](#dt-29--no-existe-solicitud-de-inscripción-con-aprobación), [DT-27](#dt-27--documentación-por-disciplina-requisitos-estados-y-vigencia).
+
+#### DT-56 · Faltan filtros por rango de fechas en morosos y reportes
+*Nuevo · devolución del profesor · backend + frontend*
+
+Los listados de morosos (`GET /pagos/morosos` y morosos de cuota deportiva)
+filtran por búsqueda, categoría o disciplina, pero no por fechas: siempre
+muestran la deuda acumulada a hoy. El profesor pidió un **filtro de fechas
+desde y hasta en morosos** y, en general, **más filtros por fecha, sobre todo
+en los reportes**.
+
+Estado actual de los filtros por fecha:
+
+| Pantalla / endpoint | Filtro por fecha hoy |
+|---|---|
+| Morosos de cuota social (`/pagos/morosos`) | ❌ |
+| Morosos de cuota deportiva | ❌ |
+| Historial de cuota deportiva | ✅ `desde` / `hasta` (fecha de pago) |
+| Estado financiero (`/reportes/estado-financiero`) | ✅ `desde` / `hasta` (período AAAA-MM) |
+| Asistencia a eventos (`/reportes/asistencia-eventos`) | ✅ `desde` / `hasta` |
+
+**Arreglo propuesto:** sumar `desde` / `hasta` opcionales a los dos listados de
+morosos (que se cuenten solo los períodos adeudados dentro del rango) y
+revisar el resto de los listados y reportes (auditoría, historial de cuota
+social, reservas, compras de entradas) para que todos ofrezcan el mismo
+filtro. Reutilizar el formato y los mensajes de validación de
+`historial-deportivo-query.dto.ts` y un único componente de rango de fechas en
+el front (DT-40). Si se hace la exportación (US-37), que respete el mismo
+rango.
+
+- **Detectado en la 3ra reunión con el profesor (02/11/2026).**
+- **Relacionado:** US-23, US-35, US-37.
+
+#### DT-57 · El QR de una entrada no muestra si está vigente, usada o vencida
+*Nuevo · devolución del profesor · frontend*
+
+`Entrada.estado` ya distingue `VALIDA`, `USADA` y `EXPIRADA`, y el front lo
+tipa (`features/entradas/types.ts`), pero *Mis entradas*
+(`MisEntradasPage.tsx`) y el PDF descargable (`descargarEntradaPdf.ts`)
+muestran el QR igual en los tres casos. El socio no ve si la entrada ya se
+usó o caducó. El profesor pidió informarlo y que **se diferencie
+visualmente**.
+
+**Arreglo propuesto:** un badge con el estado y la fecha correspondiente (de
+uso o de vencimiento). Si la entrada no está vigente, el QR se ve atenuado o
+tachado y no se ofrece descargarla como si sirviera. Además, ordenar las
+vigentes primero o permitir filtrar por estado. Si DT-34 suma estados
+(`CANCELADA`, `REEMBOLSADA`, `TRANSFERIDA`), se agregan al mismo badge.
+Revisar que la API devuelva `estado` y las fechas en *mis entradas* y
+contemplar que una entrada `VALIDA` de un evento ya terminado se informe como
+vencida aunque la tarea `cierre-de-eventos` todavía no haya corrido (es la que
+la pasa a `EXPIRADA`).
+
+- **Detectado en la 3ra reunión con el profesor (02/11/2026).**
+- **Relacionado:** [DT-34](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas), US-31.
 
 ### ⚪ Bajas
 

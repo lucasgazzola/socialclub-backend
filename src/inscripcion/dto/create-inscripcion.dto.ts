@@ -15,6 +15,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { requiereVencimiento } from '../../disciplinas/requerimientos-doc';
+import { ConfirmaEmail } from '../../common/decorators/confirma-email.decorator';
 
 /**
  * Documentación opcional que se adjunta durante la misma operación de alta (US-05, Criterio 7).
@@ -96,6 +97,15 @@ export class CreateInscripcionDto {
   @IsOptional()
   @IsEmail({}, { message: 'El email no tiene un formato válido' })
   email?: string;
+
+  /**
+   * DT-54: el email escrito por segunda vez. Obligatorio al cargar un
+   * participante nuevo con email (no cuando se inscribe a uno ya registrado).
+   */
+  @ValidateIf((o: CreateInscripcionDto) => !!o.email && !o.personaId)
+  @IsNotEmpty({ message: 'Confirmá el email.' })
+  @ConfirmaEmail('email')
+  confirmarEmail?: string;
 
   @IsOptional()
   @IsString()

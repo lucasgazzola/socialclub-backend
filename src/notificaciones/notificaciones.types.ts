@@ -4,7 +4,8 @@ import type { CanalNotificacion } from '@prisma/client';
  * Tipos de aviso del sistema (DT-36). Cada tipo tiene su plantilla, que vive en
  * el módulo de dominio que lo origina.
  */
-export type TipoNotificacion = 'ALERTAS_DOCUMENTACION' | 'RESERVA' | 'COMPRA_ENTRADAS';
+export type TipoNotificacion =
+  'ALERTAS_DOCUMENTACION' | 'RESERVA' | 'COMPRA_ENTRADAS' | 'VERIFICACION_EMAIL';
 
 /** Contenido de un email ya armado: es lo que se guarda y se reenvía. */
 export interface ContenidoEmail {

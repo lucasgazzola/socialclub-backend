@@ -25,6 +25,7 @@ import { NotificacionesModule } from './notificaciones/notificaciones.module';
 import { TareasModule } from './tareas/tareas.module';
 import { PasarelaModule } from './pasarela/pasarela.module';
 import { ReservasModule } from './reservas/reservas.module';
+import { VerificacionEmailModule } from './verificacion-email/verificacion-email.module';
 import { EspaciosModule } from './espacios/espacios.module';
 
 @Module({
@@ -59,6 +60,7 @@ import { EspaciosModule } from './espacios/espacios.module';
     TareasModule,
     PasarelaModule,
     ReservasModule,
+    VerificacionEmailModule,
     EspaciosModule,
   ],
   controllers: [AppController],

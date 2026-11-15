@@ -10,6 +10,7 @@ import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { VerificacionEmailService } from '../verificacion-email/verificacion-email.service';
 
 /**
  * e2e de US-38 (registro público) contra AuthController + AuthService reales,
@@ -28,6 +29,14 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
  *   TC-120 -> nueva contraseña sin mayúscula/número/especial -> 400
  *   TC-121 -> confirmación distinta de la nueva -> 400
  */
+/** DT-54: la verificación de email se prueba en su propio spec. */
+const verificacionMock = {
+  emitir: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  crearCuentaPendiente: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  enviar: jest.fn().mockResolvedValue(undefined),
+  reenviar: jest.fn().mockResolvedValue({ mensaje: 'Enviamos un nuevo enlace de verificación' }),
+};
+
 describe('AuthController (e2e) — US-38', () => {
   let app: INestApplication;
 
@@ -69,6 +78,7 @@ describe('AuthController (e2e) — US-38', () => {
         { provide: JwtService, useValue: new JwtService({ secret: 'test-secret' }) },
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuditoriaService, useValue: auditoriaMock },
+        { provide: VerificacionEmailService, useValue: verificacionMock },
         { provide: ConfigService, useValue: configMock },
       ],
     })
@@ -107,6 +117,7 @@ describe('AuthController (e2e) — US-38', () => {
     nombre: 'Ana',
     apellido: 'Pérez',
     email: 'ana@test.com',
+    confirmarEmail: 'ana@test.com',
     password: 'Nuevo123!',
     confirmarPassword: 'Nuevo123!',
     fechaNacimiento: '1990-01-01',
@@ -137,6 +148,7 @@ describe('AuthController (e2e) — US-38', () => {
           apellido: datosValidos.apellido,
           roles: [],
         },
+        mensaje: 'Te enviamos un email para verificar tu cuenta. Revisá tu bandeja de entrada.',
       });
       // No auto-login: el registro no debe dejar cookie de sesión.
       expect(response.headers['set-cookie']).toBeUndefined();
@@ -144,7 +156,7 @@ describe('AuthController (e2e) — US-38', () => {
   });
 
   describe('TC-078: iniciar sesión con la cuenta recién registrada', () => {
-    it('tras registrarse, el login con las mismas credenciales setea la cookie access_token', async () => {
+    it('DT-54: tras registrarse y verificar el email, el login setea la cookie access_token', async () => {
       const httpServer = app.getHttpServer() as Server;
       prismaMock.usuario.findUnique.mockResolvedValueOnce(null); // chequeo de duplicado en register
       let hashGuardado = '';
@@ -164,6 +176,7 @@ describe('AuthController (e2e) — US-38', () => {
         nombre: datosValidos.nombre,
         apellido: datosValidos.apellido,
         activo: true,
+        emailVerificadoEn: new Date(),
         roles: [],
       });
       prismaMock.usuario.update.mockResolvedValue({});
@@ -179,6 +192,31 @@ describe('AuthController (e2e) — US-38', () => {
       const cookies = loginResponse.headers['set-cookie'] as unknown as string[] | undefined;
       expect(cookies).toBeDefined();
       expect(cookies?.some((c: string) => c.startsWith('access_token='))).toBe(true);
+    });
+  });
+
+  describe('DT-54: el email se escribe dos veces', () => {
+    it('POST /auth/register devuelve 400 si la confirmación del email no coincide', async () => {
+      const httpServer = app.getHttpServer() as Server;
+
+      const response = await request(httpServer)
+        .post('/auth/register')
+        .send({ ...datosValidos, confirmarEmail: 'otra@test.com' })
+        .expect(400);
+
+      expect(JSON.stringify(response.body)).toContain('Los emails no coinciden.');
+      expect(prismaMock.usuario.create).not.toHaveBeenCalled();
+    });
+
+    it('acepta la confirmación con otras mayúsculas o espacios', async () => {
+      const httpServer = app.getHttpServer() as Server;
+      prismaMock.usuario.findUnique.mockResolvedValue(null);
+      prismaMock.usuario.create.mockResolvedValue({ id: 42, email: 'ana@test.com' });
+
+      await request(httpServer)
+        .post('/auth/register')
+        .send({ ...datosValidos, confirmarEmail: ' ANA@test.com ' })
+        .expect(201);
     });
   });
 

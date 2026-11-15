@@ -3,18 +3,18 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
-import { UpdateUsuarioPasswordDto } from './dto/update-usuario.dto';
+import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { GetUsuariosQueryDto } from './dto/get-usuarios-query.dto';
-
-const SALT_ROUNDS = 10;
+import {
+  EnlaceEmitido,
+  VerificacionEmailService,
+} from '../verificacion-email/verificacion-email.service';
 
 /** DT-42: único rol que puede tener disciplinas a cargo. */
 const ROL_DELEGADO = 'DELEGADO';
@@ -26,6 +26,7 @@ const SELECT_PUBLICO = {
   nombre: true,
   apellido: true,
   activo: true,
+  emailVerificadoEn: true,
   ultimoLogin: true,
   creadoEn: true,
   actualizadoEn: true,
@@ -45,6 +46,7 @@ export class UsuariosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
+    private readonly verificacion: VerificacionEmailService,
   ) {}
 
   private aUsuarioDto(usuario: UsuarioPublico | null) {
@@ -52,6 +54,8 @@ export class UsuariosService {
     const { persona, disciplinasDelegadas, ...resto } = usuario;
     return {
       ...resto,
+      // DT-54: pendiente hasta que la persona use el enlace del email.
+      emailVerificado: !!resto.emailVerificadoEn,
       dni: persona?.dni ?? null,
       disciplinas: (disciplinasDelegadas ?? []).map((d) => d.disciplina),
     };
@@ -66,6 +70,9 @@ export class UsuariosService {
    * hay que rechazar el alta: hay que reutilizar esa Persona y solo crear el
    * Usuario nuevo sobre ella. Únicamente se rechaza si esa Persona YA tiene
    * un Usuario asociado (ahí sí sería un usuario duplicado).
+   *
+   * DT-54: el usuario nace sin contraseña y pendiente de verificación. Le
+   * llega un enlace por email para elegir su contraseña (vence en 24 h).
    */
   async create(dto: CreateUsuarioDto, responsableId: number) {
     const email = dto.email.trim().toLowerCase();
@@ -90,9 +97,8 @@ export class UsuariosService {
 
     const rolesIds = await this.resolverRoles(dto.roles);
     const disciplinasIds = await this.resolverDisciplinas(dto.roles, dto.disciplinasIds);
-    const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
-
     let usuario;
+    let enlace: EnlaceEmitido;
     try {
       usuario = await this.prisma.$transaction(async (tx) => {
         let persona;
@@ -120,10 +126,9 @@ export class UsuariosService {
           });
         }
 
-        return tx.usuario.create({
+        const creado = await tx.usuario.create({
           data: {
             email,
-            passwordHash,
             nombre: dto.nombre,
             apellido: dto.apellido,
             personaId: persona.id,
@@ -134,6 +139,8 @@ export class UsuariosService {
           },
           select: SELECT_PUBLICO,
         });
+        enlace = await this.verificacion.emitir(creado.id, tx);
+        return creado;
       });
     } catch (error) {
       // Defensa ante una condición de carrera: dos altas simultáneas con el
@@ -151,7 +158,14 @@ export class UsuariosService {
       responsableId,
     });
 
+    await this.verificacion.enviar(enlace!, responsableId);
+
     return this.aUsuarioDto(usuario);
+  }
+
+  /** DT-54: el administrador reenvía el enlace a un usuario pendiente. */
+  reenviarVerificacion(id: number, responsableId: number) {
+    return this.verificacion.reenviar(id, responsableId);
   }
 
   async findAll(query: GetUsuariosQueryDto = new GetUsuariosQueryDto()) {
@@ -283,7 +297,7 @@ export class UsuariosService {
   }
 
   /** US-02: Editar usuario administrativo */
-  async update(id: number, dto: UpdateUsuarioPasswordDto, responsableId: number) {
+  async update(id: number, dto: UpdateUsuarioDto, responsableId: number) {
     const usuarioExistente = await this.prisma.usuario.findUnique({
       where: { id },
       include: {
@@ -312,28 +326,6 @@ export class UsuariosService {
     if (dto.nombre) data.nombre = dto.nombre;
     if (dto.apellido) data.apellido = dto.apellido;
     if (email) data.email = email;
-    if (dto.password) {
-      if (!dto.currentPassword) {
-        throw new BadRequestException(
-          'Debes indicar la contraseña actual para cambiar la contraseña.',
-        );
-      }
-
-      const passwordActualValida = await bcrypt.compare(
-        dto.currentPassword,
-        usuarioExistente.passwordHash,
-      );
-      if (!passwordActualValida) {
-        throw new UnauthorizedException('La contraseña actual es incorrecta');
-      }
-
-      data.passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
-    } else if (dto.currentPassword) {
-      throw new BadRequestException(
-        'La contraseña nueva es obligatoria si ingresas la contraseña actual.',
-      );
-    }
-
     // DT-42: las disciplinas se validan contra los roles con los que queda el
     // usuario. Si deja de ser delegado, pierde las disciplinas a cargo.
     const rolesFinales = dto.roles ?? usuarioExistente.roles.map((r) => r.rol.nombre);

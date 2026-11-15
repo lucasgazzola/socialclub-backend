@@ -10,7 +10,12 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from './types/authenticated-user';
 import { ApiErrores, VALIDACION } from '../common/swagger/respuestas';
-import { MensajeRespuestaDto, PerfilRespuestaDto, SesionRespuestaDto } from './dto/respuestas.dto';
+import {
+  MensajeRespuestaDto,
+  PerfilRespuestaDto,
+  RegistroRespuestaDto,
+  SesionRespuestaDto,
+} from './dto/respuestas.dto';
 
 const COOKIE_NAME = 'access_token';
 const COOKIE_MAX_AGE_MS = 8 * 60 * 60 * 1000; // 8 horas, alineado a la jornada operativa
@@ -40,8 +45,9 @@ export class AuthController {
   @Post('register')
   @ApiOperation({ summary: 'US-38 — Registrarse como usuario' })
   @ApiCreatedResponse({
-    description: 'Usuario creado, todavía sin roles (se hace socio con US-09)',
-    type: SesionRespuestaDto,
+    description:
+      'Usuario creado, todavía sin roles (se hace socio con US-09). DT-54: queda pendiente hasta verificar el email con el enlace que recibe.',
+    type: RegistroRespuestaDto,
   })
   @ApiErrores({ 400: VALIDACION, 409: 'Ya existe un usuario registrado con ese email' })
   async register(@Body() dto: RegisterDto) {
@@ -57,7 +63,11 @@ export class AuthController {
   })
   @ApiErrores({
     400: VALIDACION,
-    401: ['Credenciales inválidas', 'El usuario se encuentra dado de baja'],
+    401: [
+      'Credenciales inválidas',
+      'El usuario se encuentra dado de baja',
+      'Tenés que verificar tu email antes de iniciar sesión. Revisá tu correo; si el enlace venció, pedile al club que te envíe uno nuevo.',
+    ],
   })
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const { accessToken, usuario } = await this.authService.login(dto.email, dto.password);

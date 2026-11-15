@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   ParseIntPipe,
   Patch,
@@ -17,6 +18,7 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
 } from '@nestjs/swagger';
+import { MensajeVerificacionDto } from '../verificacion-email/dto/verificacion-email.dto';
 import { UsuariosService } from './usuarios.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
@@ -38,7 +40,11 @@ export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
 
   @Post()
-  @ApiOperation({ summary: 'US-01 — Registrar usuario administrativo' })
+  @ApiOperation({
+    summary: 'US-01 — Registrar usuario administrativo',
+    description:
+      'DT-54: el usuario queda pendiente de verificación y recibe por email un enlace (24 h) para elegir su contraseña.',
+  })
   @ApiCreatedResponse({ description: 'Usuario creado', type: UsuarioRespuestaDto })
   @ApiErrores({
     400: [VALIDACION, 'Solo los usuarios con rol DELEGADO pueden tener disciplinas a cargo.'],
@@ -143,5 +149,30 @@ export class UsuariosController {
   })
   activate(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
     return this.usuariosService.activate(id, user.id);
+  }
+
+  @Post(':id/reenviar-verificacion')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'DT-54 — Reenviar el enlace de verificación a un usuario pendiente',
+    description: 'Anula el enlace anterior. Máximo 5 enlaces por usuario cada 24 horas.',
+  })
+  @ApiOkResponse({ description: 'Enlace nuevo enviado', type: MensajeVerificacionDto })
+  @ApiErrores({
+    400: [
+      VALIDACION,
+      'El email de este usuario ya está verificado',
+      'El usuario está dado de baja',
+      'Ya se enviaron 5 enlaces en las últimas 24 horas. Probá más tarde.',
+    ],
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: 'Usuario no encontrado',
+  })
+  reenviarVerificacion(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.usuariosService.reenviarVerificacion(id, user.id);
   }
 }

@@ -39,7 +39,7 @@ describe('UsuariosController', () => {
       const dto: CreateUsuarioDto = {
         dni: '12345678',
         email: 'nuevo@test.com',
-        password: 'Password123!',
+        confirmarEmail: 'nuevo@test.com',
         nombre: 'Nuevo',
         apellido: 'Admin',
         roles: ['ADMIN'],
@@ -59,7 +59,7 @@ describe('UsuariosController', () => {
       const dto: CreateUsuarioDto = {
         dni: '12345678',
         email: 'nuevo@test.com',
-        password: 'Password123!',
+        confirmarEmail: 'nuevo@test.com',
         nombre: 'Nuevo',
         apellido: 'Admin',
         roles: ['ADMIN'],

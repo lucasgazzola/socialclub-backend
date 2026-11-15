@@ -22,8 +22,15 @@ describe('InscripcionService - misSolicitudes (US-64)', () => {
     };
 
     const estadoDocumentalMock = {} as any;
+    // DT-54: las solicitudes no envían enlaces de verificación.
+    const verificacionMock = {} as any;
 
-    service = new InscripcionService(prismaMock, auditoriaMock, estadoDocumentalMock);
+    service = new InscripcionService(
+      prismaMock,
+      auditoriaMock,
+      estadoDocumentalMock,
+      verificacionMock,
+    );
   });
 
   it('TC-US64-01: lista las solicitudes del socio ordenadas cronológicamente (DESC)', async () => {

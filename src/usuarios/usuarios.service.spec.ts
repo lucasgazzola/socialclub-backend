@@ -4,6 +4,15 @@ import { AuditoriaService } from '../auditoria/auditoria.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsuariosService } from './usuarios.service';
 import { GetUsuariosQueryDto } from './dto/get-usuarios-query.dto';
+import { VerificacionEmailService } from '../verificacion-email/verificacion-email.service';
+
+/** DT-54: la verificación de email se prueba en su propio spec. */
+const verificacionMock = {
+  emitir: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  crearCuentaPendiente: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  enviar: jest.fn().mockResolvedValue(undefined),
+  reenviar: jest.fn().mockResolvedValue({ mensaje: 'Enviamos un nuevo enlace de verificación' }),
+};
 
 describe('UsuariosService', () => {
   let service: UsuariosService;
@@ -57,6 +66,7 @@ describe('UsuariosService', () => {
         UsuariosService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuditoriaService, useValue: auditoriaMock },
+        { provide: VerificacionEmailService, useValue: verificacionMock },
       ],
     }).compile();
 
@@ -86,7 +96,7 @@ describe('UsuariosService', () => {
       {
         dni: '40123456',
         email: 'nuevo.admin@socialclub.local',
-        password: 'Admin123!',
+        confirmarEmail: 'nuevo.admin@socialclub.local',
         nombre: 'Nuevo',
         apellido: 'Administrador',
         roles: ['ADMIN'],
@@ -133,6 +143,45 @@ describe('UsuariosService', () => {
     );
   });
 
+  it('DT-54: el usuario nace sin contraseña ni verificación y recibe el enlace por email', async () => {
+    prismaMock.usuario.findFirst.mockResolvedValue(null);
+    prismaMock.rol.findMany.mockResolvedValue([{ id: 2, nombre: 'ADMIN' }]);
+    prismaMock.usuario.create.mockImplementation(async ({ data }: any) => ({
+      id: 16,
+      ...data,
+      emailVerificadoEn: null,
+      persona: { dni: '40123456' },
+      roles: [],
+      disciplinasDelegadas: [],
+    }));
+    verificacionMock.emitir.mockResolvedValueOnce({ usuarioId: 16, token: 'tok' });
+
+    const resultado = await service.create(
+      {
+        dni: '40123456',
+        email: 'Nuevo.Admin@SocialClub.local',
+        confirmarEmail: 'nuevo.admin@socialclub.local',
+        nombre: 'Nuevo',
+        apellido: 'Administrador',
+        roles: ['ADMIN'],
+      },
+      99,
+    );
+
+    const data = prismaMock.usuario.create.mock.calls[0][0].data;
+    expect(data.passwordHash).toBeUndefined();
+    expect(verificacionMock.emitir).toHaveBeenCalledWith(16, prismaMock);
+    expect(verificacionMock.enviar).toHaveBeenCalledWith({ usuarioId: 16, token: 'tok' }, 99);
+    expect(resultado).toEqual(expect.objectContaining({ emailVerificado: false }));
+  });
+
+  it('DT-54: reenviar la verificación delega en el servicio de verificación', async () => {
+    await expect(service.reenviarVerificacion(16, 99)).resolves.toEqual({
+      mensaje: 'Enviamos un nuevo enlace de verificación',
+    });
+    expect(verificacionMock.reenviar).toHaveBeenCalledWith(16, 99);
+  });
+
   it('rechaza un usuario con email duplicado', async () => {
     prismaMock.usuario.findFirst.mockResolvedValueOnce({ id: 8 });
 
@@ -141,7 +190,7 @@ describe('UsuariosService', () => {
         {
           dni: '40123456',
           email: 'admin@socialclub.local',
-          password: 'Admin123!',
+          confirmarEmail: 'admin@socialclub.local',
           nombre: 'Nuevo',
           apellido: 'Administrador',
           roles: ['ADMIN'],
@@ -161,7 +210,7 @@ describe('UsuariosService', () => {
         {
           dni: '40123456',
           email: 'nuevo.admin@socialclub.local',
-          password: 'Admin123!',
+          confirmarEmail: 'nuevo.admin@socialclub.local',
           nombre: 'Nuevo',
           apellido: 'Administrador',
           roles: ['ADMIN'],
@@ -180,7 +229,7 @@ describe('UsuariosService', () => {
         {
           dni: '40123456',
           email: 'nuevo.admin@socialclub.local',
-          password: 'Admin123!',
+          confirmarEmail: 'nuevo.admin@socialclub.local',
           nombre: 'Nuevo',
           apellido: 'Administrador',
           roles: ['ADMIN'],
@@ -435,7 +484,7 @@ describe('UsuariosService', () => {
         {
           dni: '40123456',
           email: 'nuevo.admin@socialclub.local',
-          password: 'Admin123!',
+          confirmarEmail: 'nuevo.admin@socialclub.local',
           nombre: 'Nuevo',
           apellido: 'Administrador',
           roles: ['ADMIN'],
@@ -726,7 +775,7 @@ describe('UsuariosService', () => {
     const alta = {
       dni: '30111222',
       email: 'delegado@socialclub.local',
-      password: 'Delegado123!',
+      confirmarEmail: 'delegado@socialclub.local',
       nombre: 'Dana',
       apellido: 'Delegada',
       roles: ['DELEGADO'],

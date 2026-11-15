@@ -26,6 +26,10 @@ import { ETIQUETA_TIPO_DOCUMENTO, requiereVencimiento } from '../disciplinas/req
 import { periodoActual } from '../cuotas/cuotas.service';
 import { tarifaVigente, montoACobrar } from '../cuotas/tarifas';
 import { abrirPeriodo, cerrarPeriodos } from './periodos-inscripcion';
+import {
+  EnlaceEmitido,
+  VerificacionEmailService,
+} from '../verificacion-email/verificacion-email.service';
 
 type InscConRelaciones = Pick<
   Prisma.InscripcionGetPayload<{
@@ -51,6 +55,7 @@ export class InscripcionService {
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
     private readonly estadoDocumental: EstadoDocumentalService,
+    private readonly verificacion: VerificacionEmailService,
   ) {}
 
   /**
@@ -169,6 +174,9 @@ export class InscripcionService {
 
     await this.validarEmailDisponible(dto.email, { id: dto.personaId, dni: dto.dni });
 
+    // DT-54: enlace para el participante nuevo con email, que se envía al confirmar.
+    let enlace: EnlaceEmitido | null = null;
+
     try {
       const resultado = await this.prisma.$transaction(async (tx) => {
         let persona;
@@ -206,6 +214,18 @@ export class InscripcionService {
                 telefono: dto.telefono,
               },
             });
+
+            // DT-54: el participante nuevo con email recibe un enlace para
+            // activar su cuenta (sin rol: verá sus inscripciones).
+            if (persona.email) {
+              enlace = await this.verificacion.crearCuentaPendiente(tx, {
+                personaId: persona.id,
+                email: persona.email,
+                nombre: persona.nombre,
+                apellido: persona.apellido,
+                responsableId,
+              });
+            }
           }
         }
 
@@ -434,6 +454,7 @@ export class InscripcionService {
 
         return { persona, inscripcion: inscripcionFinal, cuotaGenerada };
       });
+      await this.verificacion.enviar(enlace, responsableId);
       // US-05: al confirmar se informa qué documentación falta y hasta cuándo, y la cuota generada.
       return {
         ...resultado,
