@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiCookieAuth,
   ApiOperation,
@@ -16,6 +16,7 @@ import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { ValidarEntradaDto } from './dto/validar-entrada.dto';
 import { OrdenPagoRespuestaDto } from '../pasarela/dto/orden-pago-respuesta.dto';
 import { ComprarEntradasDto } from './dto/comprar-entradas.dto';
+import { FiltrarMisEntradasDto } from './dto/filtrar-mis-entradas.dto';
 import { ApiErrores, VALIDACION } from '../common/swagger/respuestas';
 
 @ApiTags('entradas')
@@ -58,6 +59,7 @@ export class EntradasController {
     403: 'No tenés permisos suficientes para esta operación',
     404: 'Entrada no encontrada. El código QR no es válido.',
     409: [
+      'La entrada corresponde a otro evento',
       'Entrada ya utilizada para el evento "…". Posible intento de reingreso no autorizado.',
       'La entrada ya fue utilizada o no es válida.',
     ],
@@ -93,10 +95,10 @@ export class EntradasController {
 
   @Get('mis-entradas')
   @ApiOperation({ summary: 'US-52 — Listar entradas del usuario autenticado' })
-  @ApiOkResponse({ description: 'Entradas del usuario' })
-  @ApiErrores({ 401: 'Unauthorized' })
-  misEntradas(@CurrentUser() user: AuthenticatedUser) {
-    return this.entradasService.listarMisEntradas(user.id);
+  @ApiOkResponse({ description: 'Entradas del usuario con paginación' })
+  @ApiErrores({ 400: VALIDACION, 401: 'Unauthorized' })
+  misEntradas(@CurrentUser() user: AuthenticatedUser, @Query() dto: FiltrarMisEntradasDto) {
+    return this.entradasService.listarMisEntradas(user.id, dto);
   }
 
   @Get('evento/:eventoId')

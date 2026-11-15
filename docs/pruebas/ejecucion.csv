@@ -588,3 +588,9 @@ PASS MisSolicitudesInscripcionTable.test.tsx («TC-US64-UI-01: muestra la lista 
 PASS MisSolicitudesInscripcionTable.test.tsx («TC-US64-UI-05: muestra mensaje informativo cuando el filtro no arroja resultados»)","","Empty states validados en frontend. DoD cumplido."
 "EJ-329","6.0","13/11/2026","TC-300","US-64","Guajardo Lautaro","Aprobado","PASS mis-solicitudes.spec.ts («TC-US64-04: lanza NotFoundException si el usuario no tiene ficha de persona»)
 PASS inscripcion.roles.spec.ts («US-63: los endpoints de solicitud y catálogo permiten al rol SOCIO»)","","Autenticación y seguridad verificadas. DoD cumplido."
+
+"EJ-348","6.0","15/11/2026","TC-319","US-31","Guajardo Lautaro","Aprobado","PASS expiracion-entradas.spec.ts («rechaza con 409 Conflict si la entrada pertenece a otro evento sin modificar su estado»)
+PASS ValidarAccesoPage.test.tsx («detects when a ticket corresponds to a different event than selected (409 Conflict)»)","","Entrada permanece intacta y no se altera en BD ante evento ajeno. DoD cumplido."
+"EJ-349","6.0","15/11/2026","TC-320","US-52","Guajardo Lautaro","Aprobado","PASS entradas.service.spec.ts («filtra las entradas por el usuario comprador y devuelve estructura paginada», «aplica búsqueda por nombre de evento y filtro por estado»)
+PASS MisEntradasPage.test.tsx («permite buscar entradas por nombre de evento con debounce», «permite cambiar de página y de cantidad por página en TablePagination»)","","Paginación y búsqueda server-side verificadas. DoD cumplido."
+"EJ-350","6.0","15/11/2026","TC-321","US-52","Guajardo Lautaro","Aprobado","PASS MisEntradasPage.test.tsx («renderiza en gris y deshabilita los botones de descarga para entradas USADA y EXPIRADA (Vencida)», «renderiza la lista de entradas válidas con badges y permite descargar QR en PNG y en PDF»)","","Badges según estándares UI/UX y bloqueo de descarga validado. DoD cumplido."
