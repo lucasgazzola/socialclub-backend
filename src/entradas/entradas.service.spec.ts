@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { EntradasService } from './entradas.service';
 import { PasarelaService } from '../pasarela/pasarela.service';
+import { ConfigService } from '@nestjs/config';
 
 /**
  * US-30 · Generar entradas con QR — tests unitarios del EntradasService.
@@ -39,6 +40,8 @@ describe('US-30 · EntradasService', () => {
     }),
   };
   const auditoriaMock = { registrar: jest.fn() };
+  /** H05: sin ACCESO_APERTURA_HORAS, la puerta abre 3 h antes del inicio. */
+  const configMock = { get: jest.fn().mockReturnValue(undefined) };
   const pasarelaMock = {
     iniciarCobro: jest.fn().mockResolvedValue({ referencia: 'ref-1', urlPago: 'https://pagar' }),
   };
@@ -57,6 +60,7 @@ describe('US-30 · EntradasService', () => {
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuditoriaService, useValue: auditoriaMock },
         { provide: PasarelaService, useValue: pasarelaMock },
+        { provide: ConfigService, useValue: configMock },
       ],
     }).compile();
     service = moduleRef.get(EntradasService);
