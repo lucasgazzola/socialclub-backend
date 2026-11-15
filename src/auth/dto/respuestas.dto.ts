@@ -25,6 +25,14 @@ export class SesionRespuestaDto {
   usuario: UsuarioSesionDto;
 }
 
+/** US-38 + DT-54: el registro avisa que llega un email para verificar la cuenta. */
+export class RegistroRespuestaDto extends SesionRespuestaDto {
+  @ApiProperty({
+    example: 'Te enviamos un email para verificar tu cuenta. Revisá tu bandeja de entrada.',
+  })
+  mensaje: string;
+}
+
 export class CategoriaSocioDto {
   @ApiProperty({ example: 2 })
   id: number;

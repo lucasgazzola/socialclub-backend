@@ -10,6 +10,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { MatchesPassword } from './match-password.validator';
+import { ConfirmaEmail } from '../../common/decorators/confirma-email.decorator';
 import { IsFechaNacimientoValida } from './fecha-nacimiento.validator';
 
 /**
@@ -24,6 +25,14 @@ export class RegisterDto {
   @IsEmail({}, { message: 'Ingresá un email válido.' })
   @IsNotEmpty()
   email: string;
+
+  @ApiProperty({
+    example: 'nuevo@socialclub.local',
+    description: 'DT-54: el email escrito por segunda vez, por si hay un error de tipeo.',
+  })
+  @IsNotEmpty({ message: 'Confirmá el email.' })
+  @ConfirmaEmail('email')
+  confirmarEmail: string;
 
   @ApiProperty({
     example: 'Cambiar123!',
