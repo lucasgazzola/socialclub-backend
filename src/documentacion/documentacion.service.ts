@@ -1,9 +1,12 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import type { TipoDocumentacionDisciplina } from '@prisma/client';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,15 +16,22 @@ import { getStorageDir, type ArchivoSubido } from './storage.config';
 import { ETIQUETA_TIPO_DOCUMENTO, requiereVencimiento } from '../disciplinas/requerimientos-doc';
 import { EstadoDocumentalService } from './estado-documental.service';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
+import { NotificacionesService } from '../notificaciones/notificaciones.service';
+import { RevisionDocumentacionPlantilla } from './revision-documentacion.plantilla';
+import type { SubirMiDocumentacionDto } from './dto/subir-mi-documentacion.dto';
 
 const ROLES_STAFF = ['ADMIN', 'DELEGADO', 'COLABORADOR'];
 
 @Injectable()
 export class DocumentacionService {
+  private readonly logger = new Logger(DocumentacionService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
     private readonly estadoDocumental: EstadoDocumentalService,
+    private readonly notificaciones: NotificacionesService,
+    private readonly plantillaRevision: RevisionDocumentacionPlantilla,
   ) {}
 
   /**
@@ -36,7 +46,43 @@ export class DocumentacionService {
    *   el anterior se conserva como histórico.
    */
   async create(dto: CreateDocumentacionDto, responsableId: number, archivo?: ArchivoSubido) {
-    const persona = await this.prisma.persona.findUnique({ where: { id: dto.personaId } });
+    const { fechaVencimiento, tipo } = await this.validarCarga(dto.personaId, dto);
+
+    const documentacion = await this.prisma.documentacion.create({
+      data: {
+        tipoDocumento: dto.tipoDocumento,
+        tipo,
+        fechaVencimiento,
+        personaId: dto.personaId,
+        // Archivo opcional: en la BD solo la referencia; el binario vive en disco.
+        archivoNombre: archivo?.originalname ?? null,
+        archivoRuta: archivo?.filename ?? null,
+        mimeType: archivo?.mimetype ?? null,
+        tamano: archivo?.size ?? null,
+      },
+    });
+
+    await this.auditoria.registrar({
+      accion: 'CREAR',
+      entidad: 'Documentacion',
+      idEntidad: documentacion.id,
+      responsableId,
+      detalle: `Documento "${documentacion.tipo}" cargado para la persona id=${dto.personaId}`,
+    });
+
+    return documentacion;
+  }
+
+  /**
+   * Reglas comunes a toda carga (US-24 y TASK-60): la persona existe, la fecha
+   * de vencimiento es obligatoria salvo para el DNI y no está vencida, y el
+   * tipo lo exige alguna disciplina o categoría en la que está inscripta.
+   */
+  private async validarCarga(
+    personaId: number,
+    dto: { tipoDocumento: TipoDocumentacionDisciplina; fechaVencimiento?: string; tipo?: string },
+  ) {
+    const persona = await this.prisma.persona.findUnique({ where: { id: personaId } });
     if (!persona) {
       throw new NotFoundException('Participante no encontrado');
     }
@@ -69,24 +115,51 @@ export class DocumentacionService {
       }
     }
 
-    const exigidos = await this.estadoDocumental.tiposExigidos(dto.personaId);
+    const exigidos = await this.estadoDocumental.tiposExigidos(personaId);
     if (!exigidos.includes(dto.tipoDocumento)) {
       throw new BadRequestException(
         `Ninguna disciplina o categoría del participante exige «${ETIQUETA_TIPO_DOCUMENTO[dto.tipoDocumento]}».`,
       );
     }
 
+    return {
+      fechaVencimiento,
+      tipo: dto.tipo?.trim() || ETIQUETA_TIPO_DOCUMENTO[dto.tipoDocumento],
+    };
+  }
+
+  /**
+   * TASK-60 — El titular sube su propio documento desde Mi club. Queda en
+   * revisión hasta que un delegado o el administrador lo aprueba: mientras
+   * tanto no cuenta para la habilitación. El archivo es obligatorio.
+   */
+  async subirPropia(usuarioId: number, dto: SubirMiDocumentacionDto, archivo?: ArchivoSubido) {
+    if (!archivo) {
+      throw new BadRequestException('Adjuntá el archivo del documento (PDF o imagen).');
+    }
+    const personaId = await this.obtenerPersonaIdDeUsuario(usuarioId);
+    const { fechaVencimiento, tipo } = await this.validarCarga(personaId, dto);
+
+    const enRevision = await this.prisma.documentacion.findFirst({
+      where: { personaId, tipoDocumento: dto.tipoDocumento, estadoRevision: 'PENDIENTE_REVISION' },
+      select: { id: true },
+    });
+    if (enRevision) {
+      throw new ConflictException(`Ya enviaste «${tipo}» y está en revisión.`);
+    }
+
     const documentacion = await this.prisma.documentacion.create({
       data: {
         tipoDocumento: dto.tipoDocumento,
-        tipo: dto.tipo?.trim() || ETIQUETA_TIPO_DOCUMENTO[dto.tipoDocumento],
+        tipo,
         fechaVencimiento,
-        personaId: dto.personaId,
-        // Archivo opcional: en la BD solo la referencia; el binario vive en disco.
-        archivoNombre: archivo?.originalname ?? null,
-        archivoRuta: archivo?.filename ?? null,
-        mimeType: archivo?.mimetype ?? null,
-        tamano: archivo?.size ?? null,
+        personaId,
+        archivoNombre: archivo.originalname,
+        archivoRuta: archivo.filename,
+        mimeType: archivo.mimetype,
+        tamano: archivo.size,
+        estadoRevision: 'PENDIENTE_REVISION',
+        cargadoPorTitular: true,
       },
     });
 
@@ -94,11 +167,127 @@ export class DocumentacionService {
       accion: 'CREAR',
       entidad: 'Documentacion',
       idEntidad: documentacion.id,
-      responsableId,
-      detalle: `Documento "${documentacion.tipo}" cargado para la persona id=${dto.personaId}`,
+      responsableId: usuarioId,
+      detalle: `Documento "${tipo}" subido por el titular (persona id=${personaId}); queda en revisión`,
     });
 
     return documentacion;
+  }
+
+  /**
+   * DT-42 — Disciplinas cuyos documentos revisa el usuario: `null` = todas
+   * (ADMIN); el delegado, solo las que tiene a cargo.
+   */
+  private async disciplinasACargo(user: AuthenticatedUser): Promise<number[] | null> {
+    if (user.roles.includes('ADMIN')) return null;
+    const asignadas = await this.prisma.delegadoDisciplina.findMany({
+      where: { usuarioId: user.id },
+      select: { disciplinaId: true },
+    });
+    return asignadas.map((a) => a.disciplinaId);
+  }
+
+  /** TASK-60 — Documentos que subieron los titulares y esperan revisión (los más viejos primero). */
+  async pendientesRevision(user: AuthenticatedUser) {
+    const disciplinas = await this.disciplinasACargo(user);
+    if (disciplinas && !disciplinas.length) return [];
+    return this.prisma.documentacion.findMany({
+      where: {
+        estadoRevision: 'PENDIENTE_REVISION',
+        ...(disciplinas
+          ? {
+              persona: {
+                inscripciones: { some: { activo: true, disciplinaId: { in: disciplinas } } },
+              },
+            }
+          : {}),
+      },
+      orderBy: { creadoEn: 'asc' },
+      include: {
+        persona: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            dni: true,
+            inscripciones: {
+              where: { activo: true },
+              select: { disciplina: { select: { id: true, nombre: true } } },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * TASK-60 — Aprueba o rechaza un documento que subió el titular y le avisa
+   * por email. El delegado solo revisa los de sus disciplinas.
+   */
+  async revisar(
+    id: number,
+    user: AuthenticatedUser,
+    decision: { aprobar: true } | { aprobar: false; motivo: string },
+  ) {
+    const doc = await this.prisma.documentacion.findUnique({
+      where: { id },
+      include: { persona: { select: { id: true, usuario: { select: { id: true } } } } },
+    });
+    if (!doc) {
+      throw new NotFoundException('Documento no encontrado');
+    }
+    if (doc.estadoRevision !== 'PENDIENTE_REVISION') {
+      throw new ConflictException('El documento ya fue revisado.');
+    }
+    const disciplinas = await this.disciplinasACargo(user);
+    if (disciplinas) {
+      const aCargo = await this.prisma.inscripcion.count({
+        where: { personaId: doc.personaId, activo: true, disciplinaId: { in: disciplinas } },
+      });
+      if (!aCargo) {
+        throw new ForbiddenException('El documento es de un participante de otra disciplina.');
+      }
+    }
+
+    const estadoRevision = decision.aprobar ? 'APROBADO' : 'RECHAZADO';
+    const motivo = decision.aprobar ? null : decision.motivo.trim();
+    const actualizado = await this.prisma.documentacion.update({
+      where: { id },
+      data: {
+        estadoRevision,
+        motivoRechazo: motivo,
+        revisadoPorId: user.id,
+        revisadoEn: new Date(),
+      },
+    });
+
+    await this.auditoria.registrar({
+      accion: 'EDITAR',
+      entidad: 'Documentacion',
+      idEntidad: id,
+      responsableId: user.id,
+      detalle: decision.aprobar
+        ? `Documento "${doc.tipo}" aprobado`
+        : `Documento "${doc.tipo}" rechazado: ${motivo}`,
+    });
+
+    const titularId = doc.persona.usuario?.id;
+    if (titularId) {
+      try {
+        await this.notificaciones.notificar({
+          plantilla: this.plantillaRevision,
+          destinatarios: [titularId],
+          referencias: [`documentacion-${id}-${estadoRevision}`],
+          datos: { resultado: estadoRevision, documento: doc.tipo, motivo },
+        });
+      } catch (error) {
+        this.logger.error(
+          `No se pudo avisar la revisión del documento ${id}: ${(error as Error).message}`,
+        );
+      }
+    }
+
+    return actualizado;
   }
 
   /**

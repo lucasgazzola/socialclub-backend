@@ -122,7 +122,11 @@ export class EstadoDocumentalService {
         orderBy: { tipoDocumento: 'asc' },
       }),
       personaId
-        ? this.prisma.documentacion.findMany({ where: { personaId }, select: DOCUMENTO_SELECT })
+        ? this.prisma.documentacion.findMany({
+            // TASK-60: lo que subió el titular cuenta recién cuando se aprueba.
+            where: { personaId, estadoRevision: 'APROBADO' },
+            select: DOCUMENTO_SELECT,
+          })
         : Promise.resolve([] as DocumentoPresentado[]),
     ]);
     return estadoDeInscripcion(
@@ -166,7 +170,8 @@ export class EstadoDocumentalService {
           })
         : Promise.resolve([]),
       this.prisma.documentacion.findMany({
-        where: { personaId: { in: personaIds } },
+        // TASK-60: lo que subió el titular cuenta recién cuando se aprueba.
+        where: { personaId: { in: personaIds }, estadoRevision: 'APROBADO' },
         select: DOCUMENTO_SELECT,
       }),
     ]);

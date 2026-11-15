@@ -218,6 +218,7 @@ model Usuario {
   bloqueosAgenda                  BloqueoAgenda[]
   /// US-63: solicitudes de inscripción a disciplinas revisadas.
   solicitudesInscripcionRevisadas SolicitudInscripcion[]    @relation("revisorSolicitudInscripcion")
+  documentacionesRevisadas        Documentacion[]           @relation("revisorDocumentacion")
   /// DT-54: enlaces de verificación de email emitidos para la cuenta.
   tokens                          TokenUsuario[]
 
@@ -651,27 +652,44 @@ model SolicitudInscripcion {
 /// integrante (Persona) asociado. La regla "la fecha de vencimiento no puede ser
 /// anterior a hoy" se valida en el backend al cargar.
 model Documentacion {
-  id               Int                          @id @default(autoincrement())
+  id                Int                          @id @default(autoincrement())
   /// Descripción libre heredada (antes era el único dato del tipo).
-  tipo             String
+  tipo              String
   /// Tipo del catálogo que cubre un requisito de disciplina/categoría.
   /// Null en documentos cargados antes del catálogo que no pudieron mapearse.
-  tipoDocumento    TipoDocumentacionDisciplina?
-  fechaVencimiento DateTime?
-  personaId        Int
-  persona          Persona                      @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  tipoDocumento     TipoDocumentacionDisciplina?
+  fechaVencimiento  DateTime?
+  personaId         Int
+  persona           Persona                      @relation(fields: [personaId], references: [id], onDelete: Cascade)
   // Archivo adjunto opcional (PDF/imagen). El binario se guarda en el filesystem
   // del servidor (ruta configurable); en la BD solo la referencia.
-  archivoNombre    String? // nombre original subido por el usuario
-  archivoRuta      String? // nombre del archivo almacenado (relativo al dir de storage)
-  mimeType         String?
-  tamano           Int? // en bytes
-  creadoEn         DateTime                     @default(now())
-  actualizadoEn    DateTime                     @updatedAt
+  archivoNombre     String? // nombre original subido por el usuario
+  archivoRuta       String? // nombre del archivo almacenado (relativo al dir de storage)
+  mimeType          String?
+  tamano            Int? // en bytes
+  /// TASK-60: el titular sube su documento desde Mi club y queda en revisión
+  /// hasta que un delegado o el administrador lo aprueba. Solo los APROBADO
+  /// cuentan para la habilitación. Lo que carga el club nace APROBADO.
+  estadoRevision    EstadoRevisionDocumento      @default(APROBADO)
+  cargadoPorTitular Boolean                      @default(false)
+  revisadoPorId     Int?
+  revisadoPor       Usuario?                     @relation("revisorDocumentacion", fields: [revisadoPorId], references: [id], onDelete: SetNull)
+  revisadoEn        DateTime?
+  motivoRechazo     String?
+  creadoEn          DateTime                     @default(now())
+  actualizadoEn     DateTime                     @updatedAt
 
   @@index([personaId])
   @@index([personaId, tipoDocumento])
+  @@index([estadoRevision])
   @@map("documentaciones")
+}
+
+/// TASK-60: revisión de un documento que subió el propio titular.
+enum EstadoRevisionDocumento {
+  APROBADO
+  PENDIENTE_REVISION
+  RECHAZADO
 }
 
 /// Habilitación excepcional de una inscripción bloqueada por documentación

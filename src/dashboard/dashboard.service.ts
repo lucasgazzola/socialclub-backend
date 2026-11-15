@@ -249,7 +249,8 @@ export class DashboardService {
         : Promise.resolve([]),
       personaIds.length
         ? this.prisma.documentacion.findMany({
-            where: { personaId: { in: personaIds } },
+            // TASK-60: solo la documentación aprobada cuenta para la habilitación.
+            where: { personaId: { in: personaIds }, estadoRevision: 'APROBADO' },
             select: DOCUMENTO_SELECT,
           })
         : Promise.resolve([]),
