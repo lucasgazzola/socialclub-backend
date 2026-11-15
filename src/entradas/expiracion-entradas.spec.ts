@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { EntradasService } from './entradas.service';
 import { PasarelaService } from '../pasarela/pasarela.service';
+import { ConfigService } from '@nestjs/config';
 
 /**
  * US-31 · DT-33 · Control de acceso con QR y vencimiento de las entradas: una
@@ -19,6 +20,8 @@ describe('US-31/DT-33 · EntradasService · acceso y vencimiento', () => {
     $transaction: jest.fn(),
   };
   const auditoriaMock = { registrar: jest.fn() };
+  /** H05: sin ACCESO_APERTURA_HORAS, la puerta abre 3 h antes del inicio. */
+  const configMock = { get: jest.fn().mockReturnValue(undefined) };
   const pasarelaMock = { iniciarCobro: jest.fn() };
 
   const evento = (extra: Record<string, unknown> = {}) => ({
@@ -31,7 +34,8 @@ describe('US-31/DT-33 · EntradasService · acceso y vencimiento', () => {
     descuentoSocio: 0,
     inicioVenta: null,
     finVenta: null,
-    fechaEvento: new Date(Date.now() + 2 * DIA),
+    // Empieza en una hora: el acceso ya está abierto (H05) y el evento no terminó.
+    fechaEvento: new Date(Date.now() + 60 * 60 * 1000),
     fechaFin: null,
     ...extra,
   });
@@ -51,6 +55,7 @@ describe('US-31/DT-33 · EntradasService · acceso y vencimiento', () => {
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuditoriaService, useValue: auditoriaMock },
         { provide: PasarelaService, useValue: pasarelaMock },
+        { provide: ConfigService, useValue: configMock },
       ],
     }).compile();
     service = moduleRef.get(EntradasService);
@@ -67,7 +72,7 @@ describe('US-31/DT-33 · EntradasService · acceso y vencimiento', () => {
       });
       expect(prismaMock.entrada.updateMany).toHaveBeenCalledWith({
         where: { token: 'tok-1', estado: 'VALIDA' },
-        data: { estado: 'USADA' },
+        data: { estado: 'USADA', usadaEn: expect.any(Date) },
       });
       expect(auditoriaMock.registrar).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -116,6 +121,44 @@ describe('US-31/DT-33 · EntradasService · acceso y vencimiento', () => {
       await expect(service.validarAcceso({ token: 'tok-1', eventoId: 3 }, 7)).rejects.toThrow(
         BadRequestException,
       );
+    });
+
+    it('TASK-60 · rechaza la entrada de un evento cancelado sin cambiar su estado', async () => {
+      prismaMock.entrada.findUnique.mockResolvedValue(
+        entrada('VALIDA', evento({ estado: 'CANCELADO' })),
+      );
+
+      await expect(service.validarAcceso({ token: 'tok-1', eventoId: 3 }, 7)).rejects.toThrow(
+        new BadRequestException(
+          'El evento "Cena aniversario" fue cancelado: la entrada no es válida.',
+        ),
+      );
+      expect(prismaMock.entrada.updateMany).not.toHaveBeenCalled();
+      expect(auditoriaMock.registrar).not.toHaveBeenCalled();
+    });
+
+    it('H05 · rechaza una entrada válida si el acceso al evento todavía no abrió, sin usarla', async () => {
+      prismaMock.entrada.findUnique.mockResolvedValue(
+        entrada('VALIDA', evento({ fechaEvento: new Date(Date.now() + 2 * DIA) })),
+      );
+
+      await expect(service.validarAcceso({ token: 'tok-1', eventoId: 3 }, 7)).rejects.toThrow(
+        /Todavía no se habilitó el acceso a "Cena aniversario": abre el \d{1,2}\/\d{1,2} a las \d{2}:\d{2} h\./,
+      );
+      expect(prismaMock.entrada.updateMany).not.toHaveBeenCalled();
+      expect(auditoriaMock.registrar).not.toHaveBeenCalled();
+    });
+
+    it('H05 · la apertura del acceso se configura con ACCESO_APERTURA_HORAS', async () => {
+      configMock.get.mockReturnValueOnce(72);
+      prismaMock.entrada.findUnique.mockResolvedValue(
+        entrada('VALIDA', evento({ fechaEvento: new Date(Date.now() + 2 * DIA) })),
+      );
+      prismaMock.entrada.updateMany.mockResolvedValue({ count: 1 });
+
+      await expect(service.validarAcceso({ token: 'tok-1', eventoId: 3 }, 7)).resolves.toMatchObject({
+        acceso: 'PERMITIDO',
+      });
     });
 
     it('rechaza una entrada ya marcada EXPIRADA', async () => {

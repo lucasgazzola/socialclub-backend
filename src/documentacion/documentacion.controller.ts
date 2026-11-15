@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Res,
   StreamableFile,
@@ -25,6 +26,8 @@ import type { Response } from 'express';
 import { DocumentacionService } from './documentacion.service';
 import { EstadoDocumentalService } from './estado-documental.service';
 import { CreateDocumentacionDto } from './dto/create-documentacion.dto';
+import { SubirMiDocumentacionDto } from './dto/subir-mi-documentacion.dto';
+import { RechazarDocumentacionDto } from './dto/rechazar-documentacion.dto';
 import { documentacionStorage, type ArchivoSubido } from './storage.config';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -69,8 +72,87 @@ export class DocumentacionController {
     return this.documentacionService.create(dto, user.id, archivo);
   }
 
+  @Post('mi-documentacion')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'TASK-60 — El titular sube su documento desde Mi club (queda en revisión)',
+  })
+  @UseInterceptors(FileInterceptor('archivo', documentacionStorage))
+  @ApiCreatedResponse({ description: 'Documento subido, pendiente de revisión' })
+  @ApiErrores({
+    400: [
+      VALIDACION,
+      'Adjuntá el archivo del documento (PDF o imagen).',
+      'La fecha de vencimiento no puede ser anterior a la fecha actual.',
+      'Ninguna disciplina o categoría del participante exige «…».',
+      'Tipo de archivo no permitido (solo PDF o imagen).',
+    ],
+    401: 'Unauthorized',
+    404: 'No se encontró una ficha de persona asociada al usuario',
+    409: 'Ya enviaste «…» y está en revisión.',
+    413: 'File too large',
+  })
+  subirMiDocumentacion(
+    @Body() dto: SubirMiDocumentacionDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile() archivo?: ArchivoSubido,
+  ) {
+    return this.documentacionService.subirPropia(user.id, dto, archivo);
+  }
+
+  @Get('pendientes-revision')
+  @Roles('ADMIN', 'DELEGADO')
+  @ApiOperation({
+    summary: 'TASK-60 — Documentos que subieron los titulares y esperan revisión',
+  })
+  @ApiOkResponse({ description: 'Pendientes de revisión (el delegado ve los de sus disciplinas)' })
+  @ApiErrores({ 401: 'Unauthorized', 403: 'No tenés permisos suficientes para esta operación' })
+  pendientesRevision(@CurrentUser() user: AuthenticatedUser) {
+    return this.documentacionService.pendientesRevision(user);
+  }
+
+  @Patch(':id/aprobar')
+  @Roles('ADMIN', 'DELEGADO')
+  @ApiOperation({ summary: 'TASK-60 — Aprobar un documento que subió el titular' })
+  @ApiOkResponse({ description: 'Documento aprobado: cuenta para la habilitación' })
+  @ApiErrores({
+    400: VALIDACION,
+    401: 'Unauthorized',
+    403: [
+      'No tenés permisos suficientes para esta operación',
+      'El documento es de un participante de otra disciplina.',
+    ],
+    404: 'Documento no encontrado',
+    409: 'El documento ya fue revisado.',
+  })
+  aprobar(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.documentacionService.revisar(id, user, { aprobar: true });
+  }
+
+  @Patch(':id/rechazar')
+  @Roles('ADMIN', 'DELEGADO')
+  @ApiOperation({ summary: 'TASK-60 — Rechazar un documento que subió el titular, con motivo' })
+  @ApiOkResponse({ description: 'Documento rechazado: el titular puede volver a subirlo' })
+  @ApiErrores({
+    400: [VALIDACION, 'El motivo del rechazo debe tener al menos 5 caracteres.'],
+    401: 'Unauthorized',
+    403: [
+      'No tenés permisos suficientes para esta operación',
+      'El documento es de un participante de otra disciplina.',
+    ],
+    404: 'Documento no encontrado',
+    409: 'El documento ya fue revisado.',
+  })
+  rechazar(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: RechazarDocumentacionDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.documentacionService.revisar(id, user, { aprobar: false, motivo: dto.motivo });
+  }
+
   @Get('mi-documentacion')
-  @Roles('ADMIN', 'DELEGADO', 'COLABORADOR', 'SOCIO')
+  // DT-58: cualquier usuario con sesión; el servicio exige que sea su propia persona.
   @ApiOperation({
     summary: 'DT-28 — Listar la documentación de la persona asociada al usuario logueado',
   })
@@ -86,7 +168,7 @@ export class DocumentacionController {
   }
 
   @Get('mi-documentacion/estado')
-  @Roles('ADMIN', 'DELEGADO', 'COLABORADOR', 'SOCIO')
+  // DT-58: cualquier usuario con sesión; el servicio exige que sea su propia persona.
   @ApiOperation({
     summary: 'US-25 / DT-28 — Estado documental de la persona asociada al usuario logueado',
   })
@@ -102,7 +184,7 @@ export class DocumentacionController {
   }
 
   @Get('persona/:personaId')
-  @Roles('ADMIN', 'DELEGADO', 'COLABORADOR', 'SOCIO')
+  // DT-58: cualquier usuario con sesión; el servicio exige que sea su propia persona.
   @ApiOperation({ summary: 'Listar la documentación de un participante' })
   @ApiOkResponse({ description: 'Documentos del participante' })
   @ApiErrores({
@@ -120,7 +202,7 @@ export class DocumentacionController {
   }
 
   @Get('persona/:personaId/estado')
-  @Roles('ADMIN', 'DELEGADO', 'COLABORADOR', 'SOCIO')
+  // DT-58: cualquier usuario con sesión; el servicio exige que sea su propia persona.
   @ApiOperation({
     summary: 'US-25 — Estado documental del participante por inscripción (exigido vs. presentado)',
   })
@@ -140,7 +222,7 @@ export class DocumentacionController {
   }
 
   @Get(':id/archivo')
-  @Roles('ADMIN', 'DELEGADO', 'COLABORADOR', 'SOCIO')
+  // DT-58: cualquier usuario con sesión; el servicio exige que sea su propia persona.
   @ApiOperation({ summary: 'Descargar el archivo adjunto de un documento' })
   @ApiOkResponse({ description: 'Archivo adjunto (PDF o imagen)' })
   @ApiErrores({

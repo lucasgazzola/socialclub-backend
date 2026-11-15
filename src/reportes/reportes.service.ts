@@ -9,6 +9,7 @@ import {
 import { EstadoFinancieroQueryDto } from './dto/estado-financiero-query.dto';
 import { AsistenciaEventosQueryDto } from './dto/asistencia-eventos-query.dto';
 import { EstadoEntrada } from '@prisma/client';
+import { eventoTerminado } from '../eventos/fin-del-evento';
 
 /** Meses máximos de un reporte (tres años). */
 export const MAX_MESES_REPORTE = 36;
@@ -291,12 +292,17 @@ export class ReportesService {
     let totalEntradasAcumuladas = 0;
     let totalAsistentesAcumulados = 0;
     let totalRecaudadoAcumulado = 0;
+    // H03: el ausentismo solo se mide en eventos que ya terminaron.
+    let entradasDeRealizados = 0;
+    let asistentesDeRealizados = 0;
+    let totalAusentes = 0;
 
     const eventosCalculados = eventos.map((ev) => {
       const totalEntradas = ev.entradas.length;
       // Ingresos validados = entradas escaneadas/usadas en el evento
       const ingresosValidados = ev.entradas.filter((e) => e.estado === EstadoEntrada.USADA).length;
-      const ausentes = Math.max(0, totalEntradas - ingresosValidados);
+      const realizado = eventoTerminado(ev, hoy);
+      const ausentes = realizado ? Math.max(0, totalEntradas - ingresosValidados) : 0;
 
       const capacidadMaxima = ev.capacidadMaxima ?? null;
       const porcentajeOcupacion =
@@ -305,7 +311,9 @@ export class ReportesService {
           : null;
 
       const porcentajeAsistencia =
-        totalEntradas > 0 ? Math.round((ingresosValidados / totalEntradas) * 1000) / 10 : null;
+        realizado && totalEntradas > 0
+          ? Math.round((ingresosValidados / totalEntradas) * 1000) / 10
+          : null;
 
       const recaudado = ev.compras.reduce((sum, c) => sum + Number(c.montoTotal), 0);
 
@@ -313,6 +321,11 @@ export class ReportesService {
       totalEntradasAcumuladas += totalEntradas;
       totalAsistentesAcumulados += ingresosValidados;
       totalRecaudadoAcumulado += recaudado;
+      totalAusentes += ausentes;
+      if (realizado) {
+        entradasDeRealizados += totalEntradas;
+        asistentesDeRealizados += ingresosValidados;
+      }
 
       return {
         id: ev.id,
@@ -328,6 +341,7 @@ export class ReportesService {
         precio: Number(ev.precio),
         totalEntradas,
         ingresosValidados,
+        realizado,
         ausentes,
         porcentajeOcupacion,
         porcentajeAsistencia,
@@ -336,14 +350,13 @@ export class ReportesService {
     });
 
     const totalEventos = eventosCalculados.length;
-    const totalAusentes = Math.max(0, totalEntradasAcumuladas - totalAsistentesAcumulados);
     const porcentajeOcupacionPromedio =
       totalCapacidadAcumulada > 0
         ? Math.round((totalAsistentesAcumulados / totalCapacidadAcumulada) * 1000) / 10
         : null;
     const porcentajeAsistenciaPromedio =
-      totalEntradasAcumuladas > 0
-        ? Math.round((totalAsistentesAcumulados / totalEntradasAcumuladas) * 1000) / 10
+      entradasDeRealizados > 0
+        ? Math.round((asistentesDeRealizados / entradasDeRealizados) * 1000) / 10
         : null;
 
     return {

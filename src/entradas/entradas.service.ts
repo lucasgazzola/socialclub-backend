@@ -11,10 +11,36 @@ import { CrearEntradasDto } from './dto/crear-entradas.dto';
 import { ValidarEntradaDto } from './dto/validar-entrada.dto';
 import { ComprarEntradasDto } from './dto/comprar-entradas.dto';
 import { FiltrarMisEntradasDto } from './dto/filtrar-mis-entradas.dto';
-import { Prisma } from '@prisma/client';
-import { eventoTerminado } from '../eventos/fin-del-evento';
+import { EstadoEntrada, Prisma } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
+import {
+  APERTURA_ACCESO_HORAS_POR_DEFECTO,
+  aperturaDelAcceso,
+  eventoTerminado,
+  filtroEventoTerminado,
+} from '../eventos/fin-del-evento';
 import { PasarelaService } from '../pasarela/pasarela.service';
 import type { DatosCobroEntradas } from './entradas.acreditador';
+
+/**
+ * TASK-60: estado que ve el socio. Una entrada VALIDA cuyo evento ya terminó o
+ * se canceló está vencida aunque la tarea de cierre todavía no la haya marcado.
+ */
+export function estadoVisible(
+  entrada: {
+    estado: EstadoEntrada;
+    evento: { estado: string; fechaEvento: Date; fechaFin: Date | null };
+  },
+  ahora: Date = new Date(),
+): EstadoEntrada {
+  if (
+    entrada.estado === 'VALIDA' &&
+    (entrada.evento.estado === 'CANCELADO' || eventoTerminado(entrada.evento, ahora))
+  ) {
+    return 'EXPIRADA';
+  }
+  return entrada.estado;
+}
 
 /**
  * - Cada entrada tiene un token generado por el sistema.
@@ -28,6 +54,7 @@ export class EntradasService {
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
     private readonly pasarela: PasarelaService,
+    private readonly config: ConfigService,
   ) {}
 
   async crearMultiples(dto: CrearEntradasDto, responsableId: number) {
@@ -213,30 +240,58 @@ export class EntradasService {
     });
   }
 
+  /**
+   * US-52 · TASK-60 — Entradas del usuario. La vigencia se calcula acá y no se
+   * espera a la tarea `cierre-de-eventos`: una entrada VALIDA de un evento que
+   * ya terminó o se canceló se devuelve como EXPIRADA (y se filtra como tal).
+   * `vigencia` separa Próximas (válidas) de Historial (usadas y vencidas).
+   */
   async listarMisEntradas(usuarioId: number, dto: FiltrarMisEntradasDto = {}) {
     const pagina = dto.page ?? dto.pagina ?? 1;
     const porPagina = dto.limit ?? dto.porPagina ?? 10;
     const search = (dto.search ?? dto.busqueda)?.trim();
+    const ahora = new Date();
+
+    const vigente: Prisma.EntradaWhereInput = {
+      estado: 'VALIDA',
+      evento: { estado: { not: 'CANCELADO' }, NOT: filtroEventoTerminado(ahora) },
+    };
+    const vencida: Prisma.EntradaWhereInput = {
+      OR: [
+        { estado: 'EXPIRADA' },
+        {
+          estado: 'VALIDA',
+          evento: { OR: [{ estado: 'CANCELADO' }, filtroEventoTerminado(ahora)] },
+        },
+      ],
+    };
+
+    const condiciones: Prisma.EntradaWhereInput[] = [];
+    if (search) {
+      condiciones.push({ evento: { nombre: { contains: search, mode: 'insensitive' } } });
+    }
+    if (dto.estado === 'VALIDA') condiciones.push(vigente);
+    if (dto.estado === 'USADA') condiciones.push({ estado: 'USADA' });
+    if (dto.estado === 'EXPIRADA') condiciones.push(vencida);
+    if (dto.vigencia === 'PROXIMAS') condiciones.push(vigente);
+    if (dto.vigencia === 'HISTORIAL') condiciones.push({ NOT: vigente });
 
     const where: Prisma.EntradaWhereInput = {
       compra: { usuarioId },
-      ...(dto.estado ? { estado: dto.estado } : {}),
-      ...(search
-        ? {
-            evento: {
-              nombre: {
-                contains: search,
-                mode: 'insensitive',
-              },
-            },
-          }
-        : {}),
+      ...(condiciones.length ? { AND: condiciones } : {}),
     };
+
+    const orderBy: Prisma.EntradaOrderByWithRelationInput[] =
+      dto.vigencia === 'PROXIMAS'
+        ? [{ evento: { fechaEvento: 'asc' } }, { id: 'asc' }]
+        : dto.vigencia === 'HISTORIAL'
+          ? [{ evento: { fechaEvento: 'desc' } }, { id: 'asc' }]
+          : [{ creadoEn: 'desc' }];
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.entrada.findMany({
         where,
-        orderBy: { creadoEn: 'desc' },
+        orderBy,
         skip: (pagina - 1) * porPagina,
         take: porPagina,
         include: { evento: true, compra: true },
@@ -244,14 +299,15 @@ export class EntradasService {
       this.prisma.entrada.count({ where }),
     ]);
 
-    const totalPaginas = Math.ceil(total / porPagina) || 1;
-
     return {
-      items,
+      items: items.map((entrada) => ({
+        ...entrada,
+        estado: estadoVisible(entrada, ahora),
+      })),
       total,
       pagina,
       porPagina,
-      totalPaginas,
+      totalPaginas: Math.ceil(total / porPagina) || 1,
     };
   }
 
@@ -272,6 +328,13 @@ export class EntradasService {
       throw new ConflictException('La entrada corresponde a otro evento');
     }
 
+    // TASK-60: la entrada de un evento cancelado no da acceso (no se cambia su estado).
+    if (entrada.evento.estado === 'CANCELADO') {
+      throw new BadRequestException(
+        `El evento "${entrada.evento.nombre}" fue cancelado: la entrada no es válida.`,
+      );
+    }
+
     // DT-33: si el evento ya terminó, la entrada venció aunque la tarea de
     // cierre todavía no la haya marcado. Se marca acá para que quede registrado.
     if (entrada.estado === 'VALIDA' && eventoTerminado(entrada.evento)) {
@@ -286,6 +349,25 @@ export class EntradasService {
       throw new BadRequestException(`Entrada expirada para el evento "${entrada.evento.nombre}".`);
     }
 
+    // H05: no se puede ingresar a un evento cuyo acceso todavía no abrió.
+    const apertura = aperturaDelAcceso(
+      entrada.evento,
+      Number(this.config.get('ACCESO_APERTURA_HORAS') ?? APERTURA_ACCESO_HORAS_POR_DEFECTO),
+    );
+    if (entrada.estado === 'VALIDA' && Date.now() < apertura.getTime()) {
+      const cuando = apertura.toLocaleString('es-AR', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+        timeZone: 'America/Argentina/Cordoba',
+      });
+      throw new BadRequestException(
+        `Todavía no se habilitó el acceso a "${entrada.evento.nombre}": abre el ${cuando.replace(', ', ' a las ')} h.`,
+      );
+    }
+
     if (entrada.estado === 'USADA') {
       throw new ConflictException(
         `Entrada ya utilizada para el evento "${entrada.evento.nombre}". Posible intento de reingreso no autorizado.`,
@@ -295,7 +377,7 @@ export class EntradasService {
     // Actualización atómica: solo cambia si sigue en estado VALIDA
     const resultado = await this.prisma.entrada.updateMany({
       where: { token: dto.token, estado: 'VALIDA' },
-      data: { estado: 'USADA' },
+      data: { estado: 'USADA', usadaEn: new Date() },
     });
 
     if (resultado.count === 0) {

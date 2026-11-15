@@ -55,7 +55,10 @@ describe('DT-26 · Respuestas declaradas en Swagger', () => {
   });
 
   it('cada operación declara al menos un error con el formato común', () => {
+    // GET público, sin parámetros ni sesión: no tiene ningún 4xx posible (TASK-60).
+    const sinErroresPosibles = ['/api/v1/club/publico'];
     const sinErrores = deNegocio()
+      .filter((o) => !sinErroresPosibles.includes(o.ruta))
       .filter(
         (o) =>
           !Object.entries(o.respuestas).some(

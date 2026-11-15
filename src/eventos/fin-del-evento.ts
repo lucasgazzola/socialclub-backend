@@ -9,6 +9,12 @@
  */
 export const DURACION_POR_DEFECTO_HORAS = 12;
 
+/**
+ * H05 — Cuántas horas antes del inicio se habilita el control de acceso
+ * (configurable con `ACCESO_APERTURA_HORAS`).
+ */
+export const APERTURA_ACCESO_HORAS_POR_DEFECTO = 3;
+
 const MS_HORA = 60 * 60 * 1000;
 
 export interface FechasDelEvento {
@@ -38,4 +44,12 @@ export function filtroEventoTerminado(ahora: Date = new Date()) {
       },
     ],
   };
+}
+
+/** H05 — Desde cuándo se puede validar una entrada en la puerta. */
+export function aperturaDelAcceso(
+  evento: Pick<FechasDelEvento, 'fechaEvento'>,
+  horasAntes: number = APERTURA_ACCESO_HORAS_POR_DEFECTO,
+): Date {
+  return new Date(evento.fechaEvento.getTime() - horasAntes * MS_HORA);
 }

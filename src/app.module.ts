@@ -14,6 +14,7 @@ import { DisciplinasModule } from './disciplinas/disciplinas.module';
 import { CategoriasDisciplinaModule } from './categorias-disciplina/categorias-disciplina.module';
 import { CuotasModule } from './cuotas/cuotas.module';
 import { CuotaSocialModule } from './cuota-social/cuota-social.module';
+import { ClubModule } from './club/club.module';
 import { PersonasModule } from './personas/personas.module';
 import { InscripcionModule } from './inscripcion/inscripcion.module';
 import { DocumentacionModule } from './documentacion/documentacion.module';
@@ -60,6 +61,7 @@ import { EspaciosModule } from './espacios/espacios.module';
     TareasModule,
     PasarelaModule,
     ReservasModule,
+    ClubModule,
     VerificacionEmailModule,
     EspaciosModule,
   ],

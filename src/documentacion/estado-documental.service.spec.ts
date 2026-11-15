@@ -90,6 +90,16 @@ describe('EstadoDocumentalService', () => {
     expect(r.estado).toBe('PENDIENTE');
   });
 
+  it('TASK-60 · solo cuenta la documentación aprobada (lo que subió el titular y está en revisión no habilita)', async () => {
+    await service.porPersona(10, hoy);
+
+    expect(prismaMock.documentacion.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { personaId: { in: [10] }, estadoRevision: 'APROBADO' },
+      }),
+    );
+  });
+
   it('expone los tipos exigidos para el selector de carga, con el documento actual', async () => {
     const r = await service.porPersona(10, hoy);
 

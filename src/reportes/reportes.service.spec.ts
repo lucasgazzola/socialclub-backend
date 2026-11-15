@@ -259,6 +259,41 @@ describe('US-36 · ReportesService.asistenciaEventos', () => {
     service = module.get<ReportesService>(ReportesService);
   });
 
+  it('H03 · no cuenta ausentes ni asistencia de un evento que todavía no terminó', async () => {
+    prisma.evento.findMany.mockResolvedValue([
+      {
+        id: 1,
+        nombre: 'Peña pasada',
+        estado: 'FINALIZADO',
+        fechaEvento: new Date('2026-09-12T20:00:00.000Z'),
+        fechaFin: new Date('2026-09-13T03:00:00.000Z'),
+        capacidadMaxima: 50,
+        entradasDisponibles: 0,
+        precio: 1000,
+        entradas: [...Array(3).fill({ id: 1, estado: 'USADA' }), { id: 2, estado: 'EXPIRADA' }],
+        compras: [],
+      },
+      {
+        id: 2,
+        nombre: 'Cena futura',
+        estado: 'PUBLICADO',
+        fechaEvento: new Date('2026-12-05T21:00:00.000Z'),
+        fechaFin: null,
+        capacidadMaxima: 50,
+        entradasDisponibles: 48,
+        precio: 6000,
+        entradas: [{ id: 3, estado: 'USADA' }, { id: 4, estado: 'VALIDA' }],
+        compras: [],
+      },
+    ]);
+
+    const { eventos, totales } = await service.asistenciaEventos({}, HOY);
+
+    expect(eventos[0]).toMatchObject({ realizado: true, ausentes: 1, porcentajeAsistencia: 75 });
+    expect(eventos[1]).toMatchObject({ realizado: false, ausentes: 0, porcentajeAsistencia: null });
+    expect(totales).toMatchObject({ totalAusentes: 1, porcentajeAsistenciaPromedio: 75, totalAsistentes: 4 });
+  });
+
   it('consolida asistencia y ocupación por evento y totales acumulados', async () => {
     prisma.evento.findMany.mockResolvedValue([
       {

@@ -52,10 +52,28 @@ describe('US-24/25 · DT-28 · DocumentacionController · control de acceso', ()
       expect(guard.canActivate(contextoPara(handler, [rol]))).toBe(true);
     });
 
-    it('DT-28: rechaza a roles no autorizados', () => {
-      expect(() => guard.canActivate(contextoPara(handler, ['INVITADO']))).toThrow(
-        ForbiddenException,
-      );
+    it('DT-58: deja pasar a un participante sin rol (el servicio exige que sea su propia persona)', () => {
+      expect(guard.canActivate(contextoPara(handler, []))).toBe(true);
+    });
+  });
+
+  describe('TASK-60 · POST /documentacion/mi-documentacion (el titular sube su documento)', () => {
+    it.each([[['SOCIO']], [[]]])('permite a cualquier usuario con sesión (roles %j)', (roles) => {
+      expect(guard.canActivate(contextoPara(proto.subirMiDocumentacion, roles))).toBe(true);
+    });
+  });
+
+  describe.each([
+    ['GET /documentacion/pendientes-revision', proto.pendientesRevision],
+    ['PATCH /documentacion/:id/aprobar', proto.aprobar],
+    ['PATCH /documentacion/:id/rechazar', proto.rechazar],
+  ])('TASK-60 · %s (revisión)', (_ruta, handler) => {
+    it.each(['ADMIN', 'DELEGADO'])('permite a un %s', (rol) => {
+      expect(guard.canActivate(contextoPara(handler, [rol]))).toBe(true);
+    });
+
+    it.each(['COLABORADOR', 'SOCIO'])('rechaza a un %s', (rol) => {
+      expect(() => guard.canActivate(contextoPara(handler, [rol]))).toThrow(ForbiddenException);
     });
   });
 });
