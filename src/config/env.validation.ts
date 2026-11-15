@@ -72,6 +72,12 @@ class EnvironmentVariables {
   @IsOptional()
   APP_URL?: string;
 
+  /** DT-54: horas que dura el enlace de verificación de email (24 por defecto). */
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  VERIFICACION_EMAIL_HORAS_VALIDEZ?: number;
+
   // ── Pasarela de pagos (TASK-51, decisión 0003) ───────────────────────────
   /** `mercadopago` o `simulada`. Sin definir: Mercado Pago si hay token, si no la simulada. */
   @IsIn(['mercadopago', 'simulada'], {
