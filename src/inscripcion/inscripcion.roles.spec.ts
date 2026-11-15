@@ -114,9 +114,15 @@ describe('DT-16 · InscripcionController · control de acceso', () => {
   });
 
   it('US-63: los endpoints de solicitud y catálogo permiten a un usuario autenticado sin roles', () => {
-    expect(guard.canActivate(contextoPara(InscripcionController.prototype.solicitar, []))).toBe(true);
-    expect(guard.canActivate(contextoPara(InscripcionController.prototype.catalogo, []))).toBe(true);
-    expect(guard.canActivate(contextoPara(InscripcionController.prototype.misSolicitudes, []))).toBe(true);
+    expect(guard.canActivate(contextoPara(InscripcionController.prototype.solicitar, []))).toBe(
+      true,
+    );
+    expect(guard.canActivate(contextoPara(InscripcionController.prototype.catalogo, []))).toBe(
+      true,
+    );
+    expect(
+      guard.canActivate(contextoPara(InscripcionController.prototype.misSolicitudes, [])),
+    ).toBe(true);
   });
 
   it('US-06 · TC-229 / US-07 · TC-025: el COLABORADOR puede listar participantes pero no editarlos, darlos de baja ni reactivarlos', () => {

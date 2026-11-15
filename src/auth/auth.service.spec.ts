@@ -223,7 +223,7 @@ describe('AuthService', () => {
       password: 'Nuevo123!',
       confirmarPassword: 'Nuevo123!',
       fechaNacimiento: '1990-05-15',
-      genero: GeneroDisciplina.FEMENINO,
+      genero: 'FEMENINO' as const,
       nombre: 'Ana',
       apellido: 'Pérez',
     };
@@ -253,11 +253,13 @@ describe('AuthService', () => {
       expect(dataCreada.passwordHash).not.toBe(dto.password);
       expect(bcrypt.compareSync(dto.password, dataCreada.passwordHash as string)).toBe(true);
       expect(prismaMock.persona.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
+        data: {
           nombre: 'Ana',
           apellido: 'Pérez',
           email: 'nuevo@socialclub.local',
-        }),
+          fechaNacimiento: new Date('1990-05-15'),
+          genero: 'FEMENINO',
+        },
       });
       expect(dataCreada.roles).toBeUndefined();
       expect(auditoriaMock.registrar).toHaveBeenCalledWith(
@@ -322,7 +324,7 @@ describe('AuthService', () => {
         password: 'Nuevo123!',
         confirmarPassword: 'Nuevo123!',
         fechaNacimiento: '1990-05-15',
-        genero: GeneroDisciplina.FEMENINO,
+        genero: 'FEMENINO' as const,
         nombre: 'Ana',
         apellido: 'Pérez',
       };
@@ -379,7 +381,7 @@ describe('AuthService', () => {
         password: 'Nuevo123!',
         confirmarPassword: 'Nuevo123!',
         fechaNacimiento: '1990-05-15',
-        genero: GeneroDisciplina.MASCULINO,
+        genero: 'MASCULINO' as const,
         nombre: 'Mal',
         apellido: 'Actor',
         roles: ['ADMIN'],

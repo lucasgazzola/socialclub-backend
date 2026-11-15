@@ -25,9 +25,11 @@ import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { ApiErrores, VALIDACION } from '../common/swagger/respuestas';
 import { OrdenPagoRespuestaDto } from '../pasarela/dto/orden-pago-respuesta.dto';
 import { ReservasService } from './reservas.service';
+import { DisponibilidadQueryDto } from './dto/disponibilidad-query.dto';
 import { FindSolicitudesQueryDto } from './dto/find-solicitudes-query.dto';
 import { MotivoReservaDto } from './dto/motivo.dto';
 import { RegistrarSenaDto } from './dto/registrar-sena.dto';
+import { CreateReservaDto, PresupuestoReservaDto } from './dto/solicitar-reserva.dto';
 
 const SIN_PERMISO = 'No tenés permisos suficientes para esta operación';
 const NO_ENCONTRADA = 'Reserva no encontrada';
@@ -174,7 +176,45 @@ export class ReservasController {
     return this.reservas.cancelarPorFaltaPago(id, user.id);
   }
 
-  // ── Solicitante (US-61, US-62) ────────────────────────────────────────────
+  // ── Solicitante (US-59, US-61, US-62) ─────────────────────────────────────
+
+  @Get('espacios')
+  @ApiOperation({ summary: 'US-59 — Catálogo de espacios activos disponibles para reservar' })
+  @ApiOkResponse({ description: 'Listado de espacios activos con tarifas y subespacios' })
+  @ApiErrores({ 401: 'Unauthorized' })
+  listarEspacios() {
+    return this.reservas.listarEspaciosDisponibles();
+  }
+
+  @Get('disponibilidad')
+  @ApiOperation({ summary: 'US-59 — Disponibilidad del espacio (bloqueos y reservas ocupantes)' })
+  @ApiOkResponse({ description: 'Intervalos ocupados en el rango de fechas solicitado' })
+  @ApiErrores({ 400: VALIDACION, 401: 'Unauthorized', 404: 'Espacio no encontrado' })
+  consultarDisponibilidad(@Query() query: DisponibilidadQueryDto) {
+    return this.reservas.consultarDisponibilidad(query);
+  }
+
+  @Post('presupuesto')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'US-59 — Presupuesto, tarifa socio/no socio, seña y disponibilidad' })
+  @ApiOkResponse({ description: 'Detalle del presupuesto y verificación en tiempo real' })
+  @ApiErrores({ 400: VALIDACION, 401: 'Unauthorized', 404: 'Espacio no encontrado' })
+  calcularPresupuesto(@CurrentUser() user: AuthenticatedUser, @Body() dto: PresupuestoReservaDto) {
+    return this.reservas.calcularPresupuesto(user.id, dto);
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'US-59 — Solicitar reserva de espacio (PENDIENTE_APROBACION)' })
+  @ApiCreatedResponse({ description: 'Solicitud registrada con código RES-XXXXXX' })
+  @ApiErrores({
+    400: VALIDACION,
+    401: 'Unauthorized',
+    404: 'Espacio no encontrado',
+    409: 'Conflicto de disponibilidad o solicitud duplicada',
+  })
+  solicitarReserva(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateReservaDto) {
+    return this.reservas.solicitarReserva(user.id, dto);
+  }
 
   @Get('mias')
   @ApiOperation({ summary: 'US-62 — Mis Reservas: reservas del usuario autenticado' })

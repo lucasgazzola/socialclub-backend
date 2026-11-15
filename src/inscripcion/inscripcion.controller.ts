@@ -16,6 +16,7 @@ import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
 import { SolicitarInscripcionDto } from './dto/solicitar-inscripcion.dto';
 import { FindParticipantesQueryDto } from './dto/find-participantes-query.dto';
 import { RequisitosInscripcionQueryDto } from './dto/requisitos-inscripcion-query.dto';
+import { MisSolicitudesQueryDto } from './dto/mis-solicitudes-query.dto';
 import { CrearHabilitacionExcepcionalDto } from './dto/crear-habilitacion-excepcional.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
@@ -173,15 +174,22 @@ export class InscripcionController {
   }
 
   @Get('mis-solicitudes')
-  @ApiOperation({ summary: 'US-63 — Listar solicitudes de inscripción propias del usuario' })
-  @ApiOkResponse({ description: 'Historial de solicitudes de inscripción del socio' })
+  @ApiOperation({
+    summary:
+      'US-64 — Listar solicitudes de inscripción propias del usuario con filtro opcional por estado',
+  })
+  @ApiOkResponse({
+    description:
+      'Historial de solicitudes de inscripción del socio ordenadas cronológicamente de la más reciente a la más antigua',
+  })
   @ApiErrores({
+    400: VALIDACION,
     401: 'Unauthorized',
     403: 'No tenés permisos suficientes para esta operación',
     404: 'No se encontró una ficha de persona asociada al usuario',
   })
-  misSolicitudes(@CurrentUser() user: AuthenticatedUser) {
-    return this.inscripcionService.misSolicitudes(user.id);
+  misSolicitudes(@CurrentUser() user: AuthenticatedUser, @Query() query: MisSolicitudesQueryDto) {
+    return this.inscripcionService.misSolicitudes(user.id, query.estado);
   }
 
   @Get('persona/:personaId')

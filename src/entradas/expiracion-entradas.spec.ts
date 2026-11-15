@@ -61,7 +61,7 @@ describe('US-31/DT-33 · EntradasService · acceso y vencimiento', () => {
       prismaMock.entrada.findUnique.mockResolvedValue(entrada('VALIDA'));
       prismaMock.entrada.updateMany.mockResolvedValue({ count: 1 });
 
-      await expect(service.validarAcceso({ token: 'tok-1' }, 7)).resolves.toEqual({
+      await expect(service.validarAcceso({ token: 'tok-1', eventoId: 3 }, 7)).resolves.toEqual({
         acceso: 'PERMITIDO',
         entrada: { id: 40, eventoId: 3, eventoNombre: 'Cena aniversario' },
       });
@@ -79,6 +79,17 @@ describe('US-31/DT-33 · EntradasService · acceso y vencimiento', () => {
       );
     });
 
+    it('rechaza con 409 Conflict si la entrada pertenece a otro evento sin modificar su estado', async () => {
+      prismaMock.entrada.findUnique.mockResolvedValue(entrada('VALIDA'));
+
+      await expect(service.validarAcceso({ token: 'tok-1', eventoId: 99 }, 7)).rejects.toThrow(
+        new ConflictException('La entrada corresponde a otro evento'),
+      );
+      // No debe ejecutarse ninguna mutación ni registrarse auditoría de acceso
+      expect(prismaMock.entrada.updateMany).not.toHaveBeenCalled();
+      expect(auditoriaMock.registrar).not.toHaveBeenCalled();
+    });
+
     it('rechaza una entrada válida de un evento que ya terminó y la marca EXPIRADA', async () => {
       const terminado = evento({
         fechaEvento: new Date(Date.now() - 2 * DIA),
@@ -87,7 +98,7 @@ describe('US-31/DT-33 · EntradasService · acceso y vencimiento', () => {
       prismaMock.entrada.findUnique.mockResolvedValue(entrada('VALIDA', terminado));
       prismaMock.entrada.updateMany.mockResolvedValue({ count: 1 });
 
-      await expect(service.validarAcceso({ token: 'tok-1' }, 7)).rejects.toThrow(
+      await expect(service.validarAcceso({ token: 'tok-1', eventoId: 3 }, 7)).rejects.toThrow(
         new BadRequestException('Entrada expirada para el evento "Cena aniversario".'),
       );
       expect(prismaMock.entrada.updateMany).toHaveBeenCalledWith({
@@ -102,7 +113,7 @@ describe('US-31/DT-33 · EntradasService · acceso y vencimiento', () => {
       prismaMock.entrada.findUnique.mockResolvedValue(entrada('VALIDA', haceTreceHoras));
       prismaMock.entrada.updateMany.mockResolvedValue({ count: 1 });
 
-      await expect(service.validarAcceso({ token: 'tok-1' }, 7)).rejects.toThrow(
+      await expect(service.validarAcceso({ token: 'tok-1', eventoId: 3 }, 7)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -110,7 +121,7 @@ describe('US-31/DT-33 · EntradasService · acceso y vencimiento', () => {
     it('rechaza una entrada ya marcada EXPIRADA', async () => {
       prismaMock.entrada.findUnique.mockResolvedValue(entrada('EXPIRADA'));
 
-      await expect(service.validarAcceso({ token: 'tok-1' }, 7)).rejects.toThrow(
+      await expect(service.validarAcceso({ token: 'tok-1', eventoId: 3 }, 7)).rejects.toThrow(
         'Entrada expirada para el evento "Cena aniversario".',
       );
       expect(prismaMock.entrada.updateMany).not.toHaveBeenCalled();
@@ -119,13 +130,13 @@ describe('US-31/DT-33 · EntradasService · acceso y vencimiento', () => {
     it('rechaza una entrada ya usada (posible reingreso)', async () => {
       prismaMock.entrada.findUnique.mockResolvedValue(entrada('USADA'));
 
-      await expect(service.validarAcceso({ token: 'tok-1' }, 7)).rejects.toThrow(ConflictException);
+      await expect(service.validarAcceso({ token: 'tok-1', eventoId: 3 }, 7)).rejects.toThrow(ConflictException);
     });
 
     it('rechaza un QR que no corresponde a ninguna entrada', async () => {
       prismaMock.entrada.findUnique.mockResolvedValue(null);
 
-      await expect(service.validarAcceso({ token: 'x' }, 7)).rejects.toThrow(
+      await expect(service.validarAcceso({ token: 'x', eventoId: 3 }, 7)).rejects.toThrow(
         new NotFoundException('Entrada no encontrada. El código QR no es válido.'),
       );
     });
@@ -134,7 +145,7 @@ describe('US-31/DT-33 · EntradasService · acceso y vencimiento', () => {
       prismaMock.entrada.findUnique.mockResolvedValue(entrada('VALIDA'));
       prismaMock.entrada.updateMany.mockResolvedValue({ count: 0 });
 
-      await expect(service.validarAcceso({ token: 'tok-1' }, 7)).rejects.toThrow(
+      await expect(service.validarAcceso({ token: 'tok-1', eventoId: 3 }, 7)).rejects.toThrow(
         'La entrada ya fue utilizada o no es válida.',
       );
     });
