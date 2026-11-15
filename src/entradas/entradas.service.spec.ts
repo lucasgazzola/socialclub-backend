@@ -259,7 +259,7 @@ describe('US-30 · EntradasService', () => {
 
       expect(prismaMock.entrada.findMany).toHaveBeenCalledWith({
         where: { compra: { usuarioId: 7 } },
-        orderBy: { creadoEn: 'desc' },
+        orderBy: [{ creadoEn: 'desc' }],
         skip: 0,
         take: 10,
         include: { evento: true, compra: true },
@@ -280,23 +280,87 @@ describe('US-30 · EntradasService', () => {
       prismaMock.entrada.findMany.mockResolvedValue([]);
       prismaMock.entrada.count = jest.fn().mockResolvedValue(0);
 
-      await service.listarMisEntradas(7, { search: 'Torneo', estado: 'VALIDA', page: 2, limit: 5 });
+      await service.listarMisEntradas(7, { search: 'Torneo', estado: 'USADA', page: 2, limit: 5 });
 
       expect(prismaMock.entrada.findMany).toHaveBeenCalledWith({
         where: {
           compra: { usuarioId: 7 },
-          estado: 'VALIDA',
-          evento: {
-            nombre: {
-              contains: 'Torneo',
-              mode: 'insensitive',
-            },
-          },
+          AND: [
+            { evento: { nombre: { contains: 'Torneo', mode: 'insensitive' } } },
+            { estado: 'USADA' },
+          ],
         },
-        orderBy: { creadoEn: 'desc' },
+        orderBy: [{ creadoEn: 'desc' }],
         skip: 5,
         take: 5,
         include: { evento: true, compra: true },
+      });
+    });
+
+    describe('TASK-60 · vigencia calculada por fecha', () => {
+      const DIA = 24 * 60 * 60 * 1000;
+      const entradaDe = (estado: string, evento: Record<string, unknown>) => ({
+        id: 1,
+        token: 't',
+        estado,
+        evento: { estado: 'PUBLICADO', fechaFin: null, ...evento },
+      });
+
+      it('devuelve como EXPIRADA una entrada VALIDA de un evento terminado o cancelado', async () => {
+        prismaMock.entrada.findMany.mockResolvedValue([
+          entradaDe('VALIDA', { fechaEvento: new Date(Date.now() - 2 * DIA) }),
+          entradaDe('VALIDA', { fechaEvento: new Date(Date.now() + DIA), estado: 'CANCELADO' }),
+          entradaDe('VALIDA', { fechaEvento: new Date(Date.now() + DIA) }),
+          entradaDe('USADA', { fechaEvento: new Date(Date.now() - 2 * DIA) }),
+        ]);
+        prismaMock.entrada.count = jest.fn().mockResolvedValue(4);
+
+        const { items } = await service.listarMisEntradas(7);
+
+        expect(items.map((e) => e.estado)).toEqual(['EXPIRADA', 'EXPIRADA', 'VALIDA', 'USADA']);
+      });
+
+      it('Próximas: solo válidas de eventos vigentes y no cancelados, por fecha del evento', async () => {
+        prismaMock.entrada.findMany.mockResolvedValue([]);
+        prismaMock.entrada.count = jest.fn().mockResolvedValue(0);
+
+        await service.listarMisEntradas(7, { vigencia: 'PROXIMAS' });
+
+        const llamada = prismaMock.entrada.findMany.mock.calls[0][0];
+        expect(llamada.orderBy).toEqual([{ evento: { fechaEvento: 'asc' } }, { id: 'asc' }]);
+        expect(llamada.where.AND).toEqual([
+          {
+            estado: 'VALIDA',
+            evento: { estado: { not: 'CANCELADO' }, NOT: expect.objectContaining({ OR: expect.any(Array) }) },
+          },
+        ]);
+      });
+
+      it('Historial: todo lo que no es una entrada vigente, del evento más reciente al más viejo', async () => {
+        prismaMock.entrada.findMany.mockResolvedValue([]);
+        prismaMock.entrada.count = jest.fn().mockResolvedValue(0);
+
+        await service.listarMisEntradas(7, { vigencia: 'HISTORIAL' });
+
+        const llamada = prismaMock.entrada.findMany.mock.calls[0][0];
+        expect(llamada.orderBy).toEqual([{ evento: { fechaEvento: 'desc' } }, { id: 'asc' }]);
+        expect(llamada.where.AND[0]).toEqual({ NOT: expect.objectContaining({ estado: 'VALIDA' }) });
+      });
+
+      it('filtrar por EXPIRADA incluye las válidas de eventos terminados o cancelados', async () => {
+        prismaMock.entrada.findMany.mockResolvedValue([]);
+        prismaMock.entrada.count = jest.fn().mockResolvedValue(0);
+
+        await service.listarMisEntradas(7, { estado: 'EXPIRADA' });
+
+        const { where } = prismaMock.entrada.findMany.mock.calls[0][0];
+        expect(where.AND[0].OR).toEqual([
+          { estado: 'EXPIRADA' },
+          {
+            estado: 'VALIDA',
+            evento: { OR: [{ estado: 'CANCELADO' }, expect.objectContaining({ OR: expect.any(Array) })] },
+          },
+        ]);
       });
     });
   });

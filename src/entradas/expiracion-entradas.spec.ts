@@ -67,7 +67,7 @@ describe('US-31/DT-33 · EntradasService · acceso y vencimiento', () => {
       });
       expect(prismaMock.entrada.updateMany).toHaveBeenCalledWith({
         where: { token: 'tok-1', estado: 'VALIDA' },
-        data: { estado: 'USADA' },
+        data: { estado: 'USADA', usadaEn: expect.any(Date) },
       });
       expect(auditoriaMock.registrar).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -116,6 +116,20 @@ describe('US-31/DT-33 · EntradasService · acceso y vencimiento', () => {
       await expect(service.validarAcceso({ token: 'tok-1', eventoId: 3 }, 7)).rejects.toThrow(
         BadRequestException,
       );
+    });
+
+    it('TASK-60 · rechaza la entrada de un evento cancelado sin cambiar su estado', async () => {
+      prismaMock.entrada.findUnique.mockResolvedValue(
+        entrada('VALIDA', evento({ estado: 'CANCELADO' })),
+      );
+
+      await expect(service.validarAcceso({ token: 'tok-1', eventoId: 3 }, 7)).rejects.toThrow(
+        new BadRequestException(
+          'El evento "Cena aniversario" fue cancelado: la entrada no es válida.',
+        ),
+      );
+      expect(prismaMock.entrada.updateMany).not.toHaveBeenCalled();
+      expect(auditoriaMock.registrar).not.toHaveBeenCalled();
     });
 
     it('rechaza una entrada ya marcada EXPIRADA', async () => {
