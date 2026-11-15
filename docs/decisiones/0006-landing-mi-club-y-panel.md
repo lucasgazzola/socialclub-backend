@@ -72,5 +72,31 @@ En el celular la navegación es una barra inferior fija (patrón de app); en esc
 - El socio y el participante tienen una experiencia propia, pensada para el celular, y la landing presenta al club con datos reales.
 - El panel queda solo para la gestión, y su menú es más corto.
 - Los E2E y los tests unitarios se actualizaron a las rutas nuevas.
-- **Pendiente:** el participante sin membresía tiene una cuenta **sin rol**, y `GET /documentacion/mi-documentacion` (y su `/estado`) exigen al menos `SOCIO`: en Mi club, ese participante no puede ver su propia documentación. Ver DT-58.
+- ~~**Pendiente:** el participante sin rol no podía ver su documentación (DT-58).~~ Resuelto en la actualización del 16/11 (ver abajo).
 - **Pendiente:** si un usuario tiene muchas entradas de un mismo evento, la tarjeta muestra las de la página actual (hasta 50).
+
+## Actualización 16/11/2026 · Mi club es el portal de Luis + documentación con revisión
+
+**Mi club con el diseño de Luis Colque.** Luis armó en `fix/gestion-espacios` un portal de socios oscuro, estilo Global Fan (`features/portal-socio`). El equipo lo prefirió al Mi club original, así que se integró en esta estructura:
+
+- Su portal se monta en `/mi-club` y en las páginas de pago, y reemplaza al anterior (se borraron `PortalLayout` y `features/mi-club`).
+- Se descartó su cambio por rol dentro de `AppLayout`: con las tres zonas, cada una tiene su ruta y su layout.
+- Su «Hacerme socio» se reemplazó por el alta con pago de `/asociarme`, restilada con sus componentes.
+- Se llevaron a sus pantallas los estados de las entradas (DT-57), el precio de socio (H02), cerrar sesión hacia la landing y el acceso al panel para quien tiene un rol de gestión.
+- Su rama partía de un `dev` viejo. Ajustes: la API paginada de Mis entradas, el estado `PENDIENTE_DOCUMENTACION` de las solicitudes y «Solicitar reserva» (US-59).
+- Las 10 páginas personales del panel que reemplaza el portal (`MisCuotasPage`, `MisEntradasPage`, `PerfilSocioPage`, etc.) quedaron sin ruta. No se borraron: lo decide el equipo.
+
+**Documentación subida por el titular, con revisión.** El socio o participante sube su documento desde Mi club y un delegado (de esa disciplina) o el administrador lo revisa.
+
+| Paso | Endpoint | Quién |
+|---|---|---|
+| Subir (archivo obligatorio), queda `PENDIENTE_REVISION` | `POST /documentacion/mi-documentacion` | Cualquier usuario con sesión, para su persona |
+| Bandeja | `GET /documentacion/pendientes-revision` | ADMIN (todo) y DELEGADO (sus disciplinas) |
+| Aprobar / Rechazar con motivo | `PATCH /documentacion/:id/aprobar` · `/rechazar` | ADMIN y DELEGADO (sus disciplinas) |
+
+- `Documentacion` suma `estadoRevision` (`APROBADO` por defecto: lo que carga el club no cambia), `cargadoPorTitular`, `revisadoPor`, `revisadoEn` y `motivoRechazo` (migración `20261116120000_revision_documentacion_titular`).
+- **La habilitación cuenta solo documentos aprobados**: lo pendiente o rechazado no habilita (estado documental, alertas y dashboard).
+- Al resolver se avisa al titular por email (`RevisionDocumentacionPlantilla`, vía `NotificacionesService`). Todo se audita.
+- En Mi club el documento se ve «En revisión» o «Rechazado» con el motivo, y no se vuelve a pedir lo que está en revisión. En el panel, el inicio de ADMIN y DELEGADO suma «Documentación para revisar».
+- **DT-58 resuelta:** las consultas de la propia documentación quedan abiertas a cualquier usuario con sesión. El servicio sigue exigiendo que sea su persona.
+- **Alternativas descartadas:** subir sin revisión (un certificado médico quedaría aceptado sin que nadie lo mire) y solo consultar (el titular seguiría llevando los papeles a la subcomisión).
