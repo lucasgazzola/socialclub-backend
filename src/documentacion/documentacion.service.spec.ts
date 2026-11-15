@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { DocumentacionService } from './documentacion.service';
 import { EstadoDocumentalService } from './estado-documental.service';
+import { NotificacionesService } from '../notificaciones/notificaciones.service';
+import { RevisionDocumentacionPlantilla } from './revision-documentacion.plantilla';
 
 /**
  * US-24 · Cargar documentación obligatoria de un participante.
@@ -20,6 +22,7 @@ describe('US-24 · DocumentacionService', () => {
   };
   const auditoriaMock = { registrar: jest.fn() };
   const estadoDocumentalMock = { tiposExigidos: jest.fn() };
+  const notificacionesMock = { notificar: jest.fn().mockResolvedValue(undefined) };
 
   // La fecha se arma en hora LOCAL, no con toISOString(): el service compara
   // contra el día local, así que entre las 21:00 y las 00:00 en UTC-3 el "ayer"
@@ -40,6 +43,8 @@ describe('US-24 · DocumentacionService', () => {
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuditoriaService, useValue: auditoriaMock },
         { provide: EstadoDocumentalService, useValue: estadoDocumentalMock },
+        { provide: NotificacionesService, useValue: notificacionesMock },
+        RevisionDocumentacionPlantilla,
       ],
     }).compile();
     service = moduleRef.get(DocumentacionService);
