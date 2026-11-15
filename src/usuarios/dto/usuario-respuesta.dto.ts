@@ -39,6 +39,15 @@ export class UsuarioRespuestaDto {
   @ApiProperty()
   activo: boolean;
 
+  @ApiProperty({
+    description:
+      'DT-54: false mientras la persona no use el enlace del email (no puede iniciar sesión).',
+  })
+  emailVerificado: boolean;
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  emailVerificadoEn: Date | null;
+
   @ApiProperty({ type: String, format: 'date-time', nullable: true })
   ultimoLogin: Date | null;
 

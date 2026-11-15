@@ -7,13 +7,17 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  MinLength,
   Length,
   Matches,
   IsNotEmpty,
   MaxLength,
 } from 'class-validator';
+import { ConfirmaEmail } from '../../common/decorators/confirma-email.decorator';
 
+/**
+ * US-01 — Alta administrativa de usuario. DT-54: no lleva contraseña; la
+ * persona la elige desde el enlace que recibe por email.
+ */
 export class CreateUsuarioDto {
   @ApiProperty({ example: '123456789', description: 'DNI sin puntos o guiones' })
   @IsString()
@@ -28,19 +32,12 @@ export class CreateUsuarioDto {
   email: string;
 
   @ApiProperty({
-    example: 'Cambiar123!',
-    minLength: 8,
-    description:
-      'Debe contener al menos una mayúscula, una minúscula, un número y un carácter especial.',
+    example: 'coordinador@socialclub.local',
+    description: 'DT-54: el email escrito por segunda vez, por si hay un error de tipeo.',
   })
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(8)
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).+$/, {
-    message:
-      'La contraseña debe contener al menos una mayúscula, una minúscula, un número y un carácter especial.',
-  })
-  password: string;
+  @IsNotEmpty({ message: 'Confirmá el email.' })
+  @ConfirmaEmail('email')
+  confirmarEmail: string;
 
   @ApiProperty({ example: 'Ana' })
   @IsString()

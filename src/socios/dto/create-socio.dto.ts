@@ -1,5 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEmail, IsInt, IsOptional, IsString, Length } from 'class-validator';
+import {
+  IsDateString,
+  IsEmail,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Length,
+  ValidateIf,
+} from 'class-validator';
+import { ConfirmaEmail } from '../../common/decorators/confirma-email.decorator';
 
 export class CreateSocioDto {
   @ApiProperty({ example: 'Lucas' })
@@ -24,6 +34,15 @@ export class CreateSocioDto {
   @IsOptional()
   @IsEmail()
   email?: string;
+
+  @ApiPropertyOptional({
+    example: 'socio@correo.com',
+    description: 'DT-54: el email escrito por segunda vez. Obligatorio si se carga el email.',
+  })
+  @ValidateIf((o: CreateSocioDto) => !!o.email)
+  @IsNotEmpty({ message: 'Confirmá el email.' })
+  @ConfirmaEmail('email')
+  confirmarEmail?: string;
 
   @ApiPropertyOptional({ example: '+54 353 1234567' })
   @IsOptional()

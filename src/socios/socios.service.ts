@@ -13,13 +13,54 @@ import { CreateSocioDto } from './dto/create-socio.dto';
 import { RegistrarSocioDto } from './dto/registrar-socio.dto';
 import { UpdateSocioDto } from './dto/update-socio.dto';
 import { UpdatePerfilSocioDto } from './dto/update-perfil-socio.dto';
+import {
+  EnlaceEmitido,
+  VerificacionEmailService,
+} from '../verificacion-email/verificacion-email.service';
 
 @Injectable()
 export class SociosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
+    private readonly verificacion: VerificacionEmailService,
   ) {}
+
+  /**
+   * DT-54: cuenta del socio dado de alta por el club. Si la persona ya tiene
+   * cuenta, se le suma el rol SOCIO. Si no tiene y cargó email, se le crea
+   * una cuenta pendiente con rol SOCIO y se devuelve el enlace a enviar.
+   */
+  private async asegurarCuentaSocio(
+    tx: Prisma.TransactionClient,
+    persona: {
+      id: number;
+      nombre: string;
+      apellido: string;
+      email: string | null;
+      usuario?: { id: number } | null;
+    },
+    responsableId: number,
+  ): Promise<EnlaceEmitido | null> {
+    const rolSocio = await tx.rol.findUnique({ where: { nombre: 'SOCIO' } });
+    if (persona.usuario) {
+      if (rolSocio) {
+        const clave = { usuarioId: persona.usuario.id, rolId: rolSocio.id };
+        const yaTieneRol = await tx.usuarioRol.findUnique({ where: { usuarioId_rolId: clave } });
+        if (!yaTieneRol) await tx.usuarioRol.create({ data: clave });
+      }
+      return null;
+    }
+    if (!persona.email) return null;
+    return this.verificacion.crearCuentaPendiente(tx, {
+      personaId: persona.id,
+      email: persona.email,
+      nombre: persona.nombre,
+      apellido: persona.apellido,
+      rolesIds: rolSocio ? [rolSocio.id] : [],
+      responsableId,
+    });
+  }
 
   /** Formatea una Persona con sus membresías al objeto Socio esperado */
   private aSocioDto(persona: any) {
@@ -47,7 +88,10 @@ export class SociosService {
     };
   }
 
-  /** US-12: Registrar socio (carga administrativa) */
+  /**
+   * US-12: Registrar socio (carga administrativa).
+   * DT-54: si tiene email, recibe un enlace para elegir su contraseña.
+   */
   async create(dto: CreateSocioDto, responsableId: number) {
     let categoria = null;
     if (dto.categoriaId) {
@@ -79,8 +123,8 @@ export class SociosService {
         throw new ConflictException('Ya existe un socio activo con ese DNI');
       }
 
-      return this.prisma.$transaction(async (tx) => {
-        await tx.persona.update({
+      const { socio, enlace } = await this.prisma.$transaction(async (tx) => {
+        const personaActualizada = await tx.persona.update({
           where: { id: personaExistente.id },
           data: {
             nombre: dto.nombre,
@@ -114,6 +158,12 @@ export class SociosService {
           tx,
         );
 
+        const enlace = await this.asegurarCuentaSocio(
+          tx,
+          { ...personaActualizada, usuario: personaExistente.usuario },
+          responsableId,
+        );
+
         const actualizada = await tx.persona.findUnique({
           where: { id: personaExistente.id },
           include: {
@@ -122,8 +172,10 @@ export class SociosService {
           },
         });
 
-        return this.aSocioDto(actualizada)!;
+        return { socio: this.aSocioDto(actualizada)!, enlace };
       });
+      await this.verificacion.enviar(enlace, responsableId);
+      return socio;
     }
 
     if (dto.email) {
@@ -135,7 +187,7 @@ export class SociosService {
       }
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const { socio, enlace } = await this.prisma.$transaction(async (tx) => {
       const persona = await tx.persona.create({
         data: {
           nombre: dto.nombre,
@@ -169,8 +221,12 @@ export class SociosService {
         tx,
       );
 
-      return this.aSocioDto(persona)!;
+      const enlace = await this.asegurarCuentaSocio(tx, persona, responsableId);
+      const conCuenta = enlace ? { ...persona, usuario: { id: enlace.usuarioId } } : persona;
+      return { socio: this.aSocioDto(conCuenta)!, enlace };
     });
+    await this.verificacion.enviar(enlace, responsableId);
+    return socio;
   }
 
   /**
