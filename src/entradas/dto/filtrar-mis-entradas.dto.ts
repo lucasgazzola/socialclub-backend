@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsEnum, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { EstadoEntrada } from '@prisma/client';
 
 export class FiltrarMisEntradasDto {
@@ -28,6 +28,16 @@ export class FiltrarMisEntradasDto {
   @IsOptional()
   @IsEnum(EstadoEntrada)
   estado?: EstadoEntrada;
+
+  @ApiPropertyOptional({
+    description:
+      'TASK-60 — PROXIMAS: entradas válidas de eventos por venir (por fecha del evento). ' +
+      'HISTORIAL: usadas y vencidas, incluidas las de eventos terminados o cancelados.',
+    enum: ['PROXIMAS', 'HISTORIAL'],
+  })
+  @IsOptional()
+  @IsIn(['PROXIMAS', 'HISTORIAL'], { message: 'La vigencia debe ser PROXIMAS o HISTORIAL' })
+  vigencia?: 'PROXIMAS' | 'HISTORIAL';
 
   @ApiPropertyOptional({ description: 'Número de página (1-indexed)', example: 1, default: 1 })
   @IsOptional()
@@ -63,4 +73,3 @@ export class FiltrarMisEntradasDto {
   @Max(50)
   limit?: number;
 }
-

@@ -488,6 +488,8 @@ model Entrada {
   compraId Int?
   compra   CompraEntrada? @relation(fields: [compraId], references: [id], onDelete: SetNull)
   estado   EstadoEntrada  @default(VALIDA)
+  /// TASK-60: cuándo se validó en la puerta (null si no se usó).
+  usadaEn  DateTime?
   creadoEn DateTime       @default(now())
 
   @@index([eventoId])
