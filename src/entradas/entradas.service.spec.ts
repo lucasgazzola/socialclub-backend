@@ -28,10 +28,15 @@ describe('US-30 · EntradasService', () => {
   };
   const prismaMock = {
     evento: { findUnique: jest.fn() },
-    entrada: { findMany: jest.fn() },
+    entrada: { findMany: jest.fn(), count: jest.fn() },
     usuario: { findUnique: jest.fn().mockResolvedValue(null) },
     // $transaction ejecuta el callback con el cliente transaccional simulado.
-    $transaction: jest.fn((cb: (tx: typeof txMock) => unknown) => cb(txMock)),
+    $transaction: jest.fn((arg: unknown) => {
+      if (Array.isArray(arg)) {
+        return Promise.all(arg);
+      }
+      return (arg as (tx: typeof txMock) => unknown)(txMock);
+    }),
   };
   const auditoriaMock = { registrar: jest.fn() };
   const pasarelaMock = {
@@ -40,7 +45,12 @@ describe('US-30 · EntradasService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    prismaMock.$transaction.mockImplementation((cb: (tx: typeof txMock) => unknown) => cb(txMock));
+    prismaMock.$transaction.mockImplementation((arg: unknown) => {
+      if (Array.isArray(arg)) {
+        return Promise.all(arg);
+      }
+      return (arg as (tx: typeof txMock) => unknown)(txMock);
+    });
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [
         EntradasService,
@@ -241,17 +251,53 @@ describe('US-30 · EntradasService', () => {
   });
 
   describe('listarMisEntradas', () => {
-    it('filtra las entradas por el usuario comprador y devuelve el evento asociado', async () => {
+    it('filtra las entradas por el usuario comprador y devuelve estructura paginada', async () => {
       prismaMock.entrada.findMany.mockResolvedValue([{ id: 1, token: 't1' }]);
+      prismaMock.entrada.count = jest.fn().mockResolvedValue(1);
 
-      const resultado = await service.listarMisEntradas(7);
+      const resultado = await service.listarMisEntradas(7, { pagina: 1, porPagina: 10 });
 
       expect(prismaMock.entrada.findMany).toHaveBeenCalledWith({
         where: { compra: { usuarioId: 7 } },
         orderBy: { creadoEn: 'desc' },
+        skip: 0,
+        take: 10,
         include: { evento: true, compra: true },
       });
-      expect(resultado).toHaveLength(1);
+      expect(prismaMock.entrada.count).toHaveBeenCalledWith({
+        where: { compra: { usuarioId: 7 } },
+      });
+      expect(resultado).toEqual({
+        items: [{ id: 1, token: 't1' }],
+        total: 1,
+        pagina: 1,
+        porPagina: 10,
+        totalPaginas: 1,
+      });
+    });
+
+    it('aplica búsqueda por nombre de evento y filtro por estado', async () => {
+      prismaMock.entrada.findMany.mockResolvedValue([]);
+      prismaMock.entrada.count = jest.fn().mockResolvedValue(0);
+
+      await service.listarMisEntradas(7, { search: 'Torneo', estado: 'VALIDA', page: 2, limit: 5 });
+
+      expect(prismaMock.entrada.findMany).toHaveBeenCalledWith({
+        where: {
+          compra: { usuarioId: 7 },
+          estado: 'VALIDA',
+          evento: {
+            nombre: {
+              contains: 'Torneo',
+              mode: 'insensitive',
+            },
+          },
+        },
+        orderBy: { creadoEn: 'desc' },
+        skip: 5,
+        take: 5,
+        include: { evento: true, compra: true },
+      });
     });
   });
 });

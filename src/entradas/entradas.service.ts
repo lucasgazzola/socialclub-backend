@@ -10,6 +10,8 @@ import { AuditoriaService } from '../auditoria/auditoria.service';
 import { CrearEntradasDto } from './dto/crear-entradas.dto';
 import { ValidarEntradaDto } from './dto/validar-entrada.dto';
 import { ComprarEntradasDto } from './dto/comprar-entradas.dto';
+import { FiltrarMisEntradasDto } from './dto/filtrar-mis-entradas.dto';
+import { Prisma } from '@prisma/client';
 import { eventoTerminado } from '../eventos/fin-del-evento';
 import { PasarelaService } from '../pasarela/pasarela.service';
 import type { DatosCobroEntradas } from './entradas.acreditador';
@@ -211,12 +213,46 @@ export class EntradasService {
     });
   }
 
-  async listarMisEntradas(usuarioId: number) {
-    return this.prisma.entrada.findMany({
-      where: { compra: { usuarioId } },
-      orderBy: { creadoEn: 'desc' },
-      include: { evento: true, compra: true },
-    });
+  async listarMisEntradas(usuarioId: number, dto: FiltrarMisEntradasDto = {}) {
+    const pagina = dto.page ?? dto.pagina ?? 1;
+    const porPagina = dto.limit ?? dto.porPagina ?? 10;
+    const search = (dto.search ?? dto.busqueda)?.trim();
+
+    const where: Prisma.EntradaWhereInput = {
+      compra: { usuarioId },
+      ...(dto.estado ? { estado: dto.estado } : {}),
+      ...(search
+        ? {
+            evento: {
+              nombre: {
+                contains: search,
+                mode: 'insensitive',
+              },
+            },
+          }
+        : {}),
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.entrada.findMany({
+        where,
+        orderBy: { creadoEn: 'desc' },
+        skip: (pagina - 1) * porPagina,
+        take: porPagina,
+        include: { evento: true, compra: true },
+      }),
+      this.prisma.entrada.count({ where }),
+    ]);
+
+    const totalPaginas = Math.ceil(total / porPagina) || 1;
+
+    return {
+      items,
+      total,
+      pagina,
+      porPagina,
+      totalPaginas,
+    };
   }
 
   async validarAcceso(dto: ValidarEntradaDto, responsableId: number) {
@@ -228,6 +264,12 @@ export class EntradasService {
 
     if (!entrada) {
       throw new NotFoundException('Entrada no encontrada. El código QR no es válido.');
+    }
+
+    // Validación crítica de pertenencia: verificar que la entrada corresponde al evento
+    // que se está controlando en la puerta ANTES de cualquier mutación de estado.
+    if (entrada.eventoId !== dto.eventoId) {
+      throw new ConflictException('La entrada corresponde a otro evento');
     }
 
     // DT-33: si el evento ya terminó, la entrada venció aunque la tarea de
