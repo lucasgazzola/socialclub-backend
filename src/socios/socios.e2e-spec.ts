@@ -7,11 +7,20 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { VerificacionEmailService } from '../verificacion-email/verificacion-email.service';
 
 /**
  * Se armo un modulo de test acotado al feature de socios: SociosController + SociosService
  * reales, con PrismaService/AuditoriaService mockeados
  */
+/** DT-54: la verificación de email se prueba en su propio spec. */
+const verificacionMock = {
+  emitir: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  crearCuentaPendiente: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  enviar: jest.fn().mockResolvedValue(undefined),
+  reenviar: jest.fn().mockResolvedValue({ mensaje: 'Enviamos un nuevo enlace de verificación' }),
+};
+
 describe('SociosController (e2e)', () => {
   let app: INestApplication;
   let httpServer: Parameters<typeof request>[0];
@@ -37,6 +46,9 @@ describe('SociosController (e2e)', () => {
     usuario: {
       findUnique: jest.fn(),
     },
+    rol: {
+      findUnique: jest.fn().mockResolvedValue({ id: 3, nombre: 'SOCIO' }),
+    },
     $transaction: jest.fn((arg: any) => (typeof arg === 'function' ? arg(prismaMock) : arg)),
   };
 
@@ -51,6 +63,7 @@ describe('SociosController (e2e)', () => {
         SociosService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuditoriaService, useValue: auditoriaMock },
+        { provide: VerificacionEmailService, useValue: verificacionMock },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -91,6 +104,7 @@ describe('SociosController (e2e)', () => {
         apellido: 'Fernandez',
         dni: '35222111',
         email: 'carla.fernandez@example.com',
+        confirmarEmail: 'carla.fernandez@example.com',
         telefono: '351 555 1212',
         fechaNacimiento: '1995-03-10',
       };

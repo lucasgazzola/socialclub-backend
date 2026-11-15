@@ -4,7 +4,9 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
-import { AuthService } from './auth.service';
+import { GeneroDisciplina } from '@prisma/client';
+import { AuthService, MENSAJE_SIN_VERIFICAR } from './auth.service';
+import { VerificacionEmailService } from '../verificacion-email/verificacion-email.service';
 
 /**
  * Tests unitarios del AuthService con dependencias mockeadas (mismo patrón que
@@ -28,6 +30,14 @@ import { AuthService } from './auth.service';
  *   (TC-120 y TC-121 — complejidad y confirmación — se validan en el DTO y se
  *   cubren en auth.e2e-spec.ts; del lado del front, en CambiarContrasenaForm.test.tsx).
  */
+/** DT-54: la verificación de email se prueba en su propio spec. */
+const verificacionMock = {
+  emitir: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  crearCuentaPendiente: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  enviar: jest.fn().mockResolvedValue(undefined),
+  reenviar: jest.fn().mockResolvedValue({ mensaje: 'Enviamos un nuevo enlace de verificación' }),
+};
+
 describe('AuthService', () => {
   let service: AuthService;
 
@@ -57,6 +67,7 @@ describe('AuthService', () => {
     nombre: 'Administrador',
     apellido: 'Inicial',
     activo: true,
+    emailVerificadoEn: new Date('2026-01-01T00:00:00Z'),
     roles: [{ rol: { nombre: 'ADMIN' } }],
   });
 
@@ -78,6 +89,7 @@ describe('AuthService', () => {
         { provide: PrismaService, useValue: prismaMock },
         { provide: JwtService, useValue: jwtMock },
         { provide: AuditoriaService, useValue: auditoriaMock },
+        { provide: VerificacionEmailService, useValue: verificacionMock },
       ],
     }).compile();
 
@@ -149,6 +161,42 @@ describe('AuthService', () => {
       // No se emite token para una cuenta inactiva.
       expect(jwtMock.sign).not.toHaveBeenCalled();
     });
+
+    it('DT-54: rechaza a una cuenta creada por el club que todavía no eligió contraseña', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({
+        ...usuarioValido(),
+        passwordHash: null,
+        emailVerificadoEn: null,
+      });
+
+      await expect(service.login('admin@socialclub.local', PASSWORD_PLANO)).rejects.toThrow(
+        MENSAJE_SIN_VERIFICAR,
+      );
+      expect(jwtMock.sign).not.toHaveBeenCalled();
+    });
+
+    it('DT-54: rechaza a una cuenta con contraseña correcta pero el email sin verificar', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({
+        ...usuarioValido(),
+        emailVerificadoEn: null,
+      });
+
+      await expect(service.login('admin@socialclub.local', PASSWORD_PLANO)).rejects.toThrow(
+        MENSAJE_SIN_VERIFICAR,
+      );
+      expect(jwtMock.sign).not.toHaveBeenCalled();
+    });
+
+    it('DT-54: con el email sin verificar y la contraseña incorrecta, responde credenciales inválidas', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({
+        ...usuarioValido(),
+        emailVerificadoEn: null,
+      });
+
+      await expect(service.login('admin@socialclub.local', 'Otra123!')).rejects.toThrow(
+        'Credenciales inválidas',
+      );
+    });
   });
 
   // ── US-40: Cerrar sesión ───────────────────────────────────────────────────
@@ -171,7 +219,11 @@ describe('AuthService', () => {
   describe('register (US-38)', () => {
     const dto = {
       email: 'Nuevo@SocialClub.local',
+      confirmarEmail: 'nuevo@socialclub.local',
       password: 'Nuevo123!',
+      confirmarPassword: 'Nuevo123!',
+      fechaNacimiento: '1990-05-15',
+      genero: GeneroDisciplina.FEMENINO,
       nombre: 'Ana',
       apellido: 'Pérez',
     };
@@ -201,12 +253,35 @@ describe('AuthService', () => {
       expect(dataCreada.passwordHash).not.toBe(dto.password);
       expect(bcrypt.compareSync(dto.password, dataCreada.passwordHash as string)).toBe(true);
       expect(prismaMock.persona.create).toHaveBeenCalledWith({
-        data: { nombre: 'Ana', apellido: 'Pérez', email: 'nuevo@socialclub.local' },
+        data: expect.objectContaining({
+          nombre: 'Ana',
+          apellido: 'Pérez',
+          email: 'nuevo@socialclub.local',
+        }),
       });
       expect(dataCreada.roles).toBeUndefined();
       expect(auditoriaMock.registrar).toHaveBeenCalledWith(
         expect.objectContaining({ accion: 'CREAR', entidad: 'Usuario', idEntidad: 12 }),
       );
+    });
+
+    it('DT-54: la cuenta nace sin verificar y se envía el enlace de verificación', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(null);
+      prismaMock.usuario.create.mockResolvedValue({
+        id: 12,
+        email: 'nuevo@socialclub.local',
+        nombre: 'Ana',
+        apellido: 'Pérez',
+      });
+      verificacionMock.emitir.mockResolvedValueOnce({ usuarioId: 12, token: 'tok' });
+
+      const respuesta = await service.register(dto);
+
+      const dataCreada = prismaMock.usuario.create.mock.calls[0][0].data;
+      expect(dataCreada.emailVerificadoEn).toBeUndefined();
+      expect(verificacionMock.emitir).toHaveBeenCalledWith(12, prismaMock);
+      expect(verificacionMock.enviar).toHaveBeenCalledWith({ usuarioId: 12, token: 'tok' });
+      expect(respuesta.mensaje).toMatch(/verificar tu cuenta/);
     });
 
     it('TC-080: rechaza el registro si el email ya está en uso (409)', async () => {
@@ -240,10 +315,14 @@ describe('AuthService', () => {
 
   // ── TC-078: login luego de register (integración US-38 + US-39) ───────────
   describe('TC-078: iniciar sesión con la cuenta recién registrada', () => {
-    it('el usuario puede loguearse inmediatamente después de registrarse, con sus propias credenciales', async () => {
+    it('DT-54: tras registrarse y verificar el email, el usuario inicia sesión con sus credenciales', async () => {
       const dto = {
         email: 'ana@test.com',
+        confirmarEmail: 'ana@test.com',
         password: 'Nuevo123!',
+        confirmarPassword: 'Nuevo123!',
+        fechaNacimiento: '1990-05-15',
+        genero: GeneroDisciplina.FEMENINO,
         nombre: 'Ana',
         apellido: 'Pérez',
       };
@@ -268,6 +347,8 @@ describe('AuthService', () => {
         nombre: 'Ana',
         apellido: 'Pérez',
         activo: true,
+        // DT-54: ya usó el enlace del email.
+        emailVerificadoEn: new Date(),
         roles: [],
       });
       prismaMock.usuario.update.mockResolvedValue({});
@@ -294,7 +375,11 @@ describe('AuthService', () => {
 
       const dtoConRolesInyectado = {
         email: 'atacante@test.com',
+        confirmarEmail: 'atacante@test.com',
         password: 'Nuevo123!',
+        confirmarPassword: 'Nuevo123!',
+        fechaNacimiento: '1990-05-15',
+        genero: GeneroDisciplina.MASCULINO,
         nombre: 'Mal',
         apellido: 'Actor',
         roles: ['ADMIN'],
@@ -443,6 +528,7 @@ describe('AuthService', () => {
         nombre: 'Administrador',
         apellido: 'Inicial',
         activo: true,
+        emailVerificadoEn: new Date('2026-01-01T00:00:00Z'),
         roles: [],
       });
       prismaMock.usuario.findUnique.mockResolvedValueOnce(usuarioEnBase());

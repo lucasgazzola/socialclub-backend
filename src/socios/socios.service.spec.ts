@@ -3,6 +3,15 @@ import { NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { SociosService } from './socios.service';
+import { VerificacionEmailService } from '../verificacion-email/verificacion-email.service';
+
+/** DT-54: la verificación de email se prueba en su propio spec. */
+const verificacionMock = {
+  emitir: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  crearCuentaPendiente: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  enviar: jest.fn().mockResolvedValue(undefined),
+  reenviar: jest.fn().mockResolvedValue({ mensaje: 'Enviamos un nuevo enlace de verificación' }),
+};
 
 describe('SociosService', () => {
   let service: SociosService;
@@ -61,6 +70,7 @@ describe('SociosService', () => {
         SociosService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuditoriaService, useValue: auditoriaMock },
+        { provide: VerificacionEmailService, useValue: verificacionMock },
       ],
     }).compile();
 
@@ -156,6 +166,77 @@ describe('SociosService', () => {
 
       const resultado = await service.create(dto, 1);
       expect(resultado.id).toBe(11);
+    });
+  });
+
+  describe('DT-54: cuenta del socio dado de alta por el club', () => {
+    const dto = {
+      nombre: 'Lucía',
+      apellido: 'Sosa',
+      dni: '41222333',
+      email: 'Lucia.Sosa@example.com',
+      confirmarEmail: 'lucia.sosa@example.com',
+      categoriaId: 1,
+    };
+    const personaCreada = (extra: Record<string, unknown> = {}) => ({
+      id: 20,
+      nombre: dto.nombre,
+      apellido: dto.apellido,
+      dni: dto.dni,
+      email: 'lucia.sosa@example.com',
+      membresias: [
+        { id: 200, categoriaId: 1, categoria: { id: 1, nombre: 'Activo' }, activo: true },
+      ],
+      usuario: null,
+      ...extra,
+    });
+
+    beforeEach(() => {
+      prismaMock.persona.findUnique.mockResolvedValue(null);
+      prismaMock.persona.findFirst.mockResolvedValue(null);
+    });
+
+    it('con email: crea la cuenta pendiente con rol SOCIO y envía el enlace al terminar', async () => {
+      prismaMock.persona.create.mockResolvedValue(personaCreada());
+      verificacionMock.crearCuentaPendiente.mockResolvedValueOnce({ usuarioId: 70, token: 't' });
+
+      const resultado = await service.create(dto, 99);
+
+      expect(verificacionMock.crearCuentaPendiente).toHaveBeenCalledWith(prismaMock, {
+        personaId: 20,
+        email: 'lucia.sosa@example.com',
+        nombre: 'Lucía',
+        apellido: 'Sosa',
+        rolesIds: [3],
+        responsableId: 99,
+      });
+      expect(verificacionMock.enviar).toHaveBeenCalledWith({ usuarioId: 70, token: 't' }, 99);
+      expect(resultado.usuarioId).toBe(70);
+    });
+
+    it('sin email: no crea cuenta ni envía nada', async () => {
+      prismaMock.persona.create.mockResolvedValue(personaCreada({ email: null }));
+
+      await service.create({ ...dto, email: undefined, confirmarEmail: undefined }, 99);
+
+      expect(verificacionMock.crearCuentaPendiente).not.toHaveBeenCalled();
+      expect(verificacionMock.enviar).toHaveBeenCalledWith(null, 99);
+    });
+
+    it('si la persona ya tenía cuenta, le suma el rol SOCIO sin crear otra', async () => {
+      prismaMock.persona.findUnique
+        .mockResolvedValueOnce({ ...personaCreada({ usuario: { id: 5 } }), membresias: [] })
+        .mockResolvedValueOnce(personaCreada({ usuario: { id: 5 } }));
+      prismaMock.persona.update.mockResolvedValue(personaCreada({ usuario: { id: 5 } }));
+      prismaMock.membresia.create.mockResolvedValue({ id: 201, categoria: { nombre: 'Activo' } });
+      prismaMock.usuarioRol.findUnique.mockResolvedValue(null);
+
+      await service.create(dto, 99);
+
+      expect(prismaMock.usuarioRol.create).toHaveBeenCalledWith({
+        data: { usuarioId: 5, rolId: 3 },
+      });
+      expect(verificacionMock.crearCuentaPendiente).not.toHaveBeenCalled();
     });
   });
 

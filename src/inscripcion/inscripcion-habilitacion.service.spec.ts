@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { EstadoDocumentalService } from '../documentacion/estado-documental.service';
 import { InscripcionService } from './inscripcion.service';
+import { VerificacionEmailService } from '../verificacion-email/verificacion-email.service';
 
 const mockPrisma: any = {
   inscripcion: {
@@ -29,6 +30,14 @@ const mockEstadoDocumental = {
   porPersona: jest.fn(),
 };
 
+/** DT-54: la verificación de email se prueba en su propio spec. */
+const verificacionMock = {
+  emitir: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  crearCuentaPendiente: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  enviar: jest.fn().mockResolvedValue(undefined),
+  reenviar: jest.fn().mockResolvedValue({ mensaje: 'Enviamos un nuevo enlace de verificación' }),
+};
+
 describe('US-28 · InscripcionService.habilitarExcepcional', () => {
   let service: InscripcionService;
 
@@ -41,6 +50,7 @@ describe('US-28 · InscripcionService.habilitarExcepcional', () => {
         InscripcionService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditoriaService, useValue: mockAuditoria },
+        { provide: VerificacionEmailService, useValue: verificacionMock },
         { provide: EstadoDocumentalService, useValue: mockEstadoDocumental },
       ],
     }).compile();

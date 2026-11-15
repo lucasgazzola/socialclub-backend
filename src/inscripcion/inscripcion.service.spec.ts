@@ -7,6 +7,7 @@ import { EstadoDocumentalService } from '../documentacion/estado-documental.serv
 import { InscripcionService } from './inscripcion.service';
 import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
 import { EstadoInscripcionFiltro } from './dto/find-participantes-query.dto';
+import { VerificacionEmailService } from '../verificacion-email/verificacion-email.service';
 
 const mockPrisma: any = {
   disciplina: {
@@ -68,6 +69,14 @@ const mockEstadoDocumental = {
   previsualizar: jest.fn(),
 };
 
+/** DT-54: la verificación de email se prueba en su propio spec. */
+const verificacionMock = {
+  emitir: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  crearCuentaPendiente: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  enviar: jest.fn().mockResolvedValue(undefined),
+  reenviar: jest.fn().mockResolvedValue({ mensaje: 'Enviamos un nuevo enlace de verificación' }),
+};
+
 describe('InscripcionService', () => {
   let service: InscripcionService;
 
@@ -83,6 +92,7 @@ describe('InscripcionService', () => {
         InscripcionService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditoriaService, useValue: mockAuditoria },
+        { provide: VerificacionEmailService, useValue: verificacionMock },
         { provide: EstadoDocumentalService, useValue: mockEstadoDocumental },
       ],
     }).compile();
@@ -1001,6 +1011,55 @@ describe('InscripcionService', () => {
 
       expect(res.estadoDocumental).toEqual(estado);
       expect(mockEstadoDocumental.porPersona).toHaveBeenCalledWith(20);
+    });
+
+    it('DT-54: el participante nuevo con email recibe un enlace para activar su cuenta', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(null);
+      mockPrisma.persona.create.mockResolvedValue({ ...lola, email: 'lola@club.local' });
+      verificacionMock.crearCuentaPendiente.mockResolvedValueOnce({ usuarioId: 80, token: 't' });
+
+      await service.create(
+        {
+          nombre: 'Lola',
+          apellido: 'Gómez',
+          dni: '50111222',
+          email: 'lola@club.local',
+          confirmarEmail: 'lola@club.local',
+          disciplinaId: 1,
+          categoriaDisciplinaId: 7,
+        },
+        99,
+      );
+
+      expect(verificacionMock.crearCuentaPendiente).toHaveBeenCalledWith(mockPrisma, {
+        personaId: 20,
+        email: 'lola@club.local',
+        nombre: 'Lola',
+        apellido: 'Gómez',
+        responsableId: 99,
+      });
+      expect(verificacionMock.enviar).toHaveBeenCalledWith({ usuarioId: 80, token: 't' }, 99);
+    });
+
+    it('DT-54: sin email, o si el participante ya existía, no crea cuenta', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(null);
+      mockPrisma.persona.create.mockResolvedValue({ ...lola, email: null });
+      await service.create(
+        {
+          nombre: 'Lola',
+          apellido: 'Gómez',
+          dni: '50111222',
+          disciplinaId: 1,
+          categoriaDisciplinaId: 7,
+        },
+        99,
+      );
+
+      mockPrisma.persona.findUnique.mockResolvedValue({ ...lola, email: 'lola@club.local' });
+      await service.create({ personaId: 20, disciplinaId: 1, categoriaDisciplinaId: 7 }, 99);
+
+      expect(verificacionMock.crearCuentaPendiente).not.toHaveBeenCalled();
+      expect(verificacionMock.enviar).toHaveBeenLastCalledWith(null, 99);
     });
 
     it('rechaza a quien no cumple la edad de la categoría (por año de nacimiento)', async () => {

@@ -5,6 +5,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { EstadoDocumentalService } from '../documentacion/estado-documental.service';
 import { InscripcionService } from './inscripcion.service';
+import { VerificacionEmailService } from '../verificacion-email/verificacion-email.service';
+
+/** DT-54: la verificación de email se prueba en su propio spec. */
+const verificacionMock = {
+  emitir: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  crearCuentaPendiente: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  enviar: jest.fn().mockResolvedValue(undefined),
+  reenviar: jest.fn().mockResolvedValue({ mensaje: 'Enviamos un nuevo enlace de verificación' }),
+};
 
 describe('US-63 — Solicitar inscripción a una disciplina', () => {
   let service: InscripcionService;
@@ -53,6 +62,7 @@ describe('US-63 — Solicitar inscripción a una disciplina', () => {
         InscripcionService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditoriaService, useValue: mockAuditoria },
+        { provide: VerificacionEmailService, useValue: verificacionMock },
         { provide: EstadoDocumentalService, useValue: mockEstadoDocumental },
       ],
     }).compile();
