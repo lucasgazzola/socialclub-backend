@@ -78,6 +78,11 @@ class EnvironmentVariables {
   @IsOptional()
   VERIFICACION_EMAIL_HORAS_VALIDEZ?: number;
 
+  /** H05: horas antes del inicio de un evento en que se habilita validar entradas (3 por defecto). */
+  @IsNumber()
+  @IsOptional()
+  ACCESO_APERTURA_HORAS?: number;
+
   // ── Pasarela de pagos (TASK-51, decisión 0003) ───────────────────────────
   /** `mercadopago` o `simulada`. Sin definir: Mercado Pago si hay token, si no la simulada. */
   @IsIn(['mercadopago', 'simulada'], {

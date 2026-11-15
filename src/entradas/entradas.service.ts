@@ -12,7 +12,13 @@ import { ValidarEntradaDto } from './dto/validar-entrada.dto';
 import { ComprarEntradasDto } from './dto/comprar-entradas.dto';
 import { FiltrarMisEntradasDto } from './dto/filtrar-mis-entradas.dto';
 import { EstadoEntrada, Prisma } from '@prisma/client';
-import { eventoTerminado, filtroEventoTerminado } from '../eventos/fin-del-evento';
+import { ConfigService } from '@nestjs/config';
+import {
+  APERTURA_ACCESO_HORAS_POR_DEFECTO,
+  aperturaDelAcceso,
+  eventoTerminado,
+  filtroEventoTerminado,
+} from '../eventos/fin-del-evento';
 import { PasarelaService } from '../pasarela/pasarela.service';
 import type { DatosCobroEntradas } from './entradas.acreditador';
 
@@ -48,6 +54,7 @@ export class EntradasService {
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
     private readonly pasarela: PasarelaService,
+    private readonly config: ConfigService,
   ) {}
 
   async crearMultiples(dto: CrearEntradasDto, responsableId: number) {
@@ -340,6 +347,25 @@ export class EntradasService {
 
     if (entrada.estado === 'EXPIRADA') {
       throw new BadRequestException(`Entrada expirada para el evento "${entrada.evento.nombre}".`);
+    }
+
+    // H05: no se puede ingresar a un evento cuyo acceso todavía no abrió.
+    const apertura = aperturaDelAcceso(
+      entrada.evento,
+      Number(this.config.get('ACCESO_APERTURA_HORAS') ?? APERTURA_ACCESO_HORAS_POR_DEFECTO),
+    );
+    if (entrada.estado === 'VALIDA' && Date.now() < apertura.getTime()) {
+      const cuando = apertura.toLocaleString('es-AR', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+        timeZone: 'America/Argentina/Cordoba',
+      });
+      throw new BadRequestException(
+        `Todavía no se habilitó el acceso a "${entrada.evento.nombre}": abre el ${cuando.replace(', ', ' a las ')} h.`,
+      );
     }
 
     if (entrada.estado === 'USADA') {
