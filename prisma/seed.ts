@@ -638,6 +638,8 @@ async function main() {
   const emailAdmin = process.env.SEED_ADMIN_EMAIL ?? 'admin@socialclub.local';
   const passwordPlano = process.env.SEED_ADMIN_PASSWORD ?? 'Admin123!';
   const passwordHash = await bcrypt.hash(passwordPlano, SALT_ROUNDS);
+  // DT-54: los usuarios de prueba nacen con el email verificado para entrar con su contraseña.
+  const verificadoEn = new Date();
 
   // 7.1. Administrador (Usuario ADMIN, Persona con DNI, sin Membresía)
   let personaAdmin = await prisma.persona.findUnique({ where: { dni: '10000001' } });
@@ -675,6 +677,7 @@ async function main() {
     create: {
       email: emailAdmin,
       passwordHash,
+      emailVerificadoEn: verificadoEn,
       nombre: 'Alejandro',
       apellido: 'Ramos',
       personaId: personaAdmin.id,
@@ -759,6 +762,7 @@ async function main() {
     create: {
       email: emailLucia,
       passwordHash,
+      emailVerificadoEn: verificadoEn,
       nombre: 'Lucía',
       apellido: 'Vázquez',
       personaId: personaLucia.id,
@@ -809,6 +813,7 @@ async function main() {
     create: {
       email: emailMartin,
       passwordHash,
+      emailVerificadoEn: verificadoEn,
       nombre: 'Martín',
       apellido: 'Acosta',
       personaId: personaMartin.id,
@@ -920,6 +925,7 @@ async function main() {
     create: {
       email: emailColaborador,
       passwordHash,
+      emailVerificadoEn: verificadoEn,
       nombre: 'Franco',
       apellido: 'Bustos',
       personaId: personaColaborador.id,
@@ -963,6 +969,7 @@ async function main() {
     create: {
       email: emailDelegado,
       passwordHash,
+      emailVerificadoEn: verificadoEn,
       nombre: 'Diego',
       apellido: 'Navarro',
       personaId: personaDelegado.id,
@@ -1060,6 +1067,7 @@ async function main() {
     create: {
       email: emailCamila,
       passwordHash,
+      emailVerificadoEn: verificadoEn,
       nombre: 'Camila',
       apellido: 'Romero',
       personaId: personaCamila.id,
@@ -1110,6 +1118,7 @@ async function main() {
     create: {
       email: emailRoberto,
       passwordHash,
+      emailVerificadoEn: verificadoEn,
       nombre: 'Roberto',
       apellido: 'Silva',
       personaId: personaRoberto.id,
@@ -1157,10 +1166,12 @@ async function main() {
       nombre: 'Marcos',
       apellido: 'Benítez',
       passwordHash,
+      emailVerificadoEn: verificadoEn,
     },
     create: {
       email: emailMarcos,
       passwordHash,
+      emailVerificadoEn: verificadoEn,
       nombre: 'Marcos',
       apellido: 'Benítez',
       personaId: personaMarcos.id,
@@ -1686,6 +1697,7 @@ async function main() {
         create: {
           email: pData.email,
           passwordHash,
+          emailVerificadoEn: verificadoEn,
           nombre: pData.nombre,
           apellido: pData.apellido,
           activo: pData.usuario.activo ?? true,

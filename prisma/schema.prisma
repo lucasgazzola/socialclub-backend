@@ -59,6 +59,10 @@ enum AccionAuditoria {
   LOGIN
   LOGOUT
   LOGIN_FALLIDO
+  /// DT-54: se envió (o reenvió) el enlace para verificar el email.
+  ENVIAR_VERIFICACION
+  /// DT-54: la persona usó el enlace, verificó su email y, si hacía falta, eligió su contraseña.
+  VERIFICAR_EMAIL
 }
 
 /// Estados posibles de una entrada vendida. Una entrada nace VALIDA y cambia
@@ -182,36 +186,66 @@ model Rol {
 /// garantizada por `Persona.usuarioId` @unique). Así, el mismo Usuario que se
 /// autogestiona como socio (US-09) queda vinculado a su ficha de Persona.
 model Usuario {
-  id                          Int                       @id @default(autoincrement())
-  email                       String                    @unique
-  passwordHash                String
-  nombre                      String
-  apellido                    String
-  activo                      Boolean                   @default(true)
-  ultimoLogin                 DateTime?
-  creadoEn                    DateTime                  @default(now())
-  actualizadoEn               DateTime                  @updatedAt
-  personaId                   Int                       @unique
-  persona                     Persona                   @relation(fields: [personaId], references: [id], onDelete: Cascade)
-  roles                       UsuarioRol[]
-  registrosAuditoria          RegistroAuditoria[]       @relation("usuarioResponsable")
-  pagosDeportivos             PagoCuotaDeportiva[]      @relation("responsablePagoDeportivo")
-  comprasEntradas             CompraEntrada[]
-  ordenesPago                 OrdenPago[]
-  habilitacionesExcepcionales HabilitacionExcepcional[] @relation("responsableHabilitacionExcepcional")
-  notificaciones              Notificacion[]
-  ejecucionesTareas           EjecucionTarea[]
+  id                              Int                       @id @default(autoincrement())
+  email                           String                    @unique
+  /// DT-54: null mientras la cuenta espera que la persona elija su contraseña
+  /// desde el enlace de verificación. Sin contraseña no se puede iniciar sesión.
+  passwordHash                    String?
+  /// DT-54: cuándo la persona verificó su email. Null = pendiente de verificación.
+  emailVerificadoEn               DateTime?
+  nombre                          String
+  apellido                        String
+  activo                          Boolean                   @default(true)
+  ultimoLogin                     DateTime?
+  creadoEn                        DateTime                  @default(now())
+  actualizadoEn                   DateTime                  @updatedAt
+  personaId                       Int                       @unique
+  persona                         Persona                   @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  roles                           UsuarioRol[]
+  registrosAuditoria              RegistroAuditoria[]       @relation("usuarioResponsable")
+  pagosDeportivos                 PagoCuotaDeportiva[]      @relation("responsablePagoDeportivo")
+  comprasEntradas                 CompraEntrada[]
+  ordenesPago                     OrdenPago[]
+  habilitacionesExcepcionales     HabilitacionExcepcional[] @relation("responsableHabilitacionExcepcional")
+  notificaciones                  Notificacion[]
+  ejecucionesTareas               EjecucionTarea[]
   /// DT-42: disciplinas que gestiona, si tiene el rol DELEGADO.
-  disciplinasDelegadas        DelegadoDisciplina[]
+  disciplinasDelegadas            DelegadoDisciplina[]
   /// TASK-52: reservas que solicitó, evaluó o canceló, y bloqueos que cargó.
-  reservas                    Reserva[]                 @relation("solicitanteReserva")
-  reservasEvaluadas           Reserva[]                 @relation("evaluadorReserva")
-  reservasCanceladas          Reserva[]                 @relation("canceladorReserva")
-  bloqueosAgenda              BloqueoAgenda[]
+  reservas                        Reserva[]                 @relation("solicitanteReserva")
+  reservasEvaluadas               Reserva[]                 @relation("evaluadorReserva")
+  reservasCanceladas              Reserva[]                 @relation("canceladorReserva")
+  bloqueosAgenda                  BloqueoAgenda[]
   /// US-63: solicitudes de inscripción a disciplinas revisadas.
-  solicitudesInscripcionRevisadas SolicitudInscripcion[] @relation("revisorSolicitudInscripcion")
+  solicitudesInscripcionRevisadas SolicitudInscripcion[]    @relation("revisorSolicitudInscripcion")
+  /// DT-54: enlaces de verificación de email emitidos para la cuenta.
+  tokens                          TokenUsuario[]
 
   @@map("usuarios")
+}
+
+/// DT-54: propósito de un token de un solo uso enviado por email.
+enum TipoTokenUsuario {
+  VERIFICACION_EMAIL
+}
+
+/// DT-54: token de un solo uso enviado por email (decisión 0005). Se guarda
+/// solo el hash SHA-256: con la tabla no se puede armar un enlace válido.
+model TokenUsuario {
+  id        Int              @id @default(autoincrement())
+  usuarioId Int
+  usuario   Usuario          @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tipo      TipoTokenUsuario
+  tokenHash String           @unique
+  expiraEn  DateTime
+  /// Cuándo se usó. Un token usado no vuelve a servir.
+  usadoEn   DateTime?
+  /// Cuándo quedó sin efecto porque se emitió otro (reenvío).
+  anuladoEn DateTime?
+  creadoEn  DateTime         @default(now())
+
+  @@index([usuarioId, tipo])
+  @@map("tokens_usuario")
 }
 
 /// DT-42: disciplinas a cargo de cada delegado. Filtra sus alertas de
@@ -399,12 +433,12 @@ model Persona {
   creadoEn        DateTime          @default(now())
   actualizadoEn   DateTime          @updatedAt
 
-  usuario         Usuario?
-  membresias      Membresia[]
-  inscripciones   Inscripcion[]
-  documentaciones Documentacion[]
-  pagos           Pago[]
-  pagosDeportivos PagoCuotaDeportiva[]
+  usuario                Usuario?
+  membresias             Membresia[]
+  inscripciones          Inscripcion[]
+  documentaciones        Documentacion[]
+  pagos                  Pago[]
+  pagosDeportivos        PagoCuotaDeportiva[]
   solicitudesInscripcion SolicitudInscripcion[]
 
   @@index([apellido, nombre])
@@ -516,9 +550,9 @@ model CategoriaDisciplina {
   activo       Boolean           @default(true)
   creadoEn     DateTime          @default(now())
 
-  inscripciones     Inscripcion[]
-  requerimientosDoc DisciplinaRequerimientoDoc[]
-  tarifas           ConfiguracionCuotaDeportiva[]
+  inscripciones          Inscripcion[]
+  requerimientosDoc      DisciplinaRequerimientoDoc[]
+  tarifas                ConfiguracionCuotaDeportiva[]
   solicitudesInscripcion SolicitudInscripcion[]
 
   @@unique([disciplinaId, nombre])
