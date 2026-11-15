@@ -12,6 +12,7 @@ no se borra; se marca como *Reemplazada por* y se escribe la nueva.
 | [0003](0003-pasarela-de-pagos.md) | Pasarela de pagos desacoplada (Mercado Pago) | Aceptada | 31/10/2026 |
 | [0004](0004-agenda-de-espacios-y-reservas.md) | Agenda de espacios y reservas | Aceptada | 01/11/2026 |
 | [0005](0005-verificacion-de-email.md) | Verificación de email con enlace de un solo uso | Aceptada | 11/11/2026 |
+| [0006](0006-landing-mi-club-y-panel.md) | Landing pública, portal «Mi club» y panel de gestión separados | Aceptada | 15/11/2026 |
 
 ## Formato
 

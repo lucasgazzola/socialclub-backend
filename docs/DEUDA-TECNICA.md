@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 02/11/2026 (devolución del profesor en la 3ra reunión: DT-54, DT-55, DT-56 y DT-57 nuevas); 01/11/2026 (TASK-57 · DT-46 y DT-47: error en formulario de usuario y formato de DNI unificado; TASK-56 · DT-06, DT-09, DT-36: confirmación de compra de entradas y actualización de deuda técnica; US-60/61/62 · reservas, DT-53 nueva; registro DT-50, DT-51 y DT-52; TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
+- **Última actualización:** 15/11/2026 (TASK-60 · landing, Mi club y panel separados: DT-57 resuelta, DT-58 nueva); 02/11/2026 (devolución del profesor en la 3ra reunión: DT-54, DT-55, DT-56 y DT-57 nuevas); 01/11/2026 (TASK-57 · DT-46 y DT-47: error en formulario de usuario y formato de DNI unificado; TASK-56 · DT-06, DT-09, DT-36: confirmación de compra de entradas y actualización de deuda técnica; US-60/61/62 · reservas, DT-53 nueva; registro DT-50, DT-51 y DT-52; TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -38,7 +38,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
     - [DT-55 · La inscripción es de a una disciplina por vez](#dt-55--la-inscripción-es-de-a-una-disciplina-por-vez)
     - [DT-56 · Faltan filtros por rango de fechas en morosos y reportes](#dt-56--faltan-filtros-por-rango-de-fechas-en-morosos-y-reportes)
-    - [DT-57 · El QR de una entrada no muestra si está vigente, usada o vencida](#dt-57--el-qr-de-una-entrada-no-muestra-si-está-vigente-usada-o-vencida)
+    - [DT-58 · El participante sin rol no puede ver su documentación en Mi club](#dt-58--el-participante-sin-rol-no-puede-ver-su-documentación-en-mi-club)
   - [⚪ Bajas](#-bajas)
     - [DT-51 · Nombres y correos electrónicos del seed con descriptores de prueba sin realismo](#dt-51--nombres-y-correos-electrónicos-del-seed-con-descriptores-de-prueba-sin-realismo)
     - [DT-09 · Imágenes en eventos](#dt-09--imágenes-en-eventos)
@@ -67,9 +67,9 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-31, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48, DT-49, DT-50, DT-53, DT-06, DT-46, DT-47 |
+| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-31, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48, DT-49, DT-50, DT-53, DT-06, DT-46, DT-47, DT-57 |
 | 🟠 Altas pendientes | DT-52, DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-35 (cobro, tarifa y pasarela de pagos resueltos; resta el autoservicio de la cuota deportiva), DT-54 |
-| 🟡 Medias pendientes | DT-34, DT-55, DT-56, DT-57 |
+| 🟡 Medias pendientes | DT-34, DT-55, DT-56, DT-58 |
 | ⚪ Bajas pendientes | DT-09 (campo e interfaz listos, subida pendiente de DT-15), DT-51, DT-36 (servicio resuelto en TASK-35, alertas en US-26, reservas en US-60/61/62, compra de entradas en TASK-56; restan DT-29 y cuotas) |
 
 **Cobertura de tests** (medida el 01/11/2026, objetivo DoD **70 %**):
@@ -387,28 +387,25 @@ rango.
 - **Detectado en la 3ra reunión con el profesor (02/11/2026).**
 - **Relacionado:** US-23, US-35, US-37.
 
-#### DT-57 · El QR de una entrada no muestra si está vigente, usada o vencida
-*Nuevo · devolución del profesor · frontend*
+#### DT-58 · El participante sin rol no puede ver su documentación en Mi club
+*Nuevo · TASK-60 · backend*
 
-`Entrada.estado` ya distingue `VALIDA`, `USADA` y `EXPIRADA`, y el front lo
-tipa (`features/entradas/types.ts`), pero *Mis entradas*
-(`MisEntradasPage.tsx`) y el PDF descargable (`descargarEntradaPdf.ts`)
-muestran el QR igual en los tres casos. El socio no ve si la entrada ya se
-usó o caducó. El profesor pidió informarlo y que **se diferencie
-visualmente**.
+Al inscribir a un participante con email se le crea una cuenta **sin rol**
+(DT-54): no es socio y no tiene rol de gestión. En Mi club puede comprar
+entradas, solicitar inscripciones y reservar, porque esos endpoints solo
+exigen sesión. Pero `GET /documentacion/mi-documentacion` y
+`GET /documentacion/mi-documentacion/estado` piden
+`@Roles('ADMIN', 'DELEGADO', 'COLABORADOR', 'SOCIO')`, así que ese
+participante recibe 403 al abrir **Disciplinas → Documentación**, que es
+justamente lo que más le importa.
 
-**Arreglo propuesto:** un badge con el estado y la fecha correspondiente (de
-uso o de vencimiento). Si la entrada no está vigente, el QR se ve atenuado o
-tachado y no se ofrece descargarla como si sirviera. Además, ordenar las
-vigentes primero o permitir filtrar por estado. Si DT-34 suma estados
-(`CANCELADA`, `REEMBOLSADA`, `TRANSFERIDA`), se agregan al mismo badge.
-Revisar que la API devuelva `estado` y las fechas en *mis entradas* y
-contemplar que una entrada `VALIDA` de un evento ya terminado se informe como
-vencida aunque la tarea `cierre-de-eventos` todavía no haya corrido (es la que
-la pasa a `EXPIRADA`).
+**Arreglo propuesto:** como esos endpoints ya filtran por el usuario
+autenticado (`mi-documentacion`), alcanza con quitarles el `@Roles` y dejar
+solo `JwtAuthGuard`, igual que `GET /inscripcion/mis-solicitudes`. Sumar un
+test de control de acceso con un usuario sin roles.
 
-- **Detectado en la 3ra reunión con el profesor (02/11/2026).**
-- **Relacionado:** [DT-34](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas), US-31.
+- **Detectado en TASK-60 (15/11/2026)** al armar el portal para participantes.
+- **Relacionado:** DT-28, DT-54, [decisión 0006](decisiones/0006-landing-mi-club-y-panel.md).
 
 ### ⚪ Bajas
 
@@ -450,6 +447,16 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### TASK-60 · DT-57 · El QR de una entrada no muestra si está vigente, usada o vencida
+**`feature/TASK-60-portal-socio-y-landing`** (backend + frontend) · 15/11/2026
+
+- *Mis entradas* (ahora en Mi club) separa **Próximas** de **Historial** y agrupa las entradas de un mismo evento en una tarjeta con carrusel de QR.
+- Cada entrada muestra su estado con ícono, color y texto: **Válida**, **Usada el …**, **Vencida** o **Cancelada**. Las que ya no sirven se ven en gris, con un sello sobre el QR, y no se pueden descargar ni mostrar en pantalla completa.
+- La API calcula la vigencia por fecha: una entrada `VALIDA` de un evento terminado o cancelado se devuelve como `EXPIRADA` aunque la tarea `cierre-de-eventos` no haya corrido. Nuevo filtro `vigencia=PROXIMAS|HISTORIAL`.
+- `Entrada.usadaEn` guarda la fecha y hora de validación (migración `20261115120000_entrada_usada_en`).
+- La entrada de un evento cancelado ya no da acceso al validarla (ítem D de la revisión del 14/11).
+- Diseño en la [decisión 0006](decisiones/0006-landing-mi-club-y-panel.md).
 
 ### TASK-57 · DT-46 · El alta de usuario no muestra el error en el formulario
 **`issue/TASK-57-DT-46-DT-47-error-alta-usuario-y-formato-dni`** (frontend) · 01/11/2026
