@@ -123,7 +123,8 @@ falla con un mensaje claro en vez de romperse más tarde.
 | `npm run test:e2e`       | Tests end-to-end (requiere base de datos).         |
 | `npm run test:cov`       | Cobertura (DoD: mínimo 70%).                        |
 | `npm run prisma:migrate` | Crea/aplica una migración en desarrollo.           |
-| `npm run prisma:seed`    | Ejecuta el seed (roles + admin inicial).           |
+| `npm run prisma:seed`    | Padrón realista del club (por defecto).            |
+| `npm run prisma:seed:base` | Padrón chico que usan los E2E (`SEED_PERFIL=base`). |
 | `npm run prisma:studio`  | Abre Prisma Studio (explorador visual de la BD).   |
 | `npm run db:setup`       | Migración + seed en un solo comando.               |
 | `npm run up`             | Levanta DB + API con Docker Compose (detached).    |
