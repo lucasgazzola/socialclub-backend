@@ -40,8 +40,7 @@ export class FiltrarEventosDto {
   incluirBorradores?: string;
 
   @ApiPropertyOptional({
-    description:
-      'Segmenta el listado por estado. BORRADOR solo se aplica si el usuario es ADMIN.',
+    description: 'Segmenta el listado por estado. BORRADOR solo se aplica si el usuario es ADMIN.',
     enum: EstadoEvento,
   })
   @IsOptional()
@@ -68,12 +67,12 @@ export class FiltrarEventosDto {
 
   @ApiPropertyOptional({
     description: 'Campo por el que ordenar los resultados.',
-    enum: ['nombre', 'reciente', 'fecha'],
+    enum: ['nombre', 'reciente', 'fecha', 'precio'],
     example: 'fecha',
   })
   @IsOptional()
-  @IsIn(['nombre', 'reciente', 'fecha'])
-  ordenar?: 'nombre' | 'reciente' | 'fecha';
+  @IsIn(['nombre', 'reciente', 'fecha', 'precio'])
+  ordenar?: 'nombre' | 'reciente' | 'fecha' | 'precio';
 
   @ApiPropertyOptional({ description: 'Número de página (1-indexed)', example: 1, default: 1 })
   @IsOptional()
