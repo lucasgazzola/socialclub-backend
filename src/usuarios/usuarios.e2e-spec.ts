@@ -94,12 +94,16 @@ describe('UsuariosController (e2e) — US-04 (Refactor)', () => {
                 OR: [
                   { nombre: { contains: 'Franco', mode: 'insensitive' } },
                   { apellido: { contains: 'Franco', mode: 'insensitive' } },
+                  { persona: { dni: { contains: 'Franco' } } },
+                  { email: { contains: 'Franco', mode: 'insensitive' } },
                 ],
               },
               {
                 OR: [
                   { nombre: { contains: 'Perez', mode: 'insensitive' } },
                   { apellido: { contains: 'Perez', mode: 'insensitive' } },
+                  { persona: { dni: { contains: 'Perez' } } },
+                  { email: { contains: 'Perez', mode: 'insensitive' } },
                 ],
               },
             ],
@@ -153,6 +157,8 @@ describe('UsuariosController (e2e) — US-04 (Refactor)', () => {
                 OR: [
                   { nombre: { contains: 'Carlos', mode: 'insensitive' } },
                   { apellido: { contains: 'Carlos', mode: 'insensitive' } },
+                  { persona: { dni: { contains: 'Carlos' } } },
+                  { email: { contains: 'Carlos', mode: 'insensitive' } },
                 ],
               },
             ],

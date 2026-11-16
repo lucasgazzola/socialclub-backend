@@ -596,7 +596,7 @@ describe('UsuariosService', () => {
       expect(result.total).toBe(1);
     });
 
-    it('aplica filtro por nombre en nombre o apellido', async () => {
+    it('aplica filtro por nombre en nombre, apellido, DNI o email', async () => {
       prismaMock.usuario.findMany.mockResolvedValue([]);
       prismaMock.usuario.count.mockResolvedValue(0);
       const query = new GetUsuariosQueryDto();
@@ -610,12 +610,24 @@ describe('UsuariosService', () => {
                 OR: [
                   { nombre: { contains: 'Juan', mode: 'insensitive' } },
                   { apellido: { contains: 'Juan', mode: 'insensitive' } },
+                  { persona: { dni: { contains: 'Juan' } } },
+                  { email: { contains: 'Juan', mode: 'insensitive' } },
                 ],
               },
             ],
           },
         }),
       );
+    });
+
+    it('encuentra un usuario por su DNI, como promete el buscador', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([]);
+      prismaMock.usuario.count.mockResolvedValue(0);
+      const query = new GetUsuariosQueryDto();
+      query.busqueda = '33014318';
+      await service.findAll(query);
+      const { where } = prismaMock.usuario.findMany.mock.calls[0][0];
+      expect(where.AND[0].OR).toContainEqual({ persona: { dni: { contains: '33014318' } } });
     });
 
     it('aplica filtro por rol', async () => {
@@ -652,6 +664,8 @@ describe('UsuariosService', () => {
                 OR: [
                   { nombre: { contains: 'Ana', mode: 'insensitive' } },
                   { apellido: { contains: 'Ana', mode: 'insensitive' } },
+                  { persona: { dni: { contains: 'Ana' } } },
+                  { email: { contains: 'Ana', mode: 'insensitive' } },
                 ],
               },
             ],
