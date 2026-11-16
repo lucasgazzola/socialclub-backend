@@ -200,6 +200,52 @@ describe('AuthService', () => {
   });
 
   // ── US-40: Cerrar sesión ───────────────────────────────────────────────────
+  describe('obtenerPerfil · DT-62', () => {
+    const personaCon = (inscripciones: number) => ({
+      ...usuarioValido(),
+      roles: [],
+      persona: {
+        id: 30,
+        nombre: 'Tomás',
+        apellido: 'Ríos',
+        dni: '45111222',
+        email: 'tomas@club.local',
+        telefono: null,
+        fechaNacimiento: null,
+        genero: null,
+        membresias: [],
+        _count: { inscripciones },
+      },
+    });
+
+    it('informa que la persona participa en alguna disciplina aunque no sea socia', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(personaCon(2));
+
+      const perfil = await service.obtenerPerfil(7);
+
+      expect(perfil.persona).toMatchObject({ membresias: [], tieneInscripciones: true });
+      expect(prismaMock.usuario.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: expect.objectContaining({
+            persona: expect.objectContaining({
+              include: expect.objectContaining({
+                _count: { select: { inscripciones: true } },
+              }),
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('sin inscripciones, tieneInscripciones es false', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(personaCon(0));
+
+      const perfil = await service.obtenerPerfil(7);
+
+      expect(perfil.persona?.tieneInscripciones).toBe(false);
+    });
+  });
+
   describe('logout (US-40)', () => {
     it('deja constancia del cierre de sesión en la auditoría', async () => {
       await service.logout(7);

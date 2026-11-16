@@ -190,6 +190,8 @@ export class AuthService {
               include: { categoria: true },
               orderBy: { fechaAlta: 'desc' },
             },
+            // DT-62: Mi club muestra «Mis cuotas» a quien participa en una disciplina.
+            _count: { select: { inscripciones: true } },
           },
         },
       },
@@ -302,7 +304,10 @@ export class AuthService {
   /** Normaliza la Persona vinculada al usuario para la API. */
   private serializarPersona(
     persona: Prisma.PersonaGetPayload<{
-      include: { membresias: { include: { categoria: true } } };
+      include: {
+        membresias: { include: { categoria: true } };
+        _count: { select: { inscripciones: true } };
+      };
     }> | null,
   ) {
     if (!persona) return null;
@@ -323,6 +328,8 @@ export class AuthService {
         fechaBaja: m.fechaBaja,
         activo: m.activo,
       })),
+      // DT-62: participa (o participó) en alguna disciplina, aunque no sea socio.
+      tieneInscripciones: persona._count.inscripciones > 0,
     };
   }
 }
