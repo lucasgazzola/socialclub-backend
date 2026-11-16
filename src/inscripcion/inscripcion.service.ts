@@ -10,6 +10,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateInscripcionDto } from './dto/create-inscripcion.dto';
 import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
 import { SolicitarInscripcionDto } from './dto/solicitar-inscripcion.dto';
+import { FindSolicitudesInscripcionQueryDto } from './dto/find-solicitudes-inscripcion-query.dto';
+import { RechazarSolicitudInscripcionDto } from './dto/rechazar-solicitud-inscripcion.dto';
 import { CrearHabilitacionExcepcionalDto } from './dto/crear-habilitacion-excepcional.dto';
 import { SubirSolicitudDocumentacionDto } from './dto/subir-solicitud-documentacion.dto';
 import {
@@ -885,8 +887,16 @@ export class InscripcionService {
    * Cada fila representa a un participante con todas sus disciplinas.
    */
   async findAll(query: FindParticipantesQueryDto = { pagina: 1, porPagina: 10 }) {
-    const { busqueda, disciplinaId, estado, estadoDocumental, pagina, porPagina, ordenarPor, orden } =
-      query;
+    const {
+      busqueda,
+      disciplinaId,
+      estado,
+      estadoDocumental,
+      pagina,
+      porPagina,
+      ordenarPor,
+      orden,
+    } = query;
 
     const direccion: 'asc' | 'desc' = orden?.toLowerCase() === 'desc' ? 'desc' : 'asc';
     const campoOrden = ordenarPor?.toLowerCase();
@@ -1019,7 +1029,9 @@ export class InscripcionService {
       if (estadoDocumental === EstadoDocumentalFiltro.PENDIENTE_APROBACION) {
         resultadoItems = resultadoItems.filter((item) => enRevision.has(item.personaId));
       } else if (estadoDocumental) {
-        resultadoItems = resultadoItems.filter((item) => item.estadoDocumental === estadoDocumental);
+        resultadoItems = resultadoItems.filter(
+          (item) => item.estadoDocumental === estadoDocumental,
+        );
       }
 
       const porNombre = (a: (typeof resultadoItems)[number], b: (typeof resultadoItems)[number]) =>
@@ -1534,6 +1546,414 @@ export class InscripcionService {
         disciplina: { select: { id: true, nombre: true, descripcion: true } },
         categoriaDisciplina: { select: { id: true, nombre: true } },
       },
+    });
+  }
+
+  /**
+   * US-66 (CA 1-2): Listar solicitudes de inscripción a disciplinas para evaluación administrativa.
+   * - Por defecto muestra las solicitudes en estado PENDIENTE.
+   * - Permite filtrar por disciplina (`disciplinaId`) y buscar por nombre, apellido o DNI del socio.
+   * - Devuelve para cada solicitud si el socio cuenta con la documentación obligatoria exigida
+   *   por la disciplina/categoría o si tiene documentos faltantes.
+   */
+  async listarSolicitudes(query: FindSolicitudesInscripcionQueryDto = {}) {
+    const estadoFiltro = query.estado ?? EstadoSolicitudInscripcion.PENDIENTE;
+    const termino = query.busqueda?.trim();
+    const soloDigitos = termino ? termino.replace(/\D/g, '') : '';
+    const palabras = termino ? termino.split(/[\s,]+/).filter(Boolean) : [];
+
+    const condicionesPersona: Prisma.PersonaWhereInput[] = termino
+      ? [
+          { nombre: { contains: termino, mode: 'insensitive' } },
+          { apellido: { contains: termino, mode: 'insensitive' } },
+          { dni: { contains: termino, mode: 'insensitive' } },
+          ...(soloDigitos && soloDigitos !== termino
+            ? [{ dni: { contains: soloDigitos, mode: 'insensitive' as const } }]
+            : []),
+          ...(palabras.length > 1
+            ? [
+                {
+                  AND: palabras.map((palabra) => ({
+                    OR: [
+                      { nombre: { contains: palabra, mode: 'insensitive' as const } },
+                      { apellido: { contains: palabra, mode: 'insensitive' as const } },
+                    ],
+                  })),
+                },
+              ]
+            : []),
+        ]
+      : [];
+
+    const solicitudes = await this.prisma.solicitudInscripcion.findMany({
+      where: {
+        estado: estadoFiltro,
+        ...(query.disciplinaId ? { disciplinaId: query.disciplinaId } : {}),
+        ...(condicionesPersona.length > 0 ? { persona: { OR: condicionesPersona } } : {}),
+      },
+      orderBy: { fechaSolicitud: 'asc' },
+      include: {
+        persona: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            dni: true,
+            email: true,
+            telefono: true,
+            activo: true,
+          },
+        },
+        disciplina: {
+          select: {
+            id: true,
+            nombre: true,
+            descripcion: true,
+            solicitaDocumentacion: true,
+          },
+        },
+        categoriaDisciplina: {
+          select: {
+            id: true,
+            nombre: true,
+          },
+        },
+        revisadoPor: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return Promise.all(
+      solicitudes.map(async (s) => {
+        const previsualizacion = await this.estadoDocumental.previsualizar(
+          s.disciplinaId,
+          s.categoriaDisciplinaId ?? null,
+          s.personaId,
+        );
+        const documentos = previsualizacion?.documentos ?? [];
+        const requiereDocumentacion = documentos.length > 0;
+        const faltantes = documentos
+          .filter((d) => d.estado === 'FALTANTE' || d.estado === 'VENCIDO')
+          .map((d) => d.etiqueta);
+        const completa = faltantes.length === 0;
+        const estadoResultante: 'HABILITADO' | 'PENDIENTE' = completa ? 'HABILITADO' : 'PENDIENTE';
+
+        return {
+          ...s,
+          documentacion: {
+            estado: estadoResultante,
+            completa,
+            requiereDocumentacion,
+            documentos,
+            faltantes,
+            motivos: previsualizacion?.motivos ?? [],
+          },
+        };
+      }),
+    );
+  }
+
+  /**
+   * US-66 (CA 3): Aprobar una solicitud de inscripción pendiente.
+   * - Cambia el estado de la solicitud a APROBADA.
+   * - Crea automáticamente (o reactiva si existía baja previa) la inscripción del socio
+   *   en la disciplina/categoría, quedando en estado Habilitada o Pendiente de documentación
+   *   según corresponda.
+   * - Abre el período de inscripción y genera la cuota deportiva correspondiente.
+   */
+  async aprobarSolicitud(id: number, responsableId: number) {
+    const solicitud = await this.prisma.solicitudInscripcion.findUnique({
+      where: { id },
+      include: {
+        persona: true,
+        disciplina: { include: { categorias: true } },
+        categoriaDisciplina: true,
+      },
+    });
+
+    if (!solicitud) {
+      throw new NotFoundException('Solicitud de inscripción no encontrada');
+    }
+
+    if (
+      solicitud.estado !== EstadoSolicitudInscripcion.PENDIENTE &&
+      solicitud.estado !== EstadoSolicitudInscripcion.PENDIENTE_DOCUMENTACION
+    ) {
+      throw new BadRequestException('Solo se pueden aprobar solicitudes de inscripción pendientes');
+    }
+
+    if (solicitud.persona.activo === false) {
+      throw new BadRequestException(
+        'El participante está dado de baja: hay que reactivarlo antes de inscribirlo',
+      );
+    }
+
+    if (!solicitud.disciplina.activo) {
+      throw new BadRequestException('Disciplina inactiva');
+    }
+
+    if (solicitud.categoriaDisciplina && !solicitud.categoriaDisciplina.activo) {
+      throw new BadRequestException(
+        'La categoría indicada no pertenece a esta disciplina o no está activa',
+      );
+    }
+
+    const inscripcionExistente = await this.prisma.inscripcion.findUnique({
+      where: {
+        personaId_disciplinaId: {
+          personaId: solicitud.personaId,
+          disciplinaId: solicitud.disciplinaId,
+        },
+      },
+    });
+
+    if (inscripcionExistente?.activo) {
+      throw new ConflictException('El socio ya se encuentra inscripto en esta disciplina');
+    }
+
+    const resultado = await this.prisma.$transaction(async (tx) => {
+      const ahora = new Date();
+      const { count } = await tx.solicitudInscripcion.updateMany({
+        where: {
+          id,
+          estado: {
+            in: [
+              EstadoSolicitudInscripcion.PENDIENTE,
+              EstadoSolicitudInscripcion.PENDIENTE_DOCUMENTACION,
+            ],
+          },
+        },
+        data: {
+          estado: EstadoSolicitudInscripcion.APROBADA,
+          fechaResolucion: ahora,
+          revisadoPorId: responsableId,
+          motivoRechazo: null,
+        },
+      });
+
+      if (count === 0) {
+        throw new ConflictException(
+          'La solicitud cambió de estado mientras tanto. Actualizá la página.',
+        );
+      }
+
+      const solicitudActualizada = await tx.solicitudInscripcion.findUniqueOrThrow({
+        where: { id },
+        include: {
+          persona: { select: { id: true, nombre: true, apellido: true, dni: true } },
+          disciplina: { select: { id: true, nombre: true } },
+          categoriaDisciplina: { select: { id: true, nombre: true } },
+          revisadoPor: { select: { id: true, nombre: true, apellido: true, email: true } },
+        },
+      });
+
+      let inscripcionFinal;
+      if (inscripcionExistente) {
+        inscripcionFinal = await tx.inscripcion.update({
+          where: { id: inscripcionExistente.id },
+          data: {
+            activo: true,
+            fechaInscripcion: ahora,
+            fechaBaja: null,
+            requisitosDesde: null,
+            categoriaDisciplinaId: solicitud.categoriaDisciplinaId ?? null,
+          },
+        });
+        await abrirPeriodo(tx, inscripcionFinal.id, ahora);
+
+        await this.auditoria.registrar(
+          {
+            accion: 'REACTIVAR',
+            entidad: 'Inscripcion',
+            idEntidad: inscripcionFinal.id,
+            detalle: `Re-inscripción por aprobación de solicitud de ${solicitud.persona.apellido} ${solicitud.persona.nombre}, ${solicitud.persona.dni} en la disciplina ${solicitud.disciplina.nombre}`,
+            responsableId,
+          },
+          tx,
+        );
+      } else {
+        inscripcionFinal = await tx.inscripcion.create({
+          data: {
+            personaId: solicitud.personaId,
+            disciplinaId: solicitud.disciplinaId,
+            categoriaDisciplinaId: solicitud.categoriaDisciplinaId ?? null,
+          },
+        });
+        await abrirPeriodo(tx, inscripcionFinal.id, inscripcionFinal.fechaInscripcion ?? ahora);
+
+        await this.auditoria.registrar(
+          {
+            accion: 'CREAR',
+            entidad: 'Inscripcion',
+            idEntidad: inscripcionFinal.id,
+            detalle: `Inscripción por aprobación de solicitud de ${solicitud.persona.apellido} ${solicitud.persona.nombre}, ${solicitud.persona.dni} en la disciplina ${solicitud.disciplina.nombre}`,
+            responsableId,
+          },
+          tx,
+        );
+      }
+
+      await this.auditoria.registrar(
+        {
+          accion: 'EDITAR',
+          entidad: 'SolicitudInscripcion',
+          idEntidad: solicitud.id,
+          detalle: `Solicitud de inscripción a ${solicitud.disciplina.nombre}${solicitud.categoriaDisciplina ? ` (${solicitud.categoriaDisciplina.nombre})` : ''} aprobada para ${solicitud.persona.apellido} ${solicitud.persona.nombre} (DNI ${solicitud.persona.dni})`,
+          responsableId,
+        },
+        tx,
+      );
+
+      const periodo = periodoActual();
+      const rawTarifas = tx.configuracionCuotaDeportiva
+        ? await tx.configuracionCuotaDeportiva.findMany({
+            where: { disciplinaId: solicitud.disciplinaId, activo: true },
+          })
+        : [];
+      const tarifas = Array.isArray(rawTarifas) ? rawTarifas : [];
+      const membresiaActiva = tx.membresia
+        ? await tx.membresia.findFirst({
+            where: { personaId: solicitud.personaId, activo: true },
+          })
+        : null;
+
+      const tarifa = tarifaVigente(
+        tarifas.map((t) => ({
+          id: t.id,
+          categoriaDisciplinaId: t.categoriaDisciplinaId,
+          periodoAplicacion: t.periodoAplicacion,
+          monto: Number(t.monto),
+          descuentoSocioPorcentaje: t.descuentoSocioPorcentaje,
+          activo: t.activo,
+        })),
+        solicitud.categoriaDisciplinaId ?? null,
+        periodo,
+      );
+      const esSocio = !!membresiaActiva;
+      const cuotaGenerada = tarifa
+        ? {
+            periodo,
+            monto: montoACobrar(tarifa, esSocio),
+            montoTarifa: Number(tarifa.monto),
+            descuentoSocioPorcentaje: esSocio ? tarifa.descuentoSocioPorcentaje : 0,
+            esSocio,
+            sinTarifa: false,
+          }
+        : {
+            periodo,
+            monto: null,
+            montoTarifa: null,
+            descuentoSocioPorcentaje: 0,
+            esSocio,
+            sinTarifa: true,
+          };
+
+      return {
+        solicitud: solicitudActualizada,
+        inscripcion: inscripcionFinal,
+        cuotaGenerada,
+      };
+    });
+
+    const estadoDoc =
+      (await this.estadoDocumentalDe(solicitud.personaId, resultado.inscripcion.id)) ??
+      (await this.estadoDocumental.previsualizar(
+        solicitud.disciplinaId,
+        solicitud.categoriaDisciplinaId ?? null,
+        solicitud.personaId,
+      ));
+
+    return {
+      ...resultado,
+      estadoDocumental: estadoDoc,
+    };
+  }
+
+  /**
+   * US-66 (CA 4): Rechazar una solicitud de inscripción pendiente exigiendo un motivo obligatorio.
+   */
+  async rechazarSolicitud(id: number, dto: RechazarSolicitudInscripcionDto, responsableId: number) {
+    const motivo = dto.motivo?.trim();
+    if (!motivo) {
+      throw new BadRequestException('El motivo de rechazo es obligatorio');
+    }
+
+    const solicitud = await this.prisma.solicitudInscripcion.findUnique({
+      where: { id },
+      include: {
+        persona: true,
+        disciplina: true,
+        categoriaDisciplina: true,
+      },
+    });
+
+    if (!solicitud) {
+      throw new NotFoundException('Solicitud de inscripción no encontrada');
+    }
+
+    if (
+      solicitud.estado !== EstadoSolicitudInscripcion.PENDIENTE &&
+      solicitud.estado !== EstadoSolicitudInscripcion.PENDIENTE_DOCUMENTACION
+    ) {
+      throw new BadRequestException(
+        'Solo se pueden rechazar solicitudes de inscripción pendientes',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const ahora = new Date();
+      const { count } = await tx.solicitudInscripcion.updateMany({
+        where: {
+          id,
+          estado: {
+            in: [
+              EstadoSolicitudInscripcion.PENDIENTE,
+              EstadoSolicitudInscripcion.PENDIENTE_DOCUMENTACION,
+            ],
+          },
+        },
+        data: {
+          estado: EstadoSolicitudInscripcion.RECHAZADA,
+          motivoRechazo: motivo,
+          fechaResolucion: ahora,
+          revisadoPorId: responsableId,
+        },
+      });
+
+      if (count === 0) {
+        throw new ConflictException(
+          'La solicitud cambió de estado mientras tanto. Actualizá la página.',
+        );
+      }
+
+      const solicitudActualizada = await tx.solicitudInscripcion.findUniqueOrThrow({
+        where: { id },
+        include: {
+          persona: { select: { id: true, nombre: true, apellido: true, dni: true } },
+          disciplina: { select: { id: true, nombre: true } },
+          categoriaDisciplina: { select: { id: true, nombre: true } },
+          revisadoPor: { select: { id: true, nombre: true, apellido: true, email: true } },
+        },
+      });
+
+      await this.auditoria.registrar(
+        {
+          accion: 'EDITAR',
+          entidad: 'SolicitudInscripcion',
+          idEntidad: solicitud.id,
+          detalle: `Solicitud de inscripción a ${solicitud.disciplina.nombre}${solicitud.categoriaDisciplina ? ` (${solicitud.categoriaDisciplina.nombre})` : ''} rechazada para ${solicitud.persona.apellido} ${solicitud.persona.nombre} (DNI ${solicitud.persona.dni}). Motivo: ${motivo}`,
+          responsableId,
+        },
+        tx,
+      );
+
+      return solicitudActualizada;
     });
   }
 

@@ -20,6 +20,8 @@ import { SolicitarInscripcionDto } from './dto/solicitar-inscripcion.dto';
 import { FindParticipantesQueryDto } from './dto/find-participantes-query.dto';
 import { RequisitosInscripcionQueryDto } from './dto/requisitos-inscripcion-query.dto';
 import { MisSolicitudesQueryDto } from './dto/mis-solicitudes-query.dto';
+import { FindSolicitudesInscripcionQueryDto } from './dto/find-solicitudes-inscripcion-query.dto';
+import { RechazarSolicitudInscripcionDto } from './dto/rechazar-solicitud-inscripcion.dto';
 import { SubirSolicitudDocumentacionDto } from './dto/subir-solicitud-documentacion.dto';
 import { CrearHabilitacionExcepcionalDto } from './dto/crear-habilitacion-excepcional.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -182,7 +184,7 @@ export class InscripcionController {
   @Get('mis-solicitudes')
   @ApiOperation({
     summary:
-      'US-64 — Listar solicitudes de inscripción propias del usuario con filtro opcional por estado',
+      'US-64 — Listar solicitudes de inscripción propias del usuario autenticado con filtro opcional por estado',
   })
   @ApiOkResponse({
     description:
@@ -196,6 +198,80 @@ export class InscripcionController {
   })
   misSolicitudes(@CurrentUser() user: AuthenticatedUser, @Query() query: MisSolicitudesQueryDto) {
     return this.inscripcionService.misSolicitudes(user.id, query.estado);
+  }
+
+  @Get('solicitudes')
+  @Roles('ADMIN', 'DELEGADO')
+  @ApiOperation({
+    summary:
+      'US-66 — Listar solicitudes de inscripción a disciplinas (por defecto PENDIENTE) con filtros y estado documental',
+  })
+  @ApiOkResponse({
+    description:
+      'Listado de solicitudes de inscripción con información del socio, disciplina/categoría y documentación obligatoria',
+  })
+  @ApiErrores({
+    400: VALIDACION,
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+  })
+  listarSolicitudes(@Query() query: FindSolicitudesInscripcionQueryDto) {
+    return this.inscripcionService.listarSolicitudes(query);
+  }
+
+  @Patch('solicitudes/:id/aprobar')
+  @Roles('ADMIN', 'DELEGADO')
+  @ApiOperation({
+    summary:
+      'US-66 — Aprobar solicitud de inscripción: cambia a APROBADA, crea la inscripción y genera la cuota deportiva',
+  })
+  @ApiOkResponse({
+    description:
+      'Solicitud aprobada, inscripción creada en estado Habilitada o Pendiente de documentación y cuota deportiva generada',
+  })
+  @ApiErrores({
+    400: [
+      VALIDACION,
+      'Solo se pueden aprobar solicitudes de inscripción pendientes',
+      'El participante está dado de baja: hay que reactivarlo antes de inscribirlo',
+      'Disciplina inactiva',
+      'La categoría indicada no pertenece a esta disciplina o no está activa',
+    ],
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: 'Solicitud de inscripción no encontrada',
+    409: [
+      'El socio ya se encuentra inscripto en esta disciplina',
+      'La solicitud cambió de estado mientras tanto. Actualizá la página.',
+    ],
+  })
+  aprobarSolicitud(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.inscripcionService.aprobarSolicitud(id, user.id);
+  }
+
+  @Patch('solicitudes/:id/rechazar')
+  @Roles('ADMIN', 'DELEGADO')
+  @ApiOperation({
+    summary: 'US-66 — Rechazar solicitud de inscripción con motivo obligatorio',
+  })
+  @ApiOkResponse({ description: 'Solicitud rechazada con motivo registrado' })
+  @ApiErrores({
+    400: [
+      VALIDACION,
+      'El motivo de rechazo es obligatorio',
+      'Solo se pueden rechazar solicitudes de inscripción pendientes',
+    ],
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: 'Solicitud de inscripción no encontrada',
+    409: 'La solicitud cambió de estado mientras tanto. Actualizá la página.',
+  })
+  rechazarSolicitud(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: RechazarSolicitudInscripcionDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.inscripcionService.rechazarSolicitud(id, dto, user.id);
   }
 
   @Patch('solicitudes/:id/cancelar')
