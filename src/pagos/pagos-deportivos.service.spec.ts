@@ -3,12 +3,19 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { PagosDeportivosService } from './pagos-deportivos.service';
+import { PasarelaService } from '../pasarela/pasarela.service';
 
 const mockPrisma: any = {
   persona: { findUnique: jest.fn() },
+  usuario: { findUnique: jest.fn() },
   configuracionCuotaDeportiva: { findMany: jest.fn() },
   pagoCuotaDeportiva: { findMany: jest.fn(), create: jest.fn() },
   $transaction: jest.fn((arg: any) => (Array.isArray(arg) ? Promise.all(arg) : arg(mockPrisma))),
+};
+
+const mockPasarela = {
+  iniciarCobro: jest.fn().mockResolvedValue({ referencia: 'ref', urlPago: 'https://pagar' }),
+  cancelarPendientes: jest.fn(),
 };
 
 const mockAuditoria = { registrar: jest.fn() };
@@ -75,6 +82,7 @@ describe('PagosDeportivosService · US-21', () => {
         PagosDeportivosService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditoriaService, useValue: mockAuditoria },
+        { provide: PasarelaService, useValue: mockPasarela },
       ],
     }).compile();
     service = moduleRef.get(PagosDeportivosService);
@@ -532,6 +540,42 @@ describe('PagosDeportivosService · US-21', () => {
       ).rejects.toThrow(
         `No se permite registrar pagos anteriores a la inscripción (${anio - 1}-01)`,
       );
+    });
+  });
+
+  describe('DT-35 · pago online de la cuota deportiva', () => {
+    it('cotiza los meses elegidos y abre la orden en la pasarela', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue({ personaId: 50 });
+      mockPrisma.persona.findUnique.mockResolvedValue(participanteBase());
+      mockPrisma.pagoCuotaDeportiva.findMany.mockResolvedValue([]);
+      mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([tarifa()]);
+
+      const orden = await service.iniciarPagoOnline(7, {
+        items: [{ disciplinaId: 3, periodo: '2026-08' }],
+      });
+
+      expect(mockPasarela.cancelarPendientes).toHaveBeenCalledWith(7, 'CUOTA_DEPORTIVA');
+      expect(mockPasarela.iniciarCobro).toHaveBeenCalledWith(
+        expect.objectContaining({
+          concepto: 'CUOTA_DEPORTIVA',
+          usuarioId: 7,
+          datos: {
+            personaId: 50,
+            items: [{ disciplinaId: 3, periodo: '2026-08', monto: 4000 }],
+          },
+        }),
+      );
+      expect(orden).toEqual({ referencia: 'ref', urlPago: 'https://pagar' });
+    });
+
+    it('rechaza un mes futuro y no abre la orden', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue({ personaId: 50 });
+      mockPrisma.persona.findUnique.mockResolvedValue(participanteBase());
+
+      await expect(
+        service.iniciarPagoOnline(7, { items: [{ disciplinaId: 3, periodo: '2026-09' }] }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockPasarela.iniciarCobro).not.toHaveBeenCalled();
     });
   });
 });

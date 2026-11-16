@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
+import { PasarelaService } from '../pasarela/pasarela.service';
 import { PagosDeportivosService } from './pagos-deportivos.service';
 import { CriterioOrdenMorosos, SentidoOrden } from './dto/find-morosos-query.dto';
 
@@ -83,6 +84,7 @@ describe('US-23 · PagosDeportivosService.getMorosos', () => {
         PagosDeportivosService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditoriaService, useValue: { registrar: jest.fn() } },
+        { provide: PasarelaService, useValue: {} },
       ],
     }).compile();
     service = modulo.get(PagosDeportivosService);

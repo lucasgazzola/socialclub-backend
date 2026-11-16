@@ -8,6 +8,8 @@ import {
 } from '@nestjs/swagger';
 import { PagosDeportivosService } from './pagos-deportivos.service';
 import { RegistrarPagoDeportivoDto } from './dto/registrar-pago-deportivo.dto';
+import { IniciarPagoDeportivoDto } from './dto/iniciar-pago-deportivo.dto';
+import { OrdenPagoRespuestaDto } from '../pasarela/dto/orden-pago-respuesta.dto';
 import { HistorialDeportivoQueryDto } from './dto/historial-deportivo-query.dto';
 import { FindMorososDeportivosQueryDto } from './dto/find-morosos-deportivos-query.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -45,6 +47,46 @@ export class PagosDeportivosController {
   })
   getMorosos(@Query() query: FindMorososDeportivosQueryDto) {
     return this.pagosDeportivosService.getMorosos(query);
+  }
+
+  @Get('mias')
+  @Roles('SOCIO', 'ADMIN', 'COLABORADOR', 'DELEGADO')
+  @ApiOperation({
+    summary: 'DT-35 — Cuotas deportivas pendientes de la persona autenticada',
+  })
+  @ApiOkResponse({ description: 'Cuotas deportivas pendientes de quien está logueado' })
+  @ApiErrores({
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: 'No se encontró una ficha de persona asociada al usuario',
+  })
+  getMias(@CurrentUser() user: AuthenticatedUser) {
+    return this.pagosDeportivosService.getMisPendientes(user.id);
+  }
+
+  @Post('checkout')
+  @Roles('SOCIO', 'ADMIN', 'COLABORADOR', 'DELEGADO')
+  @ApiOperation({
+    summary:
+      'DT-35 — Iniciar el pago online de cuotas deportivas propias (devuelve la URL de la pasarela)',
+  })
+  @ApiCreatedResponse({ description: 'Orden de pago creada', type: OrdenPagoRespuestaDto })
+  @ApiErrores({
+    400: [
+      VALIDACION,
+      'Debe seleccionar al menos un período para abonar',
+      'El participante no está inscripto en la disciplina indicada',
+      'No se permite registrar pagos de períodos futuros (…)',
+      'No hay una tarifa configurada para … en el período …',
+    ],
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: 'No se encontró una ficha de persona asociada al usuario',
+    409: 'No es posible procesar el pago: el/los período(s) […] ya figuran como pagados.',
+    502: 'La pasarela de pagos no respondió. Intentá nuevamente.',
+  })
+  iniciarPagoOnline(@CurrentUser() user: AuthenticatedUser, @Body() dto: IniciarPagoDeportivoDto) {
+    return this.pagosDeportivosService.iniciarPagoOnline(user.id, dto);
   }
 
   @Get('persona/:id/pendientes')
