@@ -152,13 +152,17 @@ export function estadoDeInscripcion(
     if (d.estado === 'VENCIDO' && d.fechaVencimiento) {
       return [`${d.etiqueta}: vencido el ${formatear(d.fechaVencimiento)}`];
     }
-    if (d.estado === 'FALTANTE' && d.fechaLimite && dia(d.fechaLimite) < hoyDia) {
-      return [`${d.etiqueta}: no se presentó (el plazo venció el ${formatear(d.fechaLimite)})`];
+    if (d.estado === 'FALTANTE' && d.fechaLimite && plazoYaVencido(d, hoyDia)) {
+      return [
+        d.plazoDiasTolerancia === 0
+          ? `${d.etiqueta}: hay que presentarlo al inscribirse`
+          : `${d.etiqueta}: no se presentó (el plazo venció el ${formatear(d.fechaLimite)})`,
+      ];
     }
     return [];
   });
   const motivosPendientes = estados
-    .filter((d) => d.estado === 'FALTANTE' && d.fechaLimite && dia(d.fechaLimite) >= hoyDia)
+    .filter((d) => d.estado === 'FALTANTE' && d.fechaLimite && !plazoYaVencido(d, hoyDia))
     .map((d) => `${d.etiqueta}: falta presentarlo hasta el ${formatear(d.fechaLimite as Date)}`);
 
   const yaHabilitadoExcepcionalmente = habilitacionesExcepcionales.length > 0;
@@ -192,6 +196,13 @@ export function estadoDeInscripcion(
     habilitadoExcepcionalmenteHasta: null,
     yaHabilitadoExcepcionalmente,
   };
+}
+
+/** Plazo 0 vence el mismo día de la inscripción. Un plazo mayor vence al día siguiente del límite. */
+function plazoYaVencido(doc: EstadoDeDocumento, hoyDia: number): boolean {
+  if (!doc.fechaLimite) return false;
+  const limite = dia(doc.fechaLimite);
+  return doc.plazoDiasTolerancia === 0 ? limite <= hoyDia : limite < hoyDia;
 }
 
 const GRAVEDAD: Record<EstadoHabilitacion, number> = { HABILITADO: 0, PENDIENTE: 1, BLOQUEADO: 2 };

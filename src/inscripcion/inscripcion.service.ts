@@ -4,7 +4,7 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { EstadoSolicitudInscripcion, Prisma } from '@prisma/client';
+import { EstadoSolicitudInscripcion, Prisma, TipoDocumentacionDisciplina } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateInscripcionDto } from './dto/create-inscripcion.dto';
@@ -261,6 +261,14 @@ export class InscripcionService {
           { genero: persona.genero ?? null, fechaNacimiento: persona.fechaNacimiento ?? null },
           disciplina,
           disciplina.categorias.find((c) => c.id === dto.categoriaDisciplinaId),
+        );
+
+        await this.exigirDocumentosAlInscribir(
+          tx,
+          persona.id,
+          dto.disciplinaId,
+          dto.categoriaDisciplinaId,
+          dto.documentos,
         );
 
         const inscripcionExistente = await tx.inscripcion.findUnique({
@@ -886,7 +894,10 @@ export class InscripcionService {
    * - Los filtros se combinan entre sí (AND) y la paginación se resuelve en el backend.
    * Cada fila representa a un participante con todas sus disciplinas.
    */
-  async findAll(query: FindParticipantesQueryDto = { pagina: 1, porPagina: 10 }) {
+  async findAll(
+    query: FindParticipantesQueryDto = { pagina: 1, porPagina: 10 },
+    usuario?: { id: number; roles: readonly string[] },
+  ) {
     const {
       busqueda,
       disciplinaId,
@@ -956,6 +967,20 @@ export class InscripcionService {
       filtrosBase.push({ inscripciones: { some: { disciplinaId } } });
     }
 
+    // H07: el delegado ve solo las personas de sus disciplinas. ADMIN y
+    // COLABORADOR siguen viendo el padrón completo (DT-42).
+    const disciplinasDelegado = await this.disciplinasDeDelegado(usuario);
+    if (disciplinasDelegado) {
+      const pedidaAjena = disciplinaId != null && !disciplinasDelegado.includes(disciplinaId);
+      if (disciplinasDelegado.length === 0 || pedidaAjena) {
+        filtrosBase.push({ id: -1 });
+      } else if (disciplinaId == null) {
+        filtrosBase.push({
+          inscripciones: { some: { disciplinaId: { in: disciplinasDelegado } } },
+        });
+      }
+    }
+
     const whereBase: Prisma.PersonaWhereInput = { AND: filtrosBase };
     const whereInscriptos: Prisma.PersonaWhereInput = {
       AND: [...filtrosBase, { inscripciones: { some: { activo: true } } }],
@@ -993,7 +1018,15 @@ export class InscripcionService {
     ]);
 
     const estados = await this.estadoDocumental.porPersonas(items.map((p) => p.id));
-    let resultadoItems = items.map((p) => {
+    const itemsVisibles = disciplinasDelegado
+      ? items.map((p) => ({
+          ...p,
+          inscripciones: p.inscripciones.filter((i) =>
+            disciplinasDelegado.includes(i.disciplinaId),
+          ),
+        }))
+      : items;
+    let resultadoItems = itemsVisibles.map((p) => {
       const fila = this.aParticipanteAgrupado(p);
       const resumen = estados.get(p.id);
       return {
@@ -1085,6 +1118,24 @@ export class InscripcionService {
         baja: totalBaja,
       },
     };
+  }
+
+  /**
+   * Disciplinas a cargo de un delegado. `null` si el usuario ve todo el padrón
+   * (sin usuario en los tests, o con rol ADMIN o COLABORADOR).
+   */
+  private async disciplinasDeDelegado(usuario?: {
+    id: number;
+    roles: readonly string[];
+  }): Promise<number[] | null> {
+    if (!usuario) return null;
+    if (usuario.roles.includes('ADMIN') || usuario.roles.includes('COLABORADOR')) return null;
+    if (!usuario.roles.includes('DELEGADO')) return null;
+    const asignadas = await this.prisma.delegadoDisciplina.findMany({
+      where: { usuarioId: usuario.id },
+      select: { disciplinaId: true },
+    });
+    return asignadas.map((a) => a.disciplinaId);
   }
 
   /**
@@ -1492,6 +1543,14 @@ export class InscripcionService {
 
     const ahora = new Date();
     return this.prisma.$transaction(async (tx) => {
+      await this.exigirDocumentosAlInscribir(
+        tx,
+        persona.id,
+        disciplina.id,
+        categoria?.id,
+        undefined,
+      );
+
       const solicitud = await tx.solicitudInscripcion.create({
         data: {
           personaId: persona.id,
@@ -1520,6 +1579,62 @@ export class InscripcionService {
 
       return solicitud;
     });
+  }
+
+  /**
+   * H13: un requisito con plazo 0 hay que tenerlo al inscribir. Cuenta un documento
+   * aprobado y no vencido, o uno adjunto en la misma operación de alta.
+   */
+  private async exigirDocumentosAlInscribir(
+    db: Prisma.TransactionClient,
+    personaId: number,
+    disciplinaId: number,
+    categoriaDisciplinaId: number | null | undefined,
+    adjuntos: { tipoDocumento: TipoDocumentacionDisciplina }[] | undefined,
+  ) {
+    const requisitos = await db.disciplinaRequerimientoDoc.findMany({
+      where: {
+        disciplinaId,
+        OR: [
+          { categoriaDisciplinaId: null },
+          ...(categoriaDisciplinaId ? [{ categoriaDisciplinaId }] : []),
+        ],
+      },
+      select: { tipoDocumento: true, plazoDiasTolerancia: true },
+    });
+    const alInscribirse = requisitos.filter((r) => r.plazoDiasTolerancia === 0);
+    if (!alInscribirse.length) return;
+
+    const cubiertos = new Set(adjuntos?.map((d) => d.tipoDocumento) ?? []);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const presentados = await db.documentacion.findMany({
+      where: {
+        personaId,
+        estadoRevision: 'APROBADO',
+        tipoDocumento: { in: alInscribirse.map((r) => r.tipoDocumento) },
+      },
+      select: { tipoDocumento: true, fechaVencimiento: true, creadoEn: true },
+      orderBy: { creadoEn: 'desc' },
+    });
+    const visto = new Set<TipoDocumentacionDisciplina>();
+    const vigente = new Set<TipoDocumentacionDisciplina>();
+    for (const doc of presentados) {
+      if (!doc.tipoDocumento || visto.has(doc.tipoDocumento)) continue;
+      visto.add(doc.tipoDocumento);
+      if (!doc.fechaVencimiento || doc.fechaVencimiento >= hoy) vigente.add(doc.tipoDocumento);
+    }
+
+    const faltan = [
+      ...new Set(
+        alInscribirse
+          .filter((r) => !cubiertos.has(r.tipoDocumento) && !vigente.has(r.tipoDocumento))
+          .map((r) => ETIQUETA_TIPO_DOCUMENTO[r.tipoDocumento]),
+      ),
+    ];
+    if (faltan.length) {
+      throw new BadRequestException(`Para inscribir hay que presentar ${faltan.join(' y ')}.`);
+    }
   }
 
   /**

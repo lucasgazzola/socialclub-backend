@@ -90,11 +90,11 @@ describe('US-25 · estado documental de una inscripción', () => {
     expect(r.estado).toBe('BLOQUEADO');
     expect(r.documentos[0].origen).toBe('CATEGORIA');
     expect(r.motivos).toEqual([
-      'Autorización de padres/tutores: no se presentó (el plazo venció el 20/09/2026)',
+      'Autorización de padres/tutores: hay que presentarlo al inscribirse',
     ]);
   });
 
-  it('con plazo 0 queda pendiente el mismo día de la inscripción', () => {
+  it('H13 · con plazo 0 queda bloqueado el mismo día de la inscripción', () => {
     const r = estadoDeInscripcion(
       { fechaInscripcion: hoy, requisitosDesde: null },
       [autorizacion],
@@ -102,7 +102,10 @@ describe('US-25 · estado documental de una inscripción', () => {
       [],
       hoy,
     );
-    expect(r.estado).toBe('PENDIENTE');
+    expect(r.estado).toBe('BLOQUEADO');
+    expect(r.motivos).toEqual([
+      'Autorización de padres/tutores: hay que presentarlo al inscribirse',
+    ]);
   });
 
   it('US-25 · TC-183: bloquea con un documento vencido e indica cuál', () => {
