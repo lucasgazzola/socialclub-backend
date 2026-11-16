@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 16/11/2026 (DT-61 y DT-63 resueltas; DT-62 con opciones para decidir); 16/11/2026 (revisión de la rama `fix/correcciones-prueba-integral`: DT-60, DT-61, DT-62 y DT-63 nuevas); 16/11/2026 (DT-35 resuelta: el socio paga la cuota deportiva desde Mi club; DT-29 resuelta: US-65 y US-66 en `dev`; DT-59 resuelta: cambiar el email vuelve a verificarlo); 15/11/2026 (DT-54 y DT-51 pasadas a resueltas; DT-59 nueva por el email que se cambia sin re-verificar; DT-27 y DT-29 alineadas con el código); 16/11/2026 (TASK-60 · integración del portal de socios y documentación con revisión: DT-58 resuelta); 15/11/2026 (TASK-60 · landing, Mi club y panel separados: DT-57 resuelta, DT-58 nueva); 02/11/2026 (devolución del profesor en la 3ra reunión: DT-54, DT-55, DT-56 y DT-57 nuevas); 01/11/2026 (TASK-57 · DT-46 y DT-47: error en formulario de usuario y formato de DNI unificado; TASK-56 · DT-06, DT-09, DT-36: confirmación de compra de entradas y actualización de deuda técnica; US-60/61/62 · reservas, DT-53 nueva; registro DT-50, DT-51 y DT-52; TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
+- **Última actualización:** 16/11/2026 (DT-62 resuelta con la opción B; DT-64 nueva: responsable de un menor; DT-59 movida a Resuelta); 16/11/2026 (DT-61 y DT-63 resueltas; DT-62 con opciones para decidir); 16/11/2026 (revisión de la rama `fix/correcciones-prueba-integral`: DT-60, DT-61, DT-62 y DT-63 nuevas); 16/11/2026 (DT-35 resuelta: el socio paga la cuota deportiva desde Mi club; DT-29 resuelta: US-65 y US-66 en `dev`; DT-59 resuelta: cambiar el email vuelve a verificarlo); 15/11/2026 (DT-54 y DT-51 pasadas a resueltas; DT-59 nueva por el email que se cambia sin re-verificar; DT-27 y DT-29 alineadas con el código); 16/11/2026 (TASK-60 · integración del portal de socios y documentación con revisión: DT-58 resuelta); 15/11/2026 (TASK-60 · landing, Mi club y panel separados: DT-57 resuelta, DT-58 nueva); 02/11/2026 (devolución del profesor en la 3ra reunión: DT-54, DT-55, DT-56 y DT-57 nuevas); 01/11/2026 (TASK-57 · DT-46 y DT-47: error en formulario de usuario y formato de DNI unificado; TASK-56 · DT-06, DT-09, DT-36: confirmación de compra de entradas y actualización de deuda técnica; US-60/61/62 · reservas, DT-53 nueva; registro DT-50, DT-51 y DT-52; TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -18,7 +18,10 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 > son la devolución del profesor en la 3ra reunión formal (02/11/2026). DT-54
 > está resuelta, igual que DT-59 (volver a verificar si cambia el email) y DT-29
 > (US-65 y US-66, 16/11/2026). DT-58 salió de la integración
-> del portal (16/11/2026) y también está resuelta.
+> del portal (16/11/2026) y también está resuelta. Los **DT-60 a DT-64**
+> salieron de la revisión de la rama de correcciones (16/11/2026): DT-61, DT-62
+> y DT-63 están resueltas; DT-60 y DT-64 siguen pendientes y conviene
+> decidirlas juntas.
 
 ---
 
@@ -35,7 +38,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-27 · Documentación por disciplina: requisitos, estados y vigencia](#dt-27--documentación-por-disciplina-requisitos-estados-y-vigencia)
     - [DT-60 · Un menor no puede pedir inscripción si la categoría exige un documento con plazo 0](#dt-60--un-menor-no-puede-pedir-inscripción-si-la-categoría-exige-un-documento-con-plazo-0)
   - [🟡 Medias](#-medias)
-    - [DT-62 · Quien no es ni fue socio no paga la cuota deportiva desde Mi club](#dt-62--quien-no-es-ni-fue-socio-no-paga-la-cuota-deportiva-desde-mi-club)
+    - [DT-64 · No hay un responsable registrado para un menor](#dt-64--no-hay-un-responsable-registrado-para-un-menor)
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
     - [DT-55 · La inscripción es de a una disciplina por vez](#dt-55--la-inscripción-es-de-a-una-disciplina-por-vez)
     - [DT-56 · Faltan filtros por rango de fechas en morosos y reportes](#dt-56--faltan-filtros-por-rango-de-fechas-en-morosos-y-reportes)
@@ -66,9 +69,9 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-29, DT-30, DT-31, DT-32, DT-33, DT-35, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48, DT-49, DT-50, DT-51, DT-53, DT-54, DT-59, DT-61, DT-63, DT-06, DT-46, DT-47, DT-57, DT-58 |
+| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-29, DT-30, DT-31, DT-32, DT-33, DT-35, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48, DT-49, DT-50, DT-51, DT-53, DT-54, DT-59, DT-61, DT-62, DT-63, DT-06, DT-46, DT-47, DT-57, DT-58 |
 | 🟠 Altas pendientes | DT-60, DT-52, DT-27 (configuración, estado documental, alertas, revisión, habilitación excepcional y plazo 0 al inscribir resueltos) |
-| 🟡 Medias pendientes | DT-62, DT-34, DT-55, DT-56 |
+| 🟡 Medias pendientes | DT-64, DT-34, DT-55, DT-56 |
 | ⚪ Bajas pendientes | DT-09 (campo e interfaz listos, subida pendiente de DT-15), DT-36 (servicio resuelto en TASK-35, alertas en US-26, reservas en US-60/61/62, compra de entradas en TASK-56; restan la solicitud de inscripción y las cuotas) |
 
 **Cobertura de tests** (medida el 01/11/2026, objetivo DoD **70 %**):
@@ -225,52 +228,24 @@ solicitudes no se pueden abrir.
 `aprobarSolicitud`, con los documentos adjuntos a la solicitud. El alta desde el
 panel sigue exigiéndolo como ahora.
 
+Conviene decidirla junto con DT-64: si un responsable puede pedir la
+inscripción del menor, la solicitud llega con la autorización adjunta.
+
 ### 🟡 Medias
 
-#### DT-62 · Quien no es ni fue socio no paga la cuota deportiva desde Mi club
-*Nuevo · revisión del 16/11/2026 · alcance de DT-35 · decisión pendiente*
+#### DT-64 · No hay un responsable registrado para un menor
+*Nuevo · funcional · 16/11/2026 · opción D de DT-62*
 
-DT-35 habilitó el pago online de la cuota deportiva solo para quien es o fue
-socio:
+El sistema no sabe quién es el padre, la madre o el tutor de un menor. Un menor
+sin cuenta propia no puede pagar su cuota deportiva desde Mi club (en el
+padrón demo, 5 de los 6 participantes que nunca fueron socios son menores) ni
+pedir una inscripción. DT-62 resolvió el caso del adulto con cuenta propia.
 
-- El front oculta «Mis cuotas» y redirige a Mi club si la persona no tiene
-  membresías (`soloSocioOExSocio` en `PortalSocioLayout`).
-- `GET /pagos-deportivos/mias` y `POST /pagos-deportivos/checkout` exigen
-  uno de los roles `SOCIO`, `ADMIN`, `COLABORADOR` o `DELEGADO`. El registro
-  público (US-38) crea la cuenta sin roles, así que un participante que no es
-  socio recibe 403.
-
-En el padrón demo hay 6 participantes activos que nunca fueron socios (de 83).
-Cinco son menores y solo uno tiene usuario propio. El modelo no tiene una
-relación entre un menor y su padre, madre o tutor.
-
-Opciones, en la respuesta de la revisión del 16/11/2026: (A) dejarlo como está
-y documentarlo; (B) abrir el pago a cualquier titular con usuario; (C) que un
-adulto pague por otra persona; (D) registrar al responsable de un menor.
-
-#### DT-59 · Cambiar el email no vuelve a verificarlo
-*Resto de DT-54 · resuelto el 16/11/2026*
-
-Si el email guardado cambia, en el perfil o en la grilla de usuarios,
-`emailVerificadoEn` vuelve a vacío y se manda un enlace a la dirección nueva.
-El enlace solo confirma el email: la contraseña no se toca. Hasta usarlo, un
-ingreso nuevo se rechaza. La sesión abierta sigue. Ver la
-[decisión 0010](decisiones/0010-correcciones-de-la-prueba-integral.md).
-
-El texto de abajo es el problema original, ya cerrado.
-
-- El socio la cambia en su perfil sin repetirla ni recibir un enlace nuevo
-  (H12, prueba integral del 11/11).
-- El administrador la cambia en la grilla de usuarios con el mismo efecto
-  ([decisión 0005](decisiones/0005-verificacion-de-email.md)).
-
-**Arreglo:** si el email cambia, `emailVerificadoEn` vuelve a null, se pide
-la dirección dos veces y se manda el enlace de verificación. La contraseña
-que la persona ya eligió se conserva: el enlace solo verifica, como en el
-registro público. Hasta usarlo, no se puede iniciar sesión.
-
-- **Detectado en la prueba integral del 11/11/2026 (H12) y dejado afuera de
-  TASK-59 a propósito.**
+**Propuesta:** registrar un adulto responsable por menor (relación en
+`personas`), que secretaría asigna al inscribir. El responsable ve en su Mi club
+las cuotas, la documentación y las solicitudes del menor, y las gestiona. Es una
+historia de usuario nueva. También destraba DT-60: el responsable pide la
+inscripción y adjunta la autorización.
 
 #### DT-34 · No hay cancelación, devolución ni transferencia de entradas
 *Nuevo · funcional · backend + frontend*
@@ -379,6 +354,47 @@ confirmada; o una cuota está vencida.
 
 ## Deuda resuelta
 
+### DT-62 · Quien no es ni fue socio no paga la cuota deportiva desde Mi club
+*Resuelta el 16/11/2026 · opción B*
+
+Se abrió el pago a cualquier titular con sesión:
+
+- `GET /pagos-deportivos/mias` y `POST /pagos-deportivos/checkout` ya no piden
+  rol, igual que `/documentacion/mi-documentacion`. Cada uno ve y paga solo lo
+  suyo, porque la persona sale de la sesión.
+- `/auth/me` informa `persona.tieneInscripciones`, que también cuenta las
+  inscripciones dadas de baja, porque pueden tener deuda.
+- Mi club muestra «Mis cuotas» a socios, ex socios y participantes. Quien no es
+  socio ve solo la cuota deportiva de sus disciplinas y la paga por la pasarela,
+  sin descuento de socio.
+
+**Queda afuera:** el menor sin cuenta propia. Lo cubriría la opción D, ahora
+DT-64.
+
+### DT-59 · Cambiar el email no vuelve a verificarlo
+*Resto de DT-54 · resuelto el 16/11/2026*
+
+Si el email guardado cambia, en el perfil o en la grilla de usuarios,
+`emailVerificadoEn` vuelve a vacío y se manda un enlace a la dirección nueva.
+El enlace solo confirma el email: la contraseña no se toca. Hasta usarlo, un
+ingreso nuevo se rechaza. La sesión abierta sigue. Ver la
+[decisión 0010](decisiones/0010-correcciones-de-la-prueba-integral.md).
+
+El texto de abajo es el problema original, ya cerrado.
+
+- El socio la cambia en su perfil sin repetirla ni recibir un enlace nuevo
+  (H12, prueba integral del 11/11).
+- El administrador la cambia en la grilla de usuarios con el mismo efecto
+  ([decisión 0005](decisiones/0005-verificacion-de-email.md)).
+
+**Arreglo:** si el email cambia, `emailVerificadoEn` vuelve a null, se pide
+la dirección dos veces y se manda el enlace de verificación. La contraseña
+que la persona ya eligió se conserva: el enlace solo verifica, como en el
+registro público. Hasta usarlo, no se puede iniciar sesión.
+
+- **Detectado en la prueba integral del 11/11/2026 (H12) y dejado afuera de
+  TASK-59 a propósito.**
+
 ### DT-61 · El delegado ve el estado documental de disciplinas que no tiene a cargo
 *Resuelta el 16/11/2026*
 
@@ -420,6 +436,8 @@ replantea el rol.
 
 ### DT-35 · El socio paga la cuota deportiva desde Mi club
 *16/11/2026*
+
+Desde DT-62 también la paga quien participa en una disciplina sin ser socio.
 
 `GET /pagos-deportivos/mias` y `POST /pagos-deportivos/checkout`. El socio
 elige meses de una o varias disciplinas en Mis cuotas y paga por la pasarela

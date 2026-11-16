@@ -29,6 +29,10 @@ Sin ninguna asignada, no ve participantes. En la fila solo aparecen esas
 disciplinas, aunque la persona juegue otra. Quien es delegado y socio (Diego,
 Laura) entra por esta regla. Admin y colaborador siguen viendo el padrón.
 
+**Ampliado en DT-61 (16/11/2026):** el estado documental de la fila, el filtro
+de pendientes de aprobación y las pestañas Inscriptos y Baja también miran solo
+sus disciplinas. Las consultas por id de una inscripción ajena responden 403.
+
 ### 3. «Menor precio» es un orden válido
 
 El portal mandaba `ordenar=precio` y el `ValidationPipe` lo rechazaba. El
@@ -43,6 +47,10 @@ recaudado las compras de entradas `APROBADA` y las señas de reservas
 deuda: adeudado y morosos siguen siendo solo cuotas. Aparecen como conceptos
 `ENTRADAS` y `RESERVAS`. Con `disciplinaId`, el reporte sigue siendo solo la
 cuota deportiva de esa disciplina.
+
+**Ajustado en DT-63 (16/11/2026):** el porcentaje de cobranza mide solo cuotas,
+la caja de cuotas usa el huso del club y una entrada online cuenta el día en
+que la pasarela aprobó el pago.
 
 ### 5. El color que llega después gana
 
@@ -69,6 +77,8 @@ bloqueado el mismo día. Un plazo mayor sigue dejando la inscripción pendiente
 hasta esa fecha. El grupo deja de llamarse «Documentación opcional»: es «Con
 plazo para presentar». US-65 adjunta el archivo después de crear la solicitud:
 con plazo 0, la solicitud no se abre si ese documento no está aprobado de antes.
+Eso deja sin solicitud online a los menores de las categorías que exigen la
+autorización de padres o tutores: está pendiente en DT-60.
 
 ### 8. Cambiar el email vuelve a verificarlo (DT-59)
 
