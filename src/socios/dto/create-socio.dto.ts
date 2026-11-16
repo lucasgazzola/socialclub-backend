@@ -10,6 +10,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { ConfirmaEmail } from '../../common/decorators/confirma-email.decorator';
+import { GeneroDisciplina } from '@prisma/client';
 
 export class CreateSocioDto {
   @ApiProperty({ example: 'Lucas' })
@@ -25,10 +26,13 @@ export class CreateSocioDto {
   @Length(6, 20)
   dni: string;
 
-  @ApiPropertyOptional({ example: '2000-05-12' })
-  @IsOptional()
+  @ApiProperty({ example: '2000-05-12' })
   @IsDateString()
-  fechaNacimiento?: string;
+  fechaNacimiento: string;
+
+  @ApiProperty({ enum: GeneroDisciplina, example: GeneroDisciplina.MASCULINO })
+  @IsNotEmpty()
+  genero: GeneroDisciplina;
 
   @ApiPropertyOptional({ example: 'socio@correo.com' })
   @IsOptional()

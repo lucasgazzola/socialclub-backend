@@ -201,7 +201,8 @@ export class SociosService {
           dni: dto.dni,
           email: dto.email ? dto.email.trim().toLowerCase() : null,
           telefono: dto.telefono,
-          fechaNacimiento: dto.fechaNacimiento ? new Date(dto.fechaNacimiento) : undefined,
+          fechaNacimiento: new Date(dto.fechaNacimiento),
+          genero: dto.genero,
           membresias: {
             create: {
               categoriaId,
