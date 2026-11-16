@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { ConfirmaEmail } from '../../common/decorators/confirma-email.decorator';
 
 export class UpdatePerfilSocioDto {
   @ApiProperty({ example: 'Juan', description: 'Nombre del socio' })
@@ -22,6 +23,14 @@ export class UpdatePerfilSocioDto {
   @IsEmail({}, { message: 'El formato de email no es válido (ejemplo: usuario@dominio.com)' })
   @IsNotEmpty({ message: 'El email no puede estar vacío' })
   email: string;
+
+  @ApiPropertyOptional({
+    example: 'socio@correo.com',
+    description: 'DT-59: el email escrito otra vez, solo si cambia.',
+  })
+  @IsOptional()
+  @ConfirmaEmail('email')
+  confirmarEmail?: string;
 
   @ApiPropertyOptional({ example: '+54 353 1234567', description: 'Teléfono de contacto' })
   @IsOptional()
