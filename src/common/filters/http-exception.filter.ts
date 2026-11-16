@@ -27,11 +27,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const cuerpoExcepcion = exception instanceof HttpException ? exception.getResponse() : null;
 
     const message =
-      cuerpoExcepcion && typeof cuerpoExcepcion === 'object'
-        ? (cuerpoExcepcion as { message?: string | string[] }).message
-        : exception instanceof Error
-          ? exception.message
-          : 'Error interno del servidor';
+      status >= 500
+        ? 'Error interno del servidor. Intentá nuevamente más tarde.'
+        : cuerpoExcepcion && typeof cuerpoExcepcion === 'object'
+          ? (cuerpoExcepcion as { message?: string | string[] }).message
+          : exception instanceof Error
+            ? exception.message
+            : 'Error interno del servidor';
 
     if (status >= 500) {
       this.logger.error(`${request.method} ${request.url}`, (exception as Error)?.stack);

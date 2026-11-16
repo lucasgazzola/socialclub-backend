@@ -1,0 +1,30 @@
+{
+  "TC-017": {
+    "titulo": "Registrar correctamente un participante en una disciplina activa",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "inscripcion-y-alertas.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-017-01.jpg",
+        "titulo": "1. Iniciar sesión como delegado"
+      },
+      {
+        "archivo": "TC-017-02.jpg",
+        "titulo": "2. Abrir Participantes y elegir «Nuevo participante»"
+      },
+      {
+        "archivo": "TC-017-03.jpg",
+        "titulo": "3. Completar los datos de un participante con DNI nuevo"
+      },
+      {
+        "archivo": "TC-017-04.jpg",
+        "titulo": "4. Elegir Natación · Adultos / Libre y revisar la documentación exigida"
+      },
+      {
+        "archivo": "TC-017-05.jpg",
+        "titulo": "5. Registrar al participante sin adjuntar la documentación"
+      }
+    ]
+  }
+}

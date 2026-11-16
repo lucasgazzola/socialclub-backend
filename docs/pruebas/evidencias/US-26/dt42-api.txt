@@ -1,0 +1,28 @@
+DT-42 · API local (http://localhost:3100/api/v1), 04/10/2026
+Delegado: delegado@socialclub.local (usuario 5). Colaborador: usuario 4.
+
+# Con las disciplinas del seed (Fútbol Mayor, Fútbol Femenino, Natación)
+GET /alertas/documentacion (ADMIN)     → 3 alertas: Natación, Fútbol Femenino, Fútbol Mayor
+GET /alertas/documentacion (DELEGADO)  → 3 alertas: Natación, Fútbol Femenino, Fútbol Mayor
+
+# TC-173 · solo Natación
+PATCH /usuarios/5 {"disciplinasIds":[4]} → 200, disciplinas: [{"id":4,"nombre":"Natación"}]
+GET /alertas/documentacion (DELEGADO)  → ['Natación']
+
+# TC-174 · sin disciplinas
+PATCH /usuarios/5 {"disciplinasIds":[]} → 200
+GET /alertas/documentacion (DELEGADO)  → []
+
+# TC-177 · rechazos
+PATCH /usuarios/5 {"disciplinasIds":[999]}
+→ {"statusCode":404,"path":"/api/v1/usuarios/5","message":"Una o más disciplinas indicadas no existen o están inactivas"}
+PATCH /usuarios/4 {"disciplinasIds":[1]}   (COLABORADOR)
+→ {"statusCode":400,"path":"/api/v1/usuarios/4","message":"Solo los usuarios con rol DELEGADO pueden tener disciplinas a cargo."}
+
+# Deja de ser delegado: pierde las disciplinas
+PATCH /usuarios/5 {"roles":["COLABORADOR"]} → roles ['COLABORADOR'], disciplinas []
+
+# TC-175 · tarea de vencimientos
+POST /tareas/vencimientos-documentacion/ejecutar → EXITOSA
+{"nuevas":3,"alertas":3,"creadas":1,"enviadas":0,"fallidas":0,"pendientes":1,"sinDelegado":0,"destinatarios":1}
+(sin SMTP configurado la notificación queda pendiente, como corresponde)

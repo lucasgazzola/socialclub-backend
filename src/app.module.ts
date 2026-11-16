@@ -11,11 +11,23 @@ import { CategoriasModule } from './categorias/categorias.module';
 import { EventosModule } from './eventos/eventos.module';
 import { EntradasModule } from './entradas/entradas.module';
 import { DisciplinasModule } from './disciplinas/disciplinas.module';
+import { CategoriasDisciplinaModule } from './categorias-disciplina/categorias-disciplina.module';
 import { CuotasModule } from './cuotas/cuotas.module';
 import { CuotaSocialModule } from './cuota-social/cuota-social.module';
+import { ClubModule } from './club/club.module';
 import { PersonasModule } from './personas/personas.module';
 import { InscripcionModule } from './inscripcion/inscripcion.module';
 import { DocumentacionModule } from './documentacion/documentacion.module';
+import { PagosModule } from './pagos/pagos.module';
+import { ReportesModule } from './reportes/reportes.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { AlertasModule } from './alertas/alertas.module';
+import { NotificacionesModule } from './notificaciones/notificaciones.module';
+import { TareasModule } from './tareas/tareas.module';
+import { PasarelaModule } from './pasarela/pasarela.module';
+import { ReservasModule } from './reservas/reservas.module';
+import { VerificacionEmailModule } from './verificacion-email/verificacion-email.module';
+import { EspaciosModule } from './espacios/espacios.module';
 
 @Module({
   imports: [
@@ -34,11 +46,24 @@ import { DocumentacionModule } from './documentacion/documentacion.module';
     EventosModule,
     EntradasModule,
     DisciplinasModule,
+    CategoriasDisciplinaModule,
     CuotasModule,
     CuotaSocialModule,
     PersonasModule,
     InscripcionModule,
     DocumentacionModule,
+    PagosModule,
+    ReportesModule,
+    DashboardModule,
+    AlertasModule,
+    // Servicios transversales (DT-36, DT-22)
+    NotificacionesModule,
+    TareasModule,
+    PasarelaModule,
+    ReservasModule,
+    ClubModule,
+    VerificacionEmailModule,
+    EspaciosModule,
   ],
   controllers: [AppController],
 })

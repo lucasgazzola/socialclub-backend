@@ -1,0 +1,26 @@
+DT-41 · API local (http://localhost:3100/api/v1), 04/10/2026
+Participante: Valeria (persona 6), inscripción 7 en Pelota Paleta.
+
+# Backfill de la migración (inscripción dada de baja en el seed)
+periodos_inscripcion de la inscripción 7:  2025-06-01 → 2026-02-15
+
+# TC-178 · reinscripción
+POST /inscripcion {"personaId":6,"disciplinaId":<Pelota Paleta>} → 201
+periodos_inscripcion de la inscripción 7:
+  2025-06-01 → 2026-02-15
+  2026-10-04 → (vigente)
+GET /pagos-deportivos/persona/6/pendientes → Pelota Paleta:
+  ['2025-05','2025-06','2025-07','2025-08','2025-09','2025-10','2025-11','2025-12','2026-01','2026-02','2026-10']
+  (los meses de 2026-03 a 2026-09 no figuran: no estuvo inscripta)
+  Nota: 2025-05 aparece porque el alta del seed (01/06/2025 00:00 UTC) se lee en
+  hora argentina como 31/05/2025. Es anterior a DT-41 (ver DT-44).
+
+# TC-179 · mes sin inscripción
+POST /pagos-deportivos/persona/6 {"disciplinaId":<Pelota Paleta>,"periodos":["2026-05"]}
+→ {"statusCode":400,"message":"No se permite registrar pagos de meses en que no estuvo inscripto en la disciplina: 2026-05"}
+
+# Un mes del período anterior se puede cobrar si tiene tarifa
+POST ... {"periodos":["2025-08"]}
+→ 400 «No hay una tarifa configurada para Pelota Paleta en el período 2025-08»
+  (rechazo por tarifa, no por inscripción; el caso con tarifa está cubierto por
+  el test «permite cobrar un mes del período anterior a la reinscripción»)

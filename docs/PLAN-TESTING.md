@@ -5,31 +5,162 @@ a [`DEUDA-TECNICA.md`](DEUDA-TECNICA.md): allá está el detalle por ítem, acá
 estrategia de testing y su secuencia.
 
 - **Equipo:** Nullpointer
-- **Medido el:** 16/09/2026, sobre `socialclub-backend@dev` y `socialclub-frontend@dev`
+- **Medido el:** 18/10/2026, sobre `dev` + TASK-46 (medición anterior: 04/10/2026)
 - **Versión navegable:** <https://claude.ai/code/artifact/b817ba9b-ac31-44c8-9dfb-c72ac923b7a3>
 
 ---
 
-## Estado al 16/09/2026
+## Estado al 18/10/2026
 
 | | Backend | Frontend |
 |---|---|---|
-| Tests | 217 ✅ | 122 ✅ |
-| Cobertura (statements) | 60,8 % | 31,9 % |
-| Cobertura (ramas) | 67,0 % | 31,0 % |
-| Piso configurado | 58 / 64 / 49 / 57 | 28 / 27 / 24 / 28 |
-| Módulos/features sin ningún test | `categorias` | `auditoria`, `cuota-social`, `dashboard`, `disciplinas`, `documentacion` |
+| Tests unitarios | 721 ✅ (+5 contra Postgres) | 458 ✅ |
+| Pruebas E2E (Playwright, sistema real) | — | **31 casos ✅** en 7 flujos |
+| Cobertura (statements) | **88,3 %** ✅ | **70,5 %** ✅ |
+| Cobertura (ramas) | 76,6 % | 69,3 % |
+| Piso configurado (stmts / ramas / funcs / líneas) | 70 / 70 / 61 / 69 | 67 / 66 / 57 / 68 |
+| Módulos/features sin ningún test | **0** ✅ | `auditoria`, `cuota-social`, `dashboard` |
 
 | | Cantidad |
 |---|---|
-| US implementadas (los dos repos) | ~24 |
-| US con casos documentados | 16 |
-| **US sin ningún caso** | **8** |
-| Casos en la planilla | 90 filas · **90 IDs únicos** (`TC-001`–`TC-090`, DT-18) |
-| Ejecuciones registradas | 46 (27 previas + 19 nuevas) |
+| US implementadas (los dos repos) | ~40 |
+| US con casos documentados | 37 |
+| Casos documentados | 257 filas (`TC-001`–`TC-257`) |
+| Ejecuciones registradas | 271 (`EJ-01` a `EJ-271`) |
+| Casos con ejecución E2E automática | 31 (`EJ-139` a `EJ-160`, `EJ-173` a `EJ-176`, `EJ-263` a `EJ-267`) |
 
-**Objetivo de la DoD: 70 % de cobertura.** Faltan ~10 puntos en el backend y
-~38 en el frontend.
+**Objetivo de la DoD: 70 % de cobertura.** Los dos repos lo superan: backend
+88,3 % y frontend 70,5 %.
+
+**01/11/2026 · US-60, US-61, US-62 — Reservas de espacios.** 16 casos
+(`TC-273`–`TC-288`) con ejecución unitaria (`EJ-294`–`EJ-309`: back y front) y
+8 E2E nuevos en `e2e/reservas.spec.ts` (`EJ-310`–`EJ-317`, capturas en
+`pruebas/evidencias/US-60`, `US-61` y `US-62`), que usan las reservas de
+ejemplo del seed (`SEED_RESETEAR_RESERVAS=1`). La suite E2E completa dejó a la
+vista 3 casos desactualizados en `dev` por US-04 (DT-53).
+
+**31/10/2026 · TASK-51 — Pasarela de pagos (Mercado Pago).** 15 casos nuevos
+(`TC-258`–`TC-272`, US-10 y US-52) con su ejecución (`EJ-272`–`EJ-286`,
+unitarios con la trazabilidad `TC-XXX` en el título) y E2E (`EJ-287`–`EJ-291`):
+el nuevo `TC-260` (pago rechazado y cancelado) y `TC-069`, que ahora compra
+pagando con la pasarela simulada. Prueba manual contra el sandbox de Mercado
+Pago en `pruebas/evidencias/US-10/README.md`. Se corrigió
+`scripts/exportar-casos.mjs`, que tomaba los alias viejos `TC-08xx` de los
+títulos como último ID. Hallazgo: DT-49 (tests de cuota deportiva que fallan
+cuando la fecha local y la UTC están en meses distintos).
+
+**18/10/2026 · TASK-46 (DT-02) — Cierre de casos y cobertura backend.** Se
+documentaron y exportaron los 24 casos faltantes de `US-06`, `US-08`, `US-09`,
+`US-11` y `US-24` (`TC-225`–`TC-248`), se cubrió al 100 % el módulo
+`src/categorias` (dejando al backend con 0 módulos sin tests), se etiquetó la
+trazabilidad `TC-XXX` en las suites y se registraron las ejecuciones faltantes
+(`EJ-190`–`EJ-262`) normalizando además las filas `EJ-185`–`EJ-189` al esquema
+de 10 columnas. Los 248 casos documentados tienen ejecución registrada.
+
+**04/10/2026 · TASK-43 — Pruebas E2E con evidencia.** Hasta acá todos los
+tests usaban mocks: ninguno probaba que front, API y base funcionaran juntos.
+Ahora 22 casos de la planilla corren en el navegador contra el sistema real y
+dejan una captura por paso (ver [Pruebas E2E](#pruebas-e2e)). **En la primera
+pasada encontraron cuatro bugs que los tests con mocks no veían**, ya
+corregidos:
+- El **delegado no podía inscribir a nadie**: `GET /disciplinas` le respondía
+  403 y el selector de disciplina quedaba vacío (US-05).
+- **Secretaría no podía cobrar la cuota deportiva**: `GET /personas/dni/:dni`
+  le respondía 403 al COLABORADOR (US-21).
+- **No se podían comprar entradas de un evento sin período de venta**, que es
+  opcional desde Task-E8: la página lo exigía (US-52).
+- El **control de acceso nunca mostraba «Entrada ya utilizada» ni «Entrada
+  expirada»**: leía el código HTTP de un lugar donde el cliente no lo deja
+  (US-31, DT-33). El test unitario simulaba el error de axios y pasaba.
+
+Además, los 17 tests de `*.e2e-spec.ts` del backend (auth, socios y usuarios)
+no los ejecutaba ninguna configuración de Jest; ahora corren con la suite.
+
+Últimas incorporaciones (18/10/2026, US-35):
+- **US-35 (Reporte de estado financiero)**: casos `TC-249`–`TC-257` y ejecuciones
+  `EJ-263`–`EJ-271` (5 de ellas E2E). Cubre los 3 criterios: total recaudado,
+  total adeudado, morosos y porcentaje de cobranza; período por mes, trimestre o
+  rango (con validación del rango); filtro por disciplina. TC-256 es una prueba
+  de integración E2E: el adeudado del reporte coincide con el listado de
+  morosos. La regla del vencimiento se prueba con fechas fijas. Ejecutadas por
+  el desarrollador; **pendiente la prueba cruzada**.
+- **Infraestructura E2E:** el front de las pruebas se sirve compilado
+  (`vite build` + `vite preview`); el servidor de desarrollo recargaba la página
+  en medio de una prueba de forma intermitente.
+
+Anteriores (15/10/2026, US-28):
+- **US-28 (Habilitar participante con documentación vencida)**: casos `TC-220`–`TC-224` y ejecuciones
+  `EJ-185`–`EJ-189`. Cubre los criterios de aceptación de la US: validación obligatoria de motivo escrito antes de
+  confirmar el levantamiento, indicación de la cantidad de días de habilitación excepcional con cálculo dinámico
+  de fecha límite, restricción de acceso exclusiva a usuarios con rol ADMIN, verificación de que la inscripción
+  se encuentre previamente bloqueada por documentación, levantamiento efectivo a estado HABILITADO y registro
+  inalterable de auditoría (`HabilitacionExcepcional`). Ejecutadas por el desarrollador; **pendiente la prueba cruzada**.
+
+Anteriores (10/10/2026, US-23):
+- **US-23 (Ver morosos de cuota deportiva)**: casos `TC-200`–`TC-211` y ejecuciones
+  `EJ-161`–`EJ-172` (los IDs `TC-198`/`TC-199` y `EJ-139`–`EJ-160` son de TASK-43),
+  más un flujo E2E (`e2e/morosos-cuota-deportiva.spec.ts`: TC-201, TC-208, TC-210
+  y TC-211) con sus ejecuciones `EJ-173`–`EJ-176`.
+  Cubre los 12 criterios de aceptación: solo cuotas vencidas e impagas (vencen el
+  día 10 de su mes), nombre, DNI, deuda por disciplina, detalle de cada período
+  con vencimiento, importe y estado, total con descuento de socio, filtro por
+  disciplina, búsqueda, orden, deuda separada por disciplina y acceso solo para
+  ADMIN y COLABORADOR. La regla del vencimiento se prueba con fechas fijas.
+  Capturas en `docs/pruebas/evidencias/US-23/`. Ejecutadas por el desarrollador;
+  **pendiente la prueba cruzada**.
+
+Anteriores (06/10/2026, US-19):
+- **US-19 (Ver morosos de cuota social)**: casos `TC-191`–`TC-197` y ejecuciones
+  `EJ-132`–`EJ-138`. Cubre los 7 criterios de aceptación: listado de morosos con detalle de períodos y deuda total,
+  ordenamiento por mayor monto o más períodos atrasados, búsqueda por datos de socio y filtro por categoría,
+  cálculo retrospectivo con tarifa histórica según período adeudado, exclusión automática de socios al día,
+  mensaje informativo ante listado sin morosos, y acción de cobro integrada mediante modal de secretaría.
+  Ejecutadas por el desarrollador; **pendiente la prueba cruzada**.
+
+Anteriores (05/10/2026, US-27):
+- **US-27 (Bloquear participante ante documentación vencida)**: casos `TC-186`–`TC-190` y ejecuciones
+  `EJ-127`–`EJ-131`. Cubre los 4 criterios de aceptación: bloqueo automático ante vencimiento de documento
+  o vencimiento de plazo de tolerancia sin entrega, aislamiento del bloqueo limitándolo a la disciplina/categoría
+  que lo exige, exposición de motivos detallados en sistema/UI, y levantamiento automático por renovación vigente
+  o manual por habilitación excepcional administrativa. Ejecutadas por el desarrollador; **pendiente la prueba cruzada**.
+
+Anteriores (05/10/2026, US-25):
+- **US-25 (Estado documental de un integrante)**: casos `TC-180`–`TC-185` y ejecuciones
+  `EJ-121`–`EJ-126`. Cubre los 5 criterios de aceptación: exigidos por disciplina/categoría,
+  los cuatro estados de documentos, umbral de 30 días para "Por vencer", fecha límite en faltantes,
+  estado general de inscripción (Habilitado/Pendiente/Bloqueado), control de acceso por roles y
+  visualización expandida en la tabla de participantes. Ejecutadas por el desarrollador; **pendiente la prueba cruzada**.
+
+Anteriores (04/10/2026, TASK-39 a TASK-42):
+- **Primer test contra Postgres real** (DT-25): `auditoria.inalterable.spec.ts`
+  verifica los triggers que vuelven inalterable la auditoría. El CI crea una
+  base de integración con `prisma migrate deploy` y la pasa en
+  `DB_INTEGRACION_URL`; sin esa variable la suite se saltea. Es la base para
+  los tests de integración de abajo.
+- **Contrato de Swagger** (DT-26): `respuestas.spec.ts` arma el documento real
+  y falla si una operación queda sin respuesta exitosa o sin errores.
+- DT-42 (alertas por disciplina del delegado) y DT-41 (deuda deportiva sobre
+  todos los períodos de inscripción): casos `TC-173`–`TC-179` y ejecuciones
+  `EJ-112`–`EJ-120`, que incluyen una nueva de `TC-024` y `TC-074` a nivel base.
+  Ejecutadas por el desarrollador; **pendiente la prueba cruzada**.
+
+Anteriores (04/10/2026, TASK-37 y TASK-38): el control de acceso
+con QR (`validarAcceso`, US-31) no tenía ningún test; ahora cubre válida,
+usada, expirada, evento terminado, QR inexistente y doble validación. También
+se testean el fin del evento, la tarea `cierre-de-eventos`, la compra para un
+evento terminado y activar/desactivar tarifas.
+
+Anteriores (03/10/2026): US-26 (alertas de documentación con aviso
+por email) con 13 casos (`TC-160`–`TC-172`) y su ejecución (`EJ-99`–`EJ-111`):
+el envío se probó con SMTP real local (Mailpit) y con un test de integración
+contra un servidor SMTP en memoria; capturas en `docs/pruebas/evidencias/US-26/`.
+Falta probarlo con el proveedor gratuito;
+**pendiente la prueba cruzada**.
+
+Anteriores (01/10/2026): US-44 y US-48 a US-51 (categorías de
+disciplina) con 25 casos (`TC-135`–`TC-159`) y su ejecución (`EJ-74`–`EJ-98`,
+ejecutadas por el desarrollador, **pendiente la prueba cruzada**). Se corrigió
+el test intermitente de eventos (DT-38), que cortaba el CI de vez en cuando.
 
 ---
 
@@ -58,6 +189,14 @@ convierte en tests → `/ejecutar-pruebas` corre la suite y exporta la evidencia
 > tipos que no existen en la planilla, TSV en lugar de CSV). Corregidos contra
 > el `.xlsx` real el 16/09.
 
+**Con la planilla viva de Drive (03/10):** `/exportar-casos` baja el plan de
+testing por su ID y `scripts/comparar-planilla.py` lo contrasta con
+`docs/pruebas/`: detecta casos cargados en Drive sin pasar por el repo (y los
+importa con `--importar`), filas con el mismo ID y distinto contenido, e IDs
+duplicados. El próximo ID sale de la planilla real. `/backlog` lee los criterios
+de aceptación vigentes del backlog. Sin conector de Drive, los dos usan la copia
+local o se omiten: no frenan. Ver `docs/README.md` § *Planillas en Drive*.
+
 ### Falta escribir
 
 - **`/auditar-planilla`** — contrastar la planilla contra el código y reportar discrepancias. Hecho a mano una vez, destapó DT-24 (casos que esperan cuotas que no existen), DT-25 (append-only sin respaldo en la base) y los IDs duplicados. Automatizado es un comando antes de cada entrega.
@@ -73,32 +212,44 @@ DoD) y la **conformidad del PO**.
 
 ## Pruebas E2E
 
-Recomendación: **Playwright** sobre Cypress — paraleliza mejor, corre los tres
-motores con un solo binario, y su trace viewer hace que un fallo en CI sea
-diagnosticable sin reproducirlo en local, que es donde estos frameworks se
-abandonan.
+**Hecho en TASK-43** con **Playwright** (paraleliza mejor que Cypress y su
+trace viewer permite diagnosticar un fallo del CI sin reproducirlo).
 
-### Qué hace falta antes del primer flujo
+### Cómo funcionan
 
-1. **Datos por corrida.** Ya hay `docker compose` y seed; falta que cada corrida arranque de un estado conocido (reset + seed).
-2. **Selectores estables.** Sin `data-testid` en los puntos que los tests interrogan, los E2E se rompen con cada ajuste de copy y el equipo los empieza a ignorar. Ya nos pasó con un test unitario esta semana.
-3. **Job de CI aparte**, con Postgres y la API levantadas. Conviene que corra sobre `dev` y no que bloquee cada PR, por el tiempo que suma.
+- Viven en `socialclub-frontend/e2e/`. Cada corrida levanta la API de este
+  repo contra una base propia (`socialclub_e2e`, migraciones + seed) y el front
+  apuntando a ella. Los datos de cada test se crean con DNI y emails únicos.
+- **Cada test es un caso de la planilla**: el título empieza con su `TC-XXX` y
+  la US va como tag. Sus pasos son los de la columna *Pasos*, y cada uno deja
+  una captura con lo verificado resaltado.
+- `scripts/evidencia-e2e.mjs` (front) convierte la corrida al formato del
+  equipo: capturas en `docs/pruebas/evidencias/<US>/e2e/` y filas `EJ-NN` con
+  Ejecutor «CI (Playwright)». Ver [`pruebas/README.md`](pruebas/README.md).
+- **CI:** workflow *E2E* del front, en cada push a `dev` y a mano (eligiendo la
+  rama del backend). No bloquea los PR. Publica el reporte HTML (capturas,
+  video y trace) y la evidencia como artifacts.
 
-### Los cuatro flujos que valen el esfuerzo
+### Flujos cubiertos
 
-Cruzan módulos, y los tests unitarios con mocks no dicen nada sobre si las
-piezas encajan entre sí.
-
-| Flujo | US | Por qué |
+| Flujo | Casos | US |
 |---|---|---|
-| Crear evento → generar entradas con QR → validar acceso → rechazar reingreso | US-29 / 30 / 31 | Es el ciclo completo del producto y hoy no se prueba entero |
-| Inscribir → documentación obligatoria → baja lógica → re-inscripción | US-05 / 24 / 07 | Toca la lógica más delicada del backend, hoy solo cubierta con mocks |
-| Crear usuario → login → 403 en endpoints ajenos → baja → login bloqueado | US-01 / 03 / 39 | Los permisos por rol son el agujero que ya nos encontró DT-16 |
-| Configurar cuota social del período siguiente → verificar que no rige → rotación | US-16 | La vigencia por período es puramente temporal y frágil |
+| Inscripción con documentación faltante → alerta al delegado de esa disciplina | TC-017, TC-162, TC-176, TC-173 | 05, 26 |
+| Sesión y ciclo de vida de un usuario (alta, baja, login bloqueado, logout) | TC-085, TC-086, TC-001, TC-013, TC-014, TC-088, TC-089 | 39, 01, 03, 40 |
+| Evento → compra de entradas con QR → validación en la puerta → reingreso rechazado | TC-059, TC-069, TC-198, TC-199 | 29, 30, 52, 31 |
+| Cuota social del período siguiente y cobro de la cuota deportiva hasta «al día» | TC-091, TC-117, TC-110, TC-116 | 16, 21 |
+| Alta y baja de un socio | TC-026, TC-039, TC-043 | 12, 14 |
+| Morosos de cuota deportiva: listado, detalle por disciplina, cobro desde el moroso y acceso restringido | TC-201, TC-208, TC-211, TC-210 | 23 |
+| Estado financiero: indicadores, mes/trimestre/rango, filtro por disciplina, coincidencia con los morosos y acceso restringido | TC-212, TC-215, TC-217, TC-219, TC-220 | 35 |
 
-**Costo:** ~1 sprint de armado y 1-2 días por flujo.
+**Duración:** ~1,5 minutos los 22 casos (más el arranque de la API).
 
----
+### Próximos flujos que conviene sumar
+
+- Cobro de la cuota social desde la ficha del socio y autoservicio «Mis cuotas» (US-17, US-10).
+- Edición de participante con cambio de categoría y nueva documentación exigida (US-06).
+- Baja y reinscripción en una disciplina, verificando la deuda anterior (DT-41).
+- Carga de documentación con archivo y la alerta que desaparece (US-24, US-26).
 
 ## Lo que sostiene la vara
 
@@ -133,7 +284,7 @@ Dos decisiones que quedaron tomadas y son reversibles:
 | **1** | Renumerar la planilla (DT-18) | 2 SP | ✅ hecho — PRs backend #39 y frontend #68 |
 | **2** | Skills `/auditar-planilla` y `/cobertura-por-us` | 3 SP | hacen que el paso 3 cueste un tercio |
 | **3** | Barrido por historia: las 8 US sin casos + los 5 features en cero | 8-13 SP | |
-| **4** | E2E con Playwright: armado + los 4 flujos | 8 SP | va al final a propósito |
+| **4** | E2E con Playwright: armado + los flujos principales | 8 SP | ✅ hecho — TASK-43 (5 flujos, 22 casos) |
 
 El paso 1 ya está hecho: los IDs son secuenciales y únicos, y `/exportar-casos`
 es el único asignador. El paso 2 es el que hace que el 3 cueste un tercio. El

@@ -64,6 +64,7 @@ export class PersonasService {
         fechaNacimiento: dto.fechaNacimiento
           ? new Date(dto.fechaNacimiento)
           : persona.fechaNacimiento,
+        genero: dto.genero ?? persona.genero,
         email: dto.email ?? persona.email,
         telefono: dto.telefono ?? persona.telefono,
       },

@@ -1,0 +1,12 @@
+# 1) Envío con token correcto
+$ curl -X POST -H "x-cron-token: ***" http://localhost:3000/api/v1/alertas/documentacion/notificar
+{"alertas":10,"nuevas":10,"destinatarios":1,"enviado":true}
+HTTP 200
+
+# 2) Segunda corrida: no repite
+{"alertas":10,"nuevas":0,"destinatarios":0,"enviado":false}
+HTTP 200
+
+# 3) Token incorrecto
+{"statusCode":401,"path":"/api/v1/alertas/documentacion/notificar","timestamp":"2026-10-03T17:27:12.652Z","message":"Token de tarea programada inválido"}
+HTTP 401

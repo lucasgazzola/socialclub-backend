@@ -7,11 +7,20 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { VerificacionEmailService } from '../verificacion-email/verificacion-email.service';
 
 /**
  * Se armo un modulo de test acotado al feature de socios: SociosController + SociosService
  * reales, con PrismaService/AuditoriaService mockeados
  */
+/** DT-54: la verificación de email se prueba en su propio spec. */
+const verificacionMock = {
+  emitir: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  crearCuentaPendiente: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  enviar: jest.fn().mockResolvedValue(undefined),
+  reenviar: jest.fn().mockResolvedValue({ mensaje: 'Enviamos un nuevo enlace de verificación' }),
+};
+
 describe('SociosController (e2e)', () => {
   let app: INestApplication;
   let httpServer: Parameters<typeof request>[0];
@@ -34,6 +43,12 @@ describe('SociosController (e2e)', () => {
       findFirst: jest.fn(),
       update: jest.fn(),
     },
+    usuario: {
+      findUnique: jest.fn(),
+    },
+    rol: {
+      findUnique: jest.fn().mockResolvedValue({ id: 3, nombre: 'SOCIO' }),
+    },
     $transaction: jest.fn((arg: any) => (typeof arg === 'function' ? arg(prismaMock) : arg)),
   };
 
@@ -48,6 +63,7 @@ describe('SociosController (e2e)', () => {
         SociosService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuditoriaService, useValue: auditoriaMock },
+        { provide: VerificacionEmailService, useValue: verificacionMock },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -88,6 +104,7 @@ describe('SociosController (e2e)', () => {
         apellido: 'Fernandez',
         dni: '35222111',
         email: 'carla.fernandez@example.com',
+        confirmarEmail: 'carla.fernandez@example.com',
         telefono: '351 555 1212',
         fechaNacimiento: '1995-03-10',
       };
@@ -152,6 +169,68 @@ describe('SociosController (e2e)', () => {
         .expect(409);
 
       expect(auditoriaMock.registrar).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('US-42: POST /socios/darse-de-baja (auto-baja de socio)', () => {
+    it('desactiva la membresía del usuario autenticado y registra la auditoría', async () => {
+      const usuarioSocio = {
+        id: 99,
+        nombre: 'Admin',
+        apellido: 'Socio',
+        email: 'admin@club.com',
+        persona: {
+          id: 55,
+          nombre: 'Admin',
+          apellido: 'Socio',
+          membresias: [
+            {
+              id: 10,
+              categoriaId: 1,
+              categoria: { id: 1, nombre: 'Mayores' },
+              activo: true,
+              fechaAlta: new Date(),
+            },
+          ],
+        },
+      };
+
+      prismaMock.usuario.findUnique.mockResolvedValue(usuarioSocio);
+      prismaMock.membresia.update.mockResolvedValue({
+        id: 10,
+        activo: false,
+        fechaBaja: new Date(),
+      });
+      prismaMock.persona.findUnique.mockResolvedValue({
+        id: 55,
+        nombre: 'Admin',
+        apellido: 'Socio',
+        dni: '30111222',
+        email: 'admin@club.com',
+        membresias: [
+          {
+            id: 10,
+            categoriaId: 1,
+            categoria: { id: 1, nombre: 'Mayores' },
+            activo: false,
+            fechaAlta: new Date(),
+            fechaBaja: new Date(),
+          },
+        ],
+      });
+
+      const response = await request(httpServer).post('/socios/darse-de-baja').expect(201);
+
+      expect(response.body).toEqual(expect.objectContaining({ id: 55, activo: false }));
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'BAJA',
+          entidad: 'Membresia',
+          idEntidad: 10,
+          responsableId: 99,
+        }),
+        expect.anything(),
+      );
     });
   });
 

@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsInt, IsNotEmpty, IsPositive, IsString, IsUUID } from 'class-validator';
 
 export class ValidarEntradaDto {
   @ApiProperty({
@@ -10,4 +11,14 @@ export class ValidarEntradaDto {
   @IsNotEmpty()
   @IsUUID('4')
   token: string;
+
+  @ApiProperty({
+    example: 1,
+    description: 'ID del evento que se está controlando en puerta.',
+  })
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  @IsNotEmpty()
+  eventoId: number;
 }

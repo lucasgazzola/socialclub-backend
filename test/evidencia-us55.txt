@@ -1,0 +1,154 @@
+================================================================================
+EVIDENCIA DE PRUEBAS AUTOMATIZADAS - US-55 (SOCIAL CLUB)
+Módulo: Espacios Físicos, Bloqueos de Agenda y Patrón Composite de Sub-espacios
+Equipo: NullPointer (UTN FRVM)
+Responsable QA: Mateo Gerbaudo
+Fecha: 09/11/2026
+Rama: feature/US-55-crear-espacio
+================================================================================
+
+1. EJECUCIÓN DE PRUEBAS UNITARIAS, ROLES Y SUPERTEST E2E (Jest)
+--------------------------------------------------------------------------------
+Comando: npm test -- src/espacios/
+
+PASS src/espacios/espacios.roles.spec.ts (5.776 s)
+  US-55 · EspaciosController · Control de acceso (RBAC)
+    POST /espacios (create) — Exclusivo ADMIN
+      ✓ permite el acceso al rol ADMIN
+      ✓ rechaza al rol COLABORADOR con 403 ForbiddenException
+      ✓ rechaza al rol SOCIO con 403 ForbiddenException
+      ✓ rechaza al rol DELEGADO con 403 ForbiddenException
+      ✓ rechaza al rol PROFESOR con 403 ForbiddenException
+    POST /espacios/:id/bloqueos (agregarBloqueo) — Exclusivo ADMIN
+      ✓ permite el acceso al rol ADMIN
+      ✓ rechaza al rol COLABORADOR con 403 ForbiddenException
+      ✓ rechaza al rol SOCIO con 403 ForbiddenException
+      ✓ rechaza al rol DELEGADO con 403 ForbiddenException
+      ✓ rechaza al rol PROFESOR con 403 ForbiddenException
+    GET /espacios (findAll) — ADMIN, COLABORADOR, SOCIO, DELEGADO
+      ✓ permite el acceso al rol ADMIN
+      ✓ permite el acceso al rol COLABORADOR
+      ✓ permite el acceso al rol SOCIO
+      ✓ permite el acceso al rol DELEGADO
+      ✓ rechaza a roles no autorizados (PROFESOR)
+      ✓ rechaza a roles no autorizados (INVITADO)
+    GET /espacios/:id (findOne) — ADMIN, COLABORADOR, SOCIO, DELEGADO
+      ✓ permite el acceso al rol ADMIN
+      ✓ permite el acceso al rol COLABORADOR
+      ✓ permite el acceso al rol SOCIO
+      ✓ permite el acceso al rol DELEGADO
+      ✓ rechaza a roles no autorizados (PROFESOR)
+      ✓ rechaza a roles no autorizados (INVITADO)
+
+PASS src/espacios/espacios.controller.spec.ts (6.708 s)
+  US-55 · EspaciosController
+    ✓ create · delega en service.create con el ID del usuario autenticado
+    ✓ findAll · delega en service.findAll con los filtros recibidos
+    ✓ findAll · delega con filtros de jerarquía composite soloRaiz y espacioPadreId
+    ✓ findOne · delega en service.findOne con el ID numérico
+    ✓ agregarBloqueo · delega en service.agregarBloqueo
+
+PASS src/espacios/espacios.service.spec.ts (6.821 s)
+  US-55 · EspaciosService
+    US-55 · create (Crear espacio)
+      ✓ TC-ESP01 · crea un espacio deportivo con disciplinas y bloqueos, auditando la operación
+      ✓ TC-ESP-02 · crea un espacio social (sin disciplinas, modalidad DIA_COMPLETO) exitosamente
+      ✓ TC-ESP-03 · no permite asociar disciplinas a un espacio de tipo SOCIAL (Criterio 2)
+      ✓ TC-ESP03 · falla si alguna disciplina indicada no existe o no está activa
+      ✓ TC-ESP04 · falla si el monto de la seña es mayor al precio de alquiler
+      ✓ TC-ESP05 · valida reglas de bloqueo recurrente: requiere días de la semana y vigencia (Criterio 3)
+      ✓ TC-ESP-05b · valida bloqueo recurrente sin horaInicio/horaFin o sin vigenteHasta
+      ✓ TC-ESP06 · valida reglas de bloqueo recurrente: horaFin posterior a horaInicio
+      ✓ TC-ESP07 · valida reglas de bloqueo puntual: requiere fecha y motivo (Criterio 4)
+      ✓ TC-ESP07b · valida bloqueo puntual sin fecha
+      ✓ TC-ESP07c · valida bloqueo puntual con horario incompleto o invertido
+      ✓ TC-ESP07d · valida bloqueo recurrente con vigencia invertida o disciplina no compatible
+      ✓ TC-ESP11 · Patrón Composite: crea un espacio padre y genera sus N sub-espacios en lote (ej. 3 canchas de tenis)
+      ✓ TC-ESP12 · Patrón Composite: crea sub-espacios personalizados validando seña <= precio
+      ✓ TC-ESP13 · Patrón Composite: valida existencia de espacioPadreId y máximo 2 niveles de jerarquía
+    US-55 / US-56 · agregarBloqueo (Conflicto con reservas y alquileres)
+      ✓ TC-ESP08 · Criterio 6: advierte conflicto (409) si se superpone con un alquiler particular aprobado
+      ✓ TC-ESP09 · si no hay conflicto con alquileres, crea el bloqueo y lo audita
+      ✓ TC-ESP10 · lanza 404 si el espacio no existe o está inactivo
+      ✓ TC-ESP14 · Patrón Composite: al bloquear un espacio padre, detecta conflicto (409) si uno de sus sub-espacios hijos tiene reserva aprobada
+      ✓ TC-ESP14b · Patrón Composite: al bloquear un sub-espacio hijo, detecta conflicto (409) si el espacio padre tiene reserva aprobada
+    Consultas de espacios
+      ✓ findAll · lista espacios aplicando filtros de búsqueda
+      ✓ findAll · soporta filtros soloRaiz y espacioPadreId (Patrón Composite)
+      ✓ findOne · devuelve detalle del espacio o 404 si no existe
+
+PASS src/espacios/espacios.e2e-spec.ts (8.576 s)
+  US-55 · EspaciosController (e2e / Integración con Supertest)
+    TC-ESP-01 · Happy Path - Espacio Deportivo con disciplinas y bloqueo
+      ✓ crea cancha de pádel deportiva con disciplina, modalidad POR_HORA, seña y bloqueo escuelita (201 Created)
+    TC-ESP-02 · Happy Path - Espacio Social sin disciplinas
+      ✓ crea salón de fiestas con modalidad DIA_COMPLETO y sin disciplinas (201 Created)
+    TC-ESP-03 · Validación Regla Social (Criterio 2)
+      ✓ rechaza con 400 si se intenta asociar disciplinas a un espacio de tipo SOCIAL
+    TC-ESP-04 · Validaciones Monetarias y Capacidad
+      ✓ rechaza con 400 si capacidadMaxima <= 0
+      ✓ rechaza con 400 si precio <= 0
+      ✓ rechaza con 400 si montoSena <= 0
+      ✓ rechaza con 400 si montoSena > precio total de alquiler
+    TC-ESP-05 · Validación Bloqueo Recurrente (Criterio 3)
+      ✓ rechaza con 400 si bloqueo recurrente no indica días de la semana
+      ✓ rechaza con 400 si horaFin <= horaInicio en bloqueo recurrente
+      ✓ rechaza con 400 si no se especifica vigenteHasta en bloqueo recurrente
+    TC-ESP-06 · Validación Bloqueo Puntual (Criterio 4)
+      ✓ rechaza con 400 si el bloqueo puntual no especifica fecha
+      ✓ rechaza con 400 si el bloqueo puntual no especifica motivo o está vacío
+    TC-ESP-07 · Conflicto de Agenda con Reserva Aprobada (Criterio 6)
+      ✓ responde 409 Conflict si un bloqueo puntual choca con una reserva particular aprobada/confirmada
+    TC-ESP-08 · Auditoría Inalterable (RN14 / RNF03)
+      ✓ comprueba que la creación de espacio y bloqueos registre auditoría inalterable con id de responsable
+      ✓ verifica inalterabilidad: no expone endpoints PUT, PATCH ni DELETE en /espacios
+    Seguridad y Control de Acceso (RBAC)
+      ✓ rechaza petición a POST /espacios si el usuario no tiene rol ADMIN (403 Forbidden)
+      ✓ permite consulta a GET /espacios a usuarios con rol SOCIO o COLABORADOR (200 OK)
+    TC-ESP-09 · Patrón Composite (Espacio Padre con Sub-espacios en Lote)
+      ✓ crea un sector de parrillas padre con 3 sub-espacios generados en lote (201 Created)
+    TC-ESP-10 · Patrón Composite (Límite de Jerarquía)
+      ✓ responde 404 si el espacioPadreId no existe o está inactivo
+      ✓ rechaza con 400 si se intenta asignar como padre a un sub-espacio (máximo 2 niveles)
+    TC-ESP-11 · Patrón Composite (Propagación de Conflictos Padre/Hijo)
+      ✓ responde 409 Conflict si se intenta bloquear un espacio padre cuando un sub-espacio hijo está reservado
+      ✓ responde 409 Conflict si se intenta bloquear un sub-espacio hijo cuando el espacio padre está reservado
+    Filtros Composite en GET /espacios
+      ✓ soporta filtro soloRaiz=true y espacioPadreId
+
+Test Suites: 4 passed, 4 total
+Tests:       73 passed, 73 total
+Snapshots:   0 total
+Time:        8.576 s
+
+--------------------------------------------------------------------------------
+2. RESUMEN DE COBERTURA DE CÓDIGO (npm test -- src/espacios/ --coverage)
+--------------------------------------------------------------------------------
+File                         | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+-----------------------------|---------|----------|---------|---------|-------------------
+All files                    |   90.95 |    75.21 |   86.36 |   93.26 |
+ espacios                    |   92.94 |     79.9 |   94.11 |   94.55 |
+  espacios.controller.ts     |     100 |      100 |     100 |     100 |
+  espacios.module.ts         |       0 |      100 |     100 |       0 | 1-13
+  espacios.service.ts        |   97.56 |     79.9 |   91.66 |    98.3 | 44,90
+ espacios/dto                |   86.15 |     12.5 |      60 |   90.16 |
+  create-bloqueo.dto.ts      |     100 |      100 |     100 |     100 |
+  create-espacio.dto.ts      |   96.77 |      100 |      50 |   96.77 | 154
+  find-espacios-query.dto.ts |    61.9 |     12.5 |   66.66 |   70.58 | 15-17,42-43
+-----------------------------|---------|----------|---------|---------|-------------------
+Total módulo espacios: 93.26% de líneas (Supera con creces el umbral del 70%)
+
+--------------------------------------------------------------------------------
+3. INTEGRACIÓN CON FRONTEND (Vitest - socialclub-frontend)
+--------------------------------------------------------------------------------
+Comando: npx vitest run src/features/espacios
+
+ ✓ src/features/espacios/schemas/espacio.schema.test.ts (7 tests)
+ ✓ src/features/espacios/api/espacios.api.test.ts (4 tests)
+ ✓ src/features/espacios/pages/EspaciosPage.test.tsx (2 tests)
+ ✓ src/features/espacios/components/EspacioForm.test.tsx (5 tests)
+
+Test Files  4 passed (4)
+Tests       18 passed (18)
+Estado: Frontend 100% alineado con el contrato de US-55 y Patrón Composite (formulario, vista previa, tabla y esquemas).
+================================================================================

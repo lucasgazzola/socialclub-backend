@@ -1,0 +1,22 @@
+{
+  "TC-091": {
+    "titulo": "Configurar la cuota social de una categoría para el período siguiente",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "cuotas.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-091-01.jpg",
+        "titulo": "1. Como administrador, abrir Cuota social y «Configurar cuota social»"
+      },
+      {
+        "archivo": "TC-091-02.jpg",
+        "titulo": "2. Elegir la categoría y el monto, sin período (rige desde el siguiente)"
+      },
+      {
+        "archivo": "TC-091-03.jpg",
+        "titulo": "3. Guardar: la configuración figura en el listado"
+      }
+    ]
+  }
+}

@@ -3,17 +3,21 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
-import { UpdateUsuarioPasswordDto } from './dto/update-usuario.dto';
+import { UpdateUsuarioDto } from './dto/update-usuario.dto';
+import { GetUsuariosQueryDto } from './dto/get-usuarios-query.dto';
+import {
+  EnlaceEmitido,
+  VerificacionEmailService,
+} from '../verificacion-email/verificacion-email.service';
 
-const SALT_ROUNDS = 10;
+/** DT-42: único rol que puede tener disciplinas a cargo. */
+const ROL_DELEGADO = 'DELEGADO';
 
 /** Campos que se exponen del usuario (nunca el passwordHash). */
 const SELECT_PUBLICO = {
@@ -22,12 +26,17 @@ const SELECT_PUBLICO = {
   nombre: true,
   apellido: true,
   activo: true,
+  emailVerificadoEn: true,
   ultimoLogin: true,
   creadoEn: true,
   actualizadoEn: true,
   personaId: true,
   persona: { select: { dni: true } },
   roles: { select: { rol: { select: { id: true, nombre: true } } } },
+  disciplinasDelegadas: {
+    select: { disciplina: { select: { id: true, nombre: true } } },
+    orderBy: { disciplina: { nombre: 'asc' } },
+  },
 } satisfies Prisma.UsuarioSelect;
 
 type UsuarioPublico = Prisma.UsuarioGetPayload<{ select: typeof SELECT_PUBLICO }>;
@@ -37,14 +46,18 @@ export class UsuariosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
+    private readonly verificacion: VerificacionEmailService,
   ) {}
 
   private aUsuarioDto(usuario: UsuarioPublico | null) {
     if (!usuario) return null;
-    const { persona, ...resto } = usuario;
+    const { persona, disciplinasDelegadas, ...resto } = usuario;
     return {
       ...resto,
+      // DT-54: pendiente hasta que la persona use el enlace del email.
+      emailVerificado: !!resto.emailVerificadoEn,
       dni: persona?.dni ?? null,
+      disciplinas: (disciplinasDelegadas ?? []).map((d) => d.disciplina),
     };
   }
 
@@ -57,6 +70,9 @@ export class UsuariosService {
    * hay que rechazar el alta: hay que reutilizar esa Persona y solo crear el
    * Usuario nuevo sobre ella. Únicamente se rechaza si esa Persona YA tiene
    * un Usuario asociado (ahí sí sería un usuario duplicado).
+   *
+   * DT-54: el usuario nace sin contraseña y pendiente de verificación. Le
+   * llega un enlace por email para elegir su contraseña (vence en 24 h).
    */
   async create(dto: CreateUsuarioDto, responsableId: number) {
     const email = dto.email.trim().toLowerCase();
@@ -80,9 +96,9 @@ export class UsuariosService {
     await this.validarUnicidad({ email, dni }, undefined, personaExistente?.id);
 
     const rolesIds = await this.resolverRoles(dto.roles);
-    const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
-
+    const disciplinasIds = await this.resolverDisciplinas(dto.roles, dto.disciplinasIds);
     let usuario;
+    let enlace: EnlaceEmitido;
     try {
       usuario = await this.prisma.$transaction(async (tx) => {
         let persona;
@@ -110,17 +126,21 @@ export class UsuariosService {
           });
         }
 
-        return tx.usuario.create({
+        const creado = await tx.usuario.create({
           data: {
             email,
-            passwordHash,
             nombre: dto.nombre,
             apellido: dto.apellido,
             personaId: persona.id,
             roles: { create: rolesIds.map((rolId) => ({ rolId })) },
+            disciplinasDelegadas: {
+              create: disciplinasIds.map((disciplinaId) => ({ disciplinaId })),
+            },
           },
           select: SELECT_PUBLICO,
         });
+        enlace = await this.verificacion.emitir(creado.id, tx);
+        return creado;
       });
     } catch (error) {
       // Defensa ante una condición de carrera: dos altas simultáneas con el
@@ -138,15 +158,131 @@ export class UsuariosService {
       responsableId,
     });
 
+    await this.verificacion.enviar(enlace!, responsableId);
+
     return this.aUsuarioDto(usuario);
   }
 
-  async findAll() {
-    const usuarios = await this.prisma.usuario.findMany({
-      select: SELECT_PUBLICO,
-      orderBy: { apellido: 'asc' },
-    });
-    return usuarios.map((u) => this.aUsuarioDto(u));
+  /** DT-54: el administrador reenvía el enlace a un usuario pendiente. */
+  reenviarVerificacion(id: number, responsableId: number) {
+    return this.verificacion.reenviar(id, responsableId);
+  }
+
+  async findAll(query: GetUsuariosQueryDto = new GetUsuariosQueryDto()) {
+    const {
+      busqueda,
+      rolId,
+      estado,
+      pagina = 1,
+      porPagina = 10,
+      ordenarPor,
+      orden = 'asc',
+    } = query;
+    const whereBase: Prisma.UsuarioWhereInput = {};
+
+    if (busqueda) {
+      const terminos = busqueda.trim().split(/\s+/);
+      whereBase.AND = terminos.map((t) => ({
+        OR: [
+          { nombre: { contains: t, mode: 'insensitive' } },
+          { apellido: { contains: t, mode: 'insensitive' } },
+        ],
+      }));
+    }
+
+    if (rolId) {
+      whereBase.roles = {
+        some: {
+          rolId,
+        },
+      };
+    }
+
+    const whereActivos: Prisma.UsuarioWhereInput = { ...whereBase, activo: true };
+    const whereInactivos: Prisma.UsuarioWhereInput = { ...whereBase, activo: false };
+
+    let where: Prisma.UsuarioWhereInput = whereBase;
+    if (estado === 'activos') {
+      where = whereActivos;
+    } else if (estado === 'inactivos') {
+      where = whereInactivos;
+    }
+
+    const direccion: 'asc' | 'desc' = orden?.toLowerCase() === 'desc' ? 'desc' : 'asc';
+    let orderBy: Prisma.UsuarioOrderByWithRelationInput | Prisma.UsuarioOrderByWithRelationInput[];
+
+    if (!ordenarPor) {
+      orderBy = [{ apellido: 'asc' }, { nombre: 'asc' }];
+    } else {
+      switch (ordenarPor.toLowerCase()) {
+        case 'dni':
+          orderBy = { persona: { dni: direccion } };
+          break;
+        case 'email':
+          orderBy = { email: direccion };
+          break;
+        case 'estado':
+        case 'activo':
+          orderBy = { activo: direccion };
+          break;
+        case 'fecha':
+        case 'creadoen':
+          orderBy = { creadoEn: direccion };
+          break;
+        case 'roles':
+          orderBy = { roles: { _count: direccion } };
+          break;
+        case 'nombre':
+        case 'usuario':
+        default:
+          orderBy = [{ nombre: direccion }, { apellido: direccion }];
+          break;
+      }
+    }
+
+    const [items, total, totalTodos, totalActivos, totalInactivos] = await this.prisma.$transaction(
+      [
+        this.prisma.usuario.findMany({
+          where,
+          select: SELECT_PUBLICO,
+          orderBy,
+          skip: (pagina - 1) * porPagina,
+          take: porPagina,
+        }),
+        this.prisma.usuario.count({ where }),
+        this.prisma.usuario.count({ where: whereBase }),
+        this.prisma.usuario.count({ where: whereActivos }),
+        this.prisma.usuario.count({ where: whereInactivos }),
+      ],
+    );
+
+    let resultadoItems = items.map((u) => this.aUsuarioDto(u as UsuarioPublico));
+
+    if (ordenarPor?.toLowerCase() === 'roles') {
+      resultadoItems = resultadoItems.sort((a, b) => {
+        const rolA = (a?.roles ?? [])
+          .map((r: { rol?: { nombre?: string } }) => r.rol?.nombre ?? '')
+          .sort()
+          .join(', ');
+        const rolB = (b?.roles ?? [])
+          .map((r: { rol?: { nombre?: string } }) => r.rol?.nombre ?? '')
+          .sort()
+          .join(', ');
+        return direccion === 'asc' ? rolA.localeCompare(rolB) : rolB.localeCompare(rolA);
+      });
+    }
+
+    return {
+      items: resultadoItems,
+      total,
+      pagina,
+      porPagina,
+      counts: {
+        todos: totalTodos,
+        activos: totalActivos,
+        inactivos: totalInactivos,
+      },
+    };
   }
 
   async findOne(id: number) {
@@ -161,10 +297,14 @@ export class UsuariosService {
   }
 
   /** US-02: Editar usuario administrativo */
-  async update(id: number, dto: UpdateUsuarioPasswordDto, responsableId: number) {
+  async update(id: number, dto: UpdateUsuarioDto, responsableId: number) {
     const usuarioExistente = await this.prisma.usuario.findUnique({
       where: { id },
-      include: { persona: true },
+      include: {
+        persona: true,
+        roles: { select: { rol: { select: { nombre: true } } } },
+        _count: { select: { disciplinasDelegadas: true } },
+      },
     });
     if (!usuarioExistente) {
       throw new NotFoundException('Usuario no encontrado');
@@ -172,6 +312,12 @@ export class UsuariosService {
 
     const email = dto.email?.trim().toLowerCase();
     const dni = dto.dni?.trim();
+    const emailCambio = Boolean(email) && email !== usuarioExistente.email.trim().toLowerCase();
+    if (emailCambio) {
+      const confirmado = dto.confirmarEmail?.trim().toLowerCase();
+      if (!confirmado) throw new BadRequestException('Confirmá el email.');
+      if (confirmado !== email) throw new BadRequestException('Los emails no coinciden.');
+    }
 
     // Nota: acá SÍ se mantiene la validación estricta de DNI/email (sin
     // excepción para personas sin usuario). Editar el DNI de un usuario
@@ -186,26 +332,21 @@ export class UsuariosService {
     if (dto.nombre) data.nombre = dto.nombre;
     if (dto.apellido) data.apellido = dto.apellido;
     if (email) data.email = email;
-    if (dto.password) {
-      if (!dto.currentPassword) {
-        throw new BadRequestException(
-          'Debes indicar la contraseña actual para cambiar la contraseña.',
-        );
-      }
-
-      const passwordActualValida = await bcrypt.compare(
-        dto.currentPassword,
-        usuarioExistente.passwordHash,
-      );
-      if (!passwordActualValida) {
-        throw new UnauthorizedException('La contraseña actual es incorrecta');
-      }
-
-      data.passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
-    } else if (dto.currentPassword) {
-      throw new BadRequestException(
-        'La contraseña nueva es obligatoria si ingresas la contraseña actual.',
-      );
+    if (emailCambio) data.emailVerificadoEn = null;
+    // DT-42: las disciplinas se validan contra los roles con los que queda el
+    // usuario. Si deja de ser delegado, pierde las disciplinas a cargo.
+    const rolesFinales = dto.roles ?? usuarioExistente.roles.map((r) => r.rol.nombre);
+    if (dto.disciplinasIds !== undefined) {
+      const disciplinasIds = await this.resolverDisciplinas(rolesFinales, dto.disciplinasIds);
+      data.disciplinasDelegadas = {
+        deleteMany: {},
+        create: disciplinasIds.map((disciplinaId) => ({ disciplinaId })),
+      };
+    } else if (
+      !rolesFinales.includes(ROL_DELEGADO) &&
+      usuarioExistente._count.disciplinasDelegadas > 0
+    ) {
+      data.disciplinasDelegadas = { deleteMany: {} };
     }
 
     if (dto.roles) {
@@ -214,7 +355,7 @@ export class UsuariosService {
       data.roles = { create: rolesIds.map((rolId) => ({ rolId })) };
     }
 
-    const usuario = await this.prisma.$transaction(async (tx) => {
+    const { usuario, enlace } = await this.prisma.$transaction(async (tx) => {
       if (dni || dto.nombre || dto.apellido || email) {
         await tx.persona.update({
           where: { id: usuarioExistente.personaId },
@@ -227,12 +368,16 @@ export class UsuariosService {
         });
       }
 
-      return tx.usuario.update({
+      const actualizado = await tx.usuario.update({
         where: { id },
         data,
         select: SELECT_PUBLICO,
       });
+      const enlaceEmitido = emailCambio ? await this.verificacion.emitir(id, tx) : null;
+      return { usuario: actualizado, enlace: enlaceEmitido };
     });
+
+    if (enlace) await this.verificacion.enviar(enlace, responsableId);
 
     await this.auditoria.registrar({
       accion: 'EDITAR',
@@ -307,6 +452,27 @@ export class UsuariosService {
       throw new NotFoundException('Uno o más roles indicados no existen');
     }
     return roles.map((rol) => rol.id);
+  }
+
+  /**
+   * DT-42: valida las disciplinas a cargo. Solo un delegado puede tenerlas, y
+   * tienen que existir y estar activas.
+   */
+  private async resolverDisciplinas(roles: string[], ids: number[] = []): Promise<number[]> {
+    if (!ids.length) return [];
+    if (!roles.includes(ROL_DELEGADO)) {
+      throw new BadRequestException(
+        'Solo los usuarios con rol DELEGADO pueden tener disciplinas a cargo.',
+      );
+    }
+    const disciplinas = await this.prisma.disciplina.findMany({
+      where: { id: { in: ids }, activo: true },
+      select: { id: true },
+    });
+    if (disciplinas.length !== new Set(ids).size) {
+      throw new NotFoundException('Una o más disciplinas indicadas no existen o están inactivas');
+    }
+    return disciplinas.map((d) => d.id);
   }
 
   private async validarUnicidad(

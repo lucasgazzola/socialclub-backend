@@ -1,6 +1,8 @@
 # SocialClub — Infraestructura y despliegue
 
-> Documento de referencia con **todas las decisiones de infraestructura y despliegue** del proyecto SocialClub. Aplica a los dos repos (`socialclub-backend` y `socialclub-frontend`). Última actualización: 2026-08-07.
+> Documento de referencia con **todas las decisiones de infraestructura y despliegue** del proyecto SocialClub. Aplica a los dos repos (`socialclub-backend` y `socialclub-frontend`). Última actualización: 2026-09-16.
+>
+> **Operar** los entornos (comandos `az` / `gh` / `curl` / receta `dev → test`): [`docs/RUNBOOK-OPERACIONES.md`](docs/RUNBOOK-OPERACIONES.md).
 
 ---
 
@@ -116,10 +118,69 @@ prisma generate → prisma migrate deploy → node prisma/seed.js → node dist/
 | `DATABASE_URL` | **secret** (`secretref:database-url`) | Con `?sslmode=require` |
 | `JWT_SECRET` | **secret** (`secretref:jwt-secret`) | Distinto por entorno |
 | `SEED_ADMIN_PASSWORD` | **secret** (`secretref:seed-admin-password`) | Distinta por entorno |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `MAIL_FROM` | env-var (opcional, US-26) | Emails de alertas. Sin `SMTP_HOST` no se envía nada. `MAIL_FROM` sin espacios (solo el email) |
+| `SMTP_PASS` | **secret** (`secretref:smtp-pass`, opcional) | Clave SMTP del proveedor |
+| `APP_URL` | env-var (opcional) | URL del front para el enlace del email |
+| `TAREAS_TOKEN` | **secret** (`secretref:tareas-token`, opcional) | Mín. 16 caracteres. Sin él, `POST /tareas/:nombre/programada` queda cerrado (403). Se acepta `ALERTAS_CRON_TOKEN`, su nombre de US-26 |
 
 ### 5.2 GitHub Environments (`test` y `production`)
 
 Secrets cargados en cada environment (los consume el CD): `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`.
+
+Opcionales (US-26, DT-36, DT-22; el CD los aplica solo si existen): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `APP_URL`, `TAREAS_TOKEN`.
+
+### 5.2.1 Emails y tareas automáticas (US-26, DT-36, DT-22)
+
+1. **Proveedor SMTP gratuito.** Recomendado: **Brevo** (300 emails/día gratis):
+   crear cuenta → *SMTP & API* → generar clave SMTP → verificar el remitente.
+   `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=587`, `SMTP_USER`=login SMTP,
+   `SMTP_PASS`=clave SMTP, `MAIL_FROM`=remitente verificado. Alternativas:
+   Gmail con contraseña de aplicación (`smtp.gmail.com:465`) o Mailtrap (solo pruebas).
+2. **Token de las tareas automáticas** (`TAREAS_TOKEN`): no lo emite ningún
+   servicio, se genera a mano y es un secreto compartido entre la API y el
+   workflow. Uno **distinto por entorno**, mínimo 16 caracteres:
+   `openssl rand -hex 24` (o `node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"`).
+   Cargarlo como secret del environment (`test` / `production`); el CD se lo pasa
+   a la API.
+3. **Secrets de repositorio** para `tareas-automaticas.yml`. Van a nivel
+   repositorio y no de environment, porque `production` tiene aprobación manual
+   y frenaría cada ejecución. El workflow corre en GitHub, fuera de Azure: con
+   la URL sabe a qué API llamar y con el token se autentica.
+
+   | Secret | Valor |
+   |---|---|
+   | `TAREAS_API_URL_TEST` | `https://ca-socialclub-api-test.agreeablehill-d095161e.brazilsouth.azurecontainerapps.io` |
+   | `TAREAS_API_URL_MAIN` | `https://ca-socialclub-api-main.agreeablehill-d095161e.brazilsouth.azurecontainerapps.io` |
+   | `TAREAS_TOKEN_TEST` | el mismo `TAREAS_TOKEN` del environment `test` |
+   | `TAREAS_TOKEN_MAIN` | el mismo `TAREAS_TOKEN` del environment `production` |
+
+   La URL es la base de la API, **sin** `/api/v1` ni barra final (si cambia:
+   `az containerapp show -g rg-socialclub -n ca-socialclub-api-test --query properties.configuration.ingress.fqdn -o tsv`,
+   o el final del log del CD). Si a un entorno le falta la URL o el token, el
+   workflow lo **saltea con un aviso** y no falla: sirve para dejar main sin
+   tareas mientras su API esté apagada. Los nombres de US-26 (`ALERTAS_*`)
+   siguen funcionando.
+4. Redesplegar el entorno para que el CD aplique las variables.
+
+Comandos y verificación paso a paso: [`docs/RUNBOOK-OPERACIONES.md` §8](docs/RUNBOOK-OPERACIONES.md#8-tareas-automáticas-cargar-los-secrets-y-probar).
+
+> **Estado al 03/10/2026: pendiente de cargar.** Ningún entorno tiene todavía
+> `TAREAS_TOKEN` ni los secrets `TAREAS_*`, así que el workflow se saltea en
+> los dos. La API de test respondía `/health`; la de main no respondió
+> (revisión desactivada o cold start), así que conviene cargar primero solo test.
+
+Probar a mano: *Actions → Tareas automáticas → Run workflow* y elegir la tarea,
+o desde la app: *Administración → Tareas automáticas → Ejecutar ahora*
+([decisión 0002](docs/decisiones/0002-servicio-de-tareas-automaticas.md)). La
+respuesta es la ejecución registrada (`estado`, `resultado`, `error`); el workflow
+falla si quedó `FALLIDA`. El resultado de `vencimientos-documentacion` es `{"alertas":N,"nuevas":M,"destinatarios":D,"creadas":C,"enviadas":E,"fallidas":0,"pendientes":0}`.
+Cada alerta se avisa **una sola vez** y cada delegado activo recibe su propio email.
+Todo envío queda en la tabla `notificaciones` (outbox, decisión
+[0001](docs/decisiones/0001-servicio-de-notificaciones.md)): si el SMTP falla queda
+FALLIDA con el error, y sin SMTP configurado queda PENDIENTE hasta que se configure.
+
+Para probarlo antes con una casilla real (Gmail o Brevo desde local) o sin
+enviar nada (Mailpit): ver [`docs/pruebas/evidencias/US-26/README.md`](docs/pruebas/evidencias/US-26/README.md).
 
 > Los valores reales (JWT, DB, passwords) viven en **Azure Container App secrets** y **GitHub Environment secrets**. No están en el repo.
 >
@@ -137,9 +198,10 @@ Secrets cargados en cada environment (los consume el CD): `AZURE_CLIENT_ID`, `AZ
 
 Workflows en `.github/workflows/` del backend:
 
-- **`ci.yml`** — en PRs a `dev`/`test`/`main` y push a `dev`: `npm ci` → `prisma generate` → lint → test → build. **No despliega.**
+- **`ci.yml`** — en PRs a `dev`/`test`/`main` y push a `dev`: `npm ci` → `prisma generate` → chequeo de drift → lint → base de integración (`migrate deploy` sobre el Postgres efímero, DT-25) → test → build. **No despliega.**
 - **`cd-test.yml`** — en push a `test`: build imagen (`target prod`) → push a ghcr → login OIDC a Azure → crea/actualiza `ca-socialclub-api-test`.
 - **`cd-main.yml`** — en push a `main`: idem, `environment: production` (**requiere aprobación manual**).
+- **`tareas-automaticas.yml`** — único reloj de las tareas automáticas (DT-22, §5.2.1): según el horario llama a `POST /api/v1/tareas/<tarea>/programada` en test y main (vencimientos de documentación a las 08:00, reintento de notificaciones cada 6 h, rotación de la cuota social el día 1, cierre de eventos y vencimiento de entradas a las 05:00). También se ejecuta a mano eligiendo la tarea. Si faltan sus secrets, se omite. GitHub solo corre los `schedule` desde `main`.
 
 Detalles: usan `docker/setup-buildx-action` (driver `docker-container`, necesario para cache `type=gha`); autenticación a ghcr con `GITHUB_TOKEN`; a Azure con OIDC. Migraciones y seed se aplican solos vía entrypoint.
 
@@ -149,25 +211,30 @@ El frontend se despliega por la **integración nativa Git de Vercel** (no usa Ac
 
 ## 7. Runbook (operaciones comunes)
 
+La lista completa (qué es cada comando, por qué, ejemplos, receta `dev → test` y trampas) está en **[`docs/RUNBOOK-OPERACIONES.md`](docs/RUNBOOK-OPERACIONES.md)**.
+
+Atajos:
+
 ```bash
 # Ver estado / logs de una API
 az containerapp show -g rg-socialclub -n ca-socialclub-api-test -o table
 az containerapp logs show -g rg-socialclub -n ca-socialclub-api-test --follow
 
-# Desplegar a TEST: merge/push a la rama test (CD automático)
-git push origin dev:test           # backend y front
+# Promover a TEST: PR explícito (nunca `git push origin dev:test` ni `gh pr create` sin --base)
+gh pr create --base test --head dev
+# mergear cuando CI esté verde; el push a `test` dispara CD
 
-# Desplegar a MAIN: push a main y aprobar en GitHub Actions (Review deployments)
+# Desplegar a MAIN: PR a main + aprobación en GitHub Actions (Review deployments)
 
-# Actualizar un secreto de la API (ej. CORS_ORIGIN)
+# Actualizar un env no secreto de la API (ej. CORS_ORIGIN)
 az containerapp update -g rg-socialclub -n ca-socialclub-api-test \
   --set-env-vars "CORS_ORIGIN=https://socialclub-frontend-test.vercel.app"
 
-# Rotar un secreto sensible (DATABASE_URL / JWT_SECRET): actualizar el GitHub
-# Environment secret y volver a desplegar (el CD lo re-aplica).
+# Rotar un secreto sensible (DATABASE_URL / JWT_SECRET / SEED_ADMIN_PASSWORD):
+# actualizar el GitHub Environment secret y volver a desplegar (el CD lo re-aplica).
 ```
 
-Healthcheck: `GET /api/v1/health`. Login inicial: `admin@socialclub.local` (password por entorno, definida como secret del seed).
+Healthcheck: `GET /api/v1/health`. Login inicial: `admin@socialclub.local` (password por entorno = `SEED_ADMIN_PASSWORD`, **no** la de local).
 
 ---
 
@@ -178,3 +245,6 @@ Healthcheck: `GET /api/v1/health`. Login inicial: `admin@socialclub.local` (pass
 - **Regla firewall `DevTemp-lucas`** (IP de desarrollo) puede borrarse cuando no se necesite acceso directo a la DB.
 - **Credencial de registry en las Container Apps:** ya no es imprescindible (el package ghcr es público); se puede remover.
 - El acceso a la DB desde las Container Apps usa la regla "Azure services" (0.0.0.0). Para mayor aislamiento podría usarse VNet/private endpoint (no necesario en este alcance).
+- **Migración `20260915050001` (consolidar usuario/persona) no tiene backfill.** Un `migrate deploy` sobre `socialclub_test` con datos previos a esa migración falla (`P3009`). Antes de un promote grande: vaciar `socialclub_test` y no dejar viva la revisión de imagen vieja. Detalle en el runbook §3 y §9.
+- **CD Test en verde ≠ contenedor sano.** `az containerapp update` puede devolver 0 y la revisión quedar `Unhealthy` si Prisma falla. Confirmar con logs + `GET /api/v1/health`.
+- **El CD, al actualizar una app existente, no rehabilita el ingress.** Si el FQDN queda `null`, `az containerapp ingress enable --type external --target-port 3000`.

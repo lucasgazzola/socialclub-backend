@@ -1,5 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { GeneroDisciplina } from '@prisma/client';
+import {
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+import { MatchesPassword } from './match-password.validator';
+import { ConfirmaEmail } from '../../common/decorators/confirma-email.decorator';
+import { IsFechaNacimientoValida } from './fecha-nacimiento.validator';
 
 /**
  * US-38 — Registro público de usuario.
@@ -15,6 +27,14 @@ export class RegisterDto {
   email: string;
 
   @ApiProperty({
+    example: 'nuevo@socialclub.local',
+    description: 'DT-54: el email escrito por segunda vez, por si hay un error de tipeo.',
+  })
+  @IsNotEmpty({ message: 'Confirmá el email.' })
+  @ConfirmaEmail('email')
+  confirmarEmail: string;
+
+  @ApiProperty({
     example: 'Cambiar123!',
     minLength: 8,
     description:
@@ -28,6 +48,23 @@ export class RegisterDto {
       'La contraseña debe contener al menos una mayúscula, una minúscula, un número y un carácter especial.',
   })
   password: string;
+
+  @ApiProperty({ example: 'Cambiar123!' })
+  @IsString()
+  @IsNotEmpty()
+  @MatchesPassword('password', { message: 'La confirmación de contraseña no coincide.' })
+  confirmarPassword: string;
+
+  @ApiProperty({ example: '1990-05-15', description: 'Fecha de nacimiento (YYYY-MM-DD)' })
+  @IsString()
+  @IsNotEmpty()
+  @IsFechaNacimientoValida()
+  fechaNacimiento: string;
+
+  @ApiProperty({ enum: GeneroDisciplina, example: GeneroDisciplina.FEMENINO })
+  @IsNotEmpty()
+  @IsEnum(GeneroDisciplina, { message: 'El género seleccionado no es válido.' })
+  genero: GeneroDisciplina;
 
   @ApiProperty({ example: 'Ana' })
   @IsString()

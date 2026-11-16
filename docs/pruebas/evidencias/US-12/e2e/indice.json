@@ -1,0 +1,22 @@
+{
+  "TC-026": {
+    "titulo": "Registrar un nuevo socio con datos válidos",
+    "fecha": "10/10/2026",
+    "resultado": "Aprobado",
+    "archivo": "socios.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-026-01.jpg",
+        "titulo": "1. Como administrador, abrir Socios y «Nuevo Socio»"
+      },
+      {
+        "archivo": "TC-026-02.jpg",
+        "titulo": "2. Completar los datos y la categoría"
+      },
+      {
+        "archivo": "TC-026-03.jpg",
+        "titulo": "3. Crear el socio: figura activo en el listado"
+      }
+    ]
+  }
+}

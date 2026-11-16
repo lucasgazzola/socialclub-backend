@@ -5,14 +5,49 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 16/09/2026
+- **Última actualización:** 16/11/2026 (revisión de la rama `fix/correcciones-prueba-integral`: DT-60, DT-61, DT-62 y DT-63 nuevas); 16/11/2026 (DT-35 resuelta: el socio paga la cuota deportiva desde Mi club; DT-29 resuelta: US-65 y US-66 en `dev`; DT-59 resuelta: cambiar el email vuelve a verificarlo); 15/11/2026 (DT-54 y DT-51 pasadas a resueltas; DT-59 nueva por el email que se cambia sin re-verificar; DT-27 y DT-29 alineadas con el código); 16/11/2026 (TASK-60 · integración del portal de socios y documentación con revisión: DT-58 resuelta); 15/11/2026 (TASK-60 · landing, Mi club y panel separados: DT-57 resuelta, DT-58 nueva); 02/11/2026 (devolución del profesor en la 3ra reunión: DT-54, DT-55, DT-56 y DT-57 nuevas); 01/11/2026 (TASK-57 · DT-46 y DT-47: error en formulario de usuario y formato de DNI unificado; TASK-56 · DT-06, DT-09, DT-36: confirmación de compra de entradas y actualización de deuda técnica; US-60/61/62 · reservas, DT-53 nueva; registro DT-50, DT-51 y DT-52; TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
 
 > Los IDs **DT-01 a DT-14** son los que relevó el equipo. Los **DT-15 en
 > adelante** salieron de la revisión del código del 15/09/2026 y están
-> marcados como tal.
+> marcados como tal. Los **DT-27 en adelante** salieron del análisis
+> funcional de dominio del 22/09/2026 (documentación, inscripciones, entradas
+> y cuotas) y están marcados como `Nuevo · funcional`. Los **DT-54 a DT-57**
+> son la devolución del profesor en la 3ra reunión formal (02/11/2026). DT-54
+> está resuelta, igual que DT-59 (volver a verificar si cambia el email) y DT-29
+> (US-65 y US-66, 16/11/2026). DT-58 salió de la integración
+> del portal (16/11/2026) y también está resuelta.
+
+---
+
+## Índice
+
+- [Cómo priorizamos](#cómo-priorizamos)
+- [Estado de un vistazo](#estado-de-un-vistazo)
+- [Decisiones pendientes del equipo](#decisiones-pendientes-del-equipo)
+  - [🔴 Persistencia de los adjuntos en Azure (DT-15)](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo)
+  - [🟠 Estandarización del código a inglés](#estandarización-del-código-a-inglés---costo-creciente)
+- [Deuda pendiente](#deuda-pendiente)
+  - [🟠 Altas](#-altas)
+    - [DT-52 · Reemplazo del rol DELEGADO por COLABORADOR y eliminación de toda mención](#dt-52--reemplazo-del-rol-delegado-por-colaborador-y-eliminación-de-toda-mención)
+    - [DT-27 · Documentación por disciplina: requisitos, estados y vigencia](#dt-27--documentación-por-disciplina-requisitos-estados-y-vigencia)
+    - [DT-60 · Un menor no puede pedir inscripción si la categoría exige un documento con plazo 0](#dt-60--un-menor-no-puede-pedir-inscripción-si-la-categoría-exige-un-documento-con-plazo-0)
+  - [🟡 Medias](#-medias)
+    - [DT-61 · El delegado ve el estado documental de disciplinas que no tiene a cargo](#dt-61--el-delegado-ve-el-estado-documental-de-disciplinas-que-no-tiene-a-cargo)
+    - [DT-62 · Quien no es ni fue socio no paga la cuota deportiva desde Mi club](#dt-62--quien-no-es-ni-fue-socio-no-paga-la-cuota-deportiva-desde-mi-club)
+    - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
+    - [DT-55 · La inscripción es de a una disciplina por vez](#dt-55--la-inscripción-es-de-a-una-disciplina-por-vez)
+    - [DT-56 · Faltan filtros por rango de fechas en morosos y reportes](#dt-56--faltan-filtros-por-rango-de-fechas-en-morosos-y-reportes)
+  - [⚪ Bajas](#-bajas)
+    - [DT-63 · Detalles del reporte financiero y del pago deportivo online](#dt-63--detalles-del-reporte-financiero-y-del-pago-deportivo-online)
+    - [DT-09 · Imágenes en eventos](#dt-09--imágenes-en-eventos)
+    - [DT-36 · No hay notificaciones de vencimiento o resolución](#dt-36--no-hay-notificaciones-de-vencimiento-o-resolución)
+- [Deuda resuelta](#deuda-resuelta)
+- [Trazabilidad de casos de prueba](#trazabilidad-de-casos-de-prueba)
+- [Nomenclatura](#nomenclatura)
+- [Definition of Done aplicada a la deuda técnica](#definition-of-done-aplicada-a-la-deuda-técnica)
 
 ---
 
@@ -32,18 +67,18 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 
 | Estado | Ítems |
 |---|---|
-| 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15--🔴-riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés--🟠-costo-creciente) |
-| ✅ Resueltas | DT-03, DT-04, DT-07, DT-13, DT-14, DT-16, DT-18, DT-19, DT-21 |
-| 🟠 Altas pendientes | DT-01, DT-02 (en curso), DT-05 |
-| 🟡 Medias pendientes | DT-10, DT-11, DT-17, DT-22, DT-23, DT-24, DT-25, DT-26 |
-| ⚪ Bajas pendientes | DT-06, DT-08, DT-09, DT-20 |
+| 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
+| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-29, DT-30, DT-31, DT-32, DT-33, DT-35, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48, DT-49, DT-50, DT-51, DT-53, DT-54, DT-59, DT-06, DT-46, DT-47, DT-57, DT-58 |
+| 🟠 Altas pendientes | DT-60, DT-52, DT-27 (configuración, estado documental, alertas, revisión, habilitación excepcional y plazo 0 al inscribir resueltos) |
+| 🟡 Medias pendientes | DT-61, DT-62, DT-34, DT-55, DT-56 |
+| ⚪ Bajas pendientes | DT-63, DT-09 (campo e interfaz listos, subida pendiente de DT-15), DT-36 (servicio resuelto en TASK-35, alertas en US-26, reservas en US-60/61/62, compra de entradas en TASK-56; restan la solicitud de inscripción y las cuotas) |
 
-**Cobertura de tests** (medida el 16/09/2026, objetivo DoD **70 %**):
+**Cobertura de tests** (medida el 01/11/2026, objetivo DoD **70 %**):
 
 | Repo | Statements | Piso configurado |
 |---|---|---|
-| Frontend (Vitest) | 22,03 % | 22 % |
-| Backend (Jest) | **60,82 %** | 58 % |
+| Frontend (Vitest) | **73,2 %** ✅ | 70 % |
+| Backend (Jest) | **88,6 %** ✅ | 85 % |
 
 Los dos repos tenían además el **CI en rojo** por configuración de lint, no por
 código: ver [Extra](#extra--ci-del-frontend-en-rojo-desde-el-0709) al final.
@@ -106,225 +141,885 @@ decidir tiene un costo que sube solo.
 
 ### 🟠 Altas
 
-#### DT-02 · Faltan los casos de prueba de las historias ya implementadas (backend)
-*backend · en curso*
+#### DT-52 · Reemplazo del rol DELEGADO por COLABORADOR y eliminación de toda mención
+*Nuevo · modelo de autorización · backend + frontend*
 
-Esto **no es «falta cobertura»**: de las **22 US implementadas en el backend,
-solo 5 tienen casos cargados** en la planilla (US-07, US-08, US-38, US-39,
-US-40). Las otras se mergearon sin documentar un solo caso, y la cobertura baja
-es la consecuencia, no la causa.
+El rol `DELEGADO` va a ser reemplazado íntegramente por `COLABORADOR`, eliminando toda mención a "delegado" en la base de datos, el código fuente, las interfaces de usuario, el seed y las pruebas de ambos repositorios (`socialclub-backend` y `socialclub-frontend`):
 
-Por eso se ataca **por historia y no por módulo**: se generan los casos con
-`/casos-prueba`, se automatizan con `/casos-a-tests` y la cobertura sube como
-efecto. Así los tests cubren requisitos y quedan trazables US → TC → test, que
-es lo que pide la DoD y lo que se entrega.
+- **Base de datos y Prisma (`prisma/schema.prisma`, migración y `prisma/seed.ts`):**
+  - Migrar los usuarios existentes con `rol = 'DELEGADO'` a `'COLABORADOR'` y eliminar el valor `DELEGADO` del enum `RolUsuario` (quedando `ADMIN`, `COLABORADOR`, `SOCIO`).
+  - Eliminar la tabla `DisciplinaDelegado` (`disciplina_delegados`) y toda relación asociada en `Usuario` y `Disciplina`.
+  - Eliminar el usuario de prueba de delegado (`delegado@socialclub.local`) o unificarlo bajo `COLABORADOR` en `prisma/seed.ts`.
+- **Backend (`src/`):**
+  - Reemplazar `@Roles(..., RolUsuario.DELEGADO)` por `RolUsuario.COLABORADOR` en todos los controladores (`inscripcion`, `documentacion`, `disciplinas`, `personas`, `socios`, `eventos`, `alertas`, etc.).
+  - Eliminar la lógica de filtrado exclusivo por disciplinas asignadas al delegado (p. ej. `AlertasDocumentacionService`, `DisciplinasService`, `UsuariosService`) y cualquier propiedad, DTO o método que mencione `delegado` / `disciplinasDelegadas`.
+- **Frontend (`src/` y `e2e/`):**
+  - Eliminar `'DELEGADO'` del tipo `RolUsuario`, selectores de alta/edición de usuario, badges de rol, etiquetas visibles, guardas de rutas (`ProtectedRoute`), menú de navegación (`Sidebar` / `Layout`) y vistas de disciplinas/alertas.
+  - Actualizar las pruebas unitarias (Jest/Vitest) y flujos E2E (Playwright) eliminando toda referencia al rol `DELEGADO`.
 
-| US implementada | Módulo | Cobertura | Casos |
-|---|---|---|---|
-| ~~US-16 Configurar cuota social~~ | `cuota-social` | **90 %** | ✅ 10 casos |
-| ~~US-32 Registrar logs de operaciones~~ | `auditoria` | **92 %** | ✅ 9 casos |
-| US-24 Documentación obligatoria | `documentacion` | 41 % | pendiente |
-| US-30 / US-31 Entradas y QR | `entradas` | 50 % | pendiente |
-| US-29 Crear evento | `eventos` | 51 % | pendiente |
-| US-09/11/12/13/14/15 Socios | `socios` | 54 % | pendiente |
-| US-20 Configurar cuotas deportivas | `cuotas` | 56 % | pendiente |
-| US-01 / US-02 / US-03 Usuarios | `usuarios` | 61 % | pendiente |
-| US-05 / US-06 Participantes | `inscripcion` | 75 % | pendiente |
-| — | `categorias` | 0 % | sin US asociada |
+#### DT-27 · Documentación por disciplina: requisitos, estados y vigencia
+*Nuevo · funcional · backend + frontend*
 
-- **Orden sugerido para lo que queda:** US-01/02/03 (permisos), US-20, US-29/30/31, US-24, socios.
-- **Rama sugerida:** `issue/TASK-<n>-DT-02-Casos-<US>`
+La configuración, el cálculo de vigencia, el bloqueo, las alertas, la
+habilitación excepcional y la revisión de lo que sube el titular ya están
+resueltos. El detalle está en los ítems de abajo y en DT-50, DT-57 y DT-58.
+`Documentacion.estadoRevision` es `APROBADO`, `PENDIENTE_REVISION` o
+`RECHAZADO`, con revisor, fecha y motivo. Solo lo aprobado habilita. Lo que
+carga el club nace aprobado.
 
-#### DT-01 · Cobertura de testing frontend
-*frontend · 8 SP*
+**H13 resuelto (15/11/2026):** un requisito con plazo 0 se exige al inscribir.
+Sin ese documento, el alta y la solicitud se rechazan. Quien ya estaba
+inscripto sin presentarlo queda bloqueado el mismo día. Un plazo mayor sigue
+siendo pendiente hasta la fecha, y el texto ya no lo llama opcional. Ver la
+[decisión 0010](decisiones/0010-correcciones-de-la-prueba-integral.md).
 
-De 22 % a 70 % no se llega en una rama. Conviene repartir por feature — una
-rama por dominio sin tests (`auditoria`, `entradas`, `documentacion`,
-`disciplinas`, `dashboard`) — y subir el piso en cada PR. **Regla de equipo:
-ninguna rama de deuda técnica se mergea sin sus propios tests**; así DT-01
-avanza sola con el resto del trabajo.
+- **Configuración de requisitos resuelta en US-44 (22/09/2026).**
+- **Requisitos por categoría resueltos en US-48/49 (01/10/2026,**
+  backend [#64](https://github.com/lucasgazzola/socialclub-backend/pull/64) ·
+  frontend [#89](https://github.com/lucasgazzola/socialclub-frontend/pull/89)**):**
+  `DisciplinaRequerimientoDoc.categoriaDisciplinaId` (null = de toda la
+  disciplina; con valor = adicional de la categoría). Cada requisito guarda
+  desde cuándo rige (`creadoEn`), base del plazo para los ya inscriptos.
+- **Base de datos lista para lo que sigue:** `Documentacion.tipoDocumento`
+  (catálogo; los documentos viejos con texto libre se mapearon cuando
+  coincidían y el resto quedó en null), `Inscripcion.requisitosDesde` (US-6) y
+  la tabla `habilitaciones_excepcionales` (US-28).
+- **Estado documental resuelto en US-25 / TASK-31 (01/10/2026 - 05/10/2026):**
+  `EstadoDocumentalService` calcula en el momento, por cada inscripción activa,
+  el estado de cada documento exigido (Vigente / Por vencer / Vencido / Faltante
+  con fecha límite) y el estado general (Habilitado / Pendiente de documentación
+  / Bloqueado), con los motivos en texto. Cubierto por casos `TC-180` a `TC-185` y
+  ejecuciones `EJ-121` a `EJ-126`. Al ser un cálculo, el bloqueo por
+  vencimiento (US-27) no necesita jobs. Lo usan: el alta de inscripción
+  (`GET /inscripcion/requisitos` y la respuesta del alta), el listado de
+  participantes y `GET /documentacion/persona/:id/estado`. La documentación se
+  carga con un tipo del catálogo, solo entre los exigidos al participante; un
+  documento nuevo del mismo tipo renueva al anterior.
+- **Bloqueo por documentación resuelto en US-27 (05/10/2026):**
+  Cubierto por casos `TC-186` a `TC-190` y ejecuciones `EJ-127` a `EJ-131`. El sistema bloquea automáticamente
+  el día en que vence el documento o al cumplirse el plazo de tolerancia sin entrega, aísla el bloqueo a la disciplina/categoría
+  afectada sin impactar en las restantes, expone los motivos detallados en sistema y UI, y levanta automáticamente por renovación vigente
+  o manualmente por habilitación excepcional.
+- **Alertas resueltas en US-26 (03/10/2026):** ver [Resuelta](#us-26--alertas-por-vencimiento-de-documentación-con-aviso-por-email).
+- **Revisión resuelta en TASK-60 (16/11/2026):** el titular sube desde Mi club
+  y el documento queda `PENDIENTE_REVISION` hasta que un delegado o el
+  administrador lo aprueba o lo rechaza. La bandeja está en el Inicio del panel.
+- **Habilitación excepcional resuelta en US-28 / DT-50.**
+- **Filtro del listado resuelto (15/11/2026):** `estadoDocumental` en
+  participantes, y el orden por defecto pone primero lo pendiente de aprobación.
 
-- **Rama sugerida:** `issue/TASK-<n>-DT-01-Cobertura-frontend-<feature>`
+#### DT-60 · Un menor no puede pedir inscripción si la categoría exige un documento con plazo 0
+*Nuevo · funcional · revisión del 16/11/2026*
 
-#### DT-05 · Falta activar/desactivar la cuota deportiva
-*frontend · 1 SP*
+Desde H13, un requisito con plazo 0 hay que tenerlo al inscribir. En la
+solicitud (`solicitarInscripcion`) solo cuenta un documento que ya esté
+**aprobado**, y no hay forma de tenerlo antes:
 
-El backend ya está listo: `ConfiguracionCuotaDeportiva.activo` existe,
-`ActualizarCuotaDto` acepta `activo`, el service lo persiste y audita, el tipo
-del front lo declara y la tabla ya muestra el badge Activo/Inactivo. **Falta
-solo el botón** que mande `{ activo: false }`.
+- `POST /documentacion/mi-documentacion` rechaza un tipo que no exija alguna
+  disciplina en la que la persona ya esté inscripta.
+- US-65 adjunta el archivo después de crear la solicitud.
 
-- **Evidencia:** `actualizar-cuota.dto.ts:14` · `cuotas.service.ts` (`actualizar`) · `CuotasTable.tsx`
-- **Rama sugerida:** `issue/TASK-16-DT-05-Activar-desactivar-cuota-deportiva`
+En el padrón, la autorización de padres o tutores tiene plazo 0 en nueve
+categorías (Escuelita, Infantiles, Juveniles, Formativas, Avanzadas). Esas
+solicitudes no se pueden abrir.
+
+**Propuesta:** la solicitud no exige nada. El plazo 0 se controla en
+`aprobarSolicitud`, con los documentos adjuntos a la solicitud. El alta desde el
+panel sigue exigiéndolo como ahora.
 
 ### 🟡 Medias
 
-#### DT-11 · La pantalla de Inscripción no muestra a los inscriptos
-*frontend · 3 SP*
+#### DT-61 · El delegado ve el estado documental de disciplinas que no tiene a cargo
+*Nuevo · revisión del 16/11/2026 · resto de H07*
 
-`GET /inscripcion` ya devuelve todas las inscripciones con persona, disciplina
-y categoría, ordenadas por fecha. La pantalla no lo consume:
-`InscripcionPage` es solo el formulario de alta. Es trabajo de frontend, no de
-API — salvo que se quiera paginar. Se resuelve junto con DT-17.
+El listado de participantes ya acota las filas y las disciplinas a las del
+delegado. Pero el `estadoDocumental` de la fila es el peor de **todas** las
+inscripciones de la persona (`EstadoDocumentalService.porPersonas`). Diego
+puede ver a alguien «Bloqueado» por Natación con todas sus disciplinas
+visibles habilitadas. El filtro por estado documental y el de pendientes de
+aprobación también cuentan documentos de otras disciplinas. El detalle de un
+participante por id sigue abierto para cualquier delegado.
 
-- **Rama sugerida:** `issue/TASK-17-DT-11-Listado-de-inscriptos`
+**Arreglo:** calcular el estado de la fila solo con las inscripciones
+visibles, aplicar los filtros sobre ese valor y acotar el detalle por id.
 
-#### DT-10 · La pantalla de Auditoría es interminable
-*frontend · 2 SP*
+#### DT-62 · Quien no es ni fue socio no paga la cuota deportiva desde Mi club
+*Nuevo · revisión del 16/11/2026 · alcance de DT-35*
 
-Ya pagina de 20 en 20; lo que la hace larga es que solo se puede filtrar por
-acción. El backend acepta además `entidad`, `responsableId`, `fechaDesde` y
-`fechaHasta`.
+`PortalCuotasPage` corta la página si la persona no es ni fue socia, y
+`GET /pagos-deportivos/mias` exige un rol. Un participante que no es socio
+paga la cuota deportiva solo en secretaría. Confirmar con el PO si DT-35
+debía cubrirlo.
 
-- **Arreglo:** sumar esos filtros, selector de tamaño de página y encabezado fijo con scroll dentro de la tabla.
-- **Rama sugerida:** `issue/TASK-18-DT-10-Filtros-de-auditoria`
+#### DT-59 · Cambiar el email no vuelve a verificarlo
+*Resto de DT-54 · resuelto el 16/11/2026*
 
-#### DT-24 · La planilla documenta generación de cuotas que no existe
-*Nuevo · producto + documentación · a definir*
+Si el email guardado cambia, en el perfil o en la grilla de usuarios,
+`emailVerificadoEn` vuelve a vacío y se manda un enlace a la dirección nueva.
+El enlace solo confirma el email: la contraseña no se toca. Hasta usarlo, un
+ingreso nuevo se rechaza. La sesión abierta sigue. Ver la
+[decisión 0010](decisiones/0010-correcciones-de-la-prueba-integral.md).
 
-Cuatro casos de US-05 (`TC-017` a `TC-020`) esperan que al inscribir un
-participante **«se generan automáticamente las cuotas correspondientes»**. Eso
-no está implementado ni modelado:
+El texto de abajo es el problema original, ya cerrado.
 
-- El dominio solo tiene `ConfiguracionCuotaDeportiva` y `ConfiguracionCuotaSocial`, que son **el monto configurado**, no cuotas emitidas. No existe ninguna entidad de cuota generada ni deuda por socio.
-- `inscripcion.service.ts` no toca cuotas en ningún momento; el propio código lo admite en un comentario (`inscripcion.service.ts:399`: «generación de cuotas asociadas (que hoy no existe en el dominio…)»).
+- El socio la cambia en su perfil sin repetirla ni recibir un enlace nuevo
+  (H12, prueba integral del 11/11).
+- El administrador la cambia en la grilla de usuarios con el mismo efecto
+  ([decisión 0005](decisiones/0005-verificacion-de-email.md)).
 
-O sea: esos cuatro casos **no pueden ejecutarse como están escritos**. Hay que
-decidir si se implementa la generación (es producto nuevo, se vincula con
-DT-06) o si se corrigen los casos para que describan lo que el sistema hace.
+**Arreglo:** si el email cambia, `emailVerificadoEn` vuelve a null, se pide
+la dirección dos veces y se manda el enlace de verificación. La contraseña
+que la persona ya eligió se conserva: el enlace solo verifica, como en el
+registro público. Hasta usarlo, no se puede iniciar sesión.
 
-- **Detectado al contrastar la planilla contra el código.**
+- **Detectado en la prueba integral del 11/11/2026 (H12) y dejado afuera de
+  TASK-59 a propósito.**
 
-#### DT-25 · La auditoría append-only no está garantizada por la base
-*Nuevo · backend · 2 SP*
+#### DT-34 · No hay cancelación, devolución ni transferencia de entradas
+*Nuevo · funcional · backend + frontend*
 
-`TC-024` (US-07) y `TC-074` (US-32) esperan que un UPDATE o DELETE sobre
-`registros_auditoria` sea **«rechazado a nivel de servicio/base de datos (tabla
-append-only)»**. La mitad del servicio ahora está cubierta y es cierta
-(`AuditoriaService` solo expone `registrar`, `listarPorEntidad` y
-`listarTodos`, y hay un test que falla si alguien agrega otro método de
-escritura). **La mitad de la base de datos no:** no hay trigger, ni `REVOKE`,
-ni regla en ninguna migración. Nada impide que otro código —o alguien con la
-credencial— haga `UPDATE` o `DELETE`.
+Una entrada solo puede estar `VALIDA`, `USADA` o `EXPIRADA`. Faltan estados
+como `CANCELADA`, `REEMBOLSADA` y `TRANSFERIDA`, lo que impide resolver
+errores de compra, devoluciones o cambios de titularidad.
 
-- **Evidencia:** ninguna migración contiene `TRIGGER`, `REVOKE`, `GRANT` ni `RULE`; el único respaldo es el comentario del `schema.prisma`.
-- **Arreglo:** o se agrega la restricción real en la base (trigger que rechace UPDATE/DELETE, o un rol de aplicación sin esos permisos sobre la tabla), o se corrige el texto de los dos casos para que describan solo la garantía a nivel de servicio.
-- **RNF03 / RF12 dependen de esto**, así que conviene no dejarlo como comentario.
+**Arreglo:** sumar esos estados al ciclo de vida de `Entrada` y las acciones
+para pasar por ellos, apoyándose en la compra real (DT-31) para saber a
+quién reembolsar.
 
-#### DT-22 · La rotación mensual de la cuota social no tiene quién la dispare
-*Nuevo · backend · 2 SP*
+- **Depende de:** DT-31 (resuelta en TASK-51: la compra ya pasa por la pasarela y queda asociada a su `OrdenPago`).
+- **Detectado en el análisis funcional de dominio (22/09/2026).**
+- **Rama sugerida:** `issue/TASK-27-DT-34-Cancelacion-devolucion-transferencia-entradas`
 
-`CuotaSocialService.sincronizarVigentes` dice en su comentario «se ejecuta el
-día 1 de cada mes», pero **nada lo ejecuta**: no hay `@nestjs/schedule`, ni
-cron, ni disparador externo documentado. El único camino es que alguien llame a
-mano a `POST /cuota-social/sincronizar`.
+#### DT-55 · La inscripción es de a una disciplina por vez
+*Nuevo · devolución del profesor · backend + frontend*
 
-Consecuencia: el flag `activo` de las configuraciones queda desfasado de la
-vigencia por fecha hasta que alguien se acuerde. Las consultas por fecha
-(`getVigente`) sí funcionan bien, así que el impacto está acotado a lo que
-dependa del flag.
+`CreateInscripcionDto` recibe un solo `disciplinaId`, así que un participante
+que juega fútbol y hace natación se carga con dos altas separadas, y cada
+una repite los datos y la documentación. El profesor pidió poder
+**inscribirse a varias disciplinas al mismo tiempo**.
 
-- **Evidencia:** `src/cuota-social/cuota-social.service.ts:205`
-- **Arreglo:** sumar `@nestjs/schedule` con un cron mensual, o un job externo que llame al endpoint. Ojo con las réplicas: si el Container App escala, el cron corre en todas.
-- **Detectado al escribir los casos de US-16.**
+**Arreglo propuesto:** el alta acepta una lista de pares disciplina y
+categoría. Valida cada uno con las reglas de hoy (edad y género por categoría,
+DT-39; inscripción duplicada; requisitos documentales, DT-27) y crea todas las
+inscripciones en una transacción. Si una falla, no se crea ninguna y el error
+dice cuál. La pantalla de nuevo participante permite sumar varias
+disciplinas y muestra los requisitos de documentación unificados (un DNI
+exigido por dos disciplinas se pide una sola vez). Conviene que la solicitud
+de inscripción (US-63) acepte la misma lista.
 
-#### DT-23 · El ratchet de cobertura corta el CI por décimas
-*Nuevo · tooling · resuelto por ahora, dejar anotado*
+- **Detectado en la 3ra reunión con el profesor (02/11/2026).**
+- **Relacionado:** [DT-29](#dt-29--la-solicitud-de-inscripción-no-se-puede-aprobar-rechazar-ni-cancelar), [DT-27](#dt-27--documentación-por-disciplina-requisitos-estados-y-vigencia).
 
-Al cerrar DT-16 el piso de ramas quedó en 58 % y un PR del equipo (US-07) lo
-dejó en 57,85 %: **el CI de `dev` quedó en rojo por 0,15 puntos** sin que nadie
-hiciera nada mal. Se resolvió dejando ~3 puntos de margen, pero conviene
-revisarlo si vuelve a pasar. La alternativa de fondo es exigir tests por PR
-(regla de equipo) en lugar de apretar el número global.
+#### DT-56 · Faltan filtros por rango de fechas en morosos y reportes
+*Nuevo · devolución del profesor · backend + frontend*
 
-#### DT-26 · La documentación de la API no declara respuestas
-*Nuevo · backend · 3 SP*
+Los listados de morosos (`GET /pagos/morosos` y morosos de cuota deportiva)
+filtran por búsqueda, categoría o disciplina, pero no por fechas: siempre
+muestran la deuda acumulada a hoy. El profesor pidió un **filtro de fechas
+desde y hasta en morosos** y, en general, **más filtros por fecha, sobre todo
+en los reportes**.
 
-Swagger está bien montado y al día en lo estructural: **56 de 56 operaciones
-tienen `summary`** (la única excepción es `GET /health`), los 14 tags están
-completos y los 22 DTO de request generan su schema. El problema está del lado
-de las respuestas:
+Estado actual de los filtros por fecha:
 
-- **Ninguna de las 56 operaciones declara un solo código de error.** El spec
-  solo trae el `200`/`201` que Nest infiere, así que en la UI no figura que
-  `POST /cuota-social` puede responder 400 por período inválido, 403 sin rol
-  ADMIN o 404 si la categoría no existe. Toda esa información existe y está
-  verificada (son los casos `TC-091` a `TC-107`), pero no llega al contrato.
-- **Ninguna declara el tipo de su respuesta** (`0 de 56` tienen `content`), así
-  que el spec no dice qué forma tiene lo que devuelve. Las descripciones
-  también están vacías (`"description": ""`).
+| Pantalla / endpoint | Filtro por fecha hoy |
+|---|---|
+| Morosos de cuota social (`/pagos/morosos`) | ❌ |
+| Morosos de cuota deportiva | ❌ |
+| Historial de cuota deportiva | ✅ `desde` / `hasta` (fecha de pago) |
+| Estado financiero (`/reportes/estado-financiero`) | ✅ `desde` / `hasta` (período AAAA-MM) |
+| Asistencia a eventos (`/reportes/asistencia-eventos`) | ✅ `desde` / `hasta` |
 
-Consecuencia práctica: el frontend no puede generar tipos ni clientes desde el
-spec, y quien consume la API tiene que leer el código para saber qué esperar.
-Para un proyecto donde Swagger es el entregable de documentación técnica, el
-contrato queda a medias.
+**Arreglo propuesto:** sumar `desde` / `hasta` opcionales a los dos listados de
+morosos (que se cuenten solo los períodos adeudados dentro del rango) y
+revisar el resto de los listados y reportes (auditoría, historial de cuota
+social, reservas, compras de entradas) para que todos ofrezcan el mismo
+filtro. Reutilizar el formato y los mensajes de validación de
+`historial-deportivo-query.dto.ts` y un único componente de rango de fechas en
+el front (DT-40). Si se hace la exportación (US-37), que respete el mismo
+rango.
 
-- **Evidencia:** `GET /api/v1/docs-json` — todas las operaciones con `responses: {"20x": {"description": ""}}`.
-- **Arreglo:** `@ApiResponse` (o los atajos `@ApiOkResponse`, `@ApiBadRequestResponse`, `@ApiForbiddenResponse`, `@ApiNotFoundResponse`) por operación, y DTOs de respuesta para los tipos de retorno. Conviene hacerlo **módulo por módulo, apoyándose en los casos de prueba ya documentados**: los códigos y mensajes reales ya están relevados ahí, así que no hay que investigarlos de nuevo.
-- **Empezar por** `auth`, `usuarios` e `inscripcion`, que son los que el frontend consume más y los que tienen reglas de permisos.
-- **Detectado al revisar Swagger sobre la instancia local.**
-- **Rama sugerida:** `issue/TASK-<n>-DT-26-Documentar-respuestas-api`
-
-#### DT-17 · Código muerto: `EditarInscripcionPage`
-*Nuevo · frontend · incluido en DT-11*
-
-El archivo existe (196 líneas) y no está importado en ningún lado — no tiene
-ruta en `AppRouter`. Al hacer DT-11: o se conecta al listado nuevo, o se borra.
+- **Detectado en la 3ra reunión con el profesor (02/11/2026).**
+- **Relacionado:** US-23, US-35, US-37.
 
 ### ⚪ Bajas
 
-#### DT-08 · Las entradas con QR no se pueden descargar en PDF
-*frontend · 2 SP*
+#### DT-63 · Detalles del reporte financiero y del pago deportivo online
+*Nuevo · revisión del 16/11/2026*
 
-Hoy `ComprarEntradasPage` descarga el QR como PNG con `qrcode`, así que hay
-salida funcional. Para PDF, `jspdf` en el cliente alcanza y evita endpoints
-nuevos; si más adelante se quiere enviar la entrada por mail, conviene
-generarlo en el backend. **Decidir eso antes de instalar nada.**
+- El estado financiero suma entradas y señas al recaudado total (H08). Eso
+  sube el porcentaje de cobranza del total, que antes medía solo cuotas.
+- En la caja, entradas y señas se cortan por mes en el huso del club y las
+  cuotas con la hora del servidor (va con DT-56). Las entradas se fechan por
+  `creadoEn`, no por la fecha de pago.
+- Si no hay cuota social pendiente, Mis cuotas dice «Estás al día con tus
+  cuotas» con cuotas deportivas pendientes debajo.
+- `iniciarPagoOnline` cancela la orden pendiente anterior antes de validar la
+  nueva: si la validación falla, la anterior se pierde igual.
+- El perfil compara el email con `persona.email` y el backend con
+  `usuario.email`: si difieren, el backend pide confirmarlo sin que se vea el
+  campo.
 
 #### DT-09 · Imágenes en eventos
 *backend + frontend · 5 SP*
 
-`Evento` no tiene ningún campo de imagen: hay migración, endpoint de upload con
-validación de tipo y tamaño, y UI de carga y preview. **No empezar antes de
-DT-15**: hay que reusar el mecanismo de almacenamiento que quede definido ahí.
+El campo `Evento.imagen` ya existe en la base de datos (Prisma) y el frontend ya
+implementa la carga, edición y visualización (`EventoForm.tsx`, `EventoCard.tsx`).
+El endpoint de subida de archivos multipart y almacenamiento definitivo en el
+backend permanece en pausa a la espera de la resolución de la decisión
+arquitectónica **DT-15** (almacenamiento no efímero en Azure Container Apps),
+para evitar implementar una solución basada en el filesystem local que luego
+deba ser refactorizada.
 
-#### DT-20 · La edición de socio y de cuota social sigue en página aparte
-*Nuevo · frontend · 2 SP*
+#### DT-36 · No hay notificaciones de vencimiento o resolución
+*Nuevo · funcional · backend + frontend*
 
-Al unificar las altas en modales (DT-13, DT-14, DT-19) quedaron sin convertir
-las ediciones: `EditarSocioPage`, `EditarCuotaSocialPage` y
-`EditarParticipantePage` siguen siendo pantallas propias con navegación de ida
-y vuelta. Es una inconsistencia visible: en la misma pantalla, "Nuevo" abre un
-modal y "Editar" cambia de página.
+El usuario no recibe avisos cuando: su documentación está por vencer; una
+solicitud (DT-29) fue aprobada o rechazada; una compra (DT-31) fue
+confirmada; o una cuota está vencida.
 
-- **Nota:** `EditarParticipantePage` tiene 369 líneas, así que conviene evaluarla aparte de las otras dos.
+**Arreglo:** agregar notificaciones internas y, opcionalmente, email.
 
-#### DT-06 · Historias de usuario para sumar al backlog
-*gestión · 0 SP de código*
-
-No es deuda de código: son historias de producto nuevas.
-
-- US-X: Darme de baja como socio.
-- US-Y: Reactivación / nueva alta de un ex-socio.
-- US-Z: Baja automática por falta de pago.
-- US-W: **Generación de cuotas** (social y deportiva) por período.
-
-**Baja automática implica un job programado y reglas de morosidad que hoy no
-existen en el dominio.** Estimarlas en refinamiento y sacarlas de esta tabla.
-
-**US-W es además una dependencia de US-07.** El criterio de aceptación «el
-sistema detiene la generación de nuevas cuotas asociadas a ese participante» no
-tiene hoy dónde implementarse: no existe ninguna entidad de cuota por persona.
-`ConfiguracionCuotaSocial` y `ConfiguracionCuotaDeportiva` son **precios**
-(monto por categoría/disciplina y período), no cuotas emitidas, y no hay ningún
-proceso de emisión (`generar*`), ni modelo `Pago`. Lo que sí dejó la baja de
-US-07 es la precondición correcta: el participante queda Inactivo
-(`Persona.activo = false`) y **sin inscripciones vigentes**, que es lo que
-tendrá que filtrar el generador cuando exista.
+- **Detectado en el análisis funcional de dominio (22/09/2026).**
+- **Parcialmente resuelto en US-26 (03/10/2026):** la documentación por vencer,
+  vencida o pendiente ya se avisa en el Inicio y por email a los delegados.
+- **Infraestructura resuelta en TASK-35 (03/10/2026):** servicio centralizado de
+  notificaciones ([decisión 0001](decisiones/0001-servicio-de-notificaciones.md)).
+  Cada aviso pendiente es una plantilla más una llamada a
+  `NotificacionesService.notificar`; push se suma como canal.
+- **Reservas de espacios resuelto en US-60/61/62 (20/10/2026):** confirmación y cancelación
+  con avisos por email al socio.
+- **Confirmación de compra de entradas resuelta en TASK-56 (01/11/2026):** implementada
+  `CompraEntradasPlantilla` y envío de correo al usuario comprador ante la acreditación
+  aprobada de la orden de pago en `EntradasAcreditador` (DT-31).
+- **Pendiente:** avisar al socio cuando se aprueba o rechaza su solicitud de inscripción, y las alertas de cuotas adeudadas. El ciclo de la solicitud ya está (DT-29).
+- **Rama sugerida:** `issue/TASK-28-DT-36-Notificaciones`
 
 ---
 
 ## Deuda resuelta
+
+### DT-35 · El socio paga la cuota deportiva desde Mi club
+*16/11/2026*
+
+`GET /pagos-deportivos/mias` y `POST /pagos-deportivos/checkout`. El socio
+elige meses de una o varias disciplinas en Mis cuotas y paga por la pasarela
+([decisión 0003](decisiones/0003-pasarela-de-pagos.md)). El monto es el de la
+tarifa de la disciplina, con el descuento de socio si lo era ese mes. El pago
+se registra cuando la pasarela confirma. Secretaría sigue cobrando en
+ventanilla. La deuda se sigue calculando al consultar, igual que la cuota
+social.
+
+### DT-29 · La solicitud de inscripción no se puede aprobar, rechazar ni cancelar
+**`feature/US-65-Cancelar-inscripcion-disciplina`** y **`feature/US-66-Evaluar-solicitudes-inscripcion`** · en `dev` el 16/11/2026
+
+La persona pide la disciplina (US-63) y la sigue en Mis solicitudes (US-64).
+Desde esta fecha también puede cancelarla y adjuntar la documentación, y el
+club puede evaluarla.
+
+- **US-65:** `PATCH /inscripcion/solicitudes/:id/cancelar` y
+  `POST /inscripcion/solicitudes/:id/documentacion`. Se cancela en
+  `PENDIENTE`, `PENDIENTE_DOCUMENTACION` o `APROBADA`. Si ya estaba aprobada,
+  la inscripción activa queda de baja. El archivo se puede mandar al pedir la
+  disciplina o después, desde Mis solicitudes, mientras el estado lo permita.
+- **US-66:** `GET /inscripcion/solicitudes`,
+  `PATCH /inscripcion/solicitudes/:id/aprobar` y
+  `PATCH /inscripcion/solicitudes/:id/rechazar` (ADMIN y DELEGADO). Aprobar
+  crea o reactiva la inscripción y genera la cuota deportiva. Rechazar pide
+  un motivo. La pantalla está en el panel, «Solicitudes de inscripción».
+- El aviso por email al socio sigue pendiente en
+  [DT-36](#dt-36--no-hay-notificaciones-de-vencimiento-o-resolución).
+- El listado de solicitudes no recorta por las disciplinas del delegado. El
+  de participantes sí (H07, decisión 0010).
+
+### TASK-59 · DT-54 · El alta no verificaba el email ni dejaba elegir la contraseña
+**`issue/TASK-59-DT-54-Alta-con-verificacion-de-email`** (backend + frontend) · 11/11/2026
+
+- `passwordHash` es opcional y `emailVerificadoEn` marca cuándo se usó el enlace. Los tokens viven hasheados en `tokens_usuario`, vencen a las 24 horas y sirven una vez.
+- El alta de usuario, socio o participante no pide contraseña: el enlace pide elegirla y verifica el email. El registro público (US-38) ya trae la contraseña del formulario y el enlace solo verifica. Recorrido de punta a punta el 15/11/2026 con una casilla temporal: sin el enlace el login se rechaza; después entra con la contraseña del formulario.
+- El reenvío lo hace el administrador desde la grilla de usuarios. Los usuarios del seed nacen verificados.
+- Diseño en la [decisión 0005](decisiones/0005-verificacion-de-email.md).
+- **DT-59 resuelta:** si el email cambia, hay que verificarlo de nuevo. Queda afuera el recupero de contraseña (la tabla ya admite otro tipo de token).
+
+### DT-51 · El seed usaba nombres y correos de prueba
+**`feature/seed-padron-demo`** (backend [#134](https://github.com/lucasgazzola/socialclub-backend/pull/134) · frontend [#190](https://github.com/lucasgazzola/socialclub-frontend/pull/190)) · 15/11/2026
+
+- El seed por defecto es el padrón del Club Sportivo Unión de Ordóñez: nombres, correos y datos de dominio realistas (`prisma/seed.demo.ts`).
+- Los E2E siguen con el padrón chico (`prisma/seed.base.ts`, `SEED_PERFIL=base`, `npm run prisma:seed:base`).
+
+### TASK-60 · DT-58 · El participante sin rol no puede ver su documentación en Mi club
+**`feature/TASK-60-integracion-portal-socios`** (backend + frontend) · 16/11/2026
+
+- Las consultas de la propia documentación (`mi-documentacion`, `persona/:id`, su `/estado` y `:id/archivo`) dejaron de exigir un rol: alcanza con tener sesión. El servicio sigue validando que la persona sea la propia (`validarAccesoPersona`).
+- Además, el titular puede **subir** su documentación desde Mi club, y un delegado o el administrador la revisa. La habilitación cuenta solo lo aprobado. Ver la [decisión 0006](decisiones/0006-landing-mi-club-y-panel.md#actualización-16112026--mi-club-es-el-portal-de-luis--documentación-con-revisión).
+
+### TASK-60 · DT-57 · El QR de una entrada no muestra si está vigente, usada o vencida
+**`feature/TASK-60-portal-socio-y-landing`** (backend + frontend) · 15/11/2026
+
+- *Mis entradas* (ahora en Mi club) separa **Próximas** de **Historial** y agrupa las entradas de un mismo evento en una tarjeta con carrusel de QR.
+- Cada entrada muestra su estado con ícono, color y texto: **Válida**, **Usada el …**, **Vencida** o **Cancelada**. Las que ya no sirven se ven en gris, con un sello sobre el QR, y no se pueden descargar ni mostrar en pantalla completa.
+- La API calcula la vigencia por fecha: una entrada `VALIDA` de un evento terminado o cancelado se devuelve como `EXPIRADA` aunque la tarea `cierre-de-eventos` no haya corrido. Nuevo filtro `vigencia=PROXIMAS|HISTORIAL`.
+- `Entrada.usadaEn` guarda la fecha y hora de validación (migración `20261115120000_entrada_usada_en`).
+- La entrada de un evento cancelado ya no da acceso al validarla (ítem D de la revisión del 14/11).
+- Diseño en la [decisión 0006](decisiones/0006-landing-mi-club-y-panel.md).
+
+### TASK-57 · DT-46 · El alta de usuario no muestra el error en el formulario
+**`issue/TASK-57-DT-46-DT-47-error-alta-usuario-y-formato-dni`** (frontend) · 01/11/2026
+
+- Se implementó la captura de errores en `UsuarioFormModal.handleSubmit` mediante `try / catch`, evitando excepciones y promesas no capturadas (*Unhandled rejection* en consola) ante rechazos de la API al crear o editar usuarios (`createUsuario` / `updateUsuario`).
+- Se conectó el estado `errorServidor` con `UsuarioForm`, asignando los mensajes de error directamente a los campos correspondientes (`apellido`, `nombre`, `dni`, `email`, `password`) a través de `setError` de React Hook Form (p. ej. «El apellido contiene caracteres inválidos» o «Ya existe un usuario con ese DNI»).
+- Ante errores generales de red o servidor no asociados a un campo específico, se renderiza un banner visible (`role="alert"`) justo sobre las acciones del formulario.
+- El modal permanece abierto permitiendo al usuario corregir los datos ingresados sin perder los campos ya completados.
+- Cobertura completa de pruebas unitarias en `UsuarioForm.spec.tsx` y pruebas de integración del modal en `UsuariosPage.spec.tsx`.
+
+### TASK-57 · DT-47 · El DNI se muestra con formatos distintos
+**`issue/TASK-57-DT-46-DT-47-error-alta-usuario-y-formato-dni`** (frontend) · 01/11/2026
+
+- Se unificó la visualización de DNI en todo el sistema utilizando el helper oficial `formatearDni` (`src/lib/utils/dni.ts`), que agrupa dígitos de a miles con puntos (`30.111.222`).
+- Se adaptó el campo de sólo lectura de DNI en `HacermeSocioForm.tsx` (`value={formatearDni(defaultValues.dni)}`), garantizando consistencia absoluta entre las vistas de Socios, Usuarios, Participantes y Morosos (estandarizado inicialmente en US-04 y consolidado en TASK-55 / TASK-57).
+- Test unitario agregado en `HacermeSocioForm.test.tsx`.
+
+### TASK-56 · DT-06 · Historias de usuario para sumar al backlog
+**`issue/TASK-56-DT-06-DT-09-DT-36-notificaciones-y-documentacion`** (gestión) · 01/11/2026
+
+- Se cerró el ítem de deuda de gestión DT-06 (0 SP de código) al no constituir un defecto ni deuda técnica del código existente.
+- La US-W (generación de cuotas) quedó resuelta conceptualmente y documentada en TASK-52 (DT-24): el sistema calcula la deuda y emite la cuota al vuelo a partir de la fecha de alta/inscripción respecto a los pagos registrados en `Pago` y `PagoCuotaDeportiva`, en lugar de pre-generar masivamente registros vacíos en base de datos.
+- Las historias restantes (US-X baja voluntaria de socio, US-Y reactivación y US-Z baja automática por morosidad) fueron derivadas al refinamiento y priorización del backlog de producto.
+
+### TASK-56 · DT-36 · Envío de confirmación de compra de entradas por email
+**`issue/TASK-56-DT-06-DT-09-DT-36-notificaciones-y-documentacion`** (backend · notificaciones) · 01/11/2026
+
+- Se implementó la plantilla de correo `CompraEntradasPlantilla` (`COMPRA_ENTRADAS`) con el detalle completo de la compra (nombre del evento, fecha, lugar de acreditación, cantidad, precio unitario y monto total abonado).
+- Se integró el envío automático de la notificación en `EntradasAcreditador.acreditar` ante la acreditación exitosa de una orden de pago por compra de entradas (DT-31), despachando el email al comprador a través de `NotificacionesService`.
+- Manejo resiliente de errores para asegurar que eventuales fallas en el servicio de correo no reviertan ni bloqueen la acreditación de las entradas compradas.
+- Cobertura de pruebas unitarias al 100% en `compra-entradas.plantilla.spec.ts` y `entradas.acreditador.spec.ts`.
+
+### TASK-55 · DT-53 · Tres E2E desactualizados por US-04
+**issue/TASK-55-DT-53-tres-e2e-desactualizados-por-us-04** (frontend · e2e + accesibilidad) · 01/11/2026
+
+- Se adaptaron las expectativas de DNI en las pruebas E2E socios.spec.ts (TC-026) y morosos-cuota-deportiva.spec.ts (TC-201) utilizando formatearDni, reflejando fielmente el formato con puntos (30.959.355) introducido en US-04.
+- Se exportó formatearDni desde e2e/soporte/fixtures.ts para su consumo directo en las suites E2E.
+- Se eliminaron los atributos ARIA no estándar role="list" en <tbody> y role="listitem" en <tr> de UsuariosGrid.tsx, restableciendo la semántica nativa de HTML table (rowgroup y row).
+- Se actualizaron las búsquedas de filas en inscripcion-y-alertas.spec.ts (TC-176) y sesion-y-usuarios.spec.ts a page.getByRole('row').
+- Se adaptaron las pruebas unitarias de UsuariosPage.spec.tsx para consultar las filas del cuerpo de la tabla (row), pasando 18/18 tests unitarios.
+
+### TASK-54 · DT-49 · Tests de cuota deportiva que fallan según la hora
+**issue/TASK-54-DT-49-DT-50-tests-deportivos-y-habilitacion-excepcional** (backend · tooling) · 01/11/2026
+
+- Se congeló el reloj de pruebas en pagos-deportivos.service.spec.ts mediante jest.useFakeTimers() y jest.setSystemTime(new Date('2026-08-15T12:00:00Z')), restaurándolo con jest.useRealTimers() en fterEach().
+- Se parametrizaron de forma fija y determinista el año, mes y períodos relativos (mes(-2), mes(-1), mes(0)), evitando que la diferencia entre la medianoche UTC y el huso local de Argentina genere períodos discrepantes en ejecuciones nocturnas de fin de mes.
+
+### TASK-54 · DT-50 · La habilitación excepcional documental no restringe su uso a una única vez
+**issue/TASK-54-DT-49-DT-50-tests-deportivos-y-habilitacion-excepcional** (backend + frontend) · 01/11/2026
+
+- Backend: InscripcionService.habilitarExcepcional valida que la inscripción no registre excepciones previas en la base de datos (habilitacionExcepcional.count({ where: { inscripcionId } }) === 0), rechazando reincidencias con 400 Bad Request.
+- Backend: EstadoDocumentalService y estadoDeInscripcion exponen la propiedad yaHabilitadoExcepcionalmente: boolean (indicando si habilitacionesExcepcionales.length > 0).
+- Frontend: en DocumentacionParticipante.tsx, se eliminó el botón «Extender habilitación» (la excepción rige por única vez sin extensiones), y cuando la inscripción vuelve al estado BLOQUEADO tras expirar el plazo, se oculta el botón «Habilitar excepcionalmente» mostrando el aviso Excepción única ya utilizada.
+- Cobertura completa de pruebas unitarias en backend (inscripcion-habilitacion.service.spec.ts, estado-documental.spec.ts) y frontend (DocumentacionParticipante.test.tsx).
+
+### TASK-53 · DT-48 · Morosos de cuota social cuenta cuotas que todavía no vencieron
+**issue/TASK-53-DT-48-Vencimiento-cuota-social-morosos** (backend + frontend) · 01/11/2026
+
+- Se alineó la regla de vencimiento de la cuota social (US-19) con la cuota deportiva (US-23): ambas vencen el día 10 del mes corriente (`DIA_VENCIMIENTO_CUOTA_SOCIAL = 10` y `DIA_VENCIMIENTO_CUOTA_DEPORTIVA = 10` en `vencimiento-cuota-deportiva.ts`).
+- `PagosService.getMorososCuotaSocial` y `PagosService.getCuotasPendientesPorSocio`: se excluye el período del mes en curso hasta el día 10 inclusive, evitando que los socios que pagan entre el 1 y el 10 figuren como morosos o con deuda vencida.
+- La respuesta de morosos de cuota social expone `diaVencimiento: 10` y la pantalla de morosos en frontend (`MorososCuotaSocialPage.tsx`) comunica la fecha de vencimiento clara al operador.
+- 100% de consistencia entre el listado de morosos de secretaría y el reporte financiero consolidado (`ReportesService`).
+- Tests unitarios completos en backend (`pagos-morosos.service.spec.ts`, vencimiento-cuota-deportiva.spec.ts`) y frontend (`MorososCuotaSocialPage.test.tsx`).
+
+### TASK-52 · DT-23 · El ratchet de cobertura corta el CI por décimas
+**`issue/TASK-52-DT-23-DT-24-ratchet-cobertura-y-cuotas`** (tooling + CI) · 01/11/2026
+
+- Se formalizó y blindó la política de umbrales de cobertura en CI: el piso («ratchet») solo puede subir y se mantiene un margen de seguridad de ~3 puntos porcentuales respecto a la cobertura real medida (Math.floor(real - 3)), evitando que variaciones menores (0,1 % - 0,2 %) por refactors o tests de integración rompan el pipeline innecesariamente.
+- Actualizados los umbrales de cobertura garantizando el cumplimiento estricto de la Definition of Done:
+  - **Backend (socialclub-backend/package.json)**: statements 85 %, branches 73 %, functions 78 %, lines 85 % (cobertura real medida: 88,3 % statements, 76,2 % branches, 81,1 % functions, 88,0 % lines).
+  - **Frontend (socialclub-frontend/vitest.config.ts)**: statements 69 %, branches 66 %, functions 60 %, lines 70 % (cobertura real medida: 72,6 % statements, 66,7 % branches, 63,8 % functions, 73,3 % lines).
+
+### TASK-52 · DT-24 · La planilla documenta generación de cuotas que no existe
+**`issue/TASK-52-DT-23-DT-24-ratchet-cobertura-y-cuotas`** (producto + documentación) · 01/11/2026
+
+- La generación y notificación de la cuota deportiva asociada al registro de participantes (US-05) fue implementada a través del cálculo y retorno del objeto cuotaGenerada en inscripcion.service.ts (resolviendo la tarifa vigente de la disciplina/categoría, el período actual y el porcentaje de descuento si el participante es socio activo) y su correspondiente presentación en la interfaz de usuario (InscripcionForm.tsx).
+- Se alineó la arquitectura del modelo de cobro deportivo (US-21): en consonancia con la cuota social, el club no pre-genera cuotas masivas como registros vacíos en base de datos, sino que calcula la deuda al vuelo desde la fecha de alta/inscripción respecto a los registros efectuados en PagoCuotaDeportiva.
+- Los casos de prueba TC-017 a TC-020 de la planilla oficial (docs/pruebas/casos-prueba.csv) describen este comportamiento exacto y se encuentran cubiertos por tests automáticos unitarios en inscripcion.service.spec.ts y ejecución de prueba E2E en docs/pruebas/ejecucion.csv (EJ-147).
+
+### TASK-51 · DT-31 · Pasarela de pagos con Mercado Pago: compra real de entradas y pago online de cuotas
+**`issue/TASK-51-DT-31-Pasarela-de-pagos`** (backend + frontend) · 31/10/2026
+
+- Módulo `src/pasarela/` con la facade `PasarelaService` y dos interfaces: `PasarelaPago` (adaptadores `PasarelaMercadoPago`, Checkout Pro por API REST, y `PasarelaSimulada`) y `AcreditadorCobro` (`CuotaSocialAcreditador` en `pagos`, `EntradasAcreditador` en `entradas`, registrados con `@Acreditador()`). Diseño, alternativas y guía del sandbox en la [decisión 0003](decisiones/0003-pasarela-de-pagos.md).
+- Tabla `ordenes_pago` (migración `20261031230000_pasarela_de_pagos`): la orden se guarda antes de ir a la pasarela y se acredita una sola vez, por la vuelta del usuario o por webhook (`POST /pasarela/webhook`, firma `x-signature`). Estados PENDIENTE, APROBADA, CANCELADA, VENCIDA y REQUIERE_REVISION. Tarea `vencer-ordenes-pago` cada hora.
+- **DT-31:** la compra de entradas reserva el cupo, cobra y recién con el pago aprobado genera la `CompraEntrada` y sus entradas (con `ordenPagoId`). Si no se paga, el cupo se libera.
+- Se eliminaron `POST /pagos/registrar` y `POST /entradas/comprar`, que acreditaban sin cobrar; los reemplazan `POST /pagos/checkout` y `POST /entradas/checkout`. Front: modal de confirmación, pantallas `/pagos/resultado` y `/pagos/simulador`, sin formularios de tarjeta.
+- Sin `MP_ACCESS_TOKEN` corre la pasarela simulada (desarrollo, E2E y entornos sin credenciales). Los workflows de CD pasan `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET` y `API_PUBLIC_URL` si existen como secrets.
+- Tests: backend (facade, adaptadores, acreditadores, controllers, checkout de cuotas y entradas) y frontend (páginas, API, modal); E2E de compra de entradas pagando con la pasarela y del rechazo y cancelación del pago de una cuota.
+
+### TASK-50 · DT-45 · La tarjeta del evento no ofrece comprar fuera del período de venta
+**`issue/TASK-50-DT-45-Tarjeta-evento-periodo-venta`** (frontend) · 21/10/2026
+
+- Vinculada la disponibilidad del botón "Comprar entradas" en `EventoCard` directamente a `ventaAbierta(evento)`, evitando ofrecer la compra cuando la fecha actual es anterior a `inicioVenta` o posterior a `finVenta`.
+- Cobertura completa de pruebas unitarias en `EventoCard.test.tsx` verificando el ocultamiento del botón de compra ante períodos de venta futuros o pasados y su visualización adecuada durante el período vigente.
+
+### TASK-49 · DT-08 · Descarga de entradas con código QR en PDF
+**`issue/TASK-49-DT-08-Descarga-entradas-pdf`** (frontend) · 21/10/2026
+
+- Incorporada la librería `jspdf` en el cliente para la generación de entradas de acceso en formato PDF tamaño A6.
+- Implementado el módulo `descargarEntradaPdf.ts` con soporte para descarga individual de entrada en PDF, descarga masiva de todas las entradas adquiridas en un solo documento multipágina (`descargarTodasEntradasPdf`) y descarga del código QR en imagen PNG.
+- Actualizada la vista de `MisEntradasPage` y el flujo posterior a la compra en `ComprarEntradasPage` para ofrecer descarga en PDF además de PNG.
+- Cobertura completa de pruebas unitarias en `descargarEntradaPdf.test.ts`, `MisEntradasPage.test.tsx` y `ComprarEntradasPage.test.tsx`.
+
+### TASK-48 · DT-28 · El participante puede consultar su propia documentación
+**`issue/TASK-48-DT-28-Consulta-documentacion-participante`** (backend + frontend) · 21/10/2026
+
+- Habilitados los roles `COLABORADOR` y `SOCIO` para la consulta de documentación (`GET /documentacion/persona/:personaId`, `GET /documentacion/persona/:personaId/estado` y `GET /documentacion/:id/archivo`), verificando mediante `validarAccesoPersona` y `obtenerArchivo` que un participante/socio solo pueda acceder a los documentos de su propia persona.
+- Creados endpoints directos de autoservicio `GET /documentacion/mi-documentacion` y `GET /documentacion/mi-documentacion/estado`.
+- Incorporada la vista de "Mi documentación" en el frontend tanto en el perfil del socio como en una página y acceso de navegación dedicado (`ROUTES.miDocumentacion`), mostrando estado general por disciplina, requisitos presentados/faltantes, vencimientos y descarga de archivos adjuntos.
+- Cobertura de pruebas unitarias en backend (`documentacion.roles.spec.ts`, `documentacion.service.spec.ts`) y frontend.
+
+### TASK-47 · DT-10 · Filtros avanzados y tabla con encabezado fijo en auditoría
+**`issue/TASK-47-DT-10-Filtros-de-auditoria`** (frontend) · 21/10/2026
+
+- Incorporado el selector de responsable (`responsableId`) en `AuditoriaFilters`, vinculado con `useResponsables` (consulta de usuarios vía `usuariosApi.list`), schema `auditoria-filtros.schema.ts` y conectado reactivamente en `AuditoriaPage`.
+- Implementado contenedor con scroll vertical delimitado (`max-h-[600px] overflow-y-auto`) y encabezado sticky (`sticky top-0 z-10 bg-slate-50 shadow-xs`) en `AuditoriaTable` para evitar que la pantalla crezca indefinidamente ante listas largas de registros.
+- Cobertura completa de pruebas unitarias en `AuditoriaFilters.spec.tsx`, `AuditoriaTable.spec.tsx`, `AuditoriaPage.spec.tsx` y `auditoria-filtros.schema.spec.ts`.
+
+### TASK-46 · DT-02 · Casos de prueba y cobertura de las historias implementadas (backend)
+**`issue/TASK-46-DT-02-Casos-y-cobertura-backend`** (backend) · 18/10/2026
+
+- Documentados y exportados los 24 casos faltantes de las historias implementadas en el backend (`TC-225`–`TC-248` para `US-06`, `US-08`, `US-09`, `US-11` y `US-24`) en `docs/pruebas/casos-prueba.csv`.
+- Cubierto al 100 % el módulo `src/categorias` (`categorias.service.spec.ts` y `categorias.controller.spec.ts`), dejando al backend con 0 módulos sin tests (62 suites, 721 tests unitarios, 88,3 % statements).
+- Etiquetada la trazabilidad `TC-XXX` en las suites de `inscripcion`, `socios`, `categorias` y `documentacion`.
+- Normalizadas las filas `EJ-185`–`EJ-189` al esquema de 10 columnas y registradas las ejecuciones `EJ-190`–`EJ-262` en `docs/pruebas/ejecucion.csv`, logrando que el 100 % de los 248 casos documentados (`TC-001`–`TC-248`) cuente con registro de ejecución (`EJ-01`–`EJ-262`).
+
+### TASK-45 · DT-44 · Las fechas guardadas a las 00:00 UTC no corren la deuda deportiva un mes
+**`issue/TASK-45-DT-44-Periodos-deportivos-en-utc`** (backend) · 18/10/2026
+
+- `aPeriodo`, `periodosEntre` y `eraSocioEn` (`src/cuotas/tarifas.ts`) leen año
+  y mes en UTC (`getUTCFullYear` / `getUTCMonth`), evitando que una fecha de
+  inscripción o membresía guardada a las `00:00 UTC` del día 1 se corra al mes
+  anterior en huso horario argentino (UTC-3).
+- Cubierto en `src/cuotas/tarifas.spec.ts`.
+
+### TASK-44 · DT-43 · El DNI no requiere fecha de vencimiento
+**`issue/TASK-44-DT-43-Dni-sin-vencimiento`** (backend + frontend) · 18/10/2026
+
+- Migración `20261017210000_dni_sin_vencimiento`: `Documentacion.fechaVencimiento`
+  pasa a ser opcional (`DateTime?`).
+- `requiereVencimiento(tipoDocumento)` en backend (`src/disciplinas/requerimientos-doc.ts`)
+  y frontend (`src/features/disciplinas/types.ts`).
+- `CreateDocumentacionDto`, `CreateInscripcionDocumentoDto`, `DocumentacionService`
+  e `InscripcionService` admiten `fechaVencimiento` vacía/nula cuando `tipoDocumento === 'DNI'`.
+- `estadoDeInscripcion` (`src/documentacion/estado-documental.ts`) evalúa un
+  documento permanente sin fecha de vencimiento como `VIGENTE`.
+- `DocumentacionParticipante` e `InscripcionForm` ocultan el campo de fecha de
+  vencimiento al cargar un `DNI` y muestran «Sin vencimiento».
+
+### TASK-43 · Pruebas E2E con evidencia automática
+**`issue/TASK-43-Testing-E2E-con-evidencia`** (backend + frontend) · 04/10/2026
+
+- Playwright en `socialclub-frontend/e2e/`: 22 casos de la planilla en 5 flujos
+  (inscripción y alertas, sesión y usuarios, eventos y entradas, cuotas,
+  socios) contra el sistema real, con una captura por paso. Workflow *E2E* en
+  el front y `scripts/evidencia-e2e.mjs` para llevar la evidencia a
+  `docs/pruebas`. Ver [`PLAN-TESTING.md`](PLAN-TESTING.md#pruebas-e2e).
+- **Bugs que encontró y se corrigieron:**
+  - El delegado no podía inscribir: `GET /disciplinas` le respondía 403
+    (`fix[US-05]`, backend).
+  - Secretaría no podía cobrar la cuota deportiva: `GET /personas/dni/:dni`
+    le respondía 403 al COLABORADOR (`fix[US-21]`, backend).
+  - No se podían comprar entradas de un evento sin período de venta
+    (`fix[US-52]`, frontend).
+  - El control de acceso nunca mostraba «Entrada ya utilizada» ni «Entrada
+    expirada» (`fix[US-31]`, frontend).
+- Los 17 tests `*.e2e-spec.ts` del backend no los corría ninguna
+  configuración de Jest; ahora entran en la suite.
+- Detectó además DT-45, DT-46 y DT-47 (pendientes, bajas).
+
+
+### TASK-42 · DT-26 · La API declara sus respuestas en Swagger
+**`issue/TASK-42-DT-26-Documentar-respuestas-api`** (backend) · 04/10/2026
+
+- `ErrorRespuestaDto` describe el formato común de error de `HttpExceptionFilter`
+  y `@ApiErrores` (`src/common/swagger/respuestas.ts`) documenta cada código con
+  los **mensajes reales** que devuelve el servicio, como ejemplos.
+- Las **85 operaciones** declaran su respuesta exitosa con descripción, el 400
+  de validación (body, query o parámetros), el 401/403 de los guards y los
+  400/404/409 de negocio. Los errores se relevaron del código de cada servicio
+  (incluidos los auxiliares que llama), no a mano.
+- **Tipos de respuesta** en auth (`SesionRespuestaDto`, `PerfilRespuestaDto`),
+  usuarios (`UsuarioRespuestaDto`, `UsuariosPaginadosDto`) y alertas
+  (`AlertaDocumentacionDto`).
+- `respuestas.spec.ts` arma el documento Swagger real y falla si una operación
+  queda sin respuesta exitosa o sin errores declarados.
+- **Resta** declarar el tipo de respuesta del resto de los módulos (socios,
+  inscripción, cuotas, pagos, eventos, entradas, documentación). Conviene
+  sumarlo módulo por módulo cuando se toque cada uno.
+- Se apiló sobre DT-42 (comparten el endpoint de alertas): mergear DT-42 antes.
+
+### TASK-41 · DT-41 · Historial de períodos de inscripción
+**`issue/TASK-41-DT-41-Historial-de-periodos-de-inscripcion`** (backend) · 04/10/2026
+
+- Tabla `periodos_inscripcion` (desde/hasta). Cada alta y reinscripción abre un
+  período; cada baja (de una disciplina, del participante o por traslado) lo
+  cierra. La migración crea un período por cada inscripción existente.
+- La deuda de cuota deportiva se calcula sobre **todos** los períodos: al
+  reinscribirse se conservan los meses impagos anteriores a la baja, y los
+  meses entre la baja y la reinscripción no se cobran (nuevo rechazo «No se
+  permite registrar pagos de meses en que no estuvo inscripto…»).
+- Los tramos anteriores a esta migración que ya se habían pisado no se pueden
+  recuperar.
+- **Límites:** la tarifa de los períodos viejos usa la categoría actual de la
+  inscripción, y el traslado *sin* inscripción previa en la disciplina destino
+  sigue cambiando la disciplina de la misma fila (comportamiento anterior).
+- Casos TC-178 y TC-179 (US-21).
+
+### TASK-40 · DT-25 · La auditoría es inalterable también en la base
+**`issue/TASK-40-DT-25-Auditoria-inalterable-en-la-base`** (backend) · 04/10/2026
+
+- Triggers sobre `registros_auditoria` que rechazan UPDATE, DELETE y TRUNCATE
+  («La auditoría es inalterable: no se permite … sobre registros_auditoria»).
+- Consecuencia buscada: un usuario con registros de auditoría no se puede
+  borrar físicamente (la FK pondría su `responsableId` en NULL). Los usuarios ya
+  se dan de baja lógica.
+- `auditoria.inalterable.spec.ts` lo prueba contra Postgres real. El CI crea
+  una base de integración con `migrate deploy` y la pasa en
+  `DB_INTEGRACION_URL`; sin esa variable, la suite se saltea.
+- Límite: el dueño de la base puede deshabilitar los triggers
+  (`ALTER TABLE … DISABLE TRIGGER`). Separar un rol de aplicación sin esos
+  permisos queda para la infraestructura.
+- Nueva ejecución de TC-024 y TC-074 a nivel base.
+
+### TASK-39 · DT-42 · Cada delegado, solo sus disciplinas
+**`issue/TASK-39-DT-42-Delegado-por-disciplina`** (backend + frontend) · 04/10/2026
+
+- Tabla `delegados_disciplinas`. En Usuarios se puede elegir el rol
+  **DELEGADO** (el formulario solo ofrecía ADMIN y COLABORADOR) y sus
+  disciplinas a cargo; un delegado necesita al menos una. Si deja de ser
+  delegado, pierde las disciplinas.
+- Las alertas del Inicio y el email de vencimientos se filtran por las
+  disciplinas del delegado (el ADMIN sigue viendo todo). Un delegado sin
+  disciplinas no ve alertas. Las alertas de una disciplina sin delegado no se
+  marcan como avisadas: salen cuando se asigne uno.
+- El seed asigna Fútbol Mayor, Fútbol Femenino y Natación al delegado de
+  prueba si no tiene ninguna.
+- El filtro del listado de Participantes por disciplina (H07) se sumó el
+  15/11/2026: un delegado ve solo las personas y las disciplinas que tiene a
+  cargo. Ver la [decisión 0010](decisiones/0010-correcciones-de-la-prueba-integral.md).
+- Casos TC-173 a TC-177 (US-26).
+
+### DT-42 · Los delegados no estaban asociados a disciplinas
+Ver TASK-39 arriba.
+
+### DT-25 · La auditoría append-only no estaba garantizada por la base
+Ver TASK-40 arriba.
+
+### DT-41 · Reinscribirse perdía la deuda de la inscripción anterior
+Ver TASK-41 arriba.
+
+### DT-26 · La documentación de la API no declaraba respuestas
+Ver TASK-42 arriba.
+
+### TASK-38 · DT-05 · Activar y desactivar la cuota deportiva
+**`issue/TASK-38-DT-05-Activar-desactivar-cuota-deportiva`** (frontend) · 04/10/2026
+
+- Cada tarifa de *Cuotas deportivas* ofrece «Desactivar» o «Activar», con
+  confirmación. El diálogo explica el efecto: una tarifa inactiva no se usa
+  para calcular la cuota (rige la anterior del mismo alcance o, si es de una
+  categoría, la de la disciplina; si no hay ninguna, esos meses quedan sin
+  tarifa). Usa `PATCH /cuotas/:id` con `{ activo }`, que ya existía y audita.
+
+### TASK-37 · DT-33 · Vencimiento de las entradas
+**`issue/TASK-37-DT-33-Expiracion-de-entradas`** (backend + frontend) · 04/10/2026
+
+- Una entrada vence cuando termina su evento: `fechaFin` o, si no tiene,
+  **12 horas después del inicio** (`src/eventos/fin-del-evento.ts`).
+  - El control de acceso rechaza las de eventos terminados («Entrada
+    expirada») y las marca EXPIRADAS, aunque la tarea todavía no haya corrido.
+  - No se generan entradas para eventos terminados, cancelados o finalizados,
+    y no se venden para un evento terminado aunque la venta no tenga cierre.
+  - Tarea automática **`cierre-de-eventos`** (todos los días a las 05:00):
+    finaliza los eventos publicados que terminaron y expira sus entradas sin
+    usar. Es idempotente.
+- Front: sin `fechaFin`, la tarjeta del evento usa la misma regla de 12 horas
+  (antes lo mostraba «Finalizado» apenas empezaba, con las entradas todavía
+  válidas).
+- `validarAcceso` (US-31) no tenía tests: ahora los tiene
+  (`expiracion-entradas.spec.ts`).
+- Se integró sobre el rediseño de eventos de Task-E8: la primera versión de
+  TASK-37 también resolvía DT-32 y rehacía el alta, pero Task-E8 lo resolvió
+  antes y se usó lo suyo.
+
+### Task-E8 · DT-32 · Fecha, fin y reglas de los eventos
+**`issue/Task-E8-Fix-Pantalla-Modal-Eventos`** (backend #77, frontend #127) · 04/10/2026
+
+- `Evento.fechaFin`, eventos sin entrada (`requiereEntrada`), descuento para
+  socios, capacidad y período de venta opcionales; validación de fechas al
+  crear y editar (`EventosService.validarFechas`) y edición de eventos.
+- Front: alta y edición con todos los datos y vista en tarjetas con el estado
+  del evento. Arregló además el alta, que hasta entonces respondía 400 porque
+  el formulario no enviaba los campos obligatorios.
+
+### DT-32 · Los eventos no tenían fecha ni horario completo
+Ver Task-E8 arriba.
+
+### DT-33 · Las entradas no podían expirar
+Ver TASK-37 arriba.
+
+### DT-05 · Faltaba activar/desactivar la cuota deportiva
+Ver TASK-38 arriba.
+
+### TASK-36 · DT-22 · Servicio centralizado de tareas automáticas
+**`issue/TASK-36-DT-22-Servicio-de-tareas-automaticas`** (backend + frontend) · 03/10/2026
+
+- `src/tareas/`: cada automatización es una clase `@Tarea()` en su módulo de
+  dominio; `TareasService` las descubre, las ejecuta con un lock de PostgreSQL
+  por tarea y registra cada ejecución en `ejecuciones_tareas`.
+- Un solo disparador (`POST /tareas/:nombre/programada`, token `TAREAS_TOKEN`)
+  y un solo workflow (`tareas-automaticas.yml`) con el horario de cada tarea.
+  Reemplaza a `/alertas/documentacion/notificar` y `alertas-documentacion.yml`.
+- Tareas: `vencimientos-documentacion` (US-26), `reintentar-notificaciones`
+  (DT-36) y `rotacion-cuota-social`, que **cierra DT-22**: la rotación mensual
+  ya tiene quién la dispare.
+- *Administración → Tareas automáticas*: última ejecución, resultado,
+  historial y «Ejecutar ahora» (auditado).
+- Decisión, patrones y alternativas descartadas:
+  [`decisiones/0002`](decisiones/0002-servicio-de-tareas-automaticas.md).
+
+### DT-22 · La rotación mensual de la cuota social no tenía quién la dispare
+Resuelta por la tarea automática `rotacion-cuota-social` (TASK-36, ver arriba),
+que llama a `CuotaSocialService.sincronizarVigentes` el día 1 de cada mes.
+
+### TASK-35 · DT-36 · Servicio centralizado de notificaciones
+**`issue/TASK-35-DT-36-Servicio-de-notificaciones`** (backend) · 03/10/2026
+
+- `src/notificaciones/`: facade `NotificacionesService`, canales intercambiables
+  (`Canal`, hoy `CanalEmail`), proveedor de email reemplazable (`ProveedorSmtp`),
+  plantillas con esqueleto común (`PlantillaEmail`) y tabla `notificaciones`
+  como outbox (estado, intentos, error y `referencias` para no repetir avisos).
+- US-26 pasa a usarlo: cada delegado recibe su email; lo ya avisado se migró y
+  no se reenvía (`alertas_documentacion_notificadas` se elimina).
+- Decisión, patrones y alternativas descartadas:
+  [`decisiones/0001`](decisiones/0001-servicio-de-notificaciones.md).
+
+
+### US-26 · Alertas por vencimiento de documentación, con aviso por email
+**`feature/US-26-Alertas-vencimiento-documentacion`** (backend + frontend) · 03/10/2026
+
+- **Cálculo, no jobs:** `alertasDeDocumentacion` deriva las alertas del estado
+  documental (US-25) en el momento: documentos que vencen o cuyo plazo de
+  presentación termina en los próximos **10 días** (`DIAS_ALERTA`), más lo ya
+  vencido. El estado "Por vencer" sigue mirando 30 días; la alerta, 10.
+- **Inicio:** `GET /alertas/documentacion` (ADMIN, DELEGADO) alimenta una tabla
+  en el Inicio del ADMIN y un Inicio propio del DELEGADO (antes caía en la
+  pantalla neutra con "Hacerme socio"). Cada fila abre la documentación del
+  participante.
+- **Email:** `MailService` por SMTP genérico (nodemailer), apto para proveedores
+  gratuitos (Brevo recomendado). Sin `SMTP_HOST` no envía. El workflow
+  `alertas-documentacion.yml` despierta la API una vez por día (escala a cero:
+  un cron interno no correría) y llama a `POST /alertas/documentacion/notificar`
+  con `x-cron-token`. Cada alerta se avisa una sola vez
+  (`alertas_documentacion_notificadas`); el envío queda auditado. Configuración
+  en `DESPLIEGUE.md` §5.2.1.
+- **Fechas en UTC:** `dia`/`formatear` del estado documental leían las fechas
+  guardadas (00:00 UTC) en hora local: en Argentina un vencimiento del 10/01
+  se mostraba como 09/01 en los motivos de bloqueo. En Azure no se veía (el
+  contenedor corre en UTC). Ahora se leen en UTC y "hoy" en hora local.
+- Detectado: [DT-42](#task-39--dt-42--cada-delegado-solo-sus-disciplinas).
+
+
+### DT-01 · Cobertura de testing frontend alcanzada (70 % DoD)
+**PR [#110](https://github.com/lucasgazzola/socialclub-frontend/pull/110)** ·
+**`issue/TASK-34-DT-01-Cobertura-frontend-70`** (frontend) · 02/10/2026
+
+Se implementó la suite completa de tests unitarios y de integración de componentes, páginas, modales, hooks, servicios y schemas en el frontend para alcanzar el objetivo mínimo del 70 % de cobertura exigido por la Definition of Done (subiendo del 45,35 % al 70,13 % de statements y 71,09 % de líneas, con 81 suites y 399 tests totales pasando).
+
+- **Statements:** **70,13 %** (1597 / 2277).
+- **Líneas:** **71,09 %** (1532 / 2155).
+- **Ramas:** **69,01 %** (1441 / 2088).
+- **Funciones:** **60,51 %** (567 / 937).
+- Se cubrieron exhaustivamente los módulos sin tests previos o con cobertura insuficiente (`auditoria`, `auth`, `cuota-social`, `cuotas`, `dashboard`, `disciplinas`, `documentacion`, `entradas`, `inscripcion`, `pagos`, `socios`, `usuarios`, `routes` y componentes comunes de UI).
+- Se elevó el ratchet en `vitest.config.ts` a `statements: 67, branches: 66, functions: 57, lines: 68` conservando los ~3 puntos de margen acordados.
+
+### Decisión · Cómo se calcula el estado financiero (US-35)
+**`feature/US-35-Reporte-estado-financiero`** · 10/10/2026
+
+- El reporte se calcula sobre **las cuotas de los meses del período**:
+  recaudado (lo cobrado de esas cuotas), adeudado (vencidas el día 10 e
+  impagas), morosos y porcentaje de cobranza = recaudado / (recaudado +
+  adeudado), que siempre cierra. Lo ingresado por fecha de cobro (caja) se
+  informa aparte.
+- Usa la **misma regla de vencimiento para las dos cuotas** (día 10). Dentro
+  del reporte la cuota social ya la respeta; la pantalla de morosos de US-19
+  alineado en DT-48.
+- Con disciplina, solo su cuota deportiva: la cuota social no pertenece a
+  ninguna disciplina.
+- La deuda sale de los mismos cálculos que los listados de morosos (US-19 y
+  US-23); hay un E2E que verifica que coinciden (TC-219).
+- Acceso: ADMIN y COLABORADOR (no hay rol de tesorero).
+
+### Decisión · La cuota deportiva vence el día 10 de su mes (US-23)
+**`feature/US-23-Ver-morosos-cuota-deportiva`** · 10/10/2026
+
+- Ningún documento del proyecto definía cuándo vence una cuota, y US-23 pide no
+  contar como deuda las que todavía no vencieron. Se decidió el **día 10**: la
+  cuota de octubre se puede pagar sin mora hasta el 10/10 inclusive y es deuda
+  desde el 11. Constante única `DIA_VENCIMIENTO_CUOTA_DEPORTIVA`.
+- Afecta solo al listado de morosos. El cobro (US-21) sigue mostrando todo lo
+  pendiente, incluido el mes en curso, porque se puede pagar por adelantado.
+- La cuota social (US-19) usa esta misma regla desde DT-48.
+
+### Decisión · Cuota deportiva por disciplina y categoría, con descuento para socios (US-20)
+**`issue/TASK-33-US-20-Cuota-deportiva-por-disciplina`** · 02/10/2026
+
+Decisión del equipo: la tarifa de la cuota deportiva depende de la
+**disciplina**, y una **categoría de la disciplina** puede tener tarifa propia
+que reemplaza a la base. Antes dependía de la categoría de **socio**, con dos
+errores: quien no era socio debía $0, y dar de baja una disciplina borraba su
+deuda.
+
+- `ConfiguracionCuotaDeportiva`: `categoriaDisciplinaId` opcional (null = tarifa
+  base) y `descuentoSocioPorcentaje` (0 a 100). La migración conservó una tarifa
+  base por disciplina y período (la de monto más alto) y descartó la apertura
+  por categoría de socio.
+- Período **mensual**. Los cambios rigen desde el mes siguiente; la **primera**
+  tarifa de una disciplina/categoría puede regir desde el mes actual.
+- El **descuento para socios** se aplica en los meses en que la persona tenía
+  la membresía activa.
+- Se cobran completos el mes de alta y el de baja; la deuda anterior a la baja
+  se conserva y se puede cobrar. Sin tarifa para un mes: "Sin tarifa", no $0, y
+  no se puede cobrar.
+- Sin matrícula por ahora. Límite conocido: DT-41.
+
+### DT-20 · Modales unificados y estandarizados
+**`issue/TASK-32-DT-20-Modales-unificados`** (frontend) · 01/10/2026
+
+Las ediciones de socio, cuota social y participante dejaron de ser páginas
+aparte: se abren como modal sobre su listado (`?editar=<id>`) y las rutas
+viejas (`/socios/:id/editar`, etc.) redirigen ahí. La de participante suma
+pestañas para datos y documentación.
+
+Además se estandarizó el `Modal` del design system para que todos se vean
+igual:
+- **Tamaños fijos:** `sm` (confirmaciones), `md` (formularios cortos), `lg`
+  (formularios) y `xl` (fichas con secciones), en lugar de anchos sueltos por
+  pantalla.
+- **Encabezado:** ícono opcional en un chip con tono (`brand`, `danger`,
+  `success`, `warning`), título y descripción.
+- **Acciones:** siempre a la derecha y fijas al pie; Cancelar (secundario) antes
+  de la acción principal. `ModalActions` lo resuelve para los formularios.
+- **Comportamiento:** entrada sutil (desactivada con *reduced motion*) y hoja
+  inferior a todo el ancho en móvil; se mantiene la accesibilidad (foco
+  atrapado, Escape, devolución del foco).
+
+**Regla para lo que venga:** altas y ediciones van en `Modal`; las acciones van
+en `footer` o en `ModalActions`; no se pasan anchos por `className`.
+
+### DT-39 · La inscripción no aplicaba las restricciones de edad y género
+**`issue/TASK-31-DT-27-Estado-documental-e-inscripcion`** · 01/10/2026
+
+El alta y la edición de inscripción validan género y edad contra la categoría
+o, si no las define, contra la disciplina, e informan el motivo. La edad se
+mide **por año de nacimiento** (decisión del equipo del 01/10/2026). El alta
+pide fecha de nacimiento y género; a una persona ya registrada solo se le
+completan los datos que le falten. La edición de participante también permite
+cargar el género.
+
+### DT-11 · Pantalla única de participantes (inscripción y documentación)
+**PR [#101](https://github.com/lucasgazzola/socialclub-frontend/pull/101)** ·
+**`issue/TASK-29-DT-11-Pantalla-unica-de-participantes`** · 01/10/2026
+
+Participantes pasa a ser la pantalla única del participante: el alta de
+inscripción se abre en un modal ("Nueva inscripción") y cada participante
+tiene su documentación (modal desde el listado y sección en la edición). Se
+quitaron del menú Inscripción y Documentación; `/inscripcion` y
+`/documentacion` redirigen a Participantes. Componentes nuevos:
+`InscripcionForm` y `DocumentacionParticipante`.
+
+- De paso se corrigió un bug de US-08: el debounce de la búsqueda volvía a la
+  página 1 a los 300 ms de cargar la pantalla y pisaba el "Siguiente".
+- **Sigue pendiente DT-28** (el propio participante no ve su documentación).
+
+### DT-17 · Código muerto: `EditarInscripcionPage`
+Resuelta junto con DT-11 (PR #101): el archivo se eliminó.
+
+### DT-40 · Los selectores de fecha mostraban mm/dd/aaaa
+**PR [#100](https://github.com/lucasgazzola/socialclub-frontend/pull/100)** ·
+**`issue/TASK-30-DT-40-Formato-de-fecha-dd-mm-aaaa`** · 01/10/2026
+
+El `<input type="date">` nativo toma el formato del idioma del navegador. Se
+creó `DateInput` (`components/ui`): máscara dd/mm/aaaa, calendario nativo
+desde un botón y valor siempre en ISO, así que la API y los schemas no
+cambiaron. Reemplazó las 6 fechas del producto. Los selectores de mes
+(`type="month"`, cuotas) quedan como estaban.
+
+### DT-38 · Test de eventos intermitente (`inicioVenta`)
+**`fix/US-50-Categorias-inactivas-en-inscripcion`** · 01/10/2026
+
+`eventos.service.spec.ts › create` comparaba `inicioVenta` contra la fecha del
+DTO, pero el servicio la genera con `new Date()` cuando no viene: el test
+fallaba cada vez que las dos fechas caían en milisegundos distintos (≈1 de cada
+3 corridas), y con eso el CI. Ahora espera `expect.any(Date)`. Corrida 5 veces
+seguidas en verde.
+
+### DT-37 · El esquema de Prisma y las migraciones divergen (drift silencioso)
+**PR [#57](https://github.com/lucasgazzola/socialclub-backend/pull/57)** ·
+**`fix/db-migracion-drift-disciplinas-cuota-deportiva`** · 29/09/2026
+
+`prisma/schema.prisma` tenía objetos que **ninguna migración versionada creaba**:
+las columnas `Disciplina.genero` / `edadMinima` / `edadMaxima` /
+`solicitaDocumentacion` (con el enum `GeneroDisciplina`), la tabla
+`disciplina_requerimientos_doc` (enum `TipoDocumentacionDisciplina`) y la tabla
+`pagos_cuota_deportiva`. Los commits `5555482` (ABM de disciplinas) y `2208b44`
+(US-21) editaron el schema **sin generar la migración**.
+
+**Por qué no saltó antes:** el `CLAUDE.md` documentaba `npx prisma db push` como
+forma de sincronizar el esquema. `db push` reconcilia la base contra el schema
+actual, así que la base local de cada integrante quedaba bien y el drift era
+invisible. Pero `docker-entrypoint.sh` aplica **`prisma migrate deploy`** en
+cuanto existen migraciones versionadas (Docker local, test y main): esas
+columnas y tablas nunca llegaban a esas bases.
+
+**Cómo se manifestó:** `GET /api/v1/inscripcion?pagina=1&porPagina=10` (US-08) y
+`GET /api/v1/disciplinas` devolvían 500 —
+`PrismaClientKnownRequestError: The column disciplinas.genero does not exist in the current database`—
+porque el `include: { disciplina: true }` de los `findMany` selecciona todas sus
+columnas. Lo mismo le esperaba a test en la próxima promoción `dev → test`, con
+el CD en verde (el contenedor falla al atender, no al arrancar).
+
+**Arreglo:** migración
+`20260929174633_restricciones_disciplina_y_pago_cuota_deportiva` (solo aditiva:
+2 tipos enum, 4 columnas en `disciplinas` —`solicitaDocumentacion` con
+`DEFAULT false`— y las 2 tablas con sus índices y FK), reemplazo del `db push`
+por `npm run prisma:migrate` en el `CLAUDE.md` (`db push` solo vale mientras no
+haya migraciones) y **chequeo de drift en el CI**
+(`npm run prisma:check-drift` → `prisma migrate diff --from-migrations … --exit-code`
+contra un Postgres efímero): el PR falla si el schema vuelve a divergir.
+
+- **Para test/main:** no promover `dev → test` sin esta migración; el entrypoint
+  la aplica solo, es aditiva y no necesita backfill.
+
+---
+
+### DT-30 · ABM de disciplina
+**TASK-18 (US-44 a US-47)** · 22/09/2026 · categorías y restricciones por
+categoría en US-48 a US-51 (01/10/2026)
+
+Se implementó el ABM completo de disciplinas en backend y frontend: listado
+para ADMIN/COLABORADOR, alta, edición, baja lógica, reactivación y auditoría
+de mutaciones. La pantalla incluye búsqueda, filtros por estado, confirmación
+de acciones y feedback con toasts.
+
+También se incorporó la configuración de requisitos documentales por
+disciplina mediante un catálogo enum cerrado, con plazo de tolerancia
+individual por tipo, y restricciones opcionales por edad y género.
+El listado administrativo resuelve búsqueda, filtro de estado y paginación en
+el backend; las pestañas muestran los conteos de todos, activos e inactivos
+según la búsqueda vigente. El formulario permite definir el estado inicial o
+actualizarlo.
+Las mutaciones siguen protegidas para ADMIN, mientras COLABORADOR conserva
+acceso de consulta.
+
+- Enum Prisma: `GeneroDisciplina` con `FEMENINO`, `MASCULINO` y
+  `NO_BINARIO_NO_ESPECIFICADO` (UI: «No binario / No especificado»).
+- Tests: servicio backend (14 casos) y schema Zod frontend (3 casos).
+- El job automático de baja por vencimiento queda fuera de esta US y continúa
+  registrado en DT-27.
 
 ### DT-18 · Numeración única y secuencial de los casos de prueba
 **PR [#39](https://github.com/lucasgazzola/socialclub-backend/pull/39)** ·
@@ -349,13 +1044,13 @@ cátedra). En el orden de la planilla:
 | … | cada bloque posterior se desplazó | hasta `TC-090` |
 
 - Planilla local (`.xlsx`, gitignored): 90 IDs únicos, `TC-001` a `TC-090`. Las 27 ejecuciones ya cargadas se remapearon con la US que declaraban, así que las 7 que apuntaban a un ID ambiguo (todas US-02) no cambiaron.
-- `docs/exportables/casos-prueba.csv` pasó a ser el dump de esa planilla, no una fuente paralela. El mapa viejo→nuevo está en `docs/exportables/mapeo-DT-18.csv`.
+- `docs/exportables/casos-prueba.csv` (hoy `docs/pruebas/casos-prueba.csv`) pasó a ser el dump de esa planilla, no una fuente paralela. El mapa viejo→nuevo quedó en el historial de git: `git show ada3020:docs/exportables/mapeo-DT-18.csv`.
 - Los 17 casos de US-16/US-32 que estaban listos para pegar (`TC-084`..`TC-100`) pasaron a `TC-091`..`TC-107` para no chocar con los IDs nuevos de US-38/39/40.
 - Los specs que etiquetaban `TC-xxx` se remapearon **por US** (auth/US-38, socios/US-12). Los de usuarios (US-02) no se tocaron: esos IDs no cambian. Los `TC-0701` / `TC-0801` de inscripción son otro esquema y se dejaron.
-- `scripts/exportar-casos.mjs` + `scripts/ids-planilla.py` leen el máximo del `.xlsx` y de `docs/exportables/*.csv`, y se niegan a asignar si vuelven a aparecer duplicados. El próximo ID libre es **`TC-108`**.
+- `scripts/exportar-casos.mjs` + `scripts/ids-planilla.py` leen el máximo del `.xlsx` y de `docs/pruebas/*.csv`, y se niegan a asignar si vuelven a aparecer duplicados. El próximo ID libre es **`TC-108`**.
 
-Hay que **pegar** `docs/exportables/casos-prueba.csv` (o aplicar el mapa) en la
-copia de Drive de la planilla: el `.xlsx` del repo es local.
+La copia de Drive se actualiza pegando `docs/pruebas/para-pegar/casos-prueba.tsv`
+(no el CSV; lo regenera `npm run docs:para-pegar`). El `.xlsx` del repo es local y gitignored.
 
 ### DT-16 · Endpoints de inscripción sin control de rol
 **PR [#33](https://github.com/lucasgazzola/socialclub-backend/pull/33)** ·
@@ -501,36 +1196,12 @@ tocar el tsconfig de build.
 
 ## Trazabilidad de casos de prueba
 
-La fuente de verdad es la planilla
-`docs/documentacion/desarrollo-del-producto/01 ... Plan de testing del producto ... .xlsx`
-(hojas *Casos de Prueba*, *Ejecución de Pruebas*, *Defectos*, *Conformidad PO*,
-*Resumen*). El directorio `docs/exportables/` solo guarda **archivos para copiar
-y pegar** en esas hojas; no reemplaza a la planilla.
-
-Estado al 16/09/2026, contrastado contra el código (IDs **después de DT-18**):
-
-| | Cantidad |
-|---|---|
-| Casos cargados en la planilla | 90 filas / **90 IDs únicos** (`TC-001` a `TC-090`) |
-| US con casos documentados | 16 |
-| US implementadas en el backend | 22 (+ US-16, que no estaba etiquetada) |
-| **US implementadas sin ningún caso** | **US-06, US-08, US-09, US-11, US-24, US-31** |
-| Casos nuevos listos para cargar | 17 (`TC-091` a `TC-107`, US-16 y US-32) |
-| Ejecuciones nuevas listas para cargar | 19 (`EJ-28` a `EJ-46`) |
-
-Archivos para pegar:
-
-- `docs/exportables/casos-prueba.csv` → hoja **Casos de Prueba** (dump completo, ya renumerado)
-- `docs/exportables/mapeo-DT-18.csv` → referencia viejo → nuevo
-- `docs/exportables/ejecucion-planilla.csv` → hoja **Ejecución de Pruebas** (las 27 filas ya cargadas, remapeadas)
-- `docs/exportables/casos-prueba-US16-US32.csv` → hoja **Casos de Prueba** (pegar **después** del dump; `TC-091` a `TC-107`)
-- `docs/exportables/ejecucion-US16-US32.csv` → hoja **Ejecución de Pruebas**
-
-Los CSV van con todas las celdas entre comillas y BOM, porque los `Pasos`
-llevan saltos de línea dentro de la celda: en TSV, Excel los toma como filas
-nuevas y rompe la planilla. `ejecucion-planilla.csv` es un snapshot de las 27
-filas ya cargadas: las fechas salen como serial de Excel, así que para esas
-filas alcanza con el `.xlsx` local (ya remapeado) o con el mapa.
+La fuente de verdad es la planilla de Drive (*Plan de testing del producto*,
+hojas *Casos de Prueba*, *Ejecución de Pruebas*, *Defectos*, *Conformidad PO*,
+*Resumen*). `docs/pruebas/` la espeja en git: consolidados, TSV para pegar y
+evidencias por historia. Cómo se organiza y cómo se actualiza:
+[`pruebas/README.md`](pruebas/README.md). Cantidades medidas al día:
+[`PLAN-TESTING.md`](PLAN-TESTING.md).
 
 ## Nomenclatura
 
@@ -538,8 +1209,8 @@ Lo que ya usa el equipo, aplicado a la deuda técnica:
 
 - **Ramas:** `issue/TASK-<n>-DT-<nn>-<Descripcion-en-kebab>` para deuda
   identificada; `fix/<Descripcion>` para arreglos de configuración o tooling.
-  El número `TASK` es correlativo y global (el último usado va en la tabla de
-  arriba).
+  El número `TASK` es correlativo y global. **Último usado: TASK-48**
+  (21/10/2026).
 - **Commits:** `<prefijo>[scope]: <descripción en minúscula>`, con el ID de la
   deuda como scope — `refactor[DT-03]: …`, `test[DT-01]: …`, `ci[lint]: …`.
   Prefijos válidos: `feat`, `fix`, `docs`, `test`, `ci`, `chore`, `refactor`.

@@ -10,11 +10,11 @@ export class FindCuotasQueryDto extends PaginationQueryDto {
   @IsInt()
   disciplinaId?: number;
 
-  @ApiPropertyOptional({ description: 'Filtrar por categoría de socio', example: 1 })
+  @ApiPropertyOptional({ description: 'Filtrar por categoría de la disciplina', example: 7 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  categoriaId?: number;
+  categoriaDisciplinaId?: number;
 
   @ApiPropertyOptional({
     description: 'Filtrar por período de aplicación (YYYY-MM)',

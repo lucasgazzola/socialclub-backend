@@ -1,19 +1,22 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { EventosService } from './eventos.service';
+import { DEFAULT_EVENT_IMAGE_URL } from './eventos.mapper';
 
-/**
- * US-29 · Crear evento / lectura de eventos — tests unitarios del EventosService.
- * Se enfocan en el comportamiento real: el mapeo de `_count.entradas` a
- * `entradasVendidas`, el 404 y la auditoría del alta.
- */
 describe('US-29 · EventosService', () => {
   let service: EventosService;
 
   const prismaMock = {
-    evento: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn() },
+    evento: {
+      findMany: jest.fn(),
+      count: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+    $transaction: jest.fn(),
   };
   const auditoriaMock = { registrar: jest.fn() };
 
@@ -30,41 +33,210 @@ describe('US-29 · EventosService', () => {
   });
 
   describe('findAll', () => {
-    it('expone la cantidad de entradas vendidas y no filtra _count', async () => {
-      prismaMock.evento.findMany.mockResolvedValue([
-        { id: 1, nombre: 'Peña', entradasDisponibles: 8, _count: { entradas: 12 } },
-      ]);
+    it('devuelve eventos paginados sin BORRADOR', async () => {
+      const mockItems = [
+        {
+          id: 1,
+          nombre: 'Peña',
+          requiereEntrada: true,
+          capacidadMaxima: 100,
+          entradasDisponibles: 8,
+          precio: '1000',
+          descuentoSocio: 10,
+          estado: 'PUBLICADO',
+          _count: { entradas: 12 },
+        },
+      ];
+
+      prismaMock.$transaction.mockResolvedValue([mockItems, 1]);
 
       const res = await service.findAll();
 
-      expect(res).toEqual([
-        { id: 1, nombre: 'Peña', entradasDisponibles: 8, entradasVendidas: 12 },
-      ]);
-      // Ordenado por nombre e incluyendo el conteo de entradas.
+      expect(res).toEqual({
+        items: [
+          {
+            id: 1,
+            nombre: 'Peña',
+            requiereEntrada: true,
+            capacidadMaxima: 100,
+            entradasDisponibles: 8,
+            precio: '1000',
+            descuentoSocio: 10,
+            estado: 'PUBLICADO',
+            entradasVendidas: 12,
+            imageUrl: DEFAULT_EVENT_IMAGE_URL,
+          },
+        ],
+        total: 1,
+        pagina: 1,
+        porPagina: 5,
+        totalPaginas: 1,
+      });
+      expect(prismaMock.$transaction).toHaveBeenCalled();
+    });
+
+    it('ordenar=precio lista de menor a mayor y pagina en la base', async () => {
+      prismaMock.$transaction.mockResolvedValue([[], 0]);
+
+      await service.findAll({ ordenar: 'precio', pagina: 2, porPagina: 5 });
+
       expect(prismaMock.evento.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ orderBy: { nombre: 'asc' } }),
+        expect.objectContaining({
+          orderBy: [{ precio: 'asc' }, { id: 'asc' }],
+          skip: 5,
+          take: 5,
+        }),
       );
-      // `_count` no debe filtrarse en la respuesta.
-      expect(res[0]).not.toHaveProperty('_count');
+    });
+
+    it('aplica filtros de rango de fechas fechaDesde y fechaHasta en el where de Prisma', async () => {
+      prismaMock.$transaction.mockResolvedValue([[], 0]);
+
+      await service.findAll({
+        fechaDesde: '2026-11-01',
+        fechaHasta: '2026-11-30',
+      });
+
+      expect(prismaMock.evento.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            estado: { not: 'BORRADOR' },
+            fechaEvento: {
+              gte: new Date('2026-11-01'),
+              lte: expect.any(Date),
+            },
+          }),
+        }),
+      );
+    });
+
+    it('aplica filtro de búsqueda por texto case-insensitive en nombre y descripción', async () => {
+      prismaMock.$transaction.mockResolvedValue([[], 0]);
+
+      await service.findAll({ search: 'Música' });
+
+      expect(prismaMock.evento.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: [
+              { nombre: { contains: 'Música', mode: 'insensitive' } },
+              { descripcion: { contains: 'Música', mode: 'insensitive' } },
+            ],
+          }),
+        }),
+      );
+    });
+
+    it('soporta alias de paginación page y limit', async () => {
+      prismaMock.$transaction.mockResolvedValue([[], 0]);
+
+      const res = await service.findAll({ page: 2, limit: 10, ordenar: 'reciente' });
+
+      expect(prismaMock.evento.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 10,
+          take: 10,
+        }),
+      );
+      expect(res.pagina).toBe(2);
+      expect(res.porPagina).toBe(10);
+    });
+
+    it('con el orden por fecha pone primero el publicado que todavía no terminó', async () => {
+      const pasado = {
+        id: 1,
+        nombre: 'Peña del día de la primavera',
+        estado: 'FINALIZADO',
+        fechaEvento: new Date('2020-09-21T14:00:00Z'),
+        fechaFin: new Date('2020-09-22T02:00:00Z'),
+        requiereEntrada: true,
+        precio: '8000',
+        _count: { entradas: 0 },
+      };
+      const proximo = {
+        id: 2,
+        nombre: 'Peña de socios',
+        estado: 'PUBLICADO',
+        fechaEvento: new Date('2099-11-16T14:00:00Z'),
+        fechaFin: new Date('2099-11-17T02:00:00Z'),
+        requiereEntrada: true,
+        precio: '8000',
+        _count: { entradas: 0 },
+      };
+      prismaMock.$transaction.mockResolvedValue([[pasado, proximo], 2]);
+
+      const res = await service.findAll();
+
+      expect(res.items.map((item) => item.id)).toEqual([2, 1]);
+      expect(prismaMock.evento.findMany).toHaveBeenCalledWith(
+        expect.not.objectContaining({ skip: expect.anything() }),
+      );
+    });
+
+    it('filtra por estado y no entrega borradores a quien no es admin', async () => {
+      prismaMock.$transaction.mockResolvedValue([[], 0]);
+
+      await service.findAll({ estado: 'PUBLICADO' });
+      expect(prismaMock.evento.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ estado: 'PUBLICADO' }),
+        }),
+      );
+
+      await service.findAll({ estado: 'BORRADOR' }, false);
+      expect(prismaMock.evento.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: -1 }),
+        }),
+      );
+    });
+
+    it('incluye borradores si es admin y lo solicita explícitamente', async () => {
+      prismaMock.$transaction.mockResolvedValue([[], 0]);
+
+      await service.findAll({ incluirBorradores: 'true' }, true);
+
+      expect(prismaMock.evento.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({
+            estado: { not: 'BORRADOR' },
+          }),
+        }),
+      );
     });
   });
 
   describe('findOne', () => {
-    it('devuelve el evento con entradasVendidas', async () => {
+    it('devuelve el evento con entradasVendidas e imageUrl', async () => {
       prismaMock.evento.findUnique.mockResolvedValue({
         id: 2,
         nombre: 'Cena',
+        requiereEntrada: true,
+        capacidadMaxima: 50,
         entradasDisponibles: 5,
+        precio: '500',
+        descuentoSocio: 0,
+        estado: 'PUBLICADO',
         _count: { entradas: 3 },
       });
 
       const res = await service.findOne(2);
 
-      expect(res).toEqual({ id: 2, nombre: 'Cena', entradasDisponibles: 5, entradasVendidas: 3 });
-      expect(res).not.toHaveProperty('_count');
+      expect(res).toEqual({
+        id: 2,
+        nombre: 'Cena',
+        requiereEntrada: true,
+        capacidadMaxima: 50,
+        entradasDisponibles: 5,
+        precio: '500',
+        descuentoSocio: 0,
+        estado: 'PUBLICADO',
+        entradasVendidas: 3,
+        imageUrl: DEFAULT_EVENT_IMAGE_URL,
+      });
     });
 
-    it('lanza 404 si el evento no existe', async () => {
+    it('lanza 404 si el evento no existe o es BORRADOR para un usuario común', async () => {
       prismaMock.evento.findUnique.mockResolvedValue(null);
 
       await expect(service.findOne(99)).rejects.toBeInstanceOf(NotFoundException);
@@ -72,28 +244,102 @@ describe('US-29 · EventosService', () => {
   });
 
   describe('create', () => {
-    it('crea el evento y audita la acción CREAR', async () => {
-      prismaMock.evento.create.mockResolvedValue({ id: 10, nombre: 'Torneo' });
+    it('crea el evento validando fechas y seteando imagen: null', async () => {
+      const fechaEvento = new Date('2027-01-15T18:00:00Z');
+      const fechaFin = new Date('2027-01-15T22:00:00Z');
+      const inicioVenta = new Date('2027-01-01T00:00:00Z');
+      const finVenta = new Date('2027-01-14T23:59:59Z');
 
-      const res = await service.create(
-        { nombre: 'Torneo', descripcion: 'Anual', entradasDisponibles: 100 },
-        7,
-      );
+      prismaMock.evento.create.mockResolvedValue({
+        id: 10,
+        nombre: 'Torneo',
+        precio: '1500',
+        imagen: null,
+      });
+
+      const dto: any = {
+        nombre: 'Torneo',
+        descripcion: 'Anual',
+        requiereEntrada: true,
+        entradasDisponibles: 100,
+        capacidadMaxima: 100,
+        fechaEvento,
+        fechaFin,
+        inicioVenta,
+        finVenta,
+        lugarAcreditacion: 'Sede central',
+        precio: 1500,
+        descuentoSocio: 10,
+        imagen: 'algo-a-ignorar',
+      };
+      const res = await service.create(dto, 7);
 
       expect(prismaMock.evento.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: { nombre: 'Torneo', descripcion: 'Anual', entradasDisponibles: 100 },
+          data: expect.objectContaining({
+            nombre: 'Torneo',
+            fechaEvento,
+            fechaFin,
+            imagen: null,
+            estado: 'PUBLICADO',
+            inicioVenta,
+            finVenta,
+          }),
         }),
       );
-      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+      expect(res.imageUrl).toBe(DEFAULT_EVENT_IMAGE_URL);
+    });
+
+    it('normaliza campos si requiereEntrada es false', async () => {
+      const fechaEvento = new Date('2027-01-15T18:00:00Z');
+      prismaMock.evento.create.mockResolvedValue({
+        id: 11,
+        nombre: 'Jornada Libre',
+        requiereEntrada: false,
+        capacidadMaxima: null,
+        entradasDisponibles: null,
+        precio: '0',
+        descuentoSocio: 0,
+      });
+
+      const dto: any = {
+        nombre: 'Jornada Libre',
+        requiereEntrada: false,
+        fechaEvento,
+        lugarAcreditacion: 'Parque',
+      };
+
+      await service.create(dto, 1);
+
+      expect(prismaMock.evento.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          accion: 'CREAR',
-          entidad: 'Evento',
-          idEntidad: 10,
-          responsableId: 7,
+          data: expect.objectContaining({
+            requiereEntrada: false,
+            capacidadMaxima: null,
+            entradasDisponibles: null,
+            precio: 0,
+            descuentoSocio: 0,
+            inicioVenta: null,
+            finVenta: null,
+          }),
         }),
       );
-      expect(res.id).toBe(10);
+    });
+  });
+
+  describe('update', () => {
+    it('rechaza cambiar estado de FINALIZADO a PUBLICADO', async () => {
+      prismaMock.evento.findUnique.mockResolvedValue({
+        id: 5,
+        estado: 'FINALIZADO',
+        requiereEntrada: true,
+        fechaEvento: new Date('2026-08-01T10:00:00Z'),
+        _count: { entradas: 0 },
+      });
+
+      await expect(service.update(5, { estado: 'PUBLICADO' as any }, 1)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
     });
   });
 });

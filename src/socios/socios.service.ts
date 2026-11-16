@@ -8,18 +8,64 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
-import { EstadoSocioFiltro, FindSociosQueryDto } from './dto/find-socios-query.dto';
+import {
+  EstadoCuentaSocioFiltro,
+  EstadoSocioFiltro,
+  FindSociosQueryDto,
+} from './dto/find-socios-query.dto';
+import { periodosVencidosImpagos } from '../pagos/vencimiento-cuota-deportiva';
 import { CreateSocioDto } from './dto/create-socio.dto';
 import { RegistrarSocioDto } from './dto/registrar-socio.dto';
 import { UpdateSocioDto } from './dto/update-socio.dto';
 import { UpdatePerfilSocioDto } from './dto/update-perfil-socio.dto';
+import {
+  EnlaceEmitido,
+  VerificacionEmailService,
+} from '../verificacion-email/verificacion-email.service';
 
 @Injectable()
 export class SociosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
+    private readonly verificacion: VerificacionEmailService,
   ) {}
+
+  /**
+   * DT-54: cuenta del socio dado de alta por el club. Si la persona ya tiene
+   * cuenta, se le suma el rol SOCIO. Si no tiene y cargó email, se le crea
+   * una cuenta pendiente con rol SOCIO y se devuelve el enlace a enviar.
+   */
+  private async asegurarCuentaSocio(
+    tx: Prisma.TransactionClient,
+    persona: {
+      id: number;
+      nombre: string;
+      apellido: string;
+      email: string | null;
+      usuario?: { id: number } | null;
+    },
+    responsableId: number,
+  ): Promise<EnlaceEmitido | null> {
+    const rolSocio = await tx.rol.findUnique({ where: { nombre: 'SOCIO' } });
+    if (persona.usuario) {
+      if (rolSocio) {
+        const clave = { usuarioId: persona.usuario.id, rolId: rolSocio.id };
+        const yaTieneRol = await tx.usuarioRol.findUnique({ where: { usuarioId_rolId: clave } });
+        if (!yaTieneRol) await tx.usuarioRol.create({ data: clave });
+      }
+      return null;
+    }
+    if (!persona.email) return null;
+    return this.verificacion.crearCuentaPendiente(tx, {
+      personaId: persona.id,
+      email: persona.email,
+      nombre: persona.nombre,
+      apellido: persona.apellido,
+      rolesIds: rolSocio ? [rolSocio.id] : [],
+      responsableId,
+    });
+  }
 
   /** Formatea una Persona con sus membresías al objeto Socio esperado */
   private aSocioDto(persona: any) {
@@ -47,7 +93,10 @@ export class SociosService {
     };
   }
 
-  /** US-12: Registrar socio (carga administrativa) */
+  /**
+   * US-12: Registrar socio (carga administrativa).
+   * DT-54: si tiene email, recibe un enlace para elegir su contraseña.
+   */
   async create(dto: CreateSocioDto, responsableId: number) {
     let categoria = null;
     if (dto.categoriaId) {
@@ -79,8 +128,8 @@ export class SociosService {
         throw new ConflictException('Ya existe un socio activo con ese DNI');
       }
 
-      return this.prisma.$transaction(async (tx) => {
-        await tx.persona.update({
+      const { socio, enlace } = await this.prisma.$transaction(async (tx) => {
+        const personaActualizada = await tx.persona.update({
           where: { id: personaExistente.id },
           data: {
             nombre: dto.nombre,
@@ -114,6 +163,12 @@ export class SociosService {
           tx,
         );
 
+        const enlace = await this.asegurarCuentaSocio(
+          tx,
+          { ...personaActualizada, usuario: personaExistente.usuario },
+          responsableId,
+        );
+
         const actualizada = await tx.persona.findUnique({
           where: { id: personaExistente.id },
           include: {
@@ -122,8 +177,10 @@ export class SociosService {
           },
         });
 
-        return this.aSocioDto(actualizada)!;
+        return { socio: this.aSocioDto(actualizada)!, enlace };
       });
+      await this.verificacion.enviar(enlace, responsableId);
+      return socio;
     }
 
     if (dto.email) {
@@ -135,7 +192,7 @@ export class SociosService {
       }
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const { socio, enlace } = await this.prisma.$transaction(async (tx) => {
       const persona = await tx.persona.create({
         data: {
           nombre: dto.nombre,
@@ -169,8 +226,12 @@ export class SociosService {
         tx,
       );
 
-      return this.aSocioDto(persona)!;
+      const enlace = await this.asegurarCuentaSocio(tx, persona, responsableId);
+      const conCuenta = enlace ? { ...persona, usuario: { id: enlace.usuarioId } } : persona;
+      return { socio: this.aSocioDto(conCuenta)!, enlace };
     });
+    await this.verificacion.enviar(enlace, responsableId);
+    return socio;
   }
 
   /**
@@ -285,22 +346,85 @@ export class SociosService {
   }
 
   /**
+   * Períodos vencidos e impagos de la membresía que usa el badge "Moroso":
+   * la activa, o la última si no hay ninguna activa.
+   */
+  private periodosVencidosDe(persona: {
+    membresias?: { activo: boolean; fechaAlta: Date; fechaBaja: Date | null }[];
+    pagos?: { periodo: string }[];
+  }): number {
+    const activa = persona.membresias?.find((membresia) => membresia.activo);
+    const membresia = activa ?? persona.membresias?.[0];
+    if (!membresia?.fechaAlta) return 0;
+    return periodosVencidosImpagos(
+      new Date(membresia.fechaAlta),
+      membresia.fechaBaja ? new Date(membresia.fechaBaja) : new Date(),
+      (persona.pagos ?? []).map((pago) => pago.periodo),
+    );
+  }
+
+  /**
    * US-15: Buscar y filtrar socios.
    * - Búsqueda por nombre, apellido o DNI.
    * - Filtro por categoría de socio (membresía activa).
    * - Filtro por estado (ALTA: membresía activa, BAJA: sin membresía activa).
+   * - Filtro por estado de cuenta (MOROSO / AL_DIA), con la regla de US-19.
+   * - Sin orden de columna, los morosos van primero.
    * - Paginación resuelta en backend.
    */
   async findAll(query: FindSociosQueryDto) {
-    const { busqueda, categoriaId, estado, pagina, porPagina } = query;
+    const { busqueda, categoriaId, estado, estadoCuenta, pagina, porPagina, ordenarPor, orden } =
+      query;
 
-    const filtros: Prisma.PersonaWhereInput[] = [
+    const direccion: 'asc' | 'desc' = orden?.toLowerCase() === 'desc' ? 'desc' : 'asc';
+    const campoOrden = ordenarPor?.toLowerCase();
+    const ordenaEnBase =
+      campoOrden === 'dni' ||
+      campoOrden === 'email' ||
+      campoOrden === 'nombre' ||
+      campoOrden === 'apellido' ||
+      campoOrden === 'socio' ||
+      campoOrden === 'fecha' ||
+      campoOrden === 'creadoen' ||
+      campoOrden === 'alta';
+    // La mora se calcula con las cuotas, así que el orden por defecto y el
+    // filtro de cuenta se resuelven sobre el conjunto completo.
+    const paginarEnMemoria = !ordenaEnBase || Boolean(estadoCuenta);
+    let orderBy: Prisma.PersonaOrderByWithRelationInput | Prisma.PersonaOrderByWithRelationInput[];
+
+    if (!ordenarPor) {
+      orderBy = { creadoEn: 'desc' };
+    } else {
+      switch (ordenarPor.toLowerCase()) {
+        case 'dni':
+          orderBy = { dni: direccion };
+          break;
+        case 'email':
+          orderBy = { email: direccion };
+          break;
+        case 'nombre':
+        case 'apellido':
+        case 'socio':
+          orderBy = [{ apellido: direccion }, { nombre: direccion }];
+          break;
+        case 'fecha':
+        case 'creadoen':
+        case 'alta':
+          orderBy = { creadoEn: direccion };
+          break;
+        default:
+          orderBy = { creadoEn: 'desc' };
+          break;
+      }
+    }
+
+    const filtrosBase: Prisma.PersonaWhereInput[] = [
       { membresias: { some: {} } }, // Solo personas que tienen o tuvieron membresías
     ];
 
     if (busqueda) {
       const termino = busqueda.trim();
-      filtros.push({
+      filtrosBase.push({
         OR: [
           { nombre: { contains: termino, mode: 'insensitive' } },
           { apellido: { contains: termino, mode: 'insensitive' } },
@@ -310,40 +434,102 @@ export class SociosService {
     }
 
     if (categoriaId) {
-      filtros.push({
+      filtrosBase.push({
         membresias: { some: { categoriaId, activo: true } },
       });
     }
 
-    if (estado) {
-      if (estado === EstadoSocioFiltro.ALTA) {
-        filtros.push({ membresias: { some: { activo: true } } });
-      } else {
-        filtros.push({ membresias: { none: { activo: true } } });
-      }
+    const whereBase: Prisma.PersonaWhereInput = { AND: filtrosBase };
+    const whereAlta: Prisma.PersonaWhereInput = {
+      AND: [...filtrosBase, { membresias: { some: { activo: true } } }],
+    };
+    const whereBaja: Prisma.PersonaWhereInput = {
+      AND: [...filtrosBase, { membresias: { none: { activo: true } } }],
+    };
+
+    let where: Prisma.PersonaWhereInput = whereBase;
+    if (estado === EstadoSocioFiltro.ALTA) {
+      where = whereAlta;
+    } else if (estado === EstadoSocioFiltro.BAJA) {
+      where = whereBaja;
     }
 
-    const where: Prisma.PersonaWhereInput = { AND: filtros };
-
-    const [items, total] = await this.prisma.$transaction([
+    const [items, total, totalTodos, totalAlta, totalBaja] = await this.prisma.$transaction([
       this.prisma.persona.findMany({
         where,
         include: {
           membresias: { include: { categoria: true }, orderBy: { fechaAlta: 'desc' } },
           usuario: { select: { id: true } },
+          ...(paginarEnMemoria ? { pagos: { select: { periodo: true } } } : {}),
         },
-        orderBy: { apellido: 'asc' },
-        skip: (pagina - 1) * porPagina,
-        take: porPagina,
+        orderBy,
+        ...(paginarEnMemoria ? {} : { skip: (pagina - 1) * porPagina, take: porPagina }),
       }),
       this.prisma.persona.count({ where }),
+      this.prisma.persona.count({ where: whereBase }),
+      this.prisma.persona.count({ where: whereAlta }),
+      this.prisma.persona.count({ where: whereBaja }),
     ]);
 
+    let filas = items.map((persona) => ({
+      persona,
+      vencidos: paginarEnMemoria ? this.periodosVencidosDe(persona) : 0,
+    }));
+
+    if (paginarEnMemoria && estadoCuenta === EstadoCuentaSocioFiltro.MOROSO) {
+      filas = filas.filter((fila) => fila.vencidos > 0);
+    } else if (paginarEnMemoria && estadoCuenta === EstadoCuentaSocioFiltro.AL_DIA) {
+      filas = filas.filter((fila) => fila.vencidos === 0);
+    }
+
+    if (campoOrden === 'categoria') {
+      filas.sort((a, b) => {
+        const catA = this.aSocioDto(a.persona)?.categoria?.nombre ?? '';
+        const catB = this.aSocioDto(b.persona)?.categoria?.nombre ?? '';
+        const diff = catA.localeCompare(catB, 'es', { sensitivity: 'base' });
+        return direccion === 'asc' ? diff : -diff;
+      });
+    } else if (campoOrden === 'estado') {
+      filas.sort((a, b) => {
+        const estA = this.aSocioDto(a.persona)?.activo ? 1 : 0;
+        const estB = this.aSocioDto(b.persona)?.activo ? 1 : 0;
+        return direccion === 'asc' ? estA - estB : estB - estA;
+      });
+    } else if (!ordenaEnBase) {
+      filas.sort((a, b) => {
+        const aMoroso = a.vencidos > 0;
+        const bMoroso = b.vencidos > 0;
+        if (aMoroso !== bMoroso) return aMoroso ? -1 : 1;
+        if (aMoroso && a.vencidos !== b.vencidos) return b.vencidos - a.vencidos;
+        if (!aMoroso) {
+          const fa = new Date(a.persona.creadoEn ?? 0).getTime();
+          const fb = new Date(b.persona.creadoEn ?? 0).getTime();
+          if (fa !== fb) return fb - fa;
+        }
+        return `${a.persona.apellido ?? ''} ${a.persona.nombre ?? ''}`.localeCompare(
+          `${b.persona.apellido ?? ''} ${b.persona.nombre ?? ''}`,
+          'es',
+          { sensitivity: 'base' },
+        );
+      });
+    }
+
+    const totalPagina = paginarEnMemoria ? filas.length : total;
+    if (paginarEnMemoria) {
+      const inicio = (pagina - 1) * porPagina;
+      filas = filas.slice(inicio, inicio + porPagina);
+    }
+
     return {
-      items: items.map((p) => this.aSocioDto(p)),
-      total,
+      items: filas.map((fila) => this.aSocioDto(fila.persona)),
+      total: totalPagina,
       pagina,
       porPagina,
+      counts: {
+        todos: totalTodos,
+        alta: totalAlta,
+        baja: totalBaja,
+      },
     };
   }
 
@@ -456,6 +642,197 @@ export class SociosService {
     return this.findOne(id);
   }
 
+  /** US-14 (complemento): Reactivar / Dar de alta socio (crea nueva membresía activa) */
+  async activate(id: number, responsableId: number) {
+    const persona = await this.prisma.persona.findUnique({
+      where: { id },
+      include: {
+        membresias: { include: { categoria: true }, orderBy: { fechaAlta: 'desc' } },
+      },
+    });
+
+    if (!persona) {
+      throw new NotFoundException('Socio no encontrado');
+    }
+
+    const membresiaActiva = persona.membresias.find((m) => m.activo);
+    if (membresiaActiva) {
+      throw new BadRequestException('El socio ya se encuentra activo');
+    }
+
+    const ultimaMembresia = persona.membresias[0];
+    let categoriaId = ultimaMembresia?.categoriaId;
+    if (!categoriaId) {
+      const cat = await this.prisma.categoriaSocio.findFirst();
+      if (!cat) throw new BadRequestException('No hay categorías de socio configuradas');
+      categoriaId = cat.id;
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const nuevaMembresia = await tx.membresia.create({
+        data: {
+          personaId: id,
+          categoriaId,
+          activo: true,
+          fechaAlta: new Date(),
+        },
+      });
+
+      // Restablecer el rol SOCIO si el usuario vinculado no lo posee
+      const usuarioVinculado = await tx.usuario.findUnique({ where: { personaId: id } });
+      if (usuarioVinculado) {
+        const rolSocio = await tx.rol.findUnique({ where: { nombre: 'SOCIO' } });
+        if (rolSocio) {
+          const tieneRol = await tx.usuarioRol.findUnique({
+            where: { usuarioId_rolId: { usuarioId: usuarioVinculado.id, rolId: rolSocio.id } },
+          });
+          if (!tieneRol) {
+            await tx.usuarioRol.create({
+              data: { usuarioId: usuarioVinculado.id, rolId: rolSocio.id },
+            });
+          }
+        }
+      }
+
+      await this.auditoria.registrar(
+        {
+          accion: 'REACTIVAR',
+          entidad: 'Membresia',
+          idEntidad: nuevaMembresia.id,
+          responsableId,
+          detalle: `Reactivación / Alta de membresía para socio ${persona.apellido}, ${persona.nombre} (DNI ${persona.dni})`,
+        },
+        tx,
+      );
+    });
+
+    return this.findOne(id);
+  }
+
+  /** US-43: Reactivar mi membresía como ex-socio (auto-reactivación autogestionada) */
+  async reactivarme(usuarioId: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      include: {
+        persona: {
+          include: {
+            membresias: { include: { categoria: true }, orderBy: { fechaAlta: 'desc' } },
+          },
+        },
+      },
+    });
+
+    if (!usuario || !usuario.activo) {
+      throw new UnauthorizedException(
+        'El usuario no está habilitado para autogestionarse como socio',
+      );
+    }
+
+    if (!usuario.persona) {
+      throw new NotFoundException('No se encontró una ficha de persona asociada a este usuario');
+    }
+
+    const persona = usuario.persona;
+
+    const tieneMembresiaActiva = persona.membresias.some((m) => m.activo);
+    if (tieneMembresiaActiva) {
+      throw new BadRequestException('El socio ya se encuentra activo');
+    }
+
+    if (persona.membresias.length === 0) {
+      throw new BadRequestException(
+        'No registrás una membresía previa dada de baja. Para asociarte por primera vez, usá la opción Hacerme socio.',
+      );
+    }
+
+    const ultimaMembresia = persona.membresias[0];
+    let categoriaId = ultimaMembresia?.categoriaId;
+    if (!categoriaId) {
+      const cat = await this.prisma.categoriaSocio.findFirst();
+      if (!cat) throw new BadRequestException('No hay categorías de socio configuradas');
+      categoriaId = cat.id;
+    }
+
+    const rolSocio = await this.prisma.rol.findUnique({ where: { nombre: 'SOCIO' } });
+    if (!rolSocio) {
+      throw new BadRequestException('El rol SOCIO no está configurado en el sistema');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const nuevaMembresia = await tx.membresia.create({
+        data: {
+          personaId: persona.id,
+          categoriaId,
+          activo: true,
+          fechaAlta: new Date(),
+        },
+      });
+
+      const yaTieneRol = await tx.usuarioRol.findUnique({
+        where: { usuarioId_rolId: { usuarioId: usuario.id, rolId: rolSocio.id } },
+      });
+      if (!yaTieneRol) {
+        await tx.usuarioRol.create({ data: { usuarioId: usuario.id, rolId: rolSocio.id } });
+      }
+
+      await this.auditoria.registrar(
+        {
+          accion: 'REACTIVAR',
+          entidad: 'Membresia',
+          idEntidad: nuevaMembresia.id,
+          responsableId: usuario.id,
+          detalle: `Reactivación autogestionada de membresía por el ex-socio: ${usuario.nombre} ${usuario.apellido}`,
+        },
+        tx,
+      );
+    });
+
+    return this.findOne(persona.id);
+  }
+
+  /** US-42: Darme de baja como socio (auto-baja del socio autenticado) */
+  async darseDeBaja(usuarioId: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      include: {
+        persona: {
+          include: {
+            membresias: { where: { activo: true } },
+          },
+        },
+      },
+    });
+
+    if (!usuario || !usuario.persona) {
+      throw new NotFoundException('No se encontró una ficha de persona asociada a este usuario');
+    }
+
+    const membresiaActiva = usuario.persona.membresias[0];
+    if (!membresiaActiva) {
+      throw new BadRequestException('El socio ya se encuentra dado de baja');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.membresia.update({
+        where: { id: membresiaActiva.id },
+        data: { activo: false, fechaBaja: new Date() },
+      });
+
+      await this.auditoria.registrar(
+        {
+          accion: 'BAJA',
+          entidad: 'Membresia',
+          idEntidad: membresiaActiva.id,
+          responsableId: usuarioId,
+          detalle: `Auto-baja de membresía solicitada por el socio: ${usuario.nombre} ${usuario.apellido}`,
+        },
+        tx,
+      );
+    });
+
+    return this.findOne(usuario.persona.id);
+  }
+
   /**
    * US-11: Editar datos personales del socio.
    * - Solo permite modificar Nombre, Apellido, Email y Teléfono.
@@ -486,6 +863,12 @@ export class SociosService {
     }
 
     const email = dto.email.trim().toLowerCase();
+    const emailCambio = email !== usuario.email.trim().toLowerCase();
+    if (emailCambio) {
+      const confirmado = dto.confirmarEmail?.trim().toLowerCase();
+      if (!confirmado) throw new BadRequestException('Confirmá el email.');
+      if (confirmado !== email) throw new BadRequestException('Los emails no coinciden.');
+    }
 
     // Validar unicidad del email contra otros usuarios
     const conEmailUsuario = await this.prisma.usuario.findFirst({
@@ -515,14 +898,16 @@ export class SociosService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      // 1. Actualizar Usuario
+    const { socio, enlace } = await this.prisma.$transaction(async (tx) => {
+      // 1. Actualizar Usuario. DT-59: si el email cambia, hay que verificarlo de nuevo.
+      const enlaceEmitido = emailCambio ? await this.verificacion.emitir(usuarioId, tx) : null;
       await tx.usuario.update({
         where: { id: usuarioId },
         data: {
           nombre: dto.nombre.trim(),
           apellido: dto.apellido.trim(),
           email,
+          ...(emailCambio ? { emailVerificadoEn: null } : {}),
         },
       });
 
@@ -552,7 +937,10 @@ export class SociosService {
         tx,
       );
 
-      return this.aSocioDto(personaActualizada);
+      return { socio: this.aSocioDto(personaActualizada), enlace: enlaceEmitido };
     });
+
+    if (enlace) await this.verificacion.enviar(enlace, usuarioId);
+    return socio;
   }
 }

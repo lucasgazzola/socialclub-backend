@@ -1,0 +1,1063 @@
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma, TipoBloqueo, TipoEspacio } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { AuditoriaService } from '../auditoria/auditoria.service';
+import { intervalosDeBloqueo, obtenerIdsEspaciosRelacionados, seSolapan } from '../reservas/agenda';
+import { CreateEspacioDto, CreateSubespacioDto } from './dto/create-espacio.dto';
+import { CreateBloqueoDto } from './dto/create-bloqueo.dto';
+import { FindEspaciosQueryDto } from './dto/find-espacios-query.dto';
+import { UpdateEspacioDto } from './dto/update-espacio.dto';
+import { UpdateBloqueoDto } from './dto/update-bloqueo.dto';
+
+@Injectable()
+export class EspaciosService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditoria: AuditoriaService,
+  ) {}
+
+  /**
+   * US-55 — Registrar un nuevo espacio físico (único o contenedor con sub-espacios
+   * bajo el Patrón Composite), disciplinas compatibles y bloqueos de agenda.
+   */
+  async create(dto: CreateEspacioDto, responsableId: number) {
+    // Criterio 2: disciplinas compatibles solo para DEPORTIVO o MULTIUSO
+    if (dto.tipo === TipoEspacio.SOCIAL && dto.disciplinaIds && dto.disciplinaIds.length > 0) {
+      throw new BadRequestException(
+        'Los espacios de tipo SOCIAL no pueden asociarse a disciplinas deportivas.',
+      );
+    }
+
+    // Validación de montos principales
+    if (dto.montoSena > dto.precio) {
+      throw new BadRequestException(
+        'El monto de la seña requerida no puede ser superior al precio total de alquiler.',
+      );
+    }
+
+    // Validación de jerarquía Composite (espacioPadreId)
+    if (dto.espacioPadreId) {
+      if (
+        (dto.cantidadSubespacios && dto.cantidadSubespacios > 0) ||
+        (dto.subespacios && dto.subespacios.length > 0)
+      ) {
+        throw new BadRequestException(
+          'Un sub-espacio que ya pertenece a un espacio padre no puede subdividirse en más niveles.',
+        );
+      }
+
+      const padre = await this.prisma.espacio.findUnique({
+        where: { id: dto.espacioPadreId },
+        select: { id: true, activo: true, espacioPadreId: true },
+      });
+
+      if (!padre || !padre.activo) {
+        throw new NotFoundException('El espacio padre indicado no existe o se encuentra inactivo.');
+      }
+
+      if (padre.espacioPadreId !== null) {
+        throw new BadRequestException(
+          'No se puede asignar como padre a un sub-espacio; la jerarquía admite dos niveles (Padre -> Sub-espacio).',
+        );
+      }
+    }
+
+    // Verificar existencia de disciplinas si fueron enviadas
+    if (dto.disciplinaIds && dto.disciplinaIds.length > 0) {
+      const disciplinasEncontradas = await this.prisma.disciplina.findMany({
+        where: { id: { in: dto.disciplinaIds }, activa: true },
+        select: { id: true },
+      });
+
+      if ((disciplinasEncontradas?.length ?? 0) !== dto.disciplinaIds.length) {
+        throw new BadRequestException(
+          'Una o más disciplinas indicadas no existen o se encuentran inactivas.',
+        );
+      }
+    }
+
+    // Preparar unidades hijas (Patrón Composite: por lista explícita o por lote)
+    const unidadesHijas: CreateSubespacioDto[] = [];
+    if (dto.subespacios && dto.subespacios.length > 0) {
+      for (const sub of dto.subespacios) {
+        const precioSub = sub.precio ?? dto.precio;
+        const senaSub = sub.montoSena ?? dto.montoSena;
+        if (senaSub > precioSub) {
+          throw new BadRequestException(
+            `El monto de la seña del sub-espacio "${sub.nombre}" no puede superar su precio de alquiler.`,
+          );
+        }
+        unidadesHijas.push(sub);
+      }
+    } else if (dto.cantidadSubespacios && dto.cantidadSubespacios > 0) {
+      const prefijo = dto.prefijoSubespacio?.trim() || dto.nombre.trim();
+      for (let i = 1; i <= dto.cantidadSubespacios; i++) {
+        unidadesHijas.push({
+          nombre: `${prefijo} ${i}`,
+          capacidadMaxima: dto.capacidadSubespacio ?? dto.capacidadMaxima,
+        });
+      }
+    }
+
+    // Validar bloqueos iniciales si fueron provistos
+    if (dto.bloqueos && dto.bloqueos.length > 0) {
+      for (const bloqueo of dto.bloqueos) {
+        this.validarBloqueo(bloqueo, dto.disciplinaIds);
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const descuentoPadre =
+        dto.descuentoSocio !== undefined
+          ? dto.descuentoSocio
+          : dto.precioSocio && dto.precio
+            ? Math.max(0, Math.min(100, Math.round((1 - dto.precioSocio / dto.precio) * 100)))
+            : 0;
+
+      const precioPadre = Number(dto.precio);
+      const precioSocioPadre =
+        descuentoPadre > 0
+          ? new Prisma.Decimal(Math.max(0, Math.round(precioPadre * (1 - descuentoPadre / 100))))
+          : dto.precioSocio
+            ? new Prisma.Decimal(dto.precioSocio)
+            : null;
+
+      // 1. Crear espacio principal (único o padre contenedor)
+      const espacio = await tx.espacio.create({
+        data: {
+          nombre: dto.nombre.trim(),
+          tipo: dto.tipo,
+          capacidadMaxima: dto.capacidadMaxima,
+          modalidad: dto.modalidad,
+          ubicacion: dto.ubicacion?.trim() || null,
+          descripcion: dto.descripcion?.trim() || null,
+          espacioPadreId: dto.espacioPadreId ?? null,
+          precio: new Prisma.Decimal(dto.precio),
+          descuentoSocio: descuentoPadre,
+          precioSocio: precioSocioPadre,
+          montoSena: new Prisma.Decimal(dto.montoSena),
+          activo: true,
+        },
+      });
+
+      // 2. Asociar disciplinas compatibles al espacio principal
+      if (dto.disciplinaIds && dto.disciplinaIds.length > 0) {
+        await tx.espacioDisciplina.createMany({
+          data: dto.disciplinaIds.map((disciplinaId) => ({
+            espacioId: espacio.id,
+            disciplinaId,
+          })),
+        });
+      }
+
+      // 3. Crear sub-espacios hijos si corresponde (Patrón Composite)
+      if (unidadesHijas.length > 0) {
+        for (const sub of unidadesHijas) {
+          const precioSub = Number(sub.precio ?? dto.precio);
+          const descuentoSub =
+            sub.descuentoSocio !== undefined
+              ? sub.descuentoSocio
+              : sub.precioSocio && sub.precio
+                ? Math.max(0, Math.min(100, Math.round((1 - sub.precioSocio / sub.precio) * 100)))
+                : descuentoPadre;
+
+          const precioSocioSub =
+            descuentoSub > 0
+              ? new Prisma.Decimal(Math.max(0, Math.round(precioSub * (1 - descuentoSub / 100))))
+              : sub.precioSocio !== undefined
+                ? new Prisma.Decimal(sub.precioSocio)
+                : precioSocioPadre;
+
+          const hijo = await tx.espacio.create({
+            data: {
+              nombre: sub.nombre.trim(),
+              tipo: dto.tipo,
+              capacidadMaxima: sub.capacidadMaxima ?? dto.capacidadMaxima,
+              modalidad: dto.modalidad,
+              ubicacion: dto.ubicacion?.trim() || null,
+              descripcion: sub.descripcion?.trim() || dto.descripcion?.trim() || null,
+              espacioPadreId: espacio.id,
+              precio: new Prisma.Decimal(precioSub),
+              descuentoSocio: descuentoSub,
+              precioSocio: precioSocioSub,
+              montoSena: new Prisma.Decimal(sub.montoSena ?? dto.montoSena),
+              activo: true,
+            },
+          });
+
+          if (dto.disciplinaIds && dto.disciplinaIds.length > 0) {
+            await tx.espacioDisciplina.createMany({
+              data: dto.disciplinaIds.map((disciplinaId) => ({
+                espacioId: hijo.id,
+                disciplinaId,
+              })),
+            });
+          }
+        }
+      }
+
+      // 4. Crear bloqueos de agenda iniciales
+      if (dto.bloqueos && dto.bloqueos.length > 0) {
+        for (const b of dto.bloqueos) {
+          await tx.bloqueoAgenda.create({
+            data: {
+              espacioId: espacio.id,
+              tipo: b.tipo,
+              diasSemana: b.tipo === TipoBloqueo.RECURRENTE ? (b.diasSemana ?? []) : [],
+              fecha: b.tipo === TipoBloqueo.PUNTUAL && b.fecha ? new Date(b.fecha) : null,
+              horaInicio: b.horaInicio ?? null,
+              horaFin: b.horaFin ?? null,
+              vigenteDesde: b.vigenteDesde ? new Date(b.vigenteDesde) : null,
+              vigenteHasta: b.vigenteHasta ? new Date(b.vigenteHasta) : null,
+              disciplinaId: b.disciplinaId ?? null,
+              motivo: b.motivo?.trim() || null,
+              creadoPorId: responsableId,
+              activo: true,
+            },
+          });
+        }
+      }
+
+      // 5. Registro de auditoría inalterable (RN-ESP04 / RN14)
+      const sufijoSubespacios =
+        unidadesHijas.length > 0 ? ` con ${unidadesHijas.length} sub-espacios` : '';
+      await this.auditoria.registrar(
+        {
+          accion: 'CREAR',
+          entidad: 'Espacio',
+          idEntidad: espacio.id,
+          responsableId,
+          detalle: `Creación de espacio: ${espacio.nombre} (${espacio.tipo}, capacidad: ${espacio.capacidadMaxima})${sufijoSubespacios}`,
+        },
+        tx,
+      );
+
+      return tx.espacio.findUniqueOrThrow({
+        where: { id: espacio.id },
+        include: {
+          disciplinas: { include: { disciplina: { select: { id: true, nombre: true } } } },
+          bloqueos: { where: { activo: true } },
+          espacioPadre: { select: { id: true, nombre: true } },
+          subespacios: {
+            where: { activo: true },
+            orderBy: { id: 'asc' },
+          },
+        },
+      });
+    });
+  }
+
+  /**
+   * US-55 / US-56 — Configurar un nuevo bloqueo de agenda para un espacio.
+   * Criterio 6 + Patrón Composite: Si choca con alquileres particulares aprobados
+   * en el propio espacio, en su padre o en cualquiera de sus sub-espacios hijos, advierte el conflicto.
+   */
+  async agregarBloqueo(espacioId: number, dto: CreateBloqueoDto, responsableId: number) {
+    const espacio = await this.prisma.espacio.findUnique({
+      where: { id: espacioId },
+      include: {
+        disciplinas: true,
+        subespacios: { where: { activo: true }, select: { id: true, nombre: true } },
+      },
+    });
+
+    if (!espacio || !espacio.activo) {
+      throw new NotFoundException('Espacio no encontrado o inactivo');
+    }
+
+    const disciplinasCompatibles = espacio.disciplinas.map((d) => d.disciplinaId);
+    this.validarBloqueo(dto, disciplinasCompatibles);
+
+    // Patrón Composite: recolectar todos los IDs de espacios afectados por este bloqueo
+    // (el propio espacio + su padre si es sub-espacio + sus hijos si es espacio contenedor)
+    const idsEspaciosRelacionados = await obtenerIdsEspaciosRelacionados(this.prisma, espacio);
+
+    // Criterio 6: validar conflicto con alquileres particulares ya aprobados o confirmados
+    const reservasOcupan = await this.prisma.reserva.findMany({
+      where: {
+        espacioId: { in: idsEspaciosRelacionados },
+        estado: { in: ['APROBADA_PENDIENTE_PAGO', 'CONFIRMADA'] },
+      },
+      select: { id: true, codigo: true, inicio: true, fin: true, espacioId: true },
+    });
+
+    if (reservasOcupan.length > 0) {
+      const dummyBloqueo = {
+        tipo: dto.tipo,
+        diasSemana: dto.diasSemana ?? [],
+        fecha: dto.fecha ? new Date(dto.fecha) : null,
+        horaInicio: dto.horaInicio ?? null,
+        horaFin: dto.horaFin ?? null,
+        vigenteDesde: dto.vigenteDesde ? new Date(dto.vigenteDesde) : null,
+        vigenteHasta: dto.vigenteHasta ? new Date(dto.vigenteHasta) : null,
+        activo: true,
+      };
+
+      for (const res of reservasOcupan) {
+        const rangoReserva = { inicio: res.inicio, fin: res.fin };
+        const intervalos = intervalosDeBloqueo(dummyBloqueo, rangoReserva);
+        const hayConflicto = intervalos.some((i) => seSolapan(i, rangoReserva));
+        if (hayConflicto) {
+          throw new ConflictException(
+            `El bloqueo entra en conflicto con la reserva particular aprobada ${res.codigo}. Debe gestionar la cancelación manual justificada de la reserva antes de bloquear el turno.`,
+          );
+        }
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const bloqueo = await tx.bloqueoAgenda.create({
+        data: {
+          espacioId,
+          tipo: dto.tipo,
+          diasSemana: dto.tipo === TipoBloqueo.RECURRENTE ? (dto.diasSemana ?? []) : [],
+          fecha: dto.tipo === TipoBloqueo.PUNTUAL && dto.fecha ? new Date(dto.fecha) : null,
+          horaInicio: dto.horaInicio ?? null,
+          horaFin: dto.horaFin ?? null,
+          vigenteDesde: dto.vigenteDesde ? new Date(dto.vigenteDesde) : null,
+          vigenteHasta: dto.vigenteHasta ? new Date(dto.vigenteHasta) : null,
+          disciplinaId: dto.disciplinaId ?? null,
+          motivo: dto.motivo?.trim() || null,
+          creadoPorId: responsableId,
+          activo: true,
+        },
+        include: {
+          disciplina: { select: { id: true, nombre: true } },
+        },
+      });
+
+      await this.auditoria.registrar(
+        {
+          accion: 'CREAR',
+          entidad: 'BloqueoAgenda',
+          idEntidad: bloqueo.id,
+          responsableId,
+          detalle: `Creación de bloqueo (${bloqueo.tipo}) en espacio ${espacio.nombre}: ${bloqueo.motivo ?? 'Sin motivo'}`,
+        },
+        tx,
+      );
+
+      return bloqueo;
+    });
+  }
+
+  /**
+   * Listar espacios físicos con sus disciplinas asociadas y sub-espacios (Patrón Composite).
+   * Si se solicita con paginación o filtro de pestaña (`pagina`, `porPagina` o `estado`),
+   * devuelve `{ items, total, pagina, porPagina, counts: { todos, activos, inactivos } }`.
+   * Criterio US-58: Si el usuario no es ADMIN ni COLABORADOR, el filtro de estado se restringe a sólo activos.
+   */
+  async findAll(query: FindEspaciosQueryDto, userRole?: string) {
+    const esAdminOColaborador = userRole === 'ADMIN' || userRole === 'COLABORADOR';
+    const whereBase: Prisma.EspacioWhereInput = {};
+
+    if (query.tipo) {
+      whereBase.tipo = query.tipo;
+    }
+
+    if (query.modalidad) {
+      whereBase.modalidad = query.modalidad;
+    }
+
+    if (query.capacidadMin !== undefined || query.capacidadMax !== undefined) {
+      whereBase.capacidadMaxima = {
+        ...(query.capacidadMin !== undefined ? { gte: query.capacidadMin } : {}),
+        ...(query.capacidadMax !== undefined ? { lte: query.capacidadMax } : {}),
+      };
+    }
+
+    if (query.espacioPadreId !== undefined) {
+      whereBase.espacioPadreId = query.espacioPadreId;
+    } else if (query.soloRaiz) {
+      whereBase.espacioPadreId = null;
+    }
+
+    if (query.busqueda && query.busqueda.trim()) {
+      const busqueda = query.busqueda.trim();
+      whereBase.OR = [
+        { nombre: { contains: busqueda, mode: 'insensitive' } },
+        { ubicacion: { contains: busqueda, mode: 'insensitive' } },
+      ];
+    }
+
+    const direccion: 'asc' | 'desc' = query.orden?.toLowerCase() === 'desc' ? 'desc' : 'asc';
+    let orderBy: Prisma.EspacioOrderByWithRelationInput = { nombre: 'asc' };
+
+    if (query.ordenarPor) {
+      switch (query.ordenarPor.toLowerCase()) {
+        case 'tipo':
+          orderBy = { tipo: direccion };
+          break;
+        case 'capacidadmaxima':
+        case 'capacidad':
+          orderBy = { capacidadMaxima: direccion };
+          break;
+        case 'precio':
+          orderBy = { precio: direccion };
+          break;
+        case 'montosena':
+        case 'sena':
+          orderBy = { montoSena: direccion };
+          break;
+        case 'nombre':
+        default:
+          orderBy = { nombre: direccion };
+          break;
+      }
+    }
+
+    const include = {
+      disciplinas: {
+        include: {
+          disciplina: { select: { id: true, nombre: true } },
+        },
+      },
+      espacioPadre: {
+        select: { id: true, nombre: true },
+      },
+      subespacios: {
+        ...(esAdminOColaborador ? {} : { where: { activo: true } }),
+        orderBy: { id: 'asc' as const },
+        select: {
+          id: true,
+          nombre: true,
+          capacidadMaxima: true,
+          precio: true,
+          descuentoSocio: true,
+          precioSocio: true,
+          montoSena: true,
+          activo: true,
+        },
+      },
+      _count: {
+        select: {
+          bloqueos: { where: { activo: true } },
+          reservas: true,
+          subespacios: esAdminOColaborador ? true : { where: { activo: true } },
+        },
+      },
+    };
+
+    const usaContratoPaginado =
+      query.pagina !== undefined || query.porPagina !== undefined || query.estado !== undefined;
+
+    if (usaContratoPaginado) {
+      const pagina = query.pagina ?? 1;
+      const porPagina = query.porPagina ?? 10;
+      const whereActivos: Prisma.EspacioWhereInput = { ...whereBase, activo: true };
+      const whereInactivos: Prisma.EspacioWhereInput = { ...whereBase, activo: false };
+
+      let where: Prisma.EspacioWhereInput = whereBase;
+
+      // Criterio US-58: usuarios estándar (socios/visitantes) siempre ven únicamente activos
+      if (!esAdminOColaborador) {
+        where = whereActivos;
+      } else if (query.estado === 'activos' || query.activo === true) {
+        where = whereActivos;
+      } else if (query.estado === 'inactivos' || query.activo === false) {
+        where = whereInactivos;
+      }
+
+      const [items, total, totalTodos, totalActivos, totalInactivos] =
+        await this.prisma.$transaction([
+          this.prisma.espacio.findMany({
+            where,
+            orderBy,
+            skip: (pagina - 1) * porPagina,
+            take: porPagina,
+            include,
+          }),
+          this.prisma.espacio.count({ where }),
+          this.prisma.espacio.count({ where: esAdminOColaborador ? whereBase : whereActivos }),
+          this.prisma.espacio.count({ where: whereActivos }),
+          this.prisma.espacio.count({ where: esAdminOColaborador ? whereInactivos : { id: -1 } }),
+        ]);
+
+      return {
+        items,
+        total,
+        pagina,
+        porPagina,
+        counts: {
+          todos: esAdminOColaborador ? totalTodos : totalActivos,
+          activos: totalActivos,
+          inactivos: esAdminOColaborador ? totalInactivos : 0,
+        },
+      };
+    }
+
+    const whereSimple: Prisma.EspacioWhereInput = {
+      ...whereBase,
+      activo: esAdminOColaborador && query.activo !== undefined ? query.activo : true,
+    };
+
+    return this.prisma.espacio.findMany({
+      where: whereSimple,
+      orderBy,
+      include,
+    });
+  }
+
+  /**
+   * Consultar detalle de un espacio específico con su jerarquía Composite.
+   */
+  async findOne(id: number) {
+    const espacio = await this.prisma.espacio.findUnique({
+      where: { id },
+      include: {
+        disciplinas: {
+          include: {
+            disciplina: { select: { id: true, nombre: true } },
+          },
+        },
+        espacioPadre: {
+          select: { id: true, nombre: true, ubicacion: true },
+        },
+        subespacios: {
+          orderBy: { id: 'asc' },
+        },
+        bloqueos: {
+          where: { activo: true },
+          include: {
+            disciplina: { select: { id: true, nombre: true } },
+          },
+          orderBy: [{ fecha: 'asc' }, { horaInicio: 'asc' }],
+        },
+      },
+    });
+
+    if (!espacio) {
+      throw new NotFoundException('Espacio no encontrado');
+    }
+
+    return espacio;
+  }
+
+  /**
+   * US-56 — Modificar información, tarifas, capacidad, modalidades y disciplinas compatibles.
+   * Si se cambia la modalidad, no altera las reservas existentes.
+   * Los montos históricos de reservas se conservan inalterados.
+   */
+  async update(id: number, dto: UpdateEspacioDto, responsableId: number) {
+    const espacioActual = await this.prisma.espacio.findUnique({
+      where: { id },
+      include: {
+        disciplinas: true,
+      },
+    });
+
+    if (!espacioActual || !espacioActual.activo) {
+      throw new NotFoundException('Espacio no encontrado o inactivo');
+    }
+
+    const tipoFinal = dto.tipo ?? espacioActual.tipo;
+    const precioFinal = dto.precio ?? Number(espacioActual.precio);
+    const montoSenaFinal =
+      dto.montoSena !== undefined ? dto.montoSena : Number(espacioActual.montoSena);
+
+    if (tipoFinal === TipoEspacio.SOCIAL && dto.disciplinaIds && dto.disciplinaIds.length > 0) {
+      throw new BadRequestException(
+        'Los espacios de tipo SOCIAL no pueden asociarse a disciplinas deportivas.',
+      );
+    }
+
+    if (montoSenaFinal > precioFinal) {
+      throw new BadRequestException(
+        'El monto de la seña requerida no puede ser superior al precio total de alquiler.',
+      );
+    }
+
+    if (dto.disciplinaIds && dto.disciplinaIds.length > 0) {
+      const disciplinasEncontradas = await this.prisma.disciplina.findMany({
+        where: { id: { in: dto.disciplinaIds }, activa: true },
+        select: { id: true },
+      });
+
+      if ((disciplinasEncontradas?.length ?? 0) !== dto.disciplinaIds.length) {
+        throw new BadRequestException(
+          'Una o más disciplinas indicadas no existen o se encuentran inactivas.',
+        );
+      }
+    }
+
+    const nuevoPrecio =
+      dto.precio !== undefined ? Number(dto.precio) : Number(espacioActual.precio);
+    let nuevoDescuento =
+      dto.descuentoSocio !== undefined ? dto.descuentoSocio : espacioActual.descuentoSocio;
+    let nuevoPrecioSocio: Prisma.Decimal | null | undefined = undefined;
+
+    if (dto.descuentoSocio !== undefined || dto.precio !== undefined) {
+      nuevoPrecioSocio =
+        nuevoDescuento > 0
+          ? new Prisma.Decimal(Math.max(0, Math.round(nuevoPrecio * (1 - nuevoDescuento / 100))))
+          : null;
+    } else if (dto.precioSocio !== undefined) {
+      nuevoPrecioSocio = dto.precioSocio ? new Prisma.Decimal(dto.precioSocio) : null;
+      nuevoDescuento = dto.precioSocio
+        ? Math.max(0, Math.min(100, Math.round((1 - dto.precioSocio / nuevoPrecio) * 100)))
+        : 0;
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const espacioModificado = await tx.espacio.update({
+        where: { id },
+        data: {
+          ...(dto.nombre ? { nombre: dto.nombre.trim() } : {}),
+          ...(dto.tipo ? { tipo: dto.tipo } : {}),
+          ...(dto.capacidadMaxima ? { capacidadMaxima: dto.capacidadMaxima } : {}),
+          ...(dto.modalidad ? { modalidad: dto.modalidad } : {}),
+          ...(dto.ubicacion !== undefined ? { ubicacion: dto.ubicacion?.trim() || null } : {}),
+          ...(dto.descripcion !== undefined
+            ? { descripcion: dto.descripcion?.trim() || null }
+            : {}),
+          ...(dto.precio !== undefined ? { precio: new Prisma.Decimal(dto.precio) } : {}),
+          ...(dto.descuentoSocio !== undefined || dto.precioSocio !== undefined
+            ? { descuentoSocio: nuevoDescuento }
+            : {}),
+          ...(nuevoPrecioSocio !== undefined ? { precioSocio: nuevoPrecioSocio } : {}),
+          ...(dto.montoSena !== undefined ? { montoSena: new Prisma.Decimal(dto.montoSena) } : {}),
+        },
+      });
+
+      if (dto.disciplinaIds !== undefined) {
+        await tx.espacioDisciplina.deleteMany({
+          where: { espacioId: id },
+        });
+
+        if (tipoFinal !== TipoEspacio.SOCIAL && dto.disciplinaIds.length > 0) {
+          await tx.espacioDisciplina.createMany({
+            data: dto.disciplinaIds.map((disciplinaId) => ({
+              espacioId: id,
+              disciplinaId,
+            })),
+          });
+        }
+      }
+
+      await this.auditoria.registrar(
+        {
+          accion: 'EDITAR',
+          entidad: 'Espacio',
+          idEntidad: id,
+          responsableId,
+          detalle: `Edición de espacio: ${espacioModificado.nombre} (Capacidad: ${espacioModificado.capacidadMaxima}, Modalidad: ${espacioModificado.modalidad})`,
+        },
+        tx,
+      );
+
+      return tx.espacio.findUniqueOrThrow({
+        where: { id },
+        include: {
+          disciplinas: { include: { disciplina: { select: { id: true, nombre: true } } } },
+          bloqueos: { where: { activo: true } },
+          espacioPadre: { select: { id: true, nombre: true } },
+          subespacios: { where: { activo: true } },
+        },
+      });
+    });
+  }
+
+  /**
+   * US-56 — Modificar un bloqueo existente.
+   * Valida conflictos con alquileres particulares aprobados.
+   */
+  async updateBloqueo(
+    espacioId: number,
+    bloqueoId: number,
+    dto: UpdateBloqueoDto,
+    responsableId: number,
+  ) {
+    const espacio = await this.prisma.espacio.findUnique({
+      where: { id: espacioId },
+      include: {
+        disciplinas: true,
+        subespacios: { where: { activo: true }, select: { id: true } },
+      },
+    });
+
+    if (!espacio || !espacio.activo) {
+      throw new NotFoundException('Espacio no encontrado o inactivo');
+    }
+
+    const bloqueoActual = await this.prisma.bloqueoAgenda.findFirst({
+      where: { id: bloqueoId, espacioId, activo: true },
+    });
+
+    if (!bloqueoActual) {
+      throw new NotFoundException('Bloqueo de agenda no encontrado');
+    }
+
+    const tipoFinal = dto.tipo ?? bloqueoActual.tipo;
+    const diasSemanaFinal = dto.diasSemana ?? bloqueoActual.diasSemana;
+    const horaInicioFinal = dto.horaInicio ?? bloqueoActual.horaInicio;
+    const horaFinFinal = dto.horaFin ?? bloqueoActual.horaFin;
+    const fechaFinal =
+      dto.fecha ??
+      (bloqueoActual.fecha ? bloqueoActual.fecha.toISOString().split('T')[0] : undefined);
+    const vigenteDesdeFinal =
+      dto.vigenteDesde ??
+      (bloqueoActual.vigenteDesde
+        ? bloqueoActual.vigenteDesde.toISOString().split('T')[0]
+        : undefined);
+    const vigenteHastaFinal =
+      dto.vigenteHasta ??
+      (bloqueoActual.vigenteHasta
+        ? bloqueoActual.vigenteHasta.toISOString().split('T')[0]
+        : undefined);
+    const disciplinaIdFinal =
+      dto.disciplinaId !== undefined ? dto.disciplinaId : bloqueoActual.disciplinaId;
+    const motivoFinal = dto.motivo !== undefined ? dto.motivo : bloqueoActual.motivo;
+
+    const dummyDto: CreateBloqueoDto = {
+      tipo: tipoFinal,
+      diasSemana: diasSemanaFinal,
+      horaInicio: horaInicioFinal ?? undefined,
+      horaFin: horaFinFinal ?? undefined,
+      fecha: fechaFinal,
+      vigenteDesde: vigenteDesdeFinal,
+      vigenteHasta: vigenteHastaFinal,
+      disciplinaId: disciplinaIdFinal ?? undefined,
+      motivo: motivoFinal ?? undefined,
+    };
+
+    const disciplinasCompatibles = espacio.disciplinas.map((d) => d.disciplinaId);
+    this.validarBloqueo(dummyDto, disciplinasCompatibles);
+
+    // Conflictos con reservas particulares (Patrón Composite)
+    const idsEspaciosRelacionados = await obtenerIdsEspaciosRelacionados(this.prisma, espacio);
+
+    const reservasOcupan = await this.prisma.reserva.findMany({
+      where: {
+        espacioId: { in: idsEspaciosRelacionados },
+        estado: { in: ['APROBADA_PENDIENTE_PAGO', 'CONFIRMADA'] },
+      },
+      select: { id: true, codigo: true, inicio: true, fin: true, espacioId: true },
+    });
+
+    if (reservasOcupan.length > 0) {
+      const dummyBloqueo = {
+        tipo: tipoFinal,
+        diasSemana: diasSemanaFinal ?? [],
+        fecha: fechaFinal ? new Date(fechaFinal) : null,
+        horaInicio: horaInicioFinal ?? null,
+        horaFin: horaFinFinal ?? null,
+        vigenteDesde: vigenteDesdeFinal ? new Date(vigenteDesdeFinal) : null,
+        vigenteHasta: vigenteHastaFinal ? new Date(vigenteHastaFinal) : null,
+        activo: true,
+      };
+
+      for (const res of reservasOcupan) {
+        const rangoReserva = { inicio: res.inicio, fin: res.fin };
+        const intervalos = intervalosDeBloqueo(dummyBloqueo, rangoReserva);
+        const hayConflicto = intervalos.some((i) => seSolapan(i, rangoReserva));
+        if (hayConflicto) {
+          throw new ConflictException(
+            `El bloqueo modificado entra en conflicto con la reserva particular aprobada ${res.codigo}. Debe gestionar la cancelación manual justificada de la reserva antes de bloquear el turno.`,
+          );
+        }
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const actualizado = await tx.bloqueoAgenda.update({
+        where: { id: bloqueoId },
+        data: {
+          tipo: tipoFinal,
+          diasSemana: tipoFinal === TipoBloqueo.RECURRENTE ? (diasSemanaFinal ?? []) : [],
+          fecha: tipoFinal === TipoBloqueo.PUNTUAL && fechaFinal ? new Date(fechaFinal) : null,
+          horaInicio: horaInicioFinal ?? null,
+          horaFin: horaFinFinal ?? null,
+          vigenteDesde: vigenteDesdeFinal ? new Date(vigenteDesdeFinal) : null,
+          vigenteHasta: vigenteHastaFinal ? new Date(vigenteHastaFinal) : null,
+          disciplinaId: disciplinaIdFinal ?? null,
+          motivo: motivoFinal?.trim() || null,
+        },
+        include: {
+          disciplina: { select: { id: true, nombre: true } },
+        },
+      });
+
+      await this.auditoria.registrar(
+        {
+          accion: 'EDITAR',
+          entidad: 'BloqueoAgenda',
+          idEntidad: bloqueoId,
+          responsableId,
+          detalle: `Modificación de bloqueo (${actualizado.tipo}) en espacio ${espacio.nombre}: ${actualizado.motivo ?? 'Sin motivo'}`,
+        },
+        tx,
+      );
+
+      return actualizado;
+    });
+  }
+
+  /**
+   * US-56 — Eliminar lógicamente un bloqueo de agenda.
+   */
+  async deleteBloqueo(espacioId: number, bloqueoId: number, responsableId: number) {
+    const espacio = await this.prisma.espacio.findUnique({
+      where: { id: espacioId },
+      select: { id: true, nombre: true },
+    });
+
+    if (!espacio) {
+      throw new NotFoundException('Espacio no encontrado');
+    }
+
+    const bloqueo = await this.prisma.bloqueoAgenda.findFirst({
+      where: { id: bloqueoId, espacioId, activo: true },
+    });
+
+    if (!bloqueo) {
+      throw new NotFoundException('Bloqueo de agenda no encontrado');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.bloqueoAgenda.update({
+        where: { id: bloqueoId },
+        data: { activo: false },
+      });
+
+      await this.auditoria.registrar(
+        {
+          accion: 'BAJA',
+          entidad: 'BloqueoAgenda',
+          idEntidad: bloqueoId,
+          responsableId,
+          detalle: `Baja de bloqueo (${bloqueo.tipo}) en espacio ${espacio.nombre}`,
+        },
+        tx,
+      );
+
+      return {
+        mensaje: 'Bloqueo eliminado exitosamente',
+        bloqueoId,
+      };
+    });
+  }
+
+  /**
+   * US-57 — Eliminar espacio (Baja Lógica).
+   * Valida que no tenga reservas futuras pendientes o confirmadas.
+   * Aplica baja lógica (activo = false) tanto al espacio como a sus sub-espacios si los tuviera.
+   * Registra la operación en la auditoría inalterable.
+   */
+  async remove(id: number, responsableId: number) {
+    const espacio = await this.prisma.espacio.findUnique({
+      where: { id },
+      include: {
+        subespacios: { where: { activo: true }, select: { id: true, nombre: true } },
+      },
+    });
+
+    if (!espacio || !espacio.activo) {
+      throw new NotFoundException('Espacio no encontrado o ya dado de baja');
+    }
+
+    const idsEspaciosAfectados: number[] = [id, ...(espacio.subespacios?.map((s) => s.id) ?? [])];
+
+    const ahora = new Date();
+    // Validar reservas futuras pendientes o confirmadas
+    const reservasFuturas = await this.prisma.reserva.findMany({
+      where: {
+        espacioId: { in: idsEspaciosAfectados },
+        fin: { gte: ahora },
+        estado: { in: ['PENDIENTE_APROBACION', 'APROBADA_PENDIENTE_PAGO', 'CONFIRMADA'] },
+      },
+      select: { id: true, codigo: true, inicio: true, fin: true, estado: true },
+    });
+
+    if (reservasFuturas.length > 0) {
+      const codigos = reservasFuturas.map((r) => r.codigo).join(', ');
+      throw new ConflictException(
+        `No se puede dar de baja el espacio porque tiene reservas futuras activas o pendientes (${codigos}). Debe resolverlas o cancelarlas previamente.`,
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Baja lógica del espacio
+      await tx.espacio.update({
+        where: { id },
+        data: { activo: false },
+      });
+
+      // Si tiene subespacios activos, también baja lógica
+      if (espacio.subespacios && espacio.subespacios.length > 0) {
+        await tx.espacio.updateMany({
+          where: { espacioPadreId: id, activo: true },
+          data: { activo: false },
+        });
+      }
+
+      // Desactivar bloqueos vigentes asociados
+      await tx.bloqueoAgenda.updateMany({
+        where: { espacioId: { in: idsEspaciosAfectados }, activo: true },
+        data: { activo: false },
+      });
+
+      await this.auditoria.registrar(
+        {
+          accion: 'BAJA',
+          entidad: 'Espacio',
+          idEntidad: id,
+          responsableId,
+          detalle: `Baja lógica de espacio: ${espacio.nombre}${espacio.subespacios?.length ? ` y sus ${espacio.subespacios.length} sub-espacios` : ''}`,
+        },
+        tx,
+      );
+
+      return {
+        mensaje: 'Espacio dado de baja exitosamente',
+        id,
+      };
+    });
+  }
+
+  /**
+   * US-57 (complemento) — Reactivar un espacio físico dado de baja lógica.
+   * Restaura el estado activo a true.
+   * Si es un espacio padre, también reactiva sus subespacios.
+   * Si es un subespacio cuyo padre está inactivo, también reactiva al padre.
+   * Registra la operación en la auditoría inalterable con acción REACTIVAR.
+   */
+  async reactivate(id: number, responsableId: number) {
+    const espacio = await this.prisma.espacio.findUnique({
+      where: { id },
+      include: {
+        espacioPadre: true,
+        subespacios: true,
+      },
+    });
+
+    if (!espacio) {
+      throw new NotFoundException('Espacio no encontrado');
+    }
+
+    if (espacio.activo) {
+      throw new BadRequestException('El espacio ya se encuentra activo');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Reactivar el espacio
+      await tx.espacio.update({
+        where: { id },
+        data: { activo: true },
+      });
+
+      // Si es contenedor (padre) y tiene subespacios, reactivarlos en lote
+      if (espacio.subespacios && espacio.subespacios.length > 0) {
+        await tx.espacio.updateMany({
+          where: { espacioPadreId: id },
+          data: { activo: true },
+        });
+      }
+
+      // Si es un subespacio cuyo padre estaba inactivo, reactivar también al padre para mantener la consistencia jerárquica
+      if (espacio.espacioPadreId && espacio.espacioPadre && !espacio.espacioPadre.activo) {
+        await tx.espacio.update({
+          where: { id: espacio.espacioPadreId },
+          data: { activo: true },
+        });
+      }
+
+      await this.auditoria.registrar(
+        {
+          accion: 'REACTIVAR',
+          entidad: 'Espacio',
+          idEntidad: id,
+          responsableId,
+          detalle: `Reactivación de espacio: ${espacio.nombre}${espacio.subespacios?.length ? ` y sus ${espacio.subespacios.length} sub-espacios` : ''}`,
+        },
+        tx,
+      );
+
+      return {
+        mensaje: 'Espacio reactivado exitosamente',
+        id,
+      };
+    });
+  }
+
+  /**
+   * Validación interna de reglas de bloqueo (Criterios 3, 4 y 7).
+   */
+  private validarBloqueo(bloqueo: CreateBloqueoDto, disciplinasCompatibles?: number[]) {
+    if (bloqueo.tipo === TipoBloqueo.RECURRENTE) {
+      // Criterio 3: bloqueos recurrentes indicando días de la semana, franja horaria y vigencia
+      if (!bloqueo.diasSemana || bloqueo.diasSemana.length === 0) {
+        throw new BadRequestException(
+          'Los bloqueos recurrentes deben indicar al menos un día de la semana (0 a 6).',
+        );
+      }
+
+      if (!bloqueo.horaInicio || !bloqueo.horaFin) {
+        throw new BadRequestException(
+          'Los bloqueos recurrentes deben indicar franja horaria completa (horaInicio y horaFin).',
+        );
+      }
+
+      if (bloqueo.horaFin <= bloqueo.horaInicio) {
+        throw new BadRequestException(
+          'La hora de fin del bloqueo debe ser posterior a la hora de inicio.',
+        );
+      }
+
+      if (!bloqueo.vigenteHasta) {
+        throw new BadRequestException(
+          'Los bloqueos recurrentes deben indicar la fecha límite de vigencia (vigenteHasta).',
+        );
+      }
+
+      if (
+        bloqueo.vigenteDesde &&
+        bloqueo.vigenteHasta &&
+        new Date(bloqueo.vigenteHasta) < new Date(bloqueo.vigenteDesde)
+      ) {
+        throw new BadRequestException(
+          'La fecha límite de vigencia (vigenteHasta) no puede ser anterior a vigenteDesde.',
+        );
+      }
+
+      if (
+        bloqueo.disciplinaId &&
+        disciplinasCompatibles &&
+        !disciplinasCompatibles.includes(bloqueo.disciplinaId)
+      ) {
+        throw new BadRequestException(
+          'La disciplina asociada al bloqueo debe ser una de las disciplinas compatibles con el espacio.',
+        );
+      }
+    } else if (bloqueo.tipo === TipoBloqueo.PUNTUAL) {
+      // Criterio 4: bloqueos puntuales con fecha, rango horario o día completo, y motivo
+      if (!bloqueo.fecha) {
+        throw new BadRequestException(
+          'Los bloqueos puntuales deben indicar una fecha específica (fecha).',
+        );
+      }
+
+      if (!bloqueo.motivo || !bloqueo.motivo.trim()) {
+        throw new BadRequestException('El motivo es obligatorio para bloqueos puntuales.');
+      }
+
+      // Si especifica horario, debe ser rango completo y coherente; si no, es día completo
+      if (bloqueo.horaInicio || bloqueo.horaFin) {
+        if (!bloqueo.horaInicio || !bloqueo.horaFin) {
+          throw new BadRequestException(
+            'Para configurar un rango horario en un bloqueo puntual debe indicar tanto horaInicio como horaFin.',
+          );
+        }
+        if (bloqueo.horaFin <= bloqueo.horaInicio) {
+          throw new BadRequestException(
+            'La hora de fin del bloqueo debe ser posterior a la hora de inicio.',
+          );
+        }
+      }
+    }
+  }
+}

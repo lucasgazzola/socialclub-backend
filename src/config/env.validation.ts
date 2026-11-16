@@ -1,5 +1,13 @@
 import { plainToInstance, Type } from 'class-transformer';
-import { IsEnum, IsNumber, IsOptional, IsString, MinLength, validateSync } from 'class-validator';
+import {
+  IsEnum,
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MinLength,
+  validateSync,
+} from 'class-validator';
 
 /**
  * Valida las variables de entorno al arrancar la aplicación. Si falta alguna
@@ -36,6 +44,92 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   CORS_ORIGIN = 'http://localhost:5173';
+
+  // ── Emails (US-26). Sin SMTP_HOST no se envía nada (solo se registra en el log).
+  @IsString()
+  @IsOptional()
+  SMTP_HOST?: string;
+
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  SMTP_PORT?: number;
+
+  @IsString()
+  @IsOptional()
+  SMTP_USER?: string;
+
+  @IsString()
+  @IsOptional()
+  SMTP_PASS?: string;
+
+  @IsString()
+  @IsOptional()
+  MAIL_FROM?: string;
+
+  /** URL del frontend, para el enlace de los emails. */
+  @IsString()
+  @IsOptional()
+  APP_URL?: string;
+
+  /** DT-54: horas que dura el enlace de verificación de email (24 por defecto). */
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  VERIFICACION_EMAIL_HORAS_VALIDEZ?: number;
+
+  /** H05: horas antes del inicio de un evento en que se habilita validar entradas (3 por defecto). */
+  @IsNumber()
+  @IsOptional()
+  ACCESO_APERTURA_HORAS?: number;
+
+  // ── Pasarela de pagos (TASK-51, decisión 0003) ───────────────────────────
+  /** `mercadopago` o `simulada`. Sin definir: Mercado Pago si hay token, si no la simulada. */
+  @IsIn(['mercadopago', 'simulada'], {
+    message: 'PASARELA_PAGOS debe ser «mercadopago» o «simulada».',
+  })
+  @IsOptional()
+  PASARELA_PAGOS?: string;
+
+  /** Access Token de Mercado Pago (`TEST-…` para el sandbox). */
+  @IsString()
+  @IsOptional()
+  MP_ACCESS_TOKEN?: string;
+
+  /** Clave secreta del webhook de Mercado Pago (valida la firma `x-signature`). */
+  @IsString()
+  @IsOptional()
+  MP_WEBHOOK_SECRET?: string;
+
+  /** URL pública de esta API, para que la pasarela le avise los pagos (webhook). */
+  @IsString()
+  @IsOptional()
+  API_PUBLIC_URL?: string;
+
+  // ── Reservas de espacios (US-60, US-61, decisión 0004) ───────────────────
+  /** Horas que tiene el solicitante para pagar la seña desde la aprobación (48 por defecto). */
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  RESERVAS_HORAS_LIMITE_SENA?: number;
+
+  /** Hasta cuántas horas antes del turno el usuario puede cancelar solo (48 por defecto). */
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  RESERVAS_HORAS_PENALIZACION?: number;
+
+  /** Secreto con el que el workflow dispara las tareas automáticas (DT-22). */
+  @IsString()
+  @MinLength(16, { message: 'TAREAS_TOKEN debe tener al menos 16 caracteres.' })
+  @IsOptional()
+  TAREAS_TOKEN?: string;
+
+  /** Nombre anterior de TAREAS_TOKEN (US-26); se acepta mientras se migran los entornos. */
+  @IsString()
+  @MinLength(16, { message: 'ALERTAS_CRON_TOKEN debe tener al menos 16 caracteres.' })
+  @IsOptional()
+  ALERTAS_CRON_TOKEN?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

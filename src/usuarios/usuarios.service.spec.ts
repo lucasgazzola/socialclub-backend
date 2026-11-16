@@ -3,6 +3,16 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsuariosService } from './usuarios.service';
+import { GetUsuariosQueryDto } from './dto/get-usuarios-query.dto';
+import { VerificacionEmailService } from '../verificacion-email/verificacion-email.service';
+
+/** DT-54: la verificación de email se prueba en su propio spec. */
+const verificacionMock = {
+  emitir: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  crearCuentaPendiente: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  enviar: jest.fn().mockResolvedValue(undefined),
+  reenviar: jest.fn().mockResolvedValue({ mensaje: 'Enviamos un nuevo enlace de verificación' }),
+};
 
 describe('UsuariosService', () => {
   let service: UsuariosService;
@@ -14,6 +24,7 @@ describe('UsuariosService', () => {
       create: jest.fn(),
       update: jest.fn(),
       findMany: jest.fn(),
+      count: jest.fn(),
     },
     persona: {
       findFirst: jest.fn(),
@@ -27,7 +38,12 @@ describe('UsuariosService', () => {
     rol: {
       findMany: jest.fn(),
     },
-    $transaction: jest.fn((cb: any) => (typeof cb === 'function' ? cb(prismaMock) : cb)),
+    disciplina: {
+      findMany: jest.fn(),
+    },
+    $transaction: jest.fn((cb: any) =>
+      typeof cb === 'function' ? cb(prismaMock) : Promise.all(cb),
+    ),
   };
   const auditoriaMock = {
     registrar: jest.fn(),
@@ -36,7 +52,7 @@ describe('UsuariosService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     prismaMock.$transaction.mockImplementation((cb: any) =>
-      typeof cb === 'function' ? cb(prismaMock) : cb,
+      typeof cb === 'function' ? cb(prismaMock) : Promise.all(cb),
     );
     prismaMock.persona.findFirst.mockResolvedValue(null);
     prismaMock.persona.findUnique.mockResolvedValue(null);
@@ -50,6 +66,7 @@ describe('UsuariosService', () => {
         UsuariosService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuditoriaService, useValue: auditoriaMock },
+        { provide: VerificacionEmailService, useValue: verificacionMock },
       ],
     }).compile();
 
@@ -79,7 +96,7 @@ describe('UsuariosService', () => {
       {
         dni: '40123456',
         email: 'nuevo.admin@socialclub.local',
-        password: 'Admin123!',
+        confirmarEmail: 'nuevo.admin@socialclub.local',
         nombre: 'Nuevo',
         apellido: 'Administrador',
         roles: ['ADMIN'],
@@ -126,6 +143,45 @@ describe('UsuariosService', () => {
     );
   });
 
+  it('DT-54: el usuario nace sin contraseña ni verificación y recibe el enlace por email', async () => {
+    prismaMock.usuario.findFirst.mockResolvedValue(null);
+    prismaMock.rol.findMany.mockResolvedValue([{ id: 2, nombre: 'ADMIN' }]);
+    prismaMock.usuario.create.mockImplementation(async ({ data }: any) => ({
+      id: 16,
+      ...data,
+      emailVerificadoEn: null,
+      persona: { dni: '40123456' },
+      roles: [],
+      disciplinasDelegadas: [],
+    }));
+    verificacionMock.emitir.mockResolvedValueOnce({ usuarioId: 16, token: 'tok' });
+
+    const resultado = await service.create(
+      {
+        dni: '40123456',
+        email: 'Nuevo.Admin@SocialClub.local',
+        confirmarEmail: 'nuevo.admin@socialclub.local',
+        nombre: 'Nuevo',
+        apellido: 'Administrador',
+        roles: ['ADMIN'],
+      },
+      99,
+    );
+
+    const data = prismaMock.usuario.create.mock.calls[0][0].data;
+    expect(data.passwordHash).toBeUndefined();
+    expect(verificacionMock.emitir).toHaveBeenCalledWith(16, prismaMock);
+    expect(verificacionMock.enviar).toHaveBeenCalledWith({ usuarioId: 16, token: 'tok' }, 99);
+    expect(resultado).toEqual(expect.objectContaining({ emailVerificado: false }));
+  });
+
+  it('DT-54: reenviar la verificación delega en el servicio de verificación', async () => {
+    await expect(service.reenviarVerificacion(16, 99)).resolves.toEqual({
+      mensaje: 'Enviamos un nuevo enlace de verificación',
+    });
+    expect(verificacionMock.reenviar).toHaveBeenCalledWith(16, 99);
+  });
+
   it('rechaza un usuario con email duplicado', async () => {
     prismaMock.usuario.findFirst.mockResolvedValueOnce({ id: 8 });
 
@@ -134,7 +190,7 @@ describe('UsuariosService', () => {
         {
           dni: '40123456',
           email: 'admin@socialclub.local',
-          password: 'Admin123!',
+          confirmarEmail: 'admin@socialclub.local',
           nombre: 'Nuevo',
           apellido: 'Administrador',
           roles: ['ADMIN'],
@@ -154,7 +210,7 @@ describe('UsuariosService', () => {
         {
           dni: '40123456',
           email: 'nuevo.admin@socialclub.local',
-          password: 'Admin123!',
+          confirmarEmail: 'nuevo.admin@socialclub.local',
           nombre: 'Nuevo',
           apellido: 'Administrador',
           roles: ['ADMIN'],
@@ -173,7 +229,7 @@ describe('UsuariosService', () => {
         {
           dni: '40123456',
           email: 'nuevo.admin@socialclub.local',
-          password: 'Admin123!',
+          confirmarEmail: 'nuevo.admin@socialclub.local',
           nombre: 'Nuevo',
           apellido: 'Administrador',
           roles: ['ADMIN'],
@@ -190,6 +246,8 @@ describe('UsuariosService', () => {
       persona: { id: 88, dni: '12345678' },
       email: 'admin@socialclub.local',
       passwordHash: 'hash-de-12345678',
+      roles: [{ rol: { nombre: 'ADMIN' } }],
+      _count: { disciplinasDelegadas: 0 },
       nombre: 'Admin',
       apellido: 'Existente',
       activo: true,
@@ -225,6 +283,7 @@ describe('UsuariosService', () => {
           nombre: 'Admin',
           apellido: 'Actualizado',
           email: 'admin.actualizado@socialclub.local',
+          confirmarEmail: 'admin.actualizado@socialclub.local',
         },
         99,
       );
@@ -263,7 +322,14 @@ describe('UsuariosService', () => {
       });
 
       await expect(
-        service.update(1, { email: 'admin.actualizado@socialclub.local' }, 99),
+        service.update(
+          1,
+          {
+            email: 'admin.actualizado@socialclub.local',
+            confirmarEmail: 'admin.actualizado@socialclub.local',
+          },
+          99,
+        ),
       ).rejects.toBeInstanceOf(ConflictException);
 
       expect(prismaMock.usuario.update).not.toHaveBeenCalled();
@@ -297,6 +363,8 @@ describe('UsuariosService', () => {
       dni: '12345678',
       email: 'secretario@socialclub.local',
       passwordHash: 'hash-de-12345678',
+      roles: [{ rol: { nombre: 'ADMIN' } }],
+      _count: { disciplinasDelegadas: 0 },
       nombre: 'Secretario',
       apellido: 'Usuario',
       activo: true,
@@ -424,7 +492,7 @@ describe('UsuariosService', () => {
         {
           dni: '40123456',
           email: 'nuevo.admin@socialclub.local',
-          password: 'Admin123!',
+          confirmarEmail: 'nuevo.admin@socialclub.local',
           nombre: 'Nuevo',
           apellido: 'Administrador',
           roles: ['ADMIN'],
@@ -440,6 +508,8 @@ describe('UsuariosService', () => {
         dni: '12345678',
         email: 'admin@socialclub.local',
         passwordHash: 'hash-de-12345678',
+        roles: [{ rol: { nombre: 'ADMIN' } }],
+        _count: { disciplinasDelegadas: 0 },
         nombre: 'Admin',
         apellido: 'Gestor',
         activo: true,
@@ -458,10 +528,31 @@ describe('UsuariosService', () => {
         roles: [{ rol: { id: 2, nombre: 'ADMIN' } }],
       });
 
+      verificacionMock.emitir.mockClear();
       await service.update(1, { nombre: 'Admin' }, 99);
+      expect(verificacionMock.emitir).not.toHaveBeenCalled();
       expect(auditoriaMock.registrar).toHaveBeenLastCalledWith(
         expect.objectContaining({ accion: 'EDITAR', responsableId: 99 }),
       );
+
+      await service.update(
+        1,
+        {
+          email: 'admin.nuevo@socialclub.local',
+          confirmarEmail: 'admin.nuevo@socialclub.local',
+        },
+        99,
+      );
+      expect(prismaMock.usuario.update).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            email: 'admin.nuevo@socialclub.local',
+            emailVerificadoEn: null,
+          }),
+        }),
+      );
+      expect(verificacionMock.emitir).toHaveBeenCalledWith(1, prismaMock);
+      expect(verificacionMock.enviar).toHaveBeenCalled();
 
       prismaMock.usuario.findUnique.mockResolvedValue({
         id: 1,
@@ -489,6 +580,348 @@ describe('UsuariosService', () => {
       await service.deactivate(1, 99);
       expect(auditoriaMock.registrar).toHaveBeenLastCalledWith(
         expect.objectContaining({ accion: 'BAJA', responsableId: 99 }),
+      );
+    });
+  });
+
+  describe('US-04: Consultar usuarios administrativos', () => {
+    it('retorna todos los usuarios si no hay parámetros (paginado)', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([{ id: 1, persona: { dni: '11' } }]);
+      prismaMock.usuario.count.mockResolvedValue(1);
+      const result = await service.findAll(new GetUsuariosQueryDto());
+      expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+      expect(result.items).toHaveLength(1);
+      expect(result.total).toBe(1);
+    });
+
+    it('aplica filtro por nombre en nombre o apellido', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([]);
+      prismaMock.usuario.count.mockResolvedValue(0);
+      const query = new GetUsuariosQueryDto();
+      query.busqueda = 'Juan';
+      await service.findAll(query);
+      expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: [
+              {
+                OR: [
+                  { nombre: { contains: 'Juan', mode: 'insensitive' } },
+                  { apellido: { contains: 'Juan', mode: 'insensitive' } },
+                ],
+              },
+            ],
+          },
+        }),
+      );
+    });
+
+    it('aplica filtro por rol', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([]);
+      prismaMock.usuario.count.mockResolvedValue(0);
+      const query = new GetUsuariosQueryDto();
+      query.rolId = 2;
+      await service.findAll(query);
+      expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            roles: {
+              some: {
+                rolId: 2,
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    it('combina filtros de nombre y rol', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([]);
+      prismaMock.usuario.count.mockResolvedValue(0);
+      const query = new GetUsuariosQueryDto();
+      query.busqueda = 'Ana';
+      query.rolId = 3;
+      await service.findAll(query);
+      expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: [
+              {
+                OR: [
+                  { nombre: { contains: 'Ana', mode: 'insensitive' } },
+                  { apellido: { contains: 'Ana', mode: 'insensitive' } },
+                ],
+              },
+            ],
+            roles: {
+              some: {
+                rolId: 3,
+              },
+            },
+          },
+        }),
+      );
+    });
+
+    it('aplica ordenamiento por DNI descendente', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([]);
+      prismaMock.usuario.count.mockResolvedValue(0);
+      const query = new GetUsuariosQueryDto();
+      query.ordenarPor = 'dni';
+      query.orden = 'desc';
+      await service.findAll(query);
+      expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { persona: { dni: 'desc' } },
+        }),
+      );
+    });
+
+    it('aplica ordenamiento por email ascendente', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([]);
+      prismaMock.usuario.count.mockResolvedValue(0);
+      const query = new GetUsuariosQueryDto();
+      query.ordenarPor = 'email';
+      query.orden = 'asc';
+      await service.findAll(query);
+      expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { email: 'asc' },
+        }),
+      );
+    });
+
+    it('aplica ordenamiento por estado (activo)', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([]);
+      prismaMock.usuario.count.mockResolvedValue(0);
+      const query = new GetUsuariosQueryDto();
+      query.ordenarPor = 'estado';
+      query.orden = 'desc';
+      await service.findAll(query);
+      expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { activo: 'desc' },
+        }),
+      );
+    });
+
+    it('aplica ordenamiento por fecha (creadoEn)', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([]);
+      prismaMock.usuario.count.mockResolvedValue(0);
+      const query = new GetUsuariosQueryDto();
+      query.ordenarPor = 'fecha';
+      query.orden = 'desc';
+      await service.findAll(query);
+      expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { creadoEn: 'desc' },
+        }),
+      );
+    });
+
+    it('aplica ordenamiento por roles y ordena resultados alfabéticamente', async () => {
+      prismaMock.usuario.findMany.mockResolvedValue([
+        {
+          id: 1,
+          nombre: 'A',
+          roles: [{ rol: { id: 2, nombre: 'DELEGADO' } }],
+        },
+        {
+          id: 2,
+          nombre: 'B',
+          roles: [{ rol: { id: 1, nombre: 'ADMIN' } }],
+        },
+      ]);
+      prismaMock.usuario.count.mockResolvedValue(2);
+      const query = new GetUsuariosQueryDto();
+      query.ordenarPor = 'roles';
+      query.orden = 'asc';
+      const result = await service.findAll(query);
+      expect(prismaMock.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { roles: { _count: 'asc' } },
+        }),
+      );
+      expect(result.items[0]?.nombre).toBe('B');
+      expect(result.items[1]?.nombre).toBe('A');
+    });
+  });
+
+  describe('US-03 (complemento): Reactivar un usuario previamente dado de baja', () => {
+    const usuarioInactivo = {
+      id: 1,
+      dni: '12345678',
+      activo: false,
+    };
+
+    beforeEach(() => {
+      prismaMock.usuario.findUnique.mockResolvedValue(usuarioInactivo);
+      prismaMock.usuario.update.mockResolvedValue({ ...usuarioInactivo, activo: true });
+    });
+
+    it('reactiva el usuario y audita la acción', async () => {
+      const resultado = await service.activate(1, 99);
+
+      expect(resultado!.activo).toBe(true);
+      expect(prismaMock.usuario.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: { activo: true },
+        }),
+      );
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({ accion: 'REACTIVAR', idEntidad: 1, responsableId: 99 }),
+      );
+    });
+
+    it('lanza NotFoundException si no existe el usuario', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(null);
+      await expect(service.activate(999, 99)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('lanza BadRequestException si el usuario ya está activo', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ ...usuarioInactivo, activo: true });
+      await expect(service.activate(1, 99)).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('findOne', () => {
+    it('retorna el usuario si existe', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ id: 1, persona: { dni: '11' } });
+      const resultado = await service.findOne(1);
+      expect(resultado).toEqual(expect.objectContaining({ id: 1, dni: '11' }));
+    });
+
+    it('lanza NotFoundException si no existe', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(null);
+      await expect(service.findOne(999)).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('DT-42: disciplinas a cargo de un delegado', () => {
+    const alta = {
+      dni: '30111222',
+      email: 'delegado@socialclub.local',
+      confirmarEmail: 'delegado@socialclub.local',
+      nombre: 'Dana',
+      apellido: 'Delegada',
+      roles: ['DELEGADO'],
+    };
+    const usuarioCreado = (data: any) => ({
+      id: 20,
+      email: data.email,
+      nombre: data.nombre,
+      apellido: data.apellido,
+      activo: true,
+      personaId: data.personaId,
+      persona: { dni: '30111222' },
+      roles: [{ rol: { id: 3, nombre: 'DELEGADO' } }],
+      disciplinasDelegadas: data.disciplinasDelegadas.create.map((d: any) => ({
+        disciplina: { id: d.disciplinaId, nombre: d.disciplinaId === 1 ? 'Fútbol' : 'Básquet' },
+      })),
+    });
+    const existente = (rol: string, disciplinas: number) => ({
+      id: 20,
+      personaId: 88,
+      persona: { id: 88, dni: '30111222' },
+      passwordHash: 'hash',
+      roles: [{ rol: { nombre: rol } }],
+      _count: { disciplinasDelegadas: disciplinas },
+    });
+
+    beforeEach(() => {
+      prismaMock.usuario.findFirst.mockResolvedValue(null);
+      prismaMock.rol.findMany.mockImplementation(async ({ where }: any) =>
+        where.nombre.in.map((nombre: string, i: number) => ({ id: i + 3, nombre })),
+      );
+      prismaMock.disciplina.findMany.mockImplementation(async ({ where }: any) =>
+        where.id.in.map((id: number) => ({ id })),
+      );
+      prismaMock.usuario.create.mockImplementation(async ({ data }: any) => usuarioCreado(data));
+      prismaMock.usuario.update.mockResolvedValue({
+        id: 20,
+        persona: { dni: '30111222' },
+        roles: [],
+        disciplinasDelegadas: [],
+      });
+    });
+
+    it('crea un delegado con sus disciplinas y las devuelve', async () => {
+      const usuario = await service.create({ ...alta, disciplinasIds: [1, 2] }, 99);
+
+      expect(prismaMock.disciplina.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: { in: [1, 2] }, activo: true } }),
+      );
+      expect(prismaMock.usuario.create.mock.calls[0][0].data.disciplinasDelegadas).toEqual({
+        create: [{ disciplinaId: 1 }, { disciplinaId: 2 }],
+      });
+      expect(usuario?.disciplinas).toEqual([
+        { id: 1, nombre: 'Fútbol' },
+        { id: 2, nombre: 'Básquet' },
+      ]);
+    });
+
+    it('rechaza disciplinas para un usuario que no es delegado', async () => {
+      await expect(
+        service.create({ ...alta, roles: ['ADMIN'], disciplinasIds: [1] }, 99),
+      ).rejects.toThrow(
+        new BadRequestException(
+          'Solo los usuarios con rol DELEGADO pueden tener disciplinas a cargo.',
+        ),
+      );
+      expect(prismaMock.usuario.create).not.toHaveBeenCalled();
+    });
+
+    it('rechaza disciplinas inexistentes o inactivas', async () => {
+      prismaMock.disciplina.findMany.mockResolvedValue([{ id: 1 }]);
+
+      await expect(service.create({ ...alta, disciplinasIds: [1, 99] }, 99)).rejects.toThrow(
+        new NotFoundException('Una o más disciplinas indicadas no existen o están inactivas'),
+      );
+      expect(prismaMock.usuario.create).not.toHaveBeenCalled();
+    });
+
+    it('al editar reemplaza las disciplinas a cargo', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(existente('DELEGADO', 1));
+
+      await service.update(20, { disciplinasIds: [2] }, 99);
+
+      expect(prismaMock.usuario.update.mock.calls[0][0].data.disciplinasDelegadas).toEqual({
+        deleteMany: {},
+        create: [{ disciplinaId: 2 }],
+      });
+    });
+
+    it('al editar con una lista vacía le quita todas las disciplinas', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(existente('DELEGADO', 2));
+
+      await service.update(20, { disciplinasIds: [] }, 99);
+
+      expect(prismaMock.usuario.update.mock.calls[0][0].data.disciplinasDelegadas).toEqual({
+        deleteMany: {},
+        create: [],
+      });
+    });
+
+    it('si deja de ser delegado pierde las disciplinas a cargo', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(existente('DELEGADO', 2));
+
+      await service.update(20, { roles: ['COLABORADOR'] }, 99);
+
+      expect(prismaMock.usuario.update.mock.calls[0][0].data.disciplinasDelegadas).toEqual({
+        deleteMany: {},
+      });
+    });
+
+    it('editar otros datos no toca las disciplinas', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue(existente('DELEGADO', 2));
+
+      await service.update(20, { nombre: 'Dana' }, 99);
+
+      expect(prismaMock.usuario.update.mock.calls[0][0].data).not.toHaveProperty(
+        'disciplinasDelegadas',
       );
     });
   });

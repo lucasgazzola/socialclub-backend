@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 /**
  * Estado lógico de la participación de un participante en una disciplina,
@@ -9,6 +9,17 @@ import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 export enum EstadoInscripcionFiltro {
   INSCRIPTO = 'INSCRIPTO',
   BAJA = 'BAJA',
+}
+
+/**
+ * Estado documental del participante (US-25) más el caso de un documento
+ * subido por el titular que todavía no se aprobó (TASK-60).
+ */
+export enum EstadoDocumentalFiltro {
+  PENDIENTE_APROBACION = 'PENDIENTE_APROBACION',
+  PENDIENTE = 'PENDIENTE',
+  BLOQUEADO = 'BLOQUEADO',
+  HABILITADO = 'HABILITADO',
 }
 
 /**
@@ -33,6 +44,14 @@ export class FindParticipantesQueryDto {
   @IsEnum(EstadoInscripcionFiltro)
   estado?: EstadoInscripcionFiltro;
 
+  /**
+   * Filtra por el estado documental que muestra el listado.
+   * PENDIENTE_APROBACION: hay un documento del titular esperando revisión.
+   */
+  @IsOptional()
+  @IsEnum(EstadoDocumentalFiltro)
+  estadoDocumental?: EstadoDocumentalFiltro;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -43,5 +62,14 @@ export class FindParticipantesQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(10000)
   porPagina: number = 10;
+
+  @IsOptional()
+  @IsString()
+  ordenarPor?: string;
+
+  @IsOptional()
+  @IsString()
+  orden?: 'asc' | 'desc' = 'asc';
 }

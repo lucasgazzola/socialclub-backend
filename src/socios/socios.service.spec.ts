@@ -3,6 +3,16 @@ import { NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { SociosService } from './socios.service';
+import { EstadoCuentaSocioFiltro } from './dto/find-socios-query.dto';
+import { VerificacionEmailService } from '../verificacion-email/verificacion-email.service';
+
+/** DT-54: la verificación de email se prueba en su propio spec. */
+const verificacionMock = {
+  emitir: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  crearCuentaPendiente: jest.fn().mockResolvedValue({ usuarioId: 1, token: 'token-de-prueba' }),
+  enviar: jest.fn().mockResolvedValue(undefined),
+  reenviar: jest.fn().mockResolvedValue({ mensaje: 'Enviamos un nuevo enlace de verificación' }),
+};
 
 describe('SociosService', () => {
   let service: SociosService;
@@ -61,6 +71,7 @@ describe('SociosService', () => {
         SociosService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuditoriaService, useValue: auditoriaMock },
+        { provide: VerificacionEmailService, useValue: verificacionMock },
       ],
     }).compile();
 
@@ -159,6 +170,77 @@ describe('SociosService', () => {
     });
   });
 
+  describe('DT-54: cuenta del socio dado de alta por el club', () => {
+    const dto = {
+      nombre: 'Lucía',
+      apellido: 'Sosa',
+      dni: '41222333',
+      email: 'Lucia.Sosa@example.com',
+      confirmarEmail: 'lucia.sosa@example.com',
+      categoriaId: 1,
+    };
+    const personaCreada = (extra: Record<string, unknown> = {}) => ({
+      id: 20,
+      nombre: dto.nombre,
+      apellido: dto.apellido,
+      dni: dto.dni,
+      email: 'lucia.sosa@example.com',
+      membresias: [
+        { id: 200, categoriaId: 1, categoria: { id: 1, nombre: 'Activo' }, activo: true },
+      ],
+      usuario: null,
+      ...extra,
+    });
+
+    beforeEach(() => {
+      prismaMock.persona.findUnique.mockResolvedValue(null);
+      prismaMock.persona.findFirst.mockResolvedValue(null);
+    });
+
+    it('con email: crea la cuenta pendiente con rol SOCIO y envía el enlace al terminar', async () => {
+      prismaMock.persona.create.mockResolvedValue(personaCreada());
+      verificacionMock.crearCuentaPendiente.mockResolvedValueOnce({ usuarioId: 70, token: 't' });
+
+      const resultado = await service.create(dto, 99);
+
+      expect(verificacionMock.crearCuentaPendiente).toHaveBeenCalledWith(prismaMock, {
+        personaId: 20,
+        email: 'lucia.sosa@example.com',
+        nombre: 'Lucía',
+        apellido: 'Sosa',
+        rolesIds: [3],
+        responsableId: 99,
+      });
+      expect(verificacionMock.enviar).toHaveBeenCalledWith({ usuarioId: 70, token: 't' }, 99);
+      expect(resultado.usuarioId).toBe(70);
+    });
+
+    it('sin email: no crea cuenta ni envía nada', async () => {
+      prismaMock.persona.create.mockResolvedValue(personaCreada({ email: null }));
+
+      await service.create({ ...dto, email: undefined, confirmarEmail: undefined }, 99);
+
+      expect(verificacionMock.crearCuentaPendiente).not.toHaveBeenCalled();
+      expect(verificacionMock.enviar).toHaveBeenCalledWith(null, 99);
+    });
+
+    it('si la persona ya tenía cuenta, le suma el rol SOCIO sin crear otra', async () => {
+      prismaMock.persona.findUnique
+        .mockResolvedValueOnce({ ...personaCreada({ usuario: { id: 5 } }), membresias: [] })
+        .mockResolvedValueOnce(personaCreada({ usuario: { id: 5 } }));
+      prismaMock.persona.update.mockResolvedValue(personaCreada({ usuario: { id: 5 } }));
+      prismaMock.membresia.create.mockResolvedValue({ id: 201, categoria: { nombre: 'Activo' } });
+      prismaMock.usuarioRol.findUnique.mockResolvedValue(null);
+
+      await service.create(dto, 99);
+
+      expect(prismaMock.usuarioRol.create).toHaveBeenCalledWith({
+        data: { usuarioId: 5, rolId: 3 },
+      });
+      expect(verificacionMock.crearCuentaPendiente).not.toHaveBeenCalled();
+    });
+  });
+
   describe('TC-027: Validaciones de duplicados en alta de socio', () => {
     it('rechaza el alta administrativa si la persona con ese DNI ya tiene una membresía activa', async () => {
       prismaMock.persona.findUnique.mockResolvedValue({
@@ -186,7 +268,7 @@ describe('SociosService', () => {
   });
 
   describe('US-09: Registrarme como socio (Autogestión)', () => {
-    it('DNI existente: reutiliza Persona y crea Membresía sin pedir nuevo DNI', async () => {
+    it('TC-236: DNI existente: reutiliza Persona y crea Membresía sin pedir nuevo DNI', async () => {
       const usuarioMock = {
         id: 5,
         email: 'usuario@club.com',
@@ -238,7 +320,7 @@ describe('SociosService', () => {
       expect(resultado.activo).toBe(true);
     });
 
-    it('DNI nuevo: si persona.dni es null, se pide, se valida unicidad y se guarda en Persona', async () => {
+    it('TC-237: DNI nuevo: si persona.dni es null, se pide, se valida unicidad y se guarda en Persona', async () => {
       const usuarioMock = {
         id: 6,
         email: 'nuevo@club.com',
@@ -289,7 +371,7 @@ describe('SociosService', () => {
       expect(resultado.dni).toBe('40999888');
     });
 
-    it('DNI nuevo: rechaza el alta si el DNI enviado ya pertenece a otra persona', async () => {
+    it('TC-238: DNI nuevo: rechaza el alta si el DNI enviado ya pertenece a otra persona', async () => {
       const usuarioMock = {
         id: 7,
         email: 'otro@club.com',
@@ -312,7 +394,7 @@ describe('SociosService', () => {
       );
     });
 
-    it('Membresía activa existente: rechaza nueva alta autogestionada si ya es socio activo', async () => {
+    it('TC-239: Membresía activa existente: rechaza nueva alta autogestionada si ya es socio activo', async () => {
       const usuarioMock = {
         id: 8,
         email: 'activo@club.com',
@@ -337,7 +419,7 @@ describe('SociosService', () => {
       const personaConHistorial = {
         id: 30,
         nombre: 'Valeria',
-        apellido: 'Historica',
+        apellido: 'Herrera',
         dni: '25111222',
         email: 'valeria@club.com',
         telefono: null,
@@ -438,11 +520,12 @@ describe('SociosService', () => {
       },
     };
 
-    it('actualiza los datos permitidos del socio, sincroniza usuario y persona, y genera registro de auditoría', async () => {
+    it('TC-241: actualiza los datos permitidos del socio, sincroniza usuario y persona, y genera registro de auditoría', async () => {
       const dto = {
         nombre: 'Pedro Pablo',
         apellido: 'Gomez Alvarez',
         email: 'pedro.nuevo@club.com',
+        confirmarEmail: 'pedro.nuevo@club.com',
         telefono: '351 999 8888',
       };
 
@@ -468,8 +551,11 @@ describe('SociosService', () => {
           nombre: dto.nombre,
           apellido: dto.apellido,
           email: dto.email,
+          emailVerificadoEn: null,
         },
       });
+      expect(verificacionMock.emitir).toHaveBeenCalledWith(5, prismaMock);
+      expect(verificacionMock.enviar).toHaveBeenCalled();
 
       expect(prismaMock.persona.update).toHaveBeenCalledWith({
         where: { id: 12 },
@@ -505,11 +591,33 @@ describe('SociosService', () => {
       );
     });
 
-    it('rechaza la edición si el nuevo correo ya está registrado por otro usuario', async () => {
+    it('DT-59: si el email no cambia, sigue verificado y no manda otro enlace', async () => {
+      const dto = {
+        nombre: 'Pedro',
+        apellido: 'Gomez',
+        email: 'socio@club.com',
+      };
+      prismaMock.usuario.findUnique.mockResolvedValue(usuarioMock);
+      prismaMock.usuario.findFirst.mockResolvedValue(null);
+      prismaMock.persona.findFirst.mockResolvedValue(null);
+      prismaMock.usuario.update.mockResolvedValue(usuarioMock);
+      prismaMock.persona.update.mockResolvedValue(usuarioMock.persona);
+
+      await service.updatePerfil(5, dto);
+
+      expect(prismaMock.usuario.update).toHaveBeenCalledWith({
+        where: { id: 5 },
+        data: { nombre: 'Pedro', apellido: 'Gomez', email: 'socio@club.com' },
+      });
+      expect(verificacionMock.emitir).not.toHaveBeenCalled();
+    });
+
+    it('TC-242: rechaza la edición si el nuevo correo ya está registrado por otro usuario', async () => {
       const dto = {
         nombre: 'Pedro',
         apellido: 'Gomez',
         email: 'otro@club.com',
+        confirmarEmail: 'otro@club.com',
       };
 
       prismaMock.usuario.findUnique.mockResolvedValue(usuarioMock);
@@ -520,11 +628,12 @@ describe('SociosService', () => {
       );
     });
 
-    it('rechaza la edición si el nuevo correo ya está registrado por otra persona', async () => {
+    it('TC-242: rechaza la edición si el nuevo correo ya está registrado por otra persona', async () => {
       const dto = {
         nombre: 'Pedro',
         apellido: 'Gomez',
         email: 'otro.socio@club.com',
+        confirmarEmail: 'otro.socio@club.com',
       };
 
       prismaMock.usuario.findUnique.mockResolvedValue(usuarioMock);
@@ -536,7 +645,7 @@ describe('SociosService', () => {
       );
     });
 
-    it('rechaza la edición si el usuario no tiene ficha de socio activa asociada', async () => {
+    it('TC-243: rechaza la edición si el usuario no tiene ficha de socio activa asociada', async () => {
       prismaMock.usuario.findUnique.mockResolvedValue({
         id: 5,
         email: 'usuario@club.com',
@@ -555,7 +664,7 @@ describe('SociosService', () => {
       const personaGimnasio = {
         id: 50,
         nombre: 'Esteban',
-        apellido: 'Gimnasio',
+        apellido: 'Paredes',
         dni: '50000005',
         email: 'esteban@externo.local',
         usuario: null,
@@ -577,6 +686,367 @@ describe('SociosService', () => {
       expect(personaGimnasio.membresias).toHaveLength(0);
       expect(personaGimnasio.inscripciones).toHaveLength(1);
       expect(personaGimnasio.inscripciones[0].disciplinaId).toBe(6);
+    });
+  });
+
+  describe('US-42: Darme de baja como socio (auto-baja)', () => {
+    it('desactiva la membresía activa del usuario, registra la auditoría y retorna el socio actualizado', async () => {
+      const usuarioSocio = {
+        id: 7,
+        nombre: 'Carlos',
+        apellido: 'Socio',
+        email: 'carlos@club.com',
+        persona: {
+          id: 15,
+          nombre: 'Carlos',
+          apellido: 'Socio',
+          membresias: [
+            {
+              id: 105,
+              categoriaId: 1,
+              categoria: { id: 1, nombre: 'Activo' },
+              activo: true,
+              fechaAlta: new Date(),
+            },
+          ],
+        },
+      };
+
+      prismaMock.usuario.findUnique.mockResolvedValue(usuarioSocio);
+      prismaMock.membresia.update.mockResolvedValue({
+        id: 105,
+        activo: false,
+        fechaBaja: new Date(),
+      });
+      prismaMock.persona.findUnique.mockResolvedValue({
+        id: 15,
+        nombre: 'Carlos',
+        apellido: 'Socio',
+        dni: '30111222',
+        email: 'carlos@club.com',
+        telefono: '351111111',
+        creadoEn: new Date(),
+        actualizadoEn: new Date(),
+        membresias: [
+          {
+            id: 105,
+            categoriaId: 1,
+            categoria: { id: 1, nombre: 'Activo' },
+            activo: false,
+            fechaAlta: new Date(),
+            fechaBaja: new Date(),
+          },
+        ],
+      });
+
+      const resultado = await service.darseDeBaja(7);
+
+      expect(prismaMock.membresia.update).toHaveBeenCalledWith({
+        where: { id: 105 },
+        data: expect.objectContaining({ activo: false, fechaBaja: expect.any(Date) }),
+      });
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'BAJA',
+          entidad: 'Membresia',
+          idEntidad: 105,
+          responsableId: 7,
+        }),
+        prismaMock,
+      );
+      expect(resultado.activo).toBe(false);
+    });
+
+    it('arroja NotFoundException si el usuario no posee ficha de persona', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({ id: 7, persona: null });
+
+      await expect(service.darseDeBaja(7)).rejects.toThrow(NotFoundException);
+    });
+
+    it('arroja BadRequestException si el usuario ya está dado de baja (sin membresía activa)', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValue({
+        id: 7,
+        persona: {
+          id: 15,
+          membresias: [],
+        },
+      });
+
+      await expect(service.darseDeBaja(7)).rejects.toThrow('El socio ya se encuentra dado de baja');
+    });
+  });
+
+  describe('US-14 (complemento): Reactivar / Dar de alta socio', () => {
+    it('crea una nueva membresía activa y registra auditoría con REACTIVAR', async () => {
+      prismaMock.persona.findUnique.mockResolvedValueOnce({
+        id: 20,
+        nombre: 'Carlos',
+        apellido: 'Perez',
+        dni: '20111222',
+        membresias: [
+          {
+            id: 10,
+            categoriaId: 1,
+            activo: false,
+            fechaAlta: new Date('2024-01-01'),
+            fechaBaja: new Date('2024-06-01'),
+          },
+        ],
+      });
+
+      prismaMock.membresia.create.mockResolvedValueOnce({
+        id: 11,
+        personaId: 20,
+        categoriaId: 1,
+        activo: true,
+        fechaAlta: new Date(),
+      });
+
+      // findOne al final
+      jest.spyOn(service, 'findOne').mockResolvedValueOnce({
+        id: 20,
+        nombre: 'Carlos',
+        apellido: 'Perez',
+        dni: '20111222',
+        activo: true,
+      } as any);
+
+      const res = await service.activate(20, 1);
+
+      expect(prismaMock.membresia.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            personaId: 20,
+            categoriaId: 1,
+            activo: true,
+          }),
+        }),
+      );
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'REACTIVAR',
+          entidad: 'Membresia',
+          idEntidad: 11,
+          responsableId: 1,
+        }),
+        expect.anything(),
+      );
+      expect(res.activo).toBe(true);
+    });
+
+    it('arroja BadRequestException si el socio ya tiene membresía activa', async () => {
+      prismaMock.persona.findUnique.mockResolvedValueOnce({
+        id: 20,
+        membresias: [{ id: 10, activo: true }],
+      });
+
+      await expect(service.activate(20, 1)).rejects.toThrow('El socio ya se encuentra activo');
+    });
+  });
+
+  describe('reactivarme (US-43)', () => {
+    it('permite a un ex-socio reactivar su membresía previa autogestionadamente', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValueOnce({
+        id: 5,
+        nombre: 'Maria',
+        apellido: 'Lopez',
+        activo: true,
+        persona: {
+          id: 15,
+          membresias: [{ id: 9, categoriaId: 2, activo: false }],
+        },
+      });
+
+      prismaMock.rol.findUnique.mockResolvedValueOnce({ id: 3, nombre: 'SOCIO' });
+      prismaMock.membresia.create.mockResolvedValueOnce({
+        id: 12,
+        personaId: 15,
+        categoriaId: 2,
+        activo: true,
+      });
+      prismaMock.usuarioRol.findUnique.mockResolvedValueOnce(null);
+      prismaMock.usuarioRol.create.mockResolvedValueOnce({ usuarioId: 5, rolId: 3 });
+
+      jest.spyOn(service, 'findOne').mockResolvedValueOnce({
+        id: 15,
+        nombre: 'Maria',
+        apellido: 'Lopez',
+        activo: true,
+      } as any);
+
+      const res = await service.reactivarme(5);
+
+      expect(prismaMock.membresia.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            personaId: 15,
+            categoriaId: 2,
+            activo: true,
+          }),
+        }),
+      );
+      expect(auditoriaMock.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'REACTIVAR',
+          entidad: 'Membresia',
+          idEntidad: 12,
+          responsableId: 5,
+          detalle: expect.stringContaining('Reactivación autogestionada'),
+        }),
+        expect.anything(),
+      );
+      expect(res.activo).toBe(true);
+    });
+
+    it('rechaza la reactivación si el ex-socio ya tiene una membresía activa', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValueOnce({
+        id: 5,
+        activo: true,
+        persona: {
+          id: 15,
+          membresias: [{ id: 9, activo: true }],
+        },
+      });
+
+      await expect(service.reactivarme(5)).rejects.toThrow('El socio ya se encuentra activo');
+    });
+
+    it('rechaza la reactivación si el usuario nunca fue socio antes (sin membresías previas)', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValueOnce({
+        id: 5,
+        activo: true,
+        persona: {
+          id: 15,
+          membresias: [],
+        },
+      });
+
+      await expect(service.reactivarme(5)).rejects.toThrow(
+        'No registrás una membresía previa dada de baja. Para asociarte por primera vez, usá la opción Hacerme socio.',
+      );
+    });
+
+    it('arroja UnauthorizedException si el usuario está inhabilitado', async () => {
+      prismaMock.usuario.findUnique.mockResolvedValueOnce({
+        id: 5,
+        activo: false,
+      });
+
+      await expect(service.reactivarme(5)).rejects.toThrow(
+        'El usuario no está habilitado para autogestionarse como socio',
+      );
+    });
+  });
+
+  describe('findAll - ordenamiento', () => {
+    it('aplica ordenamiento por nombre asc y por dni desc', async () => {
+      prismaMock.$transaction.mockResolvedValueOnce([[], 0, 0, 0, 0]);
+      await service.findAll({ pagina: 1, porPagina: 10, ordenarPor: 'nombre', orden: 'asc' });
+      expect(prismaMock.persona.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ apellido: 'asc' }, { nombre: 'asc' }],
+        }),
+      );
+
+      prismaMock.$transaction.mockResolvedValueOnce([[], 0, 0, 0, 0]);
+      await service.findAll({ pagina: 1, porPagina: 10, ordenarPor: 'dni', orden: 'desc' });
+      expect(prismaMock.persona.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { dni: 'desc' },
+        }),
+      );
+    });
+
+    it('ordena en memoria por categoria y estado', async () => {
+      const mockPersonas = [
+        {
+          id: 1,
+          nombre: 'Juan',
+          apellido: 'Perez',
+          dni: '123',
+          email: 'j@p.com',
+          membresias: [{ activo: true, categoria: { nombre: 'B Categoria' } }],
+        },
+        {
+          id: 2,
+          nombre: 'Ana',
+          apellido: 'Gomez',
+          dni: '456',
+          email: 'a@g.com',
+          membresias: [{ activo: false, categoria: { nombre: 'A Categoria' } }],
+        },
+      ];
+
+      prismaMock.$transaction.mockResolvedValueOnce([mockPersonas, 2, 2, 1, 1]);
+      const resCat = await service.findAll({
+        pagina: 1,
+        porPagina: 10,
+        ordenarPor: 'categoria',
+        orden: 'asc',
+      });
+      expect(resCat.items[0].categoria?.nombre).toBe('A Categoria');
+
+      prismaMock.$transaction.mockResolvedValueOnce([mockPersonas, 2, 2, 1, 1]);
+      const resEst = await service.findAll({
+        pagina: 1,
+        porPagina: 10,
+        ordenarPor: 'estado',
+        orden: 'desc',
+      });
+      expect(resEst.items[0].activo).toBe(true);
+    });
+
+    it('sin orden de columna pone primero a quien tiene cuotas vencidas impagas', async () => {
+      const hoy = new Date();
+      const mes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+      const alDia = {
+        id: 1,
+        nombre: 'Lucia',
+        apellido: 'Vazquez',
+        dni: '1',
+        creadoEn: new Date('2026-11-01'),
+        membresias: [
+          {
+            activo: true,
+            fechaAlta: new Date(hoy.getFullYear(), hoy.getMonth(), 1),
+            fechaBaja: null,
+            categoria: { nombre: 'General' },
+          },
+        ],
+        pagos: hoy.getDate() > 10 ? [{ periodo: mes }] : [],
+      };
+      const moroso = {
+        id: 2,
+        nombre: 'Pablo',
+        apellido: 'Sosa',
+        dni: '2',
+        creadoEn: new Date('2020-01-01'),
+        membresias: [
+          {
+            activo: true,
+            fechaAlta: new Date(2020, 0, 1),
+            fechaBaja: null,
+            categoria: { nombre: 'General' },
+          },
+        ],
+        pagos: [],
+      };
+
+      prismaMock.$transaction.mockResolvedValueOnce([[alDia, moroso], 2, 2, 2, 0]);
+      const res = await service.findAll({ pagina: 1, porPagina: 10 });
+      expect(res.items.map((item) => item.id)).toEqual([2, 1]);
+      expect(prismaMock.persona.findMany).toHaveBeenCalledWith(
+        expect.not.objectContaining({ skip: expect.anything() }),
+      );
+
+      prismaMock.$transaction.mockResolvedValueOnce([[alDia, moroso], 2, 2, 2, 0]);
+      const filtrado = await service.findAll({
+        pagina: 1,
+        porPagina: 10,
+        estadoCuenta: EstadoCuentaSocioFiltro.MOROSO,
+      });
+      expect(filtrado.items.map((item) => item.id)).toEqual([2]);
+      expect(filtrado.total).toBe(1);
     });
   });
 });

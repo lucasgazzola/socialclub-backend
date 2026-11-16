@@ -1,0 +1,74 @@
+{
+  "TC-275": {
+    "titulo": "Aprobar una solicitud: plazo para la seña y turno bloqueado",
+    "fecha": "01/11/2026",
+    "resultado": "Aprobado",
+    "archivo": "reservas.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-275-01.jpg",
+        "titulo": "1. Como colaborador, abrir «Solicitudes de reserva»: las pendientes, por fecha del turno"
+      },
+      {
+        "archivo": "TC-275-02.jpg",
+        "titulo": "2. Aprobar RES-SEED01 y confirmar"
+      },
+      {
+        "archivo": "TC-275-03.jpg",
+        "titulo": "3. La reserva pasa a «Pendientes de pago» con el plazo de la seña"
+      }
+    ]
+  },
+  "TC-276": {
+    "titulo": "Impedir aprobar una solicitud cuyo turno ya está ocupado",
+    "fecha": "01/11/2026",
+    "resultado": "Aprobado",
+    "archivo": "reservas.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-276-01.jpg",
+        "titulo": "1. RES-SEED02 avisa que su turno se superpone con RES-SEED01"
+      },
+      {
+        "archivo": "TC-276-02.jpg",
+        "titulo": "2. Intentar aprobarla: el sistema lo impide y la solicitud sigue pendiente"
+      }
+    ]
+  },
+  "TC-277": {
+    "titulo": "Rechazar una solicitud con motivo obligatorio y avisar al solicitante",
+    "fecha": "01/11/2026",
+    "resultado": "Aprobado",
+    "archivo": "reservas.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-277-01.jpg",
+        "titulo": "1. Rechazar RES-SEED02 sin motivo: el sistema lo exige"
+      },
+      {
+        "archivo": "TC-277-02.jpg",
+        "titulo": "2. Escribir el motivo y confirmar: la solicitud queda rechazada con su motivo"
+      }
+    ]
+  },
+  "TC-279": {
+    "titulo": "Pagar la seña online con la pasarela y confirmar la reserva",
+    "fecha": "01/11/2026",
+    "resultado": "Aprobado",
+    "archivo": "reservas.spec.ts",
+    "capturas": [
+      {
+        "archivo": "TC-279-01.jpg",
+        "titulo": "1. Pagar la seña de RES-SEED03: redirige a la pasarela"
+      },
+      {
+        "archivo": "TC-279-02.jpg",
+        "titulo": "2. Aprobar el pago: vuelve con el pago aprobado"
+      },
+      {
+        "archivo": "TC-279-03.jpg",
+        "titulo": "3. En «Mis reservas» la reserva quedó confirmada"
+      }
+    ]
+  }
+}

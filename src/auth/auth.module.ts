@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { VerificacionEmailModule } from '../verificacion-email/verificacion-email.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       }),
     }),
     ConfigModule,
+    VerificacionEmailModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

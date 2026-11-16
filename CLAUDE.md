@@ -13,7 +13,12 @@ Repo hermano: `socialclub-frontend` (SPA React que consume esta API).
 - Tests: **Jest** (unitarios con dependencias mockeadas) + supertest (e2e).
 
 ## Arquitectura y convenciones de código
-- **Un módulo por dominio** (`auth`, `usuarios`, `socios`, `categorias`, `disciplinas`, `cuotas`, `eventos`, `entradas`, `auditoria`). Escalabilidad modular.
+- **Un módulo por dominio** (`auth`, `usuarios`, `socios`, `categorias`, `disciplinas`, `cuotas`, `eventos`, `entradas`, `inscripcion`, `auditoria`, `alertas`). Escalabilidad modular.
+- **Solicitudes de inscripción (US-63 a US-66, en `dev` desde el 16/11/2026):** la persona pide, consulta las propias, cancela y adjunta documentación. ADMIN y DELEGADO listan, aprueban o rechazan (`/inscripcion/solicitudes`). Aprobar crea o reactiva la inscripción y genera la cuota deportiva. Cancelar una ya aprobada da de baja la inscripción. El aviso por email al socio sigue en DT-36.
+- **Avisos a usuarios: siempre por `NotificacionesService`** (`src/notificaciones/`, facade + canales + outbox). No enviar emails desde un módulo de dominio: se escribe una plantilla (`PlantillaEmail`) y se llama a `notificar`. Ver `docs/decisiones/0001-servicio-de-notificaciones.md`.
+- **Procesos automáticos: siempre como tarea de `TareasService`** (`src/tareas/`). Nada de `@nestjs/schedule` ni endpoints con token propios: la API escala a cero. Se crea una clase `@Tarea()` en el módulo de dominio y su `cron` en `.github/workflows/tareas-automaticas.yml`. Ver `docs/decisiones/0002-servicio-de-tareas-automaticas.md`.
+- **Cobros online: siempre por `PasarelaService`** (`src/pasarela/`, interfaces `PasarelaPago` + `AcreditadorCobro`). Nunca acreditar un pago sin que la pasarela lo confirme ni llamar a Mercado Pago desde un dominio: el dominio cotiza, llama a `iniciarCobro` y aporta un `@Acreditador()`. Sin `MP_ACCESS_TOKEN` corre la pasarela simulada. Ver `docs/decisiones/0003-pasarela-de-pagos.md`.
+- Las decisiones de arquitectura se documentan en `docs/decisiones/` (una por archivo).
 - Guards, decorators y filtros compartidos en `src/common/` (`JwtAuthGuard`, `RolesGuard`, `@Roles`, `@CurrentUser`, `HttpExceptionFilter`).
 - DTOs con decoradores de validación; `ValidationPipe` global con `whitelist + forbidNonWhitelisted + transform`.
 - Todas las rutas bajo el prefijo **`/api/v1`**.
@@ -52,6 +57,8 @@ Fuente: `docs/documentacion/gestion-del-proyecto/03 ... Ciclo de vida ...` §3.9
 ## Testing
 - Patrón de test unitario: mockear `PrismaService` y `AuditoriaService`; probar la lógica del service. Ver `*.service.spec.ts` como referencia.
 - Al implementar una US: sumar tests (camino feliz + rechazos/validaciones) y cargar los casos en la matriz de pruebas con el skill **`/casos-prueba`** (tipos válidos: Unitaria, Integral, Funcional, Regresión, Aceptación, No funcional).
+- **Contra Postgres real:** los specs que necesitan la base (p. ej. `auditoria.inalterable.spec.ts`) corren si existe `DB_INTEGRACION_URL`; el CI la crea con `migrate deploy`. Sin la variable se saltean.
+- **E2E (TASK-43):** viven en `socialclub-frontend/e2e/` (Playwright) y levantan esta API contra la base `socialclub_e2e` (puerto 3101). Si cambiás roles, endpoints o mensajes de un flujo cubierto, corré `npm run e2e` en el front. La evidencia (capturas por paso + filas EJ) se exporta a `docs/pruebas/evidencias/<US>/e2e/` (ver `docs/pruebas/README.md`).
 
 ## Comandos
 ```bash
@@ -60,8 +67,21 @@ npm test               # Jest (unitarios); usar antes de commitear
 npm run test:cov       # cobertura
 npm run lint           # eslint --fix
 docker compose up -d db        # Postgres local
-npx prisma db push && npm run prisma:seed   # sincronizar esquema + seed (admin@socialclub.local / Admin123!)
+npm run prisma:migrate -- --name <nombre>   # migración versionada (migrate dev)
+npm run prisma:deploy  # aplica migraciones pendientes (lo que corre Docker/Azure)
+npm run prisma:seed    # padrón realista; admin@socialclub.local / Admin123!
+npm run prisma:seed:base # padrón chico de los E2E (SEED_PERFIL=base)
+npm run db:shadow      # crea la base `socialclub_shadow` (una vez)
+npm run prisma:check-drift   # falla si el schema no coincide con las migraciones
 ```
+> **Todo cambio de schema necesita su migración.** Docker, test y main aplican
+> `prisma migrate deploy` (ver `docker-entrypoint.sh`), no `db push`: si editás
+> `schema.prisma` y no generás la migración, la base nunca recibe la columna y
+> el error aparece recién en runtime (`column ... does not exist`, DT-37).
+> `db push` solo es válido mientras el proyecto no tenga migraciones versionadas.
+> Antes de commitear un cambio de schema: `npm run prisma:check-drift` (mismo
+> chequeo que corre el CI).
+
 > En prod la cookie de sesión usa `SameSite=None; Secure` (front y API en dominios distintos). El seed corre en cada arranque del contenedor.
 
 ## Reglas para agentes de IA
@@ -77,4 +97,5 @@ npx prisma db push && npm run prisma:seed   # sincronizar esquema + seed (admin@
 - Documentación (DoD, convenciones, plantillas, PMBOK): `docs/` — ver `docs/README.md`.
 - **Deuda técnica** (estado, prioridades y plan): `docs/DEUDA-TECNICA.md`. Actualizalo al cerrar o detectar un ítem.
 - **Plan de testing** (estado medido, skills, E2E y secuencia): `docs/PLAN-TESTING.md`.
-- Despliegue e infraestructura: ver notas de handoff del equipo.
+- **Casos, ejecuciones y evidencias de prueba**: `docs/pruebas/` (un CSV consolidado por hoja; ver `docs/pruebas/README.md`). Los TSV para Drive se regeneran con `npm run docs:para-pegar`.
+- Despliegue e infraestructura: [`DESPLIEGUE.md`](DESPLIEGUE.md). Operar entornos (Azure/GitHub/Vercel): [`docs/RUNBOOK-OPERACIONES.md`](docs/RUNBOOK-OPERACIONES.md).

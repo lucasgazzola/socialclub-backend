@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Lee la planilla de casos (.xlsx) y reporta el máximo TC-XXX / duplicados.
 
-Fuente de verdad para /exportar-casos: no usar docs/exportables/casos-prueba.csv
+Fuente de verdad para /exportar-casos: no usar docs/pruebas/casos-prueba.csv
 para calcular el próximo ID.
 
 Uso:
   python3 scripts/ids-planilla.py            # resumen
   python3 scripts/ids-planilla.py --max      # imprime el máximo (ej. 90)
-  python3 scripts/ids-planilla.py --next     # imprime el próximo ID (TC-091)
+  python3 scripts/ids-planilla.py --next     # imprime el próximo ID (TC-108)
   python3 scripts/ids-planilla.py --check    # sale 1 si hay IDs duplicados
 """
 from __future__ import annotations
@@ -42,8 +42,10 @@ def _cell_text(cell: ET.Element, shared: list[str]) -> str:
 def leer_ids(xlsx: Path) -> list[str]:
     with zipfile.ZipFile(xlsx) as z:
         shared: list[str] = []
-        for si in ET.fromstring(z.read("xl/sharedStrings.xml")).findall("m:si", NS):
-            shared.append("".join(t.text or "" for t in si.iter(M + "t")))
+        # Algunos .xlsx (export de Sheets, etc.) no traen sharedStrings.xml
+        if "xl/sharedStrings.xml" in z.namelist():
+            for si in ET.fromstring(z.read("xl/sharedStrings.xml")).findall("m:si", NS):
+                shared.append("".join(t.text or "" for t in si.iter(M + "t")))
         ws = ET.fromstring(z.read("xl/worksheets/sheet1.xml"))
     ids: list[str] = []
     for row in ws.iter(M + "row"):
