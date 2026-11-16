@@ -9,7 +9,10 @@ import {
   UseGuards,
   ParseIntPipe,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { InscripcionService } from './inscripcion.service';
 import { CreateInscripcionDto } from './dto/create-inscripcion.dto';
 import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
@@ -19,12 +22,14 @@ import { RequisitosInscripcionQueryDto } from './dto/requisitos-inscripcion-quer
 import { MisSolicitudesQueryDto } from './dto/mis-solicitudes-query.dto';
 import { FindSolicitudesInscripcionQueryDto } from './dto/find-solicitudes-inscripcion-query.dto';
 import { RechazarSolicitudInscripcionDto } from './dto/rechazar-solicitud-inscripcion.dto';
+import { SubirSolicitudDocumentacionDto } from './dto/subir-solicitud-documentacion.dto';
 import { CrearHabilitacionExcepcionalDto } from './dto/crear-habilitacion-excepcional.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { Roles } from '../common/decorators/roles.decorator';
 import {
   ApiCookieAuth,
+  ApiConsumes,
   ApiOperation,
   ApiTags,
   ApiCreatedResponse,
@@ -33,6 +38,7 @@ import {
 import { RolesGuard } from '../common/guards/roles.guard';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { ApiErrores, VALIDACION } from '../common/swagger/respuestas';
+import { documentacionStorage, type ArchivoSubido } from '../documentacion/storage.config';
 
 @ApiTags('inscripcion')
 @ApiCookieAuth()
@@ -266,6 +272,39 @@ export class InscripcionController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.inscripcionService.rechazarSolicitud(id, dto, user.id);
+  }
+
+  @Patch('solicitudes/:id/cancelar')
+  @ApiOperation({ summary: 'US-65 — Cancelar una solicitud de inscripción pendiente propia' })
+  @ApiOkResponse({ description: 'Solicitud cancelada' })
+  @ApiErrores({
+    400: [VALIDACION, 'Solo se pueden cancelar solicitudes en estado PENDIENTE'],
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: ['Solicitud no encontrada', 'No se encontró una ficha de persona asociada al usuario'],
+  })
+  cancelarSolicitud(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.inscripcionService.cancelarSolicitud(id, user.id);
+  }
+
+  @Post('solicitudes/:id/documentacion')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'US-65 — Adjuntar documentación a una solicitud propia' })
+  @ApiCreatedResponse({ description: 'Documentación enviada a revisión' })
+  @UseInterceptors(FileInterceptor('archivo', documentacionStorage))
+  @ApiErrores({
+    400: [VALIDACION, 'Adjuntá el archivo del documento (PDF o imagen).'],
+    401: 'Unauthorized',
+    404: 'Solicitud no encontrada',
+    409: 'La solicitud no admite documentación en su estado actual',
+  })
+  subirDocumentacionSolicitud(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: SubirSolicitudDocumentacionDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile() archivo?: ArchivoSubido,
+  ) {
+    return this.inscripcionService.subirDocumentacionSolicitud(id, user.id, dto, archivo);
   }
 
   @Get('persona/:personaId')

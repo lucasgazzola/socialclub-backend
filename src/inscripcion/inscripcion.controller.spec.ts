@@ -16,6 +16,7 @@ const mockInscripcionService = {
   remove: jest.fn(),
   darDeBajaParticipante: jest.fn(),
   activarParticipante: jest.fn(),
+  cancelarSolicitud: jest.fn(),
 };
 
 describe('InscripcionController', () => {
@@ -99,6 +100,32 @@ describe('InscripcionController', () => {
 
       expect(mockInscripcionService.findAll).toHaveBeenCalledWith(query);
       expect(result).toEqual(expected);
+    });
+
+    describe('cancelarSolicitud (US-65)', () => {
+      it('delega la cancelación con la solicitud y el usuario autenticado', async () => {
+        const esperado = { id: 1, estado: 'CANCELADA' };
+        mockInscripcionService.cancelarSolicitud.mockResolvedValue(esperado);
+
+        const resultado = await controller.cancelarSolicitud(1, {
+          id: 99,
+          email: 'socio@test.com',
+          roles: ['SOCIO'],
+        });
+
+        expect(mockInscripcionService.cancelarSolicitud).toHaveBeenCalledWith(1, 99);
+        expect(resultado).toEqual(esperado);
+      });
+
+      it('propaga el error cuando la solicitud no está pendiente', async () => {
+        mockInscripcionService.cancelarSolicitud.mockRejectedValue(
+          new BadRequestException('Solo se pueden cancelar solicitudes de inscripción en estado PENDIENTE'),
+        );
+
+        await expect(
+          controller.cancelarSolicitud(1, { id: 99, email: 'socio@test.com', roles: ['SOCIO'] }),
+        ).rejects.toThrow(BadRequestException);
+      });
     });
 
     it('permite el acceso a los roles operativos (COLABORADOR y DELEGADO)', () => {

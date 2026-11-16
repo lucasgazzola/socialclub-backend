@@ -614,3 +614,16 @@ Disciplina: Natación (inactiva)","1. Ingresar al registro.
 "TC-320","US-52","Listar mis entradas de forma paginada y con búsqueda por nombre de evento","Usuario autenticado con entradas compradas","Query params de paginación (page, limit) y búsqueda (search)","1. Enviar GET /entradas/mis-entradas con parámetros de paginación y búsqueda","El sistema devuelve { items, total, pagina, porPagina, totalPaginas } filtrando correctamente por nombre de evento","Alta","Funcional","Guajardo Lautaro"
 "TC-321","US-52","Tratamiento visual y deshabilitación de descargas para entradas usadas y vencidas","Usuario visualiza su listado de entradas","Entradas en estado VALIDA, USADA y EXPIRADA","1. Abrir Mis Entradas
 2. Observar tarjetas y botones de descarga","Entradas USADA y EXPIRADA se renderizan en escala de grises con badge correspondiente y botones de descarga PDF/QR deshabilitados","Alta","Aceptación","Guajardo Lautaro"
+"TC-322","US-65","Cancelar una solicitud propia en estado PENDIENTE y registrar auditoría","Socio autenticado posee una solicitud PENDIENTE propia","Solicitud ID 5","1. Ejecutar PATCH /inscripcion/solicitudes/5/cancelar
+2. Consultar el resultado","La solicitud cambia a CANCELADA, actualiza actualizadoEn y se registra una auditoría","Alta","Unitario","Guajardo Lautaro"
+"TC-323","US-65","Impedir la cancelación de una solicitud ajena","Socio autenticado y solicitud perteneciente a otra persona","Solicitud ID ajena","1. Ejecutar PATCH /inscripcion/solicitudes/:id/cancelar","El backend responde 404 y no modifica la solicitud ni registra auditoría","Alta","Integración","Guajardo Lautaro"
+"TC-324","US-65","Confirmar la cancelación desde la interfaz","Socio visualiza Mis solicitudes con una solicitud PENDIENTE","Solicitud PENDIENTE en la tabla","1. Presionar Cancelar solicitud
+2. Revisar el diálogo
+3. Confirmar","Se muestra el modal de confirmación y, al confirmar, aparece un toast claro en español","Alta","Funcional","Guajardo Lautaro"
+"TC-325","US-65","Impedir cancelar solicitudes no pendientes","Existen solicitudes APROBADA, RECHAZADA, CANCELADA y PENDIENTE_DOCUMENTACION","IDs de solicitudes no pendientes","1. Intentar cancelar cada solicitud desde backend
+2. Revisar la interfaz","Backend responde 400 y frontend no ofrece el botón para estados no PENDIENTE","Alta","Regresión","Guajardo Lautaro"
+"TC-326","US-65","Completar el flujo de autogestión de cancelación","Socio autenticado con solicitud PENDIENTE propia","Solicitud y sesión válidas","1. Abrir Mis solicitudes
+2. Cancelar y confirmar
+3. Recargar el listado","La solicitud queda visible como CANCELADA y las consultas se invalidan sin perder el contexto de la pantalla","Alta","Aceptación","Guajardo Lautaro"
+"TC-327","US-65","Mantener controles de autorización y auditoría","Usuario sin autenticación, socio sin persona o usuario con solicitud ajena","Sesiones inválidas y solicitud ajena","1. Ejecutar el endpoint con cada contexto
+2. Revisar la respuesta y los registros","Se rechaza la operación sin exposición de datos ni mutaciones no auditadas","Alta","No funcional","Guajardo Lautaro"
