@@ -46,6 +46,10 @@ describe('DT-16 · InscripcionController · control de acceso', () => {
       InscripcionController.prototype.activarParticipante,
     'GET /inscripcion/:id/habilitaciones-excepcionales':
       InscripcionController.prototype.listarHabilitacionesExcepcionales,
+    'GET /inscripcion/solicitudes': InscripcionController.prototype.listarSolicitudes,
+    'PATCH /inscripcion/solicitudes/:id/aprobar': InscripcionController.prototype.aprobarSolicitud,
+    'PATCH /inscripcion/solicitudes/:id/rechazar':
+      InscripcionController.prototype.rechazarSolicitud,
   };
 
   describe.each(Object.entries(handlers))('%s', (_ruta, handler) => {
@@ -95,6 +99,9 @@ describe('DT-16 · InscripcionController · control de acceso', () => {
       'PATCH /inscripcion/persona/:personaId/activar': ['ADMIN', 'DELEGADO'],
       'POST /inscripcion/:id/habilitacion-excepcional': ['ADMIN'],
       'GET /inscripcion/:id/habilitaciones-excepcionales': ['ADMIN', 'DELEGADO'],
+      'GET /inscripcion/solicitudes': ['ADMIN', 'DELEGADO'],
+      'PATCH /inscripcion/solicitudes/:id/aprobar': ['ADMIN', 'DELEGADO'],
+      'PATCH /inscripcion/solicitudes/:id/rechazar': ['ADMIN', 'DELEGADO'],
       'POST /inscripcion/solicitar': null,
       'GET /inscripcion/catalogo': null,
       'GET /inscripcion/mis-solicitudes': null,
