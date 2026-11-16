@@ -118,8 +118,8 @@ export class InscripcionController {
     401: 'Unauthorized',
     403: 'No tenés permisos suficientes para esta operación',
   })
-  findAll(@Query() query: FindParticipantesQueryDto) {
-    return this.inscripcionService.findAll(query);
+  findAll(@Query() query: FindParticipantesQueryDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.inscripcionService.findAll(query, user);
   }
 
   @Get('requisitos')

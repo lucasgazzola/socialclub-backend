@@ -312,6 +312,12 @@ export class UsuariosService {
 
     const email = dto.email?.trim().toLowerCase();
     const dni = dto.dni?.trim();
+    const emailCambio = Boolean(email) && email !== usuarioExistente.email.trim().toLowerCase();
+    if (emailCambio) {
+      const confirmado = dto.confirmarEmail?.trim().toLowerCase();
+      if (!confirmado) throw new BadRequestException('Confirmá el email.');
+      if (confirmado !== email) throw new BadRequestException('Los emails no coinciden.');
+    }
 
     // Nota: acá SÍ se mantiene la validación estricta de DNI/email (sin
     // excepción para personas sin usuario). Editar el DNI de un usuario
@@ -326,6 +332,7 @@ export class UsuariosService {
     if (dto.nombre) data.nombre = dto.nombre;
     if (dto.apellido) data.apellido = dto.apellido;
     if (email) data.email = email;
+    if (emailCambio) data.emailVerificadoEn = null;
     // DT-42: las disciplinas se validan contra los roles con los que queda el
     // usuario. Si deja de ser delegado, pierde las disciplinas a cargo.
     const rolesFinales = dto.roles ?? usuarioExistente.roles.map((r) => r.rol.nombre);
@@ -348,7 +355,7 @@ export class UsuariosService {
       data.roles = { create: rolesIds.map((rolId) => ({ rolId })) };
     }
 
-    const usuario = await this.prisma.$transaction(async (tx) => {
+    const { usuario, enlace } = await this.prisma.$transaction(async (tx) => {
       if (dni || dto.nombre || dto.apellido || email) {
         await tx.persona.update({
           where: { id: usuarioExistente.personaId },
@@ -361,12 +368,16 @@ export class UsuariosService {
         });
       }
 
-      return tx.usuario.update({
+      const actualizado = await tx.usuario.update({
         where: { id },
         data,
         select: SELECT_PUBLICO,
       });
+      const enlaceEmitido = emailCambio ? await this.verificacion.emitir(id, tx) : null;
+      return { usuario: actualizado, enlace: enlaceEmitido };
     });
+
+    if (enlace) await this.verificacion.enviar(enlace, responsableId);
 
     await this.auditoria.registrar({
       accion: 'EDITAR',

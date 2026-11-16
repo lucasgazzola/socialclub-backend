@@ -75,6 +75,20 @@ describe('US-29 · EventosService', () => {
       expect(prismaMock.$transaction).toHaveBeenCalled();
     });
 
+    it('ordenar=precio lista de menor a mayor y pagina en la base', async () => {
+      prismaMock.$transaction.mockResolvedValue([[], 0]);
+
+      await service.findAll({ ordenar: 'precio', pagina: 2, porPagina: 5 });
+
+      expect(prismaMock.evento.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ precio: 'asc' }, { id: 'asc' }],
+          skip: 5,
+          take: 5,
+        }),
+      );
+    });
+
     it('aplica filtros de rango de fechas fechaDesde y fechaHasta en el where de Prisma', async () => {
       prismaMock.$transaction.mockResolvedValue([[], 0]);
 

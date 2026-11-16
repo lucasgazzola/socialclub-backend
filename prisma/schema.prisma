@@ -116,6 +116,8 @@ enum EstadoCompraEntrada {
 /// acreditador en su módulo de dominio (ver docs/decisiones/0003).
 enum ConceptoCobro {
   CUOTA_SOCIAL
+  /// DT-35: cuota deportiva que el socio paga desde Mi club.
+  CUOTA_DEPORTIVA
   ENTRADAS
   /// US-60: seña de una reserva de espacio aprobada.
   RESERVA
@@ -754,9 +756,13 @@ model PagoCuotaDeportiva {
   // borra el usuario; la auditoría conserva el registro inalterable.
   responsableId Int?
   responsable   Usuario?   @relation("responsablePagoDeportivo", fields: [responsableId], references: [id])
+  /// DT-35: orden de pago online que lo originó (null si lo cobró secretaría).
+  ordenPagoId   Int?
+  ordenPago     OrdenPago? @relation(fields: [ordenPagoId], references: [id], onDelete: SetNull)
   creadoEn      DateTime   @default(now())
 
   @@unique([personaId, disciplinaId, periodo])
+  @@index([ordenPagoId])
   @@index([personaId])
   @@index([disciplinaId])
   @@index([periodo])
@@ -793,6 +799,7 @@ model OrdenPago {
   creadoEn       DateTime        @default(now())
   actualizadoEn  DateTime        @updatedAt
   pagos          Pago[]
+  pagosDeportivos PagoCuotaDeportiva[]
   compraEntrada  CompraEntrada?
   reserva        Reserva?
 

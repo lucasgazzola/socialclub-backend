@@ -7,6 +7,8 @@ Los puntos marcados *(código)* no se reprodujeron en el navegador, para no ensu
 
 > Rutas: `front/` = `socialclub-frontend`, `back/` = `socialclub-backend`.
 
+> **Actualización 15/11/2026.** El punto 7 y el D quedaron cerrados: `validarAcceso` recibe el evento, rechaza el de otro evento y el de un evento cancelado sin cambiar el estado de la entrada. El resto de esta lista no se reabrió.
+
 ## Hallazgos de la daily
 
 | # | Qué está mal | Qué corregir |

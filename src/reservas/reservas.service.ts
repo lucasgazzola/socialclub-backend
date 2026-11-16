@@ -279,12 +279,16 @@ export class ReservasService {
 
   /**
    * US-60 CA 3: aprueba, fija el plazo para pagar la seña y bloquea el turno.
-   * Antes verifica que el turno siga libre (decisión 0004).
+   * Antes verifica que el turno siga libre y que no haya empezado (decisión 0004
+   * y H04 de la prueba integral). El plazo de la seña no pasa del inicio.
    */
   async aprobar(id: number, responsableId: number) {
     const reserva = await this.buscar(id);
     if (reserva.estado !== 'PENDIENTE_APROBACION') {
       throw new BadRequestException('Solo se pueden aprobar solicitudes pendientes de aprobación');
+    }
+    if (reserva.inicio.getTime() <= Date.now()) {
+      throw new BadRequestException('El turno seleccionado ya pasó');
     }
     const conflicto = (await this.conflictosDe(reserva))[0];
     if (conflicto) {
@@ -292,7 +296,10 @@ export class ReservasService {
         `El turno ya no está disponible: se superpone con ${conflicto.detalle} (${enHoraClub(conflicto.inicio)} a ${enHoraClub(conflicto.fin).slice(-5)}).`,
       );
     }
-    const limitePagoSena = new Date(Date.now() + this.horasLimiteSena * MS_HORA);
+    // El plazo de la seña no puede quedar después de que el turno empiece:
+    // si faltan menos horas que el plazo configurado, vence al inicio.
+    const limiteCalculado = Date.now() + this.horasLimiteSena * MS_HORA;
+    const limitePagoSena = new Date(Math.min(limiteCalculado, reserva.inicio.getTime()));
     const aprobada = await this.transicionar(
       reserva,
       ['PENDIENTE_APROBACION'],

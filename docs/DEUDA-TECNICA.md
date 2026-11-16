@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 16/11/2026 (TASK-60 · integración del portal de socios y documentación con revisión: DT-58 resuelta); 15/11/2026 (TASK-60 · landing, Mi club y panel separados: DT-57 resuelta, DT-58 nueva); 02/11/2026 (devolución del profesor en la 3ra reunión: DT-54, DT-55, DT-56 y DT-57 nuevas); 01/11/2026 (TASK-57 · DT-46 y DT-47: error en formulario de usuario y formato de DNI unificado; TASK-56 · DT-06, DT-09, DT-36: confirmación de compra de entradas y actualización de deuda técnica; US-60/61/62 · reservas, DT-53 nueva; registro DT-50, DT-51 y DT-52; TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
+- **Última actualización:** 16/11/2026 (revisión de la rama `fix/correcciones-prueba-integral`: DT-60, DT-61, DT-62 y DT-63 nuevas); 16/11/2026 (DT-35 resuelta: el socio paga la cuota deportiva desde Mi club; DT-29 resuelta: US-65 y US-66 en `dev`; DT-59 resuelta: cambiar el email vuelve a verificarlo); 15/11/2026 (DT-54 y DT-51 pasadas a resueltas; DT-59 nueva por el email que se cambia sin re-verificar; DT-27 y DT-29 alineadas con el código); 16/11/2026 (TASK-60 · integración del portal de socios y documentación con revisión: DT-58 resuelta); 15/11/2026 (TASK-60 · landing, Mi club y panel separados: DT-57 resuelta, DT-58 nueva); 02/11/2026 (devolución del profesor en la 3ra reunión: DT-54, DT-55, DT-56 y DT-57 nuevas); 01/11/2026 (TASK-57 · DT-46 y DT-47: error en formulario de usuario y formato de DNI unificado; TASK-56 · DT-06, DT-09, DT-36: confirmación de compra de entradas y actualización de deuda técnica; US-60/61/62 · reservas, DT-53 nueva; registro DT-50, DT-51 y DT-52; TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -15,8 +15,10 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 > marcados como tal. Los **DT-27 en adelante** salieron del análisis
 > funcional de dominio del 22/09/2026 (documentación, inscripciones, entradas
 > y cuotas) y están marcados como `Nuevo · funcional`. Los **DT-54 a DT-57**
-> son la devolución del profesor en la 3ra reunión formal (02/11/2026) y están
-> marcados como `Nuevo · devolución del profesor`.
+> son la devolución del profesor en la 3ra reunión formal (02/11/2026). DT-54
+> está resuelta, igual que DT-59 (volver a verificar si cambia el email) y DT-29
+> (US-65 y US-66, 16/11/2026). DT-58 salió de la integración
+> del portal (16/11/2026) y también está resuelta.
 
 ---
 
@@ -31,15 +33,15 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
   - [🟠 Altas](#-altas)
     - [DT-52 · Reemplazo del rol DELEGADO por COLABORADOR y eliminación de toda mención](#dt-52--reemplazo-del-rol-delegado-por-colaborador-y-eliminación-de-toda-mención)
     - [DT-27 · Documentación por disciplina: requisitos, estados y vigencia](#dt-27--documentación-por-disciplina-requisitos-estados-y-vigencia)
-    - [DT-29 · No existe solicitud de inscripción con aprobación](#dt-29--no-existe-solicitud-de-inscripción-con-aprobación)
-    - [DT-35 · El pago implementado solo cubre la cuota social](#dt-35--el-pago-implementado-solo-cubre-la-cuota-social)
-    - [DT-54 · El alta de usuario no verifica el email ni deja que la persona elija su contraseña](#dt-54--el-alta-de-usuario-no-verifica-el-email-ni-deja-que-la-persona-elija-su-contraseña)
+    - [DT-60 · Un menor no puede pedir inscripción si la categoría exige un documento con plazo 0](#dt-60--un-menor-no-puede-pedir-inscripción-si-la-categoría-exige-un-documento-con-plazo-0)
   - [🟡 Medias](#-medias)
+    - [DT-61 · El delegado ve el estado documental de disciplinas que no tiene a cargo](#dt-61--el-delegado-ve-el-estado-documental-de-disciplinas-que-no-tiene-a-cargo)
+    - [DT-62 · Quien no es ni fue socio no paga la cuota deportiva desde Mi club](#dt-62--quien-no-es-ni-fue-socio-no-paga-la-cuota-deportiva-desde-mi-club)
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
     - [DT-55 · La inscripción es de a una disciplina por vez](#dt-55--la-inscripción-es-de-a-una-disciplina-por-vez)
     - [DT-56 · Faltan filtros por rango de fechas en morosos y reportes](#dt-56--faltan-filtros-por-rango-de-fechas-en-morosos-y-reportes)
   - [⚪ Bajas](#-bajas)
-    - [DT-51 · Nombres y correos electrónicos del seed con descriptores de prueba sin realismo](#dt-51--nombres-y-correos-electrónicos-del-seed-con-descriptores-de-prueba-sin-realismo)
+    - [DT-63 · Detalles del reporte financiero y del pago deportivo online](#dt-63--detalles-del-reporte-financiero-y-del-pago-deportivo-online)
     - [DT-09 · Imágenes en eventos](#dt-09--imágenes-en-eventos)
     - [DT-36 · No hay notificaciones de vencimiento o resolución](#dt-36--no-hay-notificaciones-de-vencimiento-o-resolución)
 - [Deuda resuelta](#deuda-resuelta)
@@ -66,10 +68,10 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-30, DT-31, DT-32, DT-33, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48, DT-49, DT-50, DT-53, DT-06, DT-46, DT-47, DT-57, DT-58 |
-| 🟠 Altas pendientes | DT-52, DT-27 (configuración, estado documental, alertas y habilitación excepcional resueltos; resta aprobación/rechazo), DT-29, DT-35 (cobro, tarifa y pasarela de pagos resueltos; resta el autoservicio de la cuota deportiva), DT-54 |
-| 🟡 Medias pendientes | DT-34, DT-55, DT-56 |
-| ⚪ Bajas pendientes | DT-09 (campo e interfaz listos, subida pendiente de DT-15), DT-51, DT-36 (servicio resuelto en TASK-35, alertas en US-26, reservas en US-60/61/62, compra de entradas en TASK-56; restan DT-29 y cuotas) |
+| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-29, DT-30, DT-31, DT-32, DT-33, DT-35, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48, DT-49, DT-50, DT-51, DT-53, DT-54, DT-59, DT-06, DT-46, DT-47, DT-57, DT-58 |
+| 🟠 Altas pendientes | DT-60, DT-52, DT-27 (configuración, estado documental, alertas, revisión, habilitación excepcional y plazo 0 al inscribir resueltos) |
+| 🟡 Medias pendientes | DT-61, DT-62, DT-34, DT-55, DT-56 |
+| ⚪ Bajas pendientes | DT-63, DT-09 (campo e interfaz listos, subida pendiente de DT-15), DT-36 (servicio resuelto en TASK-35, alertas en US-26, reservas en US-60/61/62, compra de entradas en TASK-56; restan la solicitud de inscripción y las cuotas) |
 
 **Cobertura de tests** (medida el 01/11/2026, objetivo DoD **70 %**):
 
@@ -158,38 +160,18 @@ El rol `DELEGADO` va a ser reemplazado íntegramente por `COLABORADOR`, eliminan
 #### DT-27 · Documentación por disciplina: requisitos, estados y vigencia
 *Nuevo · funcional · backend + frontend*
 
-La primera parte de esta deuda quedó resuelta: `Disciplina` ahora tiene
-`solicitaDocumentacion`, `plazoDiasDocumentacion` y una relación con tipos de
-documentación requeridos, administrables desde el ABM. Siguen pendientes los
-estados, la vigencia y la validación contra la inscripción. `Documentacion`
-todavía solo se relaciona con `Persona`:
+La configuración, el cálculo de vigencia, el bloqueo, las alertas, la
+habilitación excepcional y la revisión de lo que sube el titular ya están
+resueltos. El detalle está en los ítems de abajo y en DT-50, DT-57 y DT-58.
+`Documentacion.estadoRevision` es `APROBADO`, `PENDIENTE_REVISION` o
+`RECHAZADO`, con revisor, fecha y motivo. Solo lo aprobado habilita. Lo que
+carga el club nace aprobado.
 
-- **La inscripción no valida todavía la configuración.** Aunque ya existe
-  `Disciplina.solicitaDocumentacion` y la tabla de requisitos por disciplina
-  (apto físico, autorización, DNI, etc.), aún falta exigir documentación
-  aprobada y vigente al inscribir.
-- **No tiene estado.** Solo guarda fechas y archivo: no hay forma de saber si
-  un documento fue aprobado, rechazado o sigue pendiente. Faltan `estado`
-  (`PENDIENTE`, `APROBADA`, `RECHAZADA`, `VENCIDA`), `revisadoPor`,
-  `revisadoEn` y `motivoRechazo`, además de acciones para aprobar, rechazar
-  con motivo, marcar vencida automáticamente y reemplazar un documento
-  conservando el historial.
-- **No hay noción de vigencia ni de documento activo.** Si una persona
-  reemplaza, por ejemplo, un apto físico, el sistema conserva varias versiones
-  pero no indica cuál es la vigente para cada disciplina. Falta definir
-  documento activo, reemplazo, historial de versiones, vigencia por
-  disciplina y prioridad del documento aprobado más reciente.
-- **La inscripción no sabe qué documentación pedir.** Al inscribir (o al
-  solicitar la inscripción, ver DT-29) hay que poder especificar, según la
-  disciplina elegida, qué tipo(s) de documentación corresponde exigir, y
-  bloquear o dejar pendiente la inscripción si falta o está vencida.
-
-**Arreglo pendiente:** agregar estado y trazabilidad en `Documentacion`, y la
-validación correspondiente al crear/activar una inscripción: si la disciplina
-no exige documentación se permite; si la exige, debe existir documentación
-aprobada y vigente del tipo pedido, y si falta o está vencida la inscripción
-(o la solicitud) queda pendiente o se rechaza. Depende de que exista un ABM de
-disciplina real (DT-30) para poder configurar estos requisitos.
+**H13 resuelto (15/11/2026):** un requisito con plazo 0 se exige al inscribir.
+Sin ese documento, el alta y la solicitud se rechazan. Quien ya estaba
+inscripto sin presentarlo queda bloqueado el mismo día. Un plazo mayor sigue
+siendo pendiente hasta la fecha, y el texto ya no lo llama opcional. Ver la
+[decisión 0010](decisiones/0010-correcciones-de-la-prueba-integral.md).
 
 - **Configuración de requisitos resuelta en US-44 (22/09/2026).**
 - **Requisitos por categoría resueltos en US-48/49 (01/10/2026,**
@@ -219,106 +201,79 @@ disciplina real (DT-30) para poder configurar estos requisitos.
   afectada sin impactar en las restantes, expone los motivos detallados en sistema y UI, y levanta automáticamente por renovación vigente
   o manualmente por habilitación excepcional.
 - **Alertas resueltas en US-26 (03/10/2026):** ver [Resuelta](#us-26--alertas-por-vencimiento-de-documentación-con-aviso-por-email).
-- **Pendiente:** aprobación/rechazo de documentos (estados
-  `PENDIENTE`/`APROBADA`/`RECHAZADA` de este ítem), habilitación excepcional
-  (US-28, la tabla ya existe) y filtro del listado por estado de habilitación
-  (US-08).
-- **Rama sugerida:** `issue/TASK-19-DT-27-Documentacion-por-disciplina`
+- **Revisión resuelta en TASK-60 (16/11/2026):** el titular sube desde Mi club
+  y el documento queda `PENDIENTE_REVISION` hasta que un delegado o el
+  administrador lo aprueba o lo rechaza. La bandeja está en el Inicio del panel.
+- **Habilitación excepcional resuelta en US-28 / DT-50.**
+- **Filtro del listado resuelto (15/11/2026):** `estadoDocumental` en
+  participantes, y el orden por defecto pone primero lo pendiente de aprobación.
 
-#### DT-29 · No existe solicitud de inscripción con aprobación
-*Nuevo · funcional · backend + frontend*
+#### DT-60 · Un menor no puede pedir inscripción si la categoría exige un documento con plazo 0
+*Nuevo · funcional · revisión del 16/11/2026*
 
-La inscripción se crea directamente con `POST /inscripcion`, habilitado solo
-para `ADMIN` y `DELEGADO`. No existe una solicitud pendiente que el
-participante pueda iniciar y que alguien con permisos revise: hoy no hay
-forma de que un socio pida inscribirse a una disciplina, ni de aprobar o
-rechazar ese pedido antes de que la inscripción exista.
+Desde H13, un requisito con plazo 0 hay que tenerlo al inscribir. En la
+solicitud (`solicitarInscripcion`) solo cuenta un documento que ya esté
+**aprobado**, y no hay forma de tenerlo antes:
 
-**Arreglo:** crear una entidad `SolicitudInscripcion` (`personaId`,
-`disciplinaId`, `categoriaDisciplinaId`, `estado`: `PENDIENTE`, `APROBADA`,
-`RECHAZADA`, `CANCELADA`, fechas de solicitud y resolución, usuario que
-resolvió, motivo de rechazo). Flujo: el usuario solicita inscribirse → se
-valida documentación y condiciones (DT-27) → el colaborador o delegado
-aprueba o rechaza → solo al aprobar se crea o activa la `Inscripcion`.
+- `POST /documentacion/mi-documentacion` rechaza un tipo que no exija alguna
+  disciplina en la que la persona ya esté inscripta.
+- US-65 adjunta el archivo después de crear la solicitud.
 
-- **Detectado en el análisis funcional de dominio (22/09/2026).**
-- **Rama sugerida:** `issue/TASK-20-DT-29-Solicitud-de-inscripcion`
+En el padrón, la autorización de padres o tutores tiene plazo 0 en nueve
+categorías (Escuelita, Infantiles, Juveniles, Formativas, Avanzadas). Esas
+solicitudes no se pueden abrir.
 
-#### DT-35 · El cobro de cuota deportiva quedó implementado; resta la generación y el autoservicio
-*funcional · backend · parcialmente resuelto (US-21, 26/09/2026)*
-
-**US-21** agregó el cobro de cuota deportiva por secretaría: modelo propio
-`PagoCuotaDeportiva` (independiente de `Pago`/cuota social, con
-`@@unique([personaId, disciplinaId, periodo])`), `PagosDeportivosService`
-(pendientes por disciplina, registro atómico de uno o varios períodos, estado
-`AL_DIA`/`MOROSO`, auditoría) y la pantalla *Cobrar cuota deportiva*
-(ADMIN/COLABORADOR). Con esto ya **existe un camino de cobro** para la cuota
-deportiva.
-
-**Lo que sigue pendiente:**
-- **Generación/emisión** de la cuota deportiva: hoy la deuda se deriva "al
-  vuelo" desde la fecha de inscripción y la `ConfiguracionCuotaDeportiva`
-  vigente (misma estrategia que la social); no hay emisión persistida (ver
-  DT-24).
-- **Acoplamiento monto ↔ categoría de socio:** el monto de la cuota deportiva
-  se resuelve por la `CategoriaSocio` del participante (a través de su
-  membresía). Un jugador **sin membresía** no tiene categoría y el cobro se
-  rechaza con 400. Si el club admite jugadores no socios, hay que revisar de
-  dónde sale el monto.
-- **Autoservicio y matrícula/eventos:** el pago deportivo por el propio socio
-  (equivalente a US-10) y las obligaciones de matrícula/eventos siguen sin
-  cobrarse. **TASK-51 dejó la base:** con la pasarela de pagos
-  ([decisión 0003](decisiones/0003-pasarela-de-pagos.md)), sumarlo es un
-  endpoint de checkout en `pagos` y un `@Acreditador()` para el concepto
-  `CUOTA_DEPORTIVA`.
-
-- **Relacionado:** [DT-24](#dt-24--la-planilla-documenta-generación-de-cuotas-que-no-existe), [DT-06](#dt-06--historias-de-usuario-para-sumar-al-backlog).
-- **Detectado en el análisis funcional de dominio (22/09/2026); cobro implementado en US-21 (26/09/2026).**
-
-#### DT-54 · El alta de usuario no verifica el email ni deja que la persona elija su contraseña
-*Nuevo · devolución del profesor · backend + frontend*
-
-Hoy quien da de alta un usuario (`POST /usuarios`, `UsuariosService.create`)
-carga también su contraseña (`CreateUsuarioDto.password`): la persona recibe
-una clave que eligió otro y nadie confirma que el email sea suyo. El alta de
-un socio o participante crea la `Persona`, pero no le avisa nada por email.
-
-**Lo que pidió el profesor:**
-- Al dar de alta un socio o participante con email, enviarle un **link para
-  establecer su contraseña y verificar el email**.
-- Mientras no lo use, el usuario queda **pendiente de verificación** y **no
-  puede iniciar sesión**, porque todavía no tiene contraseña.
-
-**Arreglo propuesto:**
-- **Modelo:** en `Usuario`, `passwordHash` pasa a ser opcional y se suma
-  `emailVerificadoEn` (o un estado `PENDIENTE_VERIFICACION` / `ACTIVO`). Una
-  tabla `tokens_usuario` guarda el hash del token (nunca el token en claro),
-  su propósito (`ACTIVACION`, y más adelante `RECUPERO`), la fecha de
-  vencimiento y la fecha de uso. Cada token sirve una sola vez.
-- **Backend:** el alta deja de pedir la contraseña, crea el usuario pendiente y
-  manda el link con una `PlantillaEmail` vía `NotificacionesService` (regla
-  del CLAUDE.md). Un endpoint público `POST /auth/activar` recibe el token y
-  la contraseña nueva, verifica el email y activa la cuenta. El login rechaza
-  a los usuarios pendientes con un mensaje claro. También hacen falta un
-  endpoint para reenviar el link (con un límite de envíos) y el registro en
-  auditoría del alta, el envío y la activación.
-- **Frontend:** una página pública para establecer la contraseña desde el link,
-  el estado «Pendiente de verificación» en la grilla de usuarios y la acción
-  «Reenviar invitación».
-- **Sirve además para:** el recupero de contraseña (hoy solo existe
-  `PATCH /auth/cambiar-contrasena` con sesión iniciada), que usa el mismo
-  token con otro propósito.
-- **Afecta:** el seed (los usuarios de prueba tienen que seguir entrando con
-  `Admin123!`, o sea, nacer verificados), los E2E que dan de alta usuarios y
-  el formulario de alta de usuario (DT-46).
-- **Detectado en la 3ra reunión con el profesor (02/11/2026).**
-- **En curso (11/11/2026):** TASK-59, rama `issue/TASK-59-DT-54-Alta-con-verificacion-de-email`
-  en los dos repos. Cubre las altas de usuario, socio y participante y el
-  registro público; el email se escribe dos veces. Diseño en la
-  [decisión 0005](decisiones/0005-verificacion-de-email.md). Queda afuera:
-  volver a verificar cuando el administrador cambia un email ya verificado.
+**Propuesta:** la solicitud no exige nada. El plazo 0 se controla en
+`aprobarSolicitud`, con los documentos adjuntos a la solicitud. El alta desde el
+panel sigue exigiéndolo como ahora.
 
 ### 🟡 Medias
+
+#### DT-61 · El delegado ve el estado documental de disciplinas que no tiene a cargo
+*Nuevo · revisión del 16/11/2026 · resto de H07*
+
+El listado de participantes ya acota las filas y las disciplinas a las del
+delegado. Pero el `estadoDocumental` de la fila es el peor de **todas** las
+inscripciones de la persona (`EstadoDocumentalService.porPersonas`). Diego
+puede ver a alguien «Bloqueado» por Natación con todas sus disciplinas
+visibles habilitadas. El filtro por estado documental y el de pendientes de
+aprobación también cuentan documentos de otras disciplinas. El detalle de un
+participante por id sigue abierto para cualquier delegado.
+
+**Arreglo:** calcular el estado de la fila solo con las inscripciones
+visibles, aplicar los filtros sobre ese valor y acotar el detalle por id.
+
+#### DT-62 · Quien no es ni fue socio no paga la cuota deportiva desde Mi club
+*Nuevo · revisión del 16/11/2026 · alcance de DT-35*
+
+`PortalCuotasPage` corta la página si la persona no es ni fue socia, y
+`GET /pagos-deportivos/mias` exige un rol. Un participante que no es socio
+paga la cuota deportiva solo en secretaría. Confirmar con el PO si DT-35
+debía cubrirlo.
+
+#### DT-59 · Cambiar el email no vuelve a verificarlo
+*Resto de DT-54 · resuelto el 16/11/2026*
+
+Si el email guardado cambia, en el perfil o en la grilla de usuarios,
+`emailVerificadoEn` vuelve a vacío y se manda un enlace a la dirección nueva.
+El enlace solo confirma el email: la contraseña no se toca. Hasta usarlo, un
+ingreso nuevo se rechaza. La sesión abierta sigue. Ver la
+[decisión 0010](decisiones/0010-correcciones-de-la-prueba-integral.md).
+
+El texto de abajo es el problema original, ya cerrado.
+
+- El socio la cambia en su perfil sin repetirla ni recibir un enlace nuevo
+  (H12, prueba integral del 11/11).
+- El administrador la cambia en la grilla de usuarios con el mismo efecto
+  ([decisión 0005](decisiones/0005-verificacion-de-email.md)).
+
+**Arreglo:** si el email cambia, `emailVerificadoEn` vuelve a null, se pide
+la dirección dos veces y se manda el enlace de verificación. La contraseña
+que la persona ya eligió se conserva: el enlace solo verifica, como en el
+registro público. Hasta usarlo, no se puede iniciar sesión.
+
+- **Detectado en la prueba integral del 11/11/2026 (H12) y dejado afuera de
+  TASK-59 a propósito.**
 
 #### DT-34 · No hay cancelación, devolución ni transferencia de entradas
 *Nuevo · funcional · backend + frontend*
@@ -350,10 +305,10 @@ inscripciones en una transacción. Si una falla, no se crea ninguna y el error
 dice cuál. La pantalla de nuevo participante permite sumar varias
 disciplinas y muestra los requisitos de documentación unificados (un DNI
 exigido por dos disciplinas se pide una sola vez). Conviene que la solicitud
-de inscripción (DT-29, US-63) nazca con la misma forma de lista.
+de inscripción (US-63) acepte la misma lista.
 
 - **Detectado en la 3ra reunión con el profesor (02/11/2026).**
-- **Relacionado:** [DT-29](#dt-29--no-existe-solicitud-de-inscripción-con-aprobación), [DT-27](#dt-27--documentación-por-disciplina-requisitos-estados-y-vigencia).
+- **Relacionado:** [DT-29](#dt-29--la-solicitud-de-inscripción-no-se-puede-aprobar-rechazar-ni-cancelar), [DT-27](#dt-27--documentación-por-disciplina-requisitos-estados-y-vigencia).
 
 #### DT-56 · Faltan filtros por rango de fechas en morosos y reportes
 *Nuevo · devolución del profesor · backend + frontend*
@@ -388,6 +343,22 @@ rango.
 
 ### ⚪ Bajas
 
+#### DT-63 · Detalles del reporte financiero y del pago deportivo online
+*Nuevo · revisión del 16/11/2026*
+
+- El estado financiero suma entradas y señas al recaudado total (H08). Eso
+  sube el porcentaje de cobranza del total, que antes medía solo cuotas.
+- En la caja, entradas y señas se cortan por mes en el huso del club y las
+  cuotas con la hora del servidor (va con DT-56). Las entradas se fechan por
+  `creadoEn`, no por la fecha de pago.
+- Si no hay cuota social pendiente, Mis cuotas dice «Estás al día con tus
+  cuotas» con cuotas deportivas pendientes debajo.
+- `iniciarPagoOnline` cancela la orden pendiente anterior antes de validar la
+  nueva: si la validación falla, la anterior se pierde igual.
+- El perfil compara el email con `persona.email` y el backend con
+  `usuario.email`: si difieren, el backend pide confirmarlo sin que se vea el
+  campo.
+
 #### DT-09 · Imágenes en eventos
 *backend + frontend · 5 SP*
 
@@ -420,12 +391,60 @@ confirmada; o una cuota está vencida.
 - **Confirmación de compra de entradas resuelta en TASK-56 (01/11/2026):** implementada
   `CompraEntradasPlantilla` y envío de correo al usuario comprador ante la acreditación
   aprobada de la orden de pago en `EntradasAcreditador` (DT-31).
-- **Pendiente:** avisos de solicitud de inscripción (DT-29) y alertas de cuotas adeudadas.
+- **Pendiente:** avisar al socio cuando se aprueba o rechaza su solicitud de inscripción, y las alertas de cuotas adeudadas. El ciclo de la solicitud ya está (DT-29).
 - **Rama sugerida:** `issue/TASK-28-DT-36-Notificaciones`
 
 ---
 
 ## Deuda resuelta
+
+### DT-35 · El socio paga la cuota deportiva desde Mi club
+*16/11/2026*
+
+`GET /pagos-deportivos/mias` y `POST /pagos-deportivos/checkout`. El socio
+elige meses de una o varias disciplinas en Mis cuotas y paga por la pasarela
+([decisión 0003](decisiones/0003-pasarela-de-pagos.md)). El monto es el de la
+tarifa de la disciplina, con el descuento de socio si lo era ese mes. El pago
+se registra cuando la pasarela confirma. Secretaría sigue cobrando en
+ventanilla. La deuda se sigue calculando al consultar, igual que la cuota
+social.
+
+### DT-29 · La solicitud de inscripción no se puede aprobar, rechazar ni cancelar
+**`feature/US-65-Cancelar-inscripcion-disciplina`** y **`feature/US-66-Evaluar-solicitudes-inscripcion`** · en `dev` el 16/11/2026
+
+La persona pide la disciplina (US-63) y la sigue en Mis solicitudes (US-64).
+Desde esta fecha también puede cancelarla y adjuntar la documentación, y el
+club puede evaluarla.
+
+- **US-65:** `PATCH /inscripcion/solicitudes/:id/cancelar` y
+  `POST /inscripcion/solicitudes/:id/documentacion`. Se cancela en
+  `PENDIENTE`, `PENDIENTE_DOCUMENTACION` o `APROBADA`. Si ya estaba aprobada,
+  la inscripción activa queda de baja. El archivo se puede mandar al pedir la
+  disciplina o después, desde Mis solicitudes, mientras el estado lo permita.
+- **US-66:** `GET /inscripcion/solicitudes`,
+  `PATCH /inscripcion/solicitudes/:id/aprobar` y
+  `PATCH /inscripcion/solicitudes/:id/rechazar` (ADMIN y DELEGADO). Aprobar
+  crea o reactiva la inscripción y genera la cuota deportiva. Rechazar pide
+  un motivo. La pantalla está en el panel, «Solicitudes de inscripción».
+- El aviso por email al socio sigue pendiente en
+  [DT-36](#dt-36--no-hay-notificaciones-de-vencimiento-o-resolución).
+- El listado de solicitudes no recorta por las disciplinas del delegado. El
+  de participantes sí (H07, decisión 0010).
+
+### TASK-59 · DT-54 · El alta no verificaba el email ni dejaba elegir la contraseña
+**`issue/TASK-59-DT-54-Alta-con-verificacion-de-email`** (backend + frontend) · 11/11/2026
+
+- `passwordHash` es opcional y `emailVerificadoEn` marca cuándo se usó el enlace. Los tokens viven hasheados en `tokens_usuario`, vencen a las 24 horas y sirven una vez.
+- El alta de usuario, socio o participante no pide contraseña: el enlace pide elegirla y verifica el email. El registro público (US-38) ya trae la contraseña del formulario y el enlace solo verifica. Recorrido de punta a punta el 15/11/2026 con una casilla temporal: sin el enlace el login se rechaza; después entra con la contraseña del formulario.
+- El reenvío lo hace el administrador desde la grilla de usuarios. Los usuarios del seed nacen verificados.
+- Diseño en la [decisión 0005](decisiones/0005-verificacion-de-email.md).
+- **DT-59 resuelta:** si el email cambia, hay que verificarlo de nuevo. Queda afuera el recupero de contraseña (la tabla ya admite otro tipo de token).
+
+### DT-51 · El seed usaba nombres y correos de prueba
+**`feature/seed-padron-demo`** (backend [#134](https://github.com/lucasgazzola/socialclub-backend/pull/134) · frontend [#190](https://github.com/lucasgazzola/socialclub-frontend/pull/190)) · 15/11/2026
+
+- El seed por defecto es el padrón del Club Sportivo Unión de Ordóñez: nombres, correos y datos de dominio realistas (`prisma/seed.demo.ts`).
+- Los E2E siguen con el padrón chico (`prisma/seed.base.ts`, `SEED_PERFIL=base`, `npm run prisma:seed:base`).
 
 ### TASK-60 · DT-58 · El participante sin rol no puede ver su documentación en Mi club
 **`feature/TASK-60-integracion-portal-socios`** (backend + frontend) · 16/11/2026
@@ -679,8 +698,9 @@ confirmada; o una cuota está vencida.
   marcan como avisadas: salen cuando se asigne uno.
 - El seed asigna Fútbol Mayor, Fútbol Femenino y Natación al delegado de
   prueba si no tiene ninguna.
-- **Queda afuera** el filtro del listado de Participantes por disciplina
-  (área de US-08): se puede sumar con `AlertasService.disciplinasVisibles`.
+- El filtro del listado de Participantes por disciplina (H07) se sumó el
+  15/11/2026: un delegado ve solo las personas y las disciplinas que tiene a
+  cargo. Ver la [decisión 0010](decisiones/0010-correcciones-de-la-prueba-integral.md).
 - Casos TC-173 a TC-177 (US-26).
 
 ### DT-42 · Los delegados no estaban asociados a disciplinas

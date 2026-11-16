@@ -7,7 +7,10 @@ import {
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
+import { PasarelaService } from '../pasarela/pasarela.service';
+import type { DatosCobroCuotaDeportiva } from './cuota-deportiva.acreditador';
 import { RegistrarPagoDeportivoDto } from './dto/registrar-pago-deportivo.dto';
+import { IniciarPagoDeportivoDto } from './dto/iniciar-pago-deportivo.dto';
 import { FindMorososDeportivosQueryDto } from './dto/find-morosos-deportivos-query.dto';
 import { CriterioOrdenMorosos, SentidoOrden } from './dto/find-morosos-query.dto';
 import {
@@ -77,6 +80,7 @@ export class PagosDeportivosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
+    private readonly pasarela: PasarelaService,
   ) {}
 
   /**
@@ -392,75 +396,9 @@ export class PagosDeportivosService {
     }
 
     const { persona } = await this.getParticipante(personaId);
-
-    // Se puede cobrar la deuda de una inscripción activa o ya dada de baja.
-    const inscripcion = persona.inscripciones.find((i) => i.disciplinaId === dto.disciplinaId);
-    if (!inscripcion) {
-      throw new BadRequestException('El participante no está inscripto en la disciplina indicada');
-    }
-
-    // No se permiten períodos futuros.
-    const actual = periodoActualDeportivo();
-    const futuros = dto.periodos.filter((p) => p > actual);
-    if (futuros.length > 0) {
-      throw new BadRequestException(
-        `No se permite registrar pagos de períodos futuros (${futuros.join(', ')})`,
-      );
-    }
-
-    // Solo los meses en que estuvo inscripto (cada tramo, de la inscripción a la baja).
-    const meses = this.periodosDe(inscripcion);
-    const cobrables = new Set(meses);
-    const periodoInscripcion = meses[0] ?? aPeriodo(inscripcion.fechaInscripcion);
-    const previos = dto.periodos.filter((p) => p < periodoInscripcion);
-    if (previos.length > 0) {
-      throw new BadRequestException(
-        `No se permite registrar pagos anteriores a la inscripción (${periodoInscripcion}): ${previos.join(', ')}`,
-      );
-    }
-    const ultimoMes = meses[meses.length - 1];
-    const posterioresBaja = dto.periodos.filter((p) => !cobrables.has(p) && p > ultimoMes);
-    if (posterioresBaja.length > 0) {
-      throw new BadRequestException(
-        `No se permite registrar pagos posteriores a la baja de la disciplina: ${posterioresBaja.join(', ')}`,
-      );
-    }
-    // DT-41: meses entre una baja y la reinscripción siguiente.
-    const sinInscripcion = dto.periodos.filter((p) => !cobrables.has(p));
-    if (sinInscripcion.length > 0) {
-      throw new BadRequestException(
-        `No se permite registrar pagos de meses en que no estuvo inscripto en la disciplina: ${sinInscripcion.join(', ')}`,
-      );
-    }
-
-    // CA: no permitir registrar un período que ya figura como pagado.
-    const existentes = await this.prisma.pagoCuotaDeportiva.findMany({
-      where: { personaId, disciplinaId: dto.disciplinaId, periodo: { in: dto.periodos } },
-    });
-    if (existentes.length > 0) {
-      const pagados = existentes.map((p) => p.periodo).join(', ');
-      throw new ConflictException(
-        `No es posible procesar el pago: el/los período(s) [${pagados}] ya figuran como pagados.`,
-      );
-    }
-
-    // TASK-33: el monto sale de la tarifa (disciplina o categoría) con el
-    // descuento de socio si lo era ese mes.
-    const tarifas = (await this.getTarifas([dto.disciplinaId])).get(dto.disciplinaId) ?? [];
-    const items: { periodo: string; monto: number }[] = [];
-    let montoTotal = 0;
-    for (const periodo of dto.periodos) {
-      const tarifa = tarifaVigente(tarifas, inscripcion.categoriaDisciplinaId ?? null, periodo);
-      if (!tarifa) {
-        throw new BadRequestException(
-          `No hay una tarifa configurada para ${inscripcion.disciplina.nombre} en el período ${periodo}`,
-        );
-      }
-      const monto = montoACobrar(tarifa, eraSocioEn(persona.membresias, periodo));
-      items.push({ periodo, monto });
-      montoTotal += monto;
-    }
-    montoTotal = Math.round(montoTotal * 100) / 100;
+    const cotizacion = await this.cotizarDisciplina(persona, dto.disciplinaId, dto.periodos);
+    const items = cotizacion.items;
+    const montoTotal = redondear(items.reduce((suma, item) => suma + item.monto, 0));
 
     const metodoPago = dto.metodoPago || 'EFECTIVO';
     const fechaHora = new Date();
@@ -486,7 +424,7 @@ export class PagosDeportivosService {
             entidad: 'PagoCuotaDeportiva',
             idEntidad: pago.id,
             responsableId,
-            detalle: `Cobro de cuota deportiva (${inscripcion.disciplina.nombre}) para ${persona.nombre} ${persona.apellido} (#${persona.id}). Período: ${item.periodo}, Monto: $${item.monto}, Método: ${metodoPago}${dto.observaciones ? ` - Obs: ${dto.observaciones}` : ''}`,
+            detalle: `Cobro de cuota deportiva (${cotizacion.disciplinaNombre}) para ${persona.nombre} ${persona.apellido} (#${persona.id}). Período: ${item.periodo}, Monto: $${item.monto}, Método: ${metodoPago}${dto.observaciones ? ` - Obs: ${dto.observaciones}` : ''}`,
           },
           tx,
         );
@@ -504,7 +442,7 @@ export class PagosDeportivosService {
       fechaHora,
       periodosCubiertos: dto.periodos,
       disciplinaId: dto.disciplinaId,
-      disciplinaNombre: inscripcion.disciplina.nombre,
+      disciplinaNombre: cotizacion.disciplinaNombre,
       usuarioResponsableId: responsableId,
       participante: {
         id: persona.id,
@@ -597,5 +535,142 @@ export class PagosDeportivosService {
       rango.lte = new Date(y, m - 1, d, 23, 59, 59, 999);
     }
     return rango;
+  }
+
+  /** DT-35: cuotas deportivas pendientes de la persona de la sesión. */
+  async getMisPendientes(usuarioId: number) {
+    const personaId = await this.personaIdDe(usuarioId);
+    return this.getPendientesPorPersona(personaId);
+  }
+
+  /**
+   * DT-35: el socio inicia el pago online de meses de una o varias disciplinas.
+   * La cotización es la de secretaría. Los pagos se crean cuando la pasarela
+   * confirma (`CuotaDeportivaAcreditador`).
+   */
+  async iniciarPagoOnline(usuarioId: number, dto: IniciarPagoDeportivoDto) {
+    const claves = dto.items.map((item) => `${item.disciplinaId}:${item.periodo}`);
+    if (new Set(claves).size !== claves.length) {
+      throw new BadRequestException('No se pueden repetir períodos en la misma operación');
+    }
+
+    const personaId = await this.personaIdDe(usuarioId);
+    await this.pasarela.cancelarPendientes(usuarioId, 'CUOTA_DEPORTIVA');
+    const { persona } = await this.getParticipante(personaId);
+
+    const porDisciplina = new Map<number, string[]>();
+    for (const item of dto.items) {
+      const periodos = porDisciplina.get(item.disciplinaId) ?? [];
+      periodos.push(item.periodo);
+      porDisciplina.set(item.disciplinaId, periodos);
+    }
+
+    const cotizados: DatosCobroCuotaDeportiva['items'] = [];
+    const nombres = new Map<number, string>();
+    for (const [disciplinaId, periodos] of porDisciplina) {
+      const cotizacion = await this.cotizarDisciplina(persona, disciplinaId, periodos);
+      nombres.set(disciplinaId, cotizacion.disciplinaNombre);
+      for (const item of cotizacion.items) {
+        cotizados.push({ disciplinaId, periodo: item.periodo, monto: item.monto });
+      }
+    }
+
+    return this.pasarela.iniciarCobro({
+      concepto: 'CUOTA_DEPORTIVA',
+      usuarioId,
+      descripcion: `Cuota deportiva ${cotizados
+        .map((item) => `${nombres.get(item.disciplinaId)} ${item.periodo}`)
+        .join(', ')}`,
+      items: cotizados.map((item) => ({
+        titulo: `Cuota deportiva ${nombres.get(item.disciplinaId)} ${item.periodo}`,
+        cantidad: 1,
+        precioUnitario: item.monto,
+      })),
+      datos: { personaId, items: cotizados } satisfies DatosCobroCuotaDeportiva,
+    });
+  }
+
+  private async personaIdDe(usuarioId: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { personaId: true },
+    });
+    if (!usuario?.personaId) {
+      throw new NotFoundException('No se encontró una ficha de persona asociada al usuario');
+    }
+    return usuario.personaId;
+  }
+
+  /**
+   * Misma cotización que el cobro de secretaría: meses de la inscripción,
+   * sin futuros, sin repetir un pago y con la tarifa del mes.
+   */
+  private async cotizarDisciplina(
+    persona: Awaited<ReturnType<PagosDeportivosService['getParticipante']>>['persona'],
+    disciplinaId: number,
+    periodos: string[],
+  ) {
+    const inscripcion = persona.inscripciones.find((i) => i.disciplinaId === disciplinaId);
+    if (!inscripcion) {
+      throw new BadRequestException('El participante no está inscripto en la disciplina indicada');
+    }
+
+    const actual = periodoActualDeportivo();
+    const futuros = periodos.filter((p) => p > actual);
+    if (futuros.length > 0) {
+      throw new BadRequestException(
+        `No se permite registrar pagos de períodos futuros (${futuros.join(', ')})`,
+      );
+    }
+
+    const meses = this.periodosDe(inscripcion);
+    const cobrables = new Set(meses);
+    const periodoInscripcion = meses[0] ?? aPeriodo(inscripcion.fechaInscripcion);
+    const previos = periodos.filter((p) => p < periodoInscripcion);
+    if (previos.length > 0) {
+      throw new BadRequestException(
+        `No se permite registrar pagos anteriores a la inscripción (${periodoInscripcion}): ${previos.join(', ')}`,
+      );
+    }
+    const ultimoMes = meses[meses.length - 1];
+    const posterioresBaja = periodos.filter((p) => !cobrables.has(p) && p > ultimoMes);
+    if (posterioresBaja.length > 0) {
+      throw new BadRequestException(
+        `No se permite registrar pagos posteriores a la baja de la disciplina: ${posterioresBaja.join(', ')}`,
+      );
+    }
+    const sinInscripcion = periodos.filter((p) => !cobrables.has(p));
+    if (sinInscripcion.length > 0) {
+      throw new BadRequestException(
+        `No se permite registrar pagos de meses en que no estuvo inscripto en la disciplina: ${sinInscripcion.join(', ')}`,
+      );
+    }
+
+    const existentes = await this.prisma.pagoCuotaDeportiva.findMany({
+      where: { personaId: persona.id, disciplinaId, periodo: { in: periodos } },
+    });
+    if (existentes.length > 0) {
+      const pagados = existentes.map((p) => p.periodo).join(', ');
+      throw new ConflictException(
+        `No es posible procesar el pago: el/los período(s) [${pagados}] ya figuran como pagados.`,
+      );
+    }
+
+    const tarifas = (await this.getTarifas([disciplinaId])).get(disciplinaId) ?? [];
+    const items: { periodo: string; monto: number }[] = [];
+    for (const periodo of periodos) {
+      const tarifa = tarifaVigente(tarifas, inscripcion.categoriaDisciplinaId ?? null, periodo);
+      if (!tarifa) {
+        throw new BadRequestException(
+          `No hay una tarifa configurada para ${inscripcion.disciplina.nombre} en el período ${periodo}`,
+        );
+      }
+      items.push({
+        periodo,
+        monto: montoACobrar(tarifa, eraSocioEn(persona.membresias, periodo)),
+      });
+    }
+
+    return { disciplinaNombre: inscripcion.disciplina.nombre, items };
   }
 }

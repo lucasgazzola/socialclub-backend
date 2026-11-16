@@ -41,6 +41,12 @@ describe('US-63 — Solicitar inscripción a una disciplina', () => {
       findMany: jest.fn(),
       create: jest.fn(),
     },
+    disciplinaRequerimientoDoc: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    documentacion: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
     $transaction: jest.fn(async (arg: any) =>
       typeof arg === 'function' ? arg(mockPrisma) : Promise.all(arg),
     ),
@@ -57,6 +63,8 @@ describe('US-63 — Solicitar inscripción a una disciplina', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockPrisma.disciplinaRequerimientoDoc.findMany.mockResolvedValue([]);
+    mockPrisma.documentacion.findMany.mockResolvedValue([]);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InscripcionService,
@@ -155,6 +163,21 @@ describe('US-63 — Solicitar inscripción a una disciplina', () => {
       await expect(
         service.solicitar({ disciplinaId: 1, categoriaDisciplinaId: 100 }, 10),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('H13 · no deja solicitar si falta un documento que hay que presentar al inscribirse', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue(usuarioMock);
+      mockPrisma.disciplina.findUnique.mockResolvedValue(disciplinaMock);
+      mockPrisma.inscripcion.findFirst.mockResolvedValue(null);
+      mockPrisma.solicitudInscripcion.findFirst.mockResolvedValue(null);
+      mockPrisma.disciplinaRequerimientoDoc.findMany.mockResolvedValue([
+        { tipoDocumento: 'DNI', plazoDiasTolerancia: 0 },
+      ]);
+
+      await expect(
+        service.solicitar({ disciplinaId: 1, categoriaDisciplinaId: 100 }, 10),
+      ).rejects.toThrow('Para inscribir hay que presentar DNI.');
+      expect(mockPrisma.solicitudInscripcion.create).not.toHaveBeenCalled();
     });
 
     it('exige seleccionar una categoría si la disciplina posee categorías activas', async () => {

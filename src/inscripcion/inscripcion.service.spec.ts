@@ -48,6 +48,9 @@ const mockPrisma: any = {
   membresia: {
     findFirst: jest.fn(),
   },
+  delegadoDisciplina: {
+    findMany: jest.fn(),
+  },
   registroAuditoria: {
     create: jest.fn(),
   },
@@ -505,6 +508,41 @@ describe('InscripcionService', () => {
       ...personaBase,
       inscripciones: [inscripcionFutbol, inscripcionVoley],
     };
+    it('H07 · el delegado solo ve participantes de sus disciplinas', async () => {
+      mockPrisma.delegadoDisciplina.findMany.mockResolvedValue([{ disciplinaId: 1 }]);
+      mockPrisma.persona.findMany.mockResolvedValue([
+        {
+          ...participanteDosDisciplinas,
+          inscripciones: [inscripcionFutbol, inscripcionVoley],
+        },
+      ]);
+      mockPrisma.persona.count.mockResolvedValue(1);
+
+      const result = await service.findAll(
+        { pagina: 1, porPagina: 10 },
+        { id: 4, roles: ['DELEGADO', 'SOCIO'] },
+      );
+
+      const where = mockPrisma.persona.findMany.mock.calls[0][0].where;
+      expect(where.AND).toEqual(
+        expect.arrayContaining([
+          { inscripciones: { some: { disciplinaId: { in: [1] } } } },
+        ]),
+      );
+      expect(result.items[0].disciplinas.map((d: { disciplinaId: number }) => d.disciplinaId)).toEqual([
+        1,
+      ]);
+    });
+
+    it('H07 · un admin no queda limitado a disciplinas', async () => {
+      mockPrisma.persona.findMany.mockResolvedValue([]);
+      mockPrisma.persona.count.mockResolvedValue(0);
+
+      await service.findAll({ pagina: 1, porPagina: 10 }, { id: 1, roles: ['ADMIN'] });
+
+      expect(mockPrisma.delegadoDisciplina.findMany).not.toHaveBeenCalled();
+    });
+
     it('TC-230 (TC-0801): busca por coincidencia parcial y agrupa por participante', async () => {
       mockPrisma.persona.findMany.mockResolvedValue([participanteDosDisciplinas]);
       mockPrisma.persona.count.mockResolvedValue(1);
@@ -1226,6 +1264,31 @@ describe('InscripcionService', () => {
       expect(mockPrisma.persona.create).toHaveBeenCalledWith({
         data: expect.objectContaining({ genero: 'FEMENINO' }) as object,
       });
+    });
+
+    it('H13 · no inscribe si falta un documento con plazo 0 y no se adjunta', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(lola);
+      mockPrisma.disciplinaRequerimientoDoc.findMany.mockResolvedValue([
+        { tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA', plazoDiasTolerancia: 0 },
+      ]);
+
+      await expect(
+        service.create({ personaId: 20, disciplinaId: 1, categoriaDisciplinaId: 7 }, 99),
+      ).rejects.toThrow(
+        'Para inscribir hay que presentar Certificado médico de aptitud física.',
+      );
+      expect(mockPrisma.inscripcion.create).not.toHaveBeenCalled();
+    });
+
+    it('H13 · un documento con plazo se puede presentar después', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(lola);
+      mockPrisma.disciplinaRequerimientoDoc.findMany.mockResolvedValue([
+        { tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA', plazoDiasTolerancia: 15 },
+      ]);
+
+      await expect(
+        service.create({ personaId: 20, disciplinaId: 1, categoriaDisciplinaId: 7 }, 99),
+      ).resolves.toBeDefined();
     });
 
     it('Criterio 7 y 9: inscribe adjuntando documentos faltantes en el alta y queda HABILITADO', async () => {

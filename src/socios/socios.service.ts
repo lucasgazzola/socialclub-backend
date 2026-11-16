@@ -863,6 +863,12 @@ export class SociosService {
     }
 
     const email = dto.email.trim().toLowerCase();
+    const emailCambio = email !== usuario.email.trim().toLowerCase();
+    if (emailCambio) {
+      const confirmado = dto.confirmarEmail?.trim().toLowerCase();
+      if (!confirmado) throw new BadRequestException('Confirmá el email.');
+      if (confirmado !== email) throw new BadRequestException('Los emails no coinciden.');
+    }
 
     // Validar unicidad del email contra otros usuarios
     const conEmailUsuario = await this.prisma.usuario.findFirst({
@@ -892,14 +898,16 @@ export class SociosService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      // 1. Actualizar Usuario
+    const { socio, enlace } = await this.prisma.$transaction(async (tx) => {
+      // 1. Actualizar Usuario. DT-59: si el email cambia, hay que verificarlo de nuevo.
+      const enlaceEmitido = emailCambio ? await this.verificacion.emitir(usuarioId, tx) : null;
       await tx.usuario.update({
         where: { id: usuarioId },
         data: {
           nombre: dto.nombre.trim(),
           apellido: dto.apellido.trim(),
           email,
+          ...(emailCambio ? { emailVerificadoEn: null } : {}),
         },
       });
 
@@ -929,7 +937,10 @@ export class SociosService {
         tx,
       );
 
-      return this.aSocioDto(personaActualizada);
+      return { socio: this.aSocioDto(personaActualizada), enlace: enlaceEmitido };
     });
+
+    if (enlace) await this.verificacion.enviar(enlace, usuarioId);
+    return socio;
   }
 }

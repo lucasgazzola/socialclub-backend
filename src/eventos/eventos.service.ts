@@ -71,6 +71,8 @@ export class EventosService {
       orderBy = [{ nombre: 'asc' }, { id: 'asc' }];
     } else if (ordenar === 'reciente') {
       orderBy = [{ creadoEn: 'desc' }, { id: 'desc' }];
+    } else if (ordenar === 'precio') {
+      orderBy = [{ precio: 'asc' }, { id: 'asc' }];
     }
 
     const [items, total] = await this.prisma.$transaction([

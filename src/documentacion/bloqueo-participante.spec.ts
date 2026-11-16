@@ -102,7 +102,7 @@ describe('US-27 · Bloqueo de participante ante documentación vencida', () => {
     expect(res.estado).toBe('BLOQUEADO');
     expect(res.motivos).toContain('Certificado médico de aptitud física: vencido el 30/09/2026');
     expect(res.motivos).toContain(
-      'Autorización de padres/tutores: no se presentó (el plazo venció el 01/09/2026)',
+      'Autorización de padres/tutores: hay que presentarlo al inscribirse',
     );
   });
 

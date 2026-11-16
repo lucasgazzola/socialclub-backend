@@ -283,6 +283,7 @@ describe('UsuariosService', () => {
           nombre: 'Admin',
           apellido: 'Actualizado',
           email: 'admin.actualizado@socialclub.local',
+          confirmarEmail: 'admin.actualizado@socialclub.local',
         },
         99,
       );
@@ -321,7 +322,14 @@ describe('UsuariosService', () => {
       });
 
       await expect(
-        service.update(1, { email: 'admin.actualizado@socialclub.local' }, 99),
+        service.update(
+          1,
+          {
+            email: 'admin.actualizado@socialclub.local',
+            confirmarEmail: 'admin.actualizado@socialclub.local',
+          },
+          99,
+        ),
       ).rejects.toBeInstanceOf(ConflictException);
 
       expect(prismaMock.usuario.update).not.toHaveBeenCalled();
@@ -520,10 +528,31 @@ describe('UsuariosService', () => {
         roles: [{ rol: { id: 2, nombre: 'ADMIN' } }],
       });
 
+      verificacionMock.emitir.mockClear();
       await service.update(1, { nombre: 'Admin' }, 99);
+      expect(verificacionMock.emitir).not.toHaveBeenCalled();
       expect(auditoriaMock.registrar).toHaveBeenLastCalledWith(
         expect.objectContaining({ accion: 'EDITAR', responsableId: 99 }),
       );
+
+      await service.update(
+        1,
+        {
+          email: 'admin.nuevo@socialclub.local',
+          confirmarEmail: 'admin.nuevo@socialclub.local',
+        },
+        99,
+      );
+      expect(prismaMock.usuario.update).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            email: 'admin.nuevo@socialclub.local',
+            emailVerificadoEn: null,
+          }),
+        }),
+      );
+      expect(verificacionMock.emitir).toHaveBeenCalledWith(1, prismaMock);
+      expect(verificacionMock.enviar).toHaveBeenCalled();
 
       prismaMock.usuario.findUnique.mockResolvedValue({
         id: 1,

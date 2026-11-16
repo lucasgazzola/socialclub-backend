@@ -211,6 +211,25 @@ describe('US-60/61/62 · ReservasService', () => {
       expect(Math.abs(data.limitePagoSena.getTime() - (Date.now() + 24 * H))).toBeLessThan(5000);
     });
 
+    it('H04 · no aprueba un turno que ya pasó', async () => {
+      encadenar({ inicio: new Date(ahora - 2 * H), fin: new Date(ahora - H) });
+
+      await expect(service.aprobar(10, 1)).rejects.toThrow(
+        new BadRequestException('El turno seleccionado ya pasó'),
+      );
+      expect(tx.reserva.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('H04 · el plazo de la seña no pasa del inicio del turno', async () => {
+      const inicio = new Date(ahora + 10 * H);
+      encadenar({ inicio, fin: new Date(inicio.getTime() + 2 * H) }, { limitePagoSena: inicio });
+
+      await service.aprobar(10, 1);
+
+      const { data } = tx.reserva.updateMany.mock.calls[0][0];
+      expect(data.limitePagoSena.getTime()).toBe(inicio.getTime());
+    });
+
     it('TC-276 · no aprueba si el turno ya lo ocupa otra reserva aprobada (409)', async () => {
       encadenar({});
       prisma.reserva.findMany.mockResolvedValueOnce([

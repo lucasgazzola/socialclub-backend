@@ -525,6 +525,7 @@ describe('SociosService', () => {
         nombre: 'Pedro Pablo',
         apellido: 'Gomez Alvarez',
         email: 'pedro.nuevo@club.com',
+        confirmarEmail: 'pedro.nuevo@club.com',
         telefono: '351 999 8888',
       };
 
@@ -550,8 +551,11 @@ describe('SociosService', () => {
           nombre: dto.nombre,
           apellido: dto.apellido,
           email: dto.email,
+          emailVerificadoEn: null,
         },
       });
+      expect(verificacionMock.emitir).toHaveBeenCalledWith(5, prismaMock);
+      expect(verificacionMock.enviar).toHaveBeenCalled();
 
       expect(prismaMock.persona.update).toHaveBeenCalledWith({
         where: { id: 12 },
@@ -587,11 +591,33 @@ describe('SociosService', () => {
       );
     });
 
+    it('DT-59: si el email no cambia, sigue verificado y no manda otro enlace', async () => {
+      const dto = {
+        nombre: 'Pedro',
+        apellido: 'Gomez',
+        email: 'socio@club.com',
+      };
+      prismaMock.usuario.findUnique.mockResolvedValue(usuarioMock);
+      prismaMock.usuario.findFirst.mockResolvedValue(null);
+      prismaMock.persona.findFirst.mockResolvedValue(null);
+      prismaMock.usuario.update.mockResolvedValue(usuarioMock);
+      prismaMock.persona.update.mockResolvedValue(usuarioMock.persona);
+
+      await service.updatePerfil(5, dto);
+
+      expect(prismaMock.usuario.update).toHaveBeenCalledWith({
+        where: { id: 5 },
+        data: { nombre: 'Pedro', apellido: 'Gomez', email: 'socio@club.com' },
+      });
+      expect(verificacionMock.emitir).not.toHaveBeenCalled();
+    });
+
     it('TC-242: rechaza la edición si el nuevo correo ya está registrado por otro usuario', async () => {
       const dto = {
         nombre: 'Pedro',
         apellido: 'Gomez',
         email: 'otro@club.com',
+        confirmarEmail: 'otro@club.com',
       };
 
       prismaMock.usuario.findUnique.mockResolvedValue(usuarioMock);
@@ -607,6 +633,7 @@ describe('SociosService', () => {
         nombre: 'Pedro',
         apellido: 'Gomez',
         email: 'otro.socio@club.com',
+        confirmarEmail: 'otro.socio@club.com',
       };
 
       prismaMock.usuario.findUnique.mockResolvedValue(usuarioMock);
