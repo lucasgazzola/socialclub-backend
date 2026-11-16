@@ -514,21 +514,28 @@ export class PagosService {
     }
 
     morosos.sort((a, b) => {
-      let valorA: number;
-      let valorB: number;
+      let comparacion = 0;
 
-      if (ordenarPor === CriterioOrdenMorosos.PERIODOS) {
-        valorA = a.cantidadPeriodos;
-        valorB = b.cantidadPeriodos;
-      } else {
-        valorA = a.montoTotalDeuda;
-        valorB = b.montoTotalDeuda;
+      switch (ordenarPor) {
+        case CriterioOrdenMorosos.PERIODOS:
+          comparacion = a.cantidadPeriodos - b.cantidadPeriodos;
+          break;
+        case CriterioOrdenMorosos.NOMBRE:
+          comparacion = `${a.apellido} ${a.nombre}`.localeCompare(`${b.apellido} ${b.nombre}`, 'es');
+          break;
+        case CriterioOrdenMorosos.DNI:
+          comparacion = (a.dni ?? '').localeCompare(b.dni ?? '', 'es', { numeric: true });
+          break;
+        case CriterioOrdenMorosos.CATEGORIA:
+          comparacion = (a.categoria ?? '').localeCompare(b.categoria ?? '', 'es');
+          break;
+        case CriterioOrdenMorosos.MONTO:
+        default:
+          comparacion = a.montoTotalDeuda - b.montoTotalDeuda;
+          break;
       }
 
-      if (orden === SentidoOrden.ASC) {
-        return valorA - valorB;
-      }
-      return valorB - valorA;
+      return orden === SentidoOrden.ASC ? comparacion : -comparacion;
     });
 
     const total = morosos.length;

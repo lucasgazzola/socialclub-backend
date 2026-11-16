@@ -10,6 +10,7 @@ import {
   IsDateString,
   Matches,
   IsArray,
+  ArrayMinSize,
   ValidateNested,
   MaxLength,
   ValidateIf,
@@ -58,11 +59,29 @@ export class CreateInscripcionDocumentoDto {
   tamano?: number;
 }
 
+export class CreateInscripcionDisciplinaDto {
+  @ValidateIf((o: CreateInscripcionDto) => !o.disciplinas?.length)
+  @IsInt({ message: 'Debe indicar la disciplina' })
+  disciplinaId?: number;
+
+  @IsOptional()
+  @IsInt()
+  categoriaDisciplinaId?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1, { message: 'Debe seleccionar al menos una disciplina' })
+  @ValidateNested({ each: true })
+  @Type(() => CreateInscripcionDisciplinaDto)
+  disciplinas?: CreateInscripcionDisciplinaDto[];
+}
+
 /**
  * Alta de inscripción. Se usa en dos modos:
- *  - Participante ya registrado: se envía solo `personaId` + disciplina/categoría.
+ *  - Participante ya registrado: se envía solo `personaId` + disciplina/categoría(s).
  *  - Participante nuevo: se envían sus datos básicos (nombre, apellido, dni, etc.).
  * Por eso los datos de persona son opcionales: se requieren solo cuando no viene personaId.
+ * Soporta una disciplina (`disciplinaId`) o múltiples (`disciplinas`).
  * Además, permite adjuntar los documentos faltantes en la misma operación de alta (US-05).
  */
 export class CreateInscripcionDto {
@@ -111,12 +130,20 @@ export class CreateInscripcionDto {
   @IsString()
   telefono?: string;
 
+  @ValidateIf((o: CreateInscripcionDto) => !o.disciplinas?.length)
   @IsInt({ message: 'Debe indicar la disciplina' })
-  disciplinaId: number;
+  disciplinaId?: number;
 
   @IsOptional()
   @IsInt()
   categoriaDisciplinaId?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1, { message: 'Debe seleccionar al menos una disciplina' })
+  @ValidateNested({ each: true })
+  @Type(() => CreateInscripcionDisciplinaDto)
+  disciplinas?: CreateInscripcionDisciplinaDto[];
 
   @IsOptional()
   @IsArray()

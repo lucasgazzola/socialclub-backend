@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import type { ConfigService } from '@nestjs/config';
 import { ReservasPlantilla } from './reservas.plantilla';
 import { ReservasService } from './reservas.service';
+import { fechaClub } from './agenda';
 
 /**
  * US-59 — Solicitud de reserva de espacio: catálogo, disponibilidad,
@@ -17,7 +18,8 @@ describe('US-59 · ReservasService (Solicitud de reserva)', () => {
   let service: ReservasService;
 
   const fechaFutura = (diasEnElFuturo = 7): string => {
-    const d = new Date(Date.now() + diasEnElFuturo * 86_400_000);
+    const hoy = fechaClub(new Date());
+    const d = new Date(hoy.getTime() + diasEnElFuturo * 86_400_000);
     return d.toISOString().slice(0, 10);
   };
 

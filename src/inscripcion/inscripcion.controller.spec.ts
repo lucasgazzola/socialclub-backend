@@ -17,6 +17,7 @@ const mockInscripcionService = {
   darDeBajaParticipante: jest.fn(),
   activarParticipante: jest.fn(),
   cancelarSolicitud: jest.fn(),
+  preEvaluarAlta: jest.fn(),
 };
 
 describe('InscripcionController', () => {
@@ -175,19 +176,39 @@ describe('InscripcionController', () => {
     });
   });
 
+  describe('preEvaluarAlta', () => {
+    it('delega la pre-evaluación en el service con el personaId', async () => {
+      const esperado = {
+        persona: { id: 10, nombre: 'Ana', apellido: 'Gomez' },
+        tieneDeuda: false,
+        estadoDeuda: 'AL_DIA',
+        deudaDeportivaTotal: 0,
+        cuotasPendientes: [],
+        inscripcionesAnteriores: [],
+      };
+      mockInscripcionService.preEvaluarAlta = jest.fn().mockResolvedValue(esperado);
+
+      const result = await controller.preEvaluarAlta(10);
+
+      expect(mockInscripcionService.preEvaluarAlta).toHaveBeenCalledWith(10);
+      expect(result).toEqual(esperado);
+    });
+  });
+
   describe('activarParticipante (US-07)', () => {
     const mockUser = { id: 99, email: 'delegado@test.com', roles: ['DELEGADO'] };
 
-    it('delega la reactivación en el service con el responsable', async () => {
+    it('delega la reactivación en el service con el responsable y el DTO opcional', async () => {
       mockInscripcionService.activarParticipante.mockResolvedValue({
         personaId: 10,
         activo: true,
+        disciplinasActivadas: [],
       });
 
-      const result = await controller.activarParticipante(10, mockUser);
+      const result = await controller.activarParticipante(10, mockUser, undefined);
 
-      expect(mockInscripcionService.activarParticipante).toHaveBeenCalledWith(10, 99);
-      expect(result).toEqual({ personaId: 10, activo: true });
+      expect(mockInscripcionService.activarParticipante).toHaveBeenCalledWith(10, 99, undefined);
+      expect(result).toEqual({ personaId: 10, activo: true, disciplinasActivadas: [] });
     });
 
     it('propaga el BadRequestException de un participante ya activo', async () => {
@@ -195,7 +216,7 @@ describe('InscripcionController', () => {
         new BadRequestException('El participante ya está activo'),
       );
 
-      await expect(controller.activarParticipante(10, mockUser)).rejects.toThrow(
+      await expect(controller.activarParticipante(10, mockUser, undefined)).rejects.toThrow(
         BadRequestException,
       );
     });

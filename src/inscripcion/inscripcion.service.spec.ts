@@ -16,6 +16,7 @@ import {
   EstadoInscripcionFiltro,
 } from './dto/find-participantes-query.dto';
 import { VerificacionEmailService } from '../verificacion-email/verificacion-email.service';
+import { PagosDeportivosService } from '../pagos/pagos-deportivos.service';
 
 const mockPrisma: any = {
   disciplina: {
@@ -88,6 +89,10 @@ const verificacionMock = {
   reenviar: jest.fn().mockResolvedValue({ mensaje: 'Enviamos un nuevo enlace de verificación' }),
 };
 
+const mockPagosDeportivos = {
+  getPendientesPorPersona: jest.fn(),
+};
+
 describe('InscripcionService', () => {
   let service: InscripcionService;
 
@@ -98,6 +103,7 @@ describe('InscripcionService', () => {
     mockPrisma.disciplinaRequerimientoDoc.findMany.mockResolvedValue([]);
     mockPrisma.configuracionCuotaDeportiva.findMany.mockResolvedValue([]);
     mockPrisma.membresia.findFirst.mockResolvedValue(null);
+    mockPagosDeportivos.getPendientesPorPersona.mockResolvedValue(null);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InscripcionService,
@@ -105,6 +111,7 @@ describe('InscripcionService', () => {
         { provide: AuditoriaService, useValue: mockAuditoria },
         { provide: VerificacionEmailService, useValue: verificacionMock },
         { provide: EstadoDocumentalService, useValue: mockEstadoDocumental },
+        { provide: PagosDeportivosService, useValue: mockPagosDeportivos },
       ],
     }).compile();
 
@@ -1123,7 +1130,7 @@ describe('InscripcionService', () => {
       activo: false,
     };
 
-    it('TC-0708: reactiva el estado del participante y lo audita', async () => {
+    it('TC-0708: reactiva el estado del participante y lo audita (compatibilidad sin disciplinas)', async () => {
       mockPrisma.persona.findUnique.mockResolvedValue(participanteInactivo);
       mockPrisma.persona.update.mockResolvedValue({ ...participanteInactivo, activo: true });
 
@@ -1143,10 +1150,174 @@ describe('InscripcionService', () => {
         }),
         mockPrisma,
       );
-      expect(resultado).toEqual({ personaId: 10, activo: true });
-      // La reactivación no re-inscribe: no toca inscripciones.
+      expect(resultado).toEqual({ personaId: 10, activo: true, disciplinasActivadas: [] });
+      // La reactivación sin disciplinas no toca inscripciones.
       expect(mockPrisma.inscripcion.update).not.toHaveBeenCalled();
       expect(mockPrisma.inscripcion.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('reactiva participante y reactiva/inscribe disciplinas atómicamente con DTO', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue({
+        ...participanteInactivo,
+        fechaNacimiento: new Date(2005, 5, 15),
+        genero: 'MASCULINO',
+      });
+      mockPrisma.persona.update.mockResolvedValue({ ...participanteInactivo, activo: true });
+
+      mockPrisma.disciplina.findUnique.mockImplementation(({ where }: any) => {
+        if (where.id === 1) {
+          return Promise.resolve({
+            id: 1,
+            nombre: 'Fútbol',
+            activo: true,
+            edadMinima: null,
+            edadMaxima: null,
+            genero: null,
+            categorias: [{ id: 10, nombre: 'Sub 15', activo: true, edadMinima: null, edadMaxima: null, genero: null }],
+          });
+        }
+        if (where.id === 2) {
+          return Promise.resolve({
+            id: 2,
+            nombre: 'Natación',
+            activo: true,
+            edadMinima: null,
+            edadMaxima: null,
+            genero: null,
+            categorias: [],
+          });
+        }
+        return Promise.resolve(null);
+      });
+
+      // Disciplina 1 ya tenía inscripción inactiva previa -> se reactiva
+      // Disciplina 2 es nueva -> se crea
+      mockPrisma.inscripcion.findUnique.mockImplementation(({ where }: any) => {
+        if (where.personaId_disciplinaId?.disciplinaId === 1) {
+          return Promise.resolve({ id: 50, personaId: 10, disciplinaId: 1, activo: false });
+        }
+        return Promise.resolve(null);
+      });
+
+      mockPrisma.inscripcion.update.mockResolvedValue({ id: 50, personaId: 10, disciplinaId: 1, activo: true });
+      mockPrisma.inscripcion.create.mockResolvedValue({
+        id: 51,
+        personaId: 10,
+        disciplinaId: 2,
+        activo: true,
+        fechaInscripcion: new Date(),
+      });
+
+      const resultado = await service.activarParticipante(10, 99, {
+        disciplinas: [
+          { disciplinaId: 1, categoriaDisciplinaId: 10 },
+          { disciplinaId: 2 },
+        ],
+      });
+
+      expect(mockPrisma.persona.update).toHaveBeenCalledWith({
+        where: { id: 10 },
+        data: { activo: true },
+      });
+      expect(mockPrisma.inscripcion.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 50 },
+          data: expect.objectContaining({ activo: true, categoriaDisciplinaId: 10 }),
+        }),
+      );
+      expect(mockPrisma.inscripcion.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ personaId: 10, disciplinaId: 2 }),
+        }),
+      );
+      expect(mockPrisma.periodoInscripcion.create).toHaveBeenCalledTimes(2);
+      expect(resultado).toEqual({
+        personaId: 10,
+        activo: true,
+        disciplinasActivadas: [50, 51],
+      });
+    });
+
+    it('rechaza y no activa si una categoría no pertenece o no está activa', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(participanteInactivo);
+      mockPrisma.disciplina.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Fútbol',
+        activo: true,
+        categorias: [{ id: 10, nombre: 'Sub 15', activo: true }],
+      });
+
+      await expect(
+        service.activarParticipante(10, 99, {
+          disciplinas: [{ disciplinaId: 1, categoriaDisciplinaId: 999 }],
+        }),
+      ).rejects.toThrow('La categoría indicada no pertenece a esta disciplina o no está activa');
+    });
+
+    it('rechaza si la disciplina exige categoría pero no se envió ninguna', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue(participanteInactivo);
+      mockPrisma.disciplina.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Fútbol',
+        activo: true,
+        categorias: [{ id: 10, nombre: 'Sub 15', activo: true }],
+      });
+
+      await expect(
+        service.activarParticipante(10, 99, {
+          disciplinas: [{ disciplinaId: 1 }],
+        }),
+      ).rejects.toThrow('Debe seleccionar una categoría para la disciplina Fútbol');
+    });
+
+    it('rechaza si el participante no cumple las restricciones de edad o género de la disciplina a activar', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue({
+        ...participanteInactivo,
+        fechaNacimiento: new Date(2020, 0, 1),
+        genero: 'FEMENINO',
+      });
+      mockPrisma.disciplina.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Fútbol Adultos',
+        activo: true,
+        edadMinima: 18,
+        edadMaxima: 50,
+        genero: 'MASCULINO',
+        categorias: [],
+      });
+
+      await expect(
+        service.activarParticipante(10, 99, {
+          disciplinas: [{ disciplinaId: 1 }],
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('rechaza si el participante ya está inscripto y activo en una de las disciplinas solicitadas', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue({
+        ...participanteInactivo,
+        fechaNacimiento: new Date(2000, 0, 1),
+        genero: 'MASCULINO',
+      });
+      mockPrisma.disciplina.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Fútbol',
+        activo: true,
+        edadMinima: null,
+        edadMaxima: null,
+        genero: null,
+        categorias: [],
+      });
+      mockPrisma.inscripcion.findUnique.mockResolvedValue({
+        id: 50,
+        activo: true,
+      });
+
+      await expect(
+        service.activarParticipante(10, 99, {
+          disciplinas: [{ disciplinaId: 1 }],
+        }),
+      ).rejects.toThrow('El participante ya está inscripto en Fútbol');
     });
 
     it('TC-0709: rechaza reactivar a un participante que ya está activo', async () => {
@@ -1163,6 +1334,163 @@ describe('InscripcionService', () => {
       mockPrisma.persona.findUnique.mockResolvedValue(null);
 
       await expect(service.activarParticipante(999, 99)).rejects.toThrow(
+        'Participante no encontrado',
+      );
+    });
+  });
+
+  describe('preEvaluarAlta (US-07 / Re-admisión)', () => {
+    const personaParaPreAlta = {
+      id: 10,
+      nombre: 'Carlos',
+      apellido: 'Sanchez',
+      dni: '33445566',
+      fechaNacimiento: new Date(2005, 5, 15),
+      genero: 'MASCULINO',
+      activo: false,
+    };
+
+    it('evalúa participante con deuda deportiva pendiente (tieneDeuda: true)', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue({
+        ...personaParaPreAlta,
+        inscripciones: [],
+      });
+      mockPagosDeportivos.getPendientesPorPersona.mockResolvedValueOnce({
+        totalAdeudado: 25000,
+        estadoDeuda: 'MOROSO',
+        cuotasPendientes: [
+          { periodo: '2026-08', monto: 12500 },
+          { periodo: '2026-09', monto: 12500 },
+        ],
+      });
+
+      const res = await service.preEvaluarAlta(10);
+
+      expect(res.persona.id).toBe(10);
+      expect(res.tieneDeuda).toBe(true);
+      expect(res.deudaDeportivaTotal).toBe(25000);
+      expect(res.estadoDeuda).toBe('MOROSO');
+      expect(res.cuotasPendientes).toHaveLength(2);
+      expect(res.inscripcionesAnteriores).toEqual([]);
+    });
+
+    it('evalúa participante sin deuda deportiva pendiente (tieneDeuda: false)', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValue({
+        ...personaParaPreAlta,
+        inscripciones: [],
+      });
+      mockPagosDeportivos.getPendientesPorPersona.mockResolvedValueOnce({
+        totalAdeudado: 0,
+        estadoDeuda: 'AL_DIA',
+        cuotasPendientes: [],
+      });
+
+      const res = await service.preEvaluarAlta(10);
+
+      expect(res.tieneDeuda).toBe(false);
+      expect(res.deudaDeportivaTotal).toBe(0);
+      expect(res.estadoDeuda).toBe('AL_DIA');
+      expect(res.cuotasPendientes).toEqual([]);
+    });
+
+    it('evalúa inscripcionesAnteriores validando restricciones de edad/género y vigencia de disciplina/categoría', async () => {
+      // Carlos nació en 2005 (en 2026 tiene 21 años), es MASCULINO
+      mockPrisma.persona.findUnique.mockResolvedValue({
+        ...personaParaPreAlta,
+        inscripciones: [
+          // 1. Válida: Tenis activo, sin restricciones
+          {
+            id: 101,
+            disciplinaId: 1,
+            categoriaDisciplinaId: null,
+            fechaBaja: new Date('2026-01-01'),
+            disciplina: { id: 1, nombre: 'Tenis', activo: true, edadMinima: null, edadMaxima: null, genero: null },
+            categoriaDisciplina: null,
+          },
+          // 2. Disciplina inactiva
+          {
+            id: 102,
+            disciplinaId: 2,
+            categoriaDisciplinaId: null,
+            fechaBaja: new Date('2026-02-01'),
+            disciplina: { id: 2, nombre: 'Paddle Antiguo', activo: false, edadMinima: null, edadMaxima: null, genero: null },
+            categoriaDisciplina: null,
+          },
+          // 3. Categoría inactiva
+          {
+            id: 103,
+            disciplinaId: 3,
+            categoriaDisciplinaId: 30,
+            fechaBaja: new Date('2026-03-01'),
+            disciplina: { id: 3, nombre: 'Fútbol', activo: true, edadMinima: null, edadMaxima: null, genero: null },
+            categoriaDisciplina: { id: 30, nombre: 'Sub 15 Histórica', activo: false, edadMinima: null, edadMaxima: null, genero: null },
+          },
+          // 4. Incumple restricción de edad (edadMaxima: 15 vs 21 años)
+          {
+            id: 104,
+            disciplinaId: 4,
+            categoriaDisciplinaId: null,
+            fechaBaja: new Date('2026-04-01'),
+            disciplina: { id: 4, nombre: 'Infantiles', activo: true, edadMinima: 5, edadMaxima: 15, genero: null },
+            categoriaDisciplina: null,
+          },
+          // 5. Incumple restricción de género (FEMENINO vs MASCULINO)
+          {
+            id: 105,
+            disciplinaId: 5,
+            categoriaDisciplinaId: null,
+            fechaBaja: new Date('2026-05-01'),
+            disciplina: { id: 5, nombre: 'Vóley Femenino', activo: true, edadMinima: null, edadMaxima: null, genero: 'FEMENINO' },
+            categoriaDisciplina: null,
+          },
+        ],
+      });
+      mockPagosDeportivos.getPendientesPorPersona.mockResolvedValueOnce(null);
+
+      const res = await service.preEvaluarAlta(10);
+
+      expect(res.inscripcionesAnteriores).toHaveLength(5);
+
+      // 1. Tenis: cumple
+      expect(res.inscripcionesAnteriores[0]).toMatchObject({
+        disciplinaNombre: 'Tenis',
+        cumpleRestricciones: true,
+        motivosBloqueo: [],
+      });
+
+      // 2. Paddle: disciplina inactiva
+      expect(res.inscripcionesAnteriores[1]).toMatchObject({
+        disciplinaNombre: 'Paddle Antiguo',
+        cumpleRestricciones: false,
+        motivosBloqueo: expect.arrayContaining(['La disciplina ya no está activa']),
+      });
+
+      // 3. Fútbol: categoría inactiva
+      expect(res.inscripcionesAnteriores[2]).toMatchObject({
+        disciplinaNombre: 'Fútbol',
+        cumpleRestricciones: false,
+        motivosBloqueo: expect.arrayContaining(['La categoría anterior ya no está activa']),
+      });
+
+      // 4. Infantiles: edad no cumple
+      expect(res.inscripcionesAnteriores[3]).toMatchObject({
+        disciplinaNombre: 'Infantiles',
+        cumpleRestricciones: false,
+      });
+      expect(res.inscripcionesAnteriores[3].motivosBloqueo.length).toBeGreaterThan(0);
+
+      // 5. Vóley Femenino: género no cumple
+      expect(res.inscripcionesAnteriores[4]).toMatchObject({
+        disciplinaNombre: 'Vóley Femenino',
+        cumpleRestricciones: false,
+      });
+      expect(res.inscripcionesAnteriores[4].motivosBloqueo.length).toBeGreaterThan(0);
+    });
+
+    it('informa que el participante no existe', async () => {
+      mockPrisma.persona.findUnique.mockResolvedValueOnce(null);
+
+      await expect(service.preEvaluarAlta(999)).rejects.toThrow(
         'Participante no encontrado',
       );
     });

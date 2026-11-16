@@ -42,6 +42,7 @@ describe('DT-16 · InscripcionController · control de acceso', () => {
     'GET /inscripcion/:id': InscripcionController.prototype.findOne,
     'DELETE /inscripcion/:id': InscripcionController.prototype.remove,
     'DELETE /inscripcion/persona/:personaId': InscripcionController.prototype.darDeBajaParticipante,
+    'GET /inscripcion/persona/:personaId/pre-alta': InscripcionController.prototype.preEvaluarAlta,
     'PATCH /inscripcion/persona/:personaId/activar':
       InscripcionController.prototype.activarParticipante,
     'GET /inscripcion/:id/habilitaciones-excepcionales':
@@ -98,6 +99,7 @@ describe('DT-16 · InscripcionController · control de acceso', () => {
       'GET /inscripcion/:id': ['ADMIN', 'DELEGADO'],
       'DELETE /inscripcion/:id': ['ADMIN', 'DELEGADO'],
       'DELETE /inscripcion/persona/:personaId': ['ADMIN', 'DELEGADO'],
+      'GET /inscripcion/persona/:personaId/pre-alta': ['ADMIN', 'DELEGADO'],
       'PATCH /inscripcion/persona/:personaId/activar': ['ADMIN', 'DELEGADO'],
       'POST /inscripcion/:id/habilitacion-excepcional': ['ADMIN'],
       'GET /inscripcion/:id/habilitaciones-excepcionales': ['ADMIN', 'DELEGADO'],

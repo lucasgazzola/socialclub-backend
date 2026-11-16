@@ -1048,5 +1048,60 @@ describe('SociosService', () => {
       expect(filtrado.items.map((item) => item.id)).toEqual([2]);
       expect(filtrado.total).toBe(1);
     });
+
+    it('ordena en memoria por estadoCuenta (ascendente y descendente)', async () => {
+      const hoy = new Date();
+      const mes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+      const alDia = {
+        id: 1,
+        nombre: 'Lucia',
+        apellido: 'Vazquez',
+        dni: '1',
+        creadoEn: new Date('2026-11-01'),
+        membresias: [
+          {
+            activo: true,
+            fechaAlta: new Date(hoy.getFullYear(), hoy.getMonth(), 1),
+            fechaBaja: null,
+            categoria: { nombre: 'General' },
+          },
+        ],
+        pagos: hoy.getDate() > 10 ? [{ periodo: mes }] : [],
+      };
+      const moroso = {
+        id: 2,
+        nombre: 'Pablo',
+        apellido: 'Sosa',
+        dni: '2',
+        creadoEn: new Date('2020-01-01'),
+        membresias: [
+          {
+            activo: true,
+            fechaAlta: new Date(2020, 0, 1),
+            fechaBaja: null,
+            categoria: { nombre: 'General' },
+          },
+        ],
+        pagos: [],
+      };
+
+      prismaMock.$transaction.mockResolvedValueOnce([[moroso, alDia], 2, 2, 2, 0]);
+      const resAsc = await service.findAll({
+        pagina: 1,
+        porPagina: 10,
+        ordenarPor: 'estadoCuenta',
+        orden: 'asc',
+      });
+      expect(resAsc.items.map((item) => item.id)).toEqual([1, 2]);
+
+      prismaMock.$transaction.mockResolvedValueOnce([[moroso, alDia], 2, 2, 2, 0]);
+      const resDesc = await service.findAll({
+        pagina: 1,
+        porPagina: 10,
+        ordenarPor: 'estadoCuenta',
+        orden: 'desc',
+      });
+      expect(resDesc.items.map((item) => item.id)).toEqual([2, 1]);
+    });
   });
 });
