@@ -18,6 +18,8 @@ describe('US-35 · ReportesService.estadoFinanciero', () => {
   const prisma = {
     pagoCuotaDeportiva: { findMany: jest.fn(), aggregate: jest.fn() },
     pago: { findMany: jest.fn(), aggregate: jest.fn() },
+    compraEntrada: { findMany: jest.fn() },
+    reserva: { findMany: jest.fn() },
   };
   const pagos = { getMorososCuotaSocial: jest.fn() };
   const pagosDeportivos = { getMorosos: jest.fn() };
@@ -53,6 +55,8 @@ describe('US-35 · ReportesService.estadoFinanciero', () => {
         { monto: 20000, periodo: '2026-09' },
       ]),
     );
+    prisma.compraEntrada.findMany.mockResolvedValue([]);
+    prisma.reserva.findMany.mockResolvedValue([]);
     prisma.pagoCuotaDeportiva.aggregate.mockResolvedValue({ _sum: { monto: 30000 } });
     prisma.pago.aggregate.mockResolvedValue({ _sum: { monto: 50000 } });
     // Deuda deportiva vencida: persona 1 debe Fútbol sep y un mes fuera del rango (jun).
@@ -119,6 +123,20 @@ describe('US-35 · ReportesService.estadoFinanciero', () => {
         adeudado: 10000,
         morosos: 1,
         porcentajeCobranza: 77.8,
+      },
+      {
+        concepto: 'ENTRADAS',
+        recaudado: 0,
+        adeudado: 0,
+        morosos: 0,
+        porcentajeCobranza: null,
+      },
+      {
+        concepto: 'RESERVAS',
+        recaudado: 0,
+        adeudado: 0,
+        morosos: 0,
+        porcentajeCobranza: null,
       },
     ]);
     expect(r.porDisciplina).toEqual([
@@ -193,6 +211,35 @@ describe('US-35 · ReportesService.estadoFinanciero', () => {
 
     expect(antes.totales).toMatchObject({ adeudado: 0, morosos: 0 });
     expect(despues.totales).toMatchObject({ adeudado: 20000, morosos: 1 });
+  });
+
+  it('H08 · suma entradas y señas cobradas en el rango, sin tratarlas como deuda', async () => {
+    prisma.compraEntrada.findMany.mockResolvedValue([
+      { montoTotal: 9000, creadoEn: new Date('2026-09-15T15:00:00.000Z') },
+    ]);
+    prisma.reserva.findMany.mockResolvedValue([
+      { montoSena: 6000, senaPagadaEn: new Date('2026-08-20T15:00:00.000Z') },
+    ]);
+
+    const r = await service.estadoFinanciero({ desde: '2026-07', hasta: '2026-09' }, HOY);
+
+    expect(r.totales).toMatchObject({
+      recaudado: 90000,
+      adeudado: 50000,
+      morosos: 2,
+      ingresadoPorFechaDeCobro: 95000,
+    });
+    expect(r.porConcepto).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ concepto: 'ENTRADAS', recaudado: 9000, adeudado: 0, morosos: 0 }),
+        expect.objectContaining({ concepto: 'RESERVAS', recaudado: 6000, adeudado: 0, morosos: 0 }),
+      ]),
+    );
+    expect(r.porMes).toEqual([
+      { periodo: '2026-07', recaudado: 30000, adeudado: 0 },
+      { periodo: '2026-08', recaudado: 31000, adeudado: 20000 },
+      { periodo: '2026-09', recaudado: 29000, adeudado: 30000 },
+    ]);
   });
 
   it('el ingreso por fecha de cobro toma los pagos con fecha dentro del rango', async () => {

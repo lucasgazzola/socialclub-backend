@@ -14,7 +14,31 @@ import { eventoTerminado } from '../eventos/fin-del-evento';
 /** Meses máximos de un reporte (tres años). */
 export const MAX_MESES_REPORTE = 36;
 
-export type Concepto = 'CUOTA_SOCIAL' | 'CUOTA_DEPORTIVA';
+export type Concepto = 'CUOTA_SOCIAL' | 'CUOTA_DEPORTIVA' | 'ENTRADAS' | 'RESERVAS';
+
+const HUSO_CLUB = 'America/Argentina/Cordoba';
+
+/** 00:00 del día 1 del período, en el huso del club. */
+function inicioMesClub(periodo: string): Date {
+  const [anio, mes] = periodo.split('-').map(Number);
+  return new Date(Date.UTC(anio, mes - 1, 1, 3, 0, 0));
+}
+
+/** 00:00 del día 1 del mes siguiente a `hasta`, en el huso del club. */
+function finMesClubExclusivo(hasta: string): Date {
+  const [anio, mes] = hasta.split('-').map(Number);
+  const siguiente = mes === 12 ? { anio: anio + 1, mes: 1 } : { anio, mes: mes + 1 };
+  return inicioMesClub(`${siguiente.anio}-${String(siguiente.mes).padStart(2, '0')}`);
+}
+
+/** Período AAAA-MM de un instante, en el huso del club. */
+function periodoClub(fecha: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: HUSO_CLUB,
+    year: 'numeric',
+    month: '2-digit',
+  }).format(fecha);
+}
 
 export interface Indicadores {
   recaudado: number;
@@ -61,8 +85,9 @@ export function mesesEntre(desde: string, hasta: string): string[] {
  * US-35 — Reporte de estado financiero.
  *
  * Se calcula sobre las cuotas de los meses del rango (decisión del equipo,
- * 10/10/2026):
- * - recaudado: lo cobrado de las cuotas de esos meses (social y deportiva);
+ * 10/10/2026) y, cuando no se filtra por disciplina, también sobre las
+ * entradas y las señas cobradas en esos meses (H08):
+ * - recaudado: lo cobrado de las cuotas de esos meses, más entradas y señas;
  * - adeudado: las cuotas de esos meses ya vencidas (día 10 de su mes, para las
  *   dos cuotas) y sin pagar;
  * - morosos: personas con al menos una de esas cuotas adeudadas;
@@ -176,6 +201,39 @@ export class ReportesService {
       }
     }
 
+    // ── Entradas y señas cobradas en el rango (H08) ─────────────────────────
+    // No son deuda: solo suman recaudación. Con filtro de disciplina el
+    // reporte sigue siendo solo la cuota deportiva de esa disciplina.
+    const entradas = { recaudado: 0 };
+    const senas = { recaudado: 0 };
+    if (incluyeSocial) {
+      const desdeInstante = inicioMesClub(desde);
+      const hastaInstante = finMesClubExclusivo(hasta);
+      const compras = await this.prisma.compraEntrada.findMany({
+        where: { estado: 'APROBADA', creadoEn: { gte: desdeInstante, lt: hastaInstante } },
+        select: { montoTotal: true, creadoEn: true },
+      });
+      for (const c of compras) {
+        const monto = Number(c.montoTotal);
+        entradas.recaudado += monto;
+        const mes = porMes.get(periodoClub(c.creadoEn));
+        if (mes) mes.recaudado += monto;
+      }
+      const reservasCobradas = await this.prisma.reserva.findMany({
+        where: {
+          estado: 'CONFIRMADA',
+          senaPagadaEn: { gte: desdeInstante, lt: hastaInstante },
+        },
+        select: { montoSena: true, senaPagadaEn: true },
+      });
+      for (const r of reservasCobradas) {
+        const monto = Number(r.montoSena);
+        senas.recaudado += monto;
+        const mes = porMes.get(periodoClub(r.senaPagadaEn!));
+        if (mes) mes.recaudado += monto;
+      }
+    }
+
     // ── Caja: lo cobrado con fecha de pago dentro del rango ────────────────
     const [anioH, mesH] = hasta.split('-').map(Number);
     const fechas = { gte: new Date(`${desde}-01T00:00:00`), lt: new Date(anioH, mesH, 1) };
@@ -198,12 +256,15 @@ export class ReportesService {
       generadoEn: hoy.toISOString(),
       totales: {
         ...indicadores(
-          social.recaudado + deportiva.recaudado,
+          social.recaudado + deportiva.recaudado + entradas.recaudado + senas.recaudado,
           social.adeudado + deportiva.adeudado,
           morosos,
         ),
         ingresadoPorFechaDeCobro: redondear(
-          Number(cajaDeportiva._sum.monto ?? 0) + Number(cajaSocial._sum.monto ?? 0),
+          Number(cajaDeportiva._sum.monto ?? 0) +
+            Number(cajaSocial._sum.monto ?? 0) +
+            entradas.recaudado +
+            senas.recaudado,
         ),
       },
       porConcepto: [
@@ -219,6 +280,18 @@ export class ReportesService {
           concepto: 'CUOTA_DEPORTIVA' as Concepto,
           ...indicadores(deportiva.recaudado, deportiva.adeudado, deportiva.morosos),
         },
+        ...(incluyeSocial
+          ? [
+              {
+                concepto: 'ENTRADAS' as Concepto,
+                ...indicadores(entradas.recaudado, 0, new Set<number>()),
+              },
+              {
+                concepto: 'RESERVAS' as Concepto,
+                ...indicadores(senas.recaudado, 0, new Set<number>()),
+              },
+            ]
+          : []),
       ],
       porDisciplina: [...porDisciplina.values()]
         .map(({ morosos: m, ...d }) => ({ ...d, ...indicadores(d.recaudado, d.adeudado, m) }))
