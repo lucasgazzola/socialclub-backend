@@ -30,6 +30,8 @@ dist/
 
 # Seed compilado (build artifact para imagen prod)
 prisma/seed.js
+prisma/seed.base.js
+prisma/seed.demo.js
 
 # Documento de credenciales (secretos reales) — NUNCA commitear
 CREDENCIALES.md

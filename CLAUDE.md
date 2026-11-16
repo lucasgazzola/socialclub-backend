@@ -68,7 +68,8 @@ npm run lint           # eslint --fix
 docker compose up -d db        # Postgres local
 npm run prisma:migrate -- --name <nombre>   # migración versionada (migrate dev)
 npm run prisma:deploy  # aplica migraciones pendientes (lo que corre Docker/Azure)
-npm run prisma:seed    # admin@socialclub.local / Admin123!
+npm run prisma:seed    # padrón realista; admin@socialclub.local / Admin123!
+npm run prisma:seed:base # padrón chico de los E2E (SEED_PERFIL=base)
 npm run db:shadow      # crea la base `socialclub_shadow` (una vez)
 npm run prisma:check-drift   # falla si el schema no coincide con las migraciones
 ```
