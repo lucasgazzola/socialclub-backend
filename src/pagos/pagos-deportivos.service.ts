@@ -356,14 +356,17 @@ export class PagosDeportivosService {
     });
 
     items.sort((a, b) => {
-      let comparacion = 0;
+      let comparacion: number;
 
       switch (ordenarPor) {
         case CriterioOrdenMorosos.PERIODOS:
           comparacion = a.cantidadPeriodos - b.cantidadPeriodos;
           break;
         case CriterioOrdenMorosos.NOMBRE:
-          comparacion = `${a.apellido} ${a.nombre}`.localeCompare(`${b.apellido} ${b.nombre}`, 'es');
+          comparacion = `${a.apellido} ${a.nombre}`.localeCompare(
+            `${b.apellido} ${b.nombre}`,
+            'es',
+          );
           break;
         case CriterioOrdenMorosos.DNI:
           comparacion = (a.dni ?? '').localeCompare(b.dni ?? '', 'es', { numeric: true });
@@ -559,6 +562,11 @@ export class PagosDeportivosService {
   async getMisPendientes(usuarioId: number) {
     const personaId = await this.personaIdDe(usuarioId);
     return this.getPendientesPorPersona(personaId);
+  }
+
+  async getMiHistorial(usuarioId: number, filtros: { desde?: string; hasta?: string } = {}) {
+    const personaId = await this.personaIdDe(usuarioId);
+    return this.getHistorialPorPersona(personaId, filtros);
   }
 
   /**

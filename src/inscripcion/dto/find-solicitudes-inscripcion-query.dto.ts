@@ -5,11 +5,11 @@ import { EstadoSolicitudInscripcion } from '@prisma/client';
 
 /**
  * US-66: Query params para listar solicitudes de inscripción a disciplinas en el panel.
- * Por defecto lista las solicitudes en estado PENDIENTE.
+ * Por defecto lista las solicitudes pendientes, incluyendo las que requieren documentación.
  */
 export class FindSolicitudesInscripcionQueryDto {
   @ApiPropertyOptional({
-    description: 'Filtrar por estado de la solicitud (por defecto PENDIENTE)',
+    description: 'Filtrar por estado de la solicitud (PENDIENTE incluye PENDIENTE_DOCUMENTACION)',
     enum: EstadoSolicitudInscripcion,
     example: EstadoSolicitudInscripcion.PENDIENTE,
   })
