@@ -11,6 +11,7 @@ import { CreateInscripcionDto } from './dto/create-inscripcion.dto';
 import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
 import { SolicitarInscripcionDto } from './dto/solicitar-inscripcion.dto';
 import { CrearHabilitacionExcepcionalDto } from './dto/crear-habilitacion-excepcional.dto';
+import { SubirSolicitudDocumentacionDto } from './dto/subir-solicitud-documentacion.dto';
 import {
   EstadoDocumentalFiltro,
   EstadoInscripcionFiltro,
@@ -31,6 +32,7 @@ import {
   EnlaceEmitido,
   VerificacionEmailService,
 } from '../verificacion-email/verificacion-email.service';
+import type { ArchivoSubido } from '../documentacion/storage.config';
 
 type InscConRelaciones = Pick<
   Prisma.InscripcionGetPayload<{
@@ -1532,6 +1534,180 @@ export class InscripcionService {
         disciplina: { select: { id: true, nombre: true, descripcion: true } },
         categoriaDisciplina: { select: { id: true, nombre: true } },
       },
+    });
+  }
+
+  /**
+   * US-65: cancela una solicitud propia pendiente o una inscripción aprobada vigente.
+   */
+  async cancelarSolicitud(solicitudId: number, usuarioId: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { personaId: true },
+    });
+    if (!usuario?.personaId) {
+      throw new NotFoundException('No se encontró una ficha de persona asociada al usuario');
+    }
+
+    const solicitud = await this.prisma.solicitudInscripcion.findUnique({
+      where: { id: solicitudId },
+      include: { disciplina: { select: { nombre: true } } },
+    });
+    if (!solicitud || solicitud.personaId !== usuario.personaId) {
+      throw new NotFoundException('Solicitud de inscripción no encontrada');
+    }
+    if (
+      solicitud.estado !== EstadoSolicitudInscripcion.PENDIENTE &&
+      solicitud.estado !== EstadoSolicitudInscripcion.PENDIENTE_DOCUMENTACION &&
+      solicitud.estado !== EstadoSolicitudInscripcion.APROBADA
+    ) {
+      throw new BadRequestException(
+        'Solo se pueden cancelar solicitudes pendientes o aprobadas vigentes',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const actualizada = await tx.solicitudInscripcion.updateMany({
+        where: {
+          id: solicitudId,
+          personaId: usuario.personaId,
+          estado: solicitud.estado,
+        },
+        data: { estado: EstadoSolicitudInscripcion.CANCELADA },
+      });
+
+      if (actualizada.count === 0) {
+        throw new BadRequestException(
+          'La solicitud ya no se encuentra en estado PENDIENTE y no puede cancelarse',
+        );
+      }
+
+      if (solicitud.estado === EstadoSolicitudInscripcion.APROBADA) {
+        const inscripcion = await tx.inscripcion.findFirst({
+          where: {
+            personaId: usuario.personaId,
+            disciplinaId: solicitud.disciplinaId,
+            activo: true,
+          },
+        });
+        if (inscripcion) {
+          const ahora = new Date();
+          await tx.inscripcion.update({
+            where: { id: inscripcion.id },
+            data: { activo: false, fechaBaja: ahora },
+          });
+          await cerrarPeriodos(tx, [inscripcion.id], ahora);
+          await this.auditoria.registrar(
+            {
+              accion: 'BAJA',
+              entidad: 'Inscripcion',
+              idEntidad: inscripcion.id,
+              responsableId: usuarioId,
+              detalle: 'Inscripción cancelada por el socio desde la solicitud aprobada',
+            },
+            tx,
+          );
+        }
+      }
+
+      const resultado = await tx.solicitudInscripcion.findUnique({
+        where: { id: solicitudId },
+        include: {
+          disciplina: { select: { id: true, nombre: true, descripcion: true } },
+          categoriaDisciplina: { select: { id: true, nombre: true } },
+        },
+      });
+
+      await this.auditoria.registrar(
+        {
+          accion: 'BAJA',
+          entidad: 'SolicitudInscripcion',
+          idEntidad: solicitudId,
+          responsableId: usuarioId,
+          detalle: `Solicitud de inscripción a ${solicitud.disciplina.nombre} cancelada por el socio`,
+        },
+        tx,
+      );
+
+      return resultado;
+    });
+  }
+
+  async subirDocumentacionSolicitud(
+    solicitudId: number,
+    usuarioId: number,
+    dto: SubirSolicitudDocumentacionDto,
+    archivo?: ArchivoSubido,
+  ) {
+    if (!archivo) {
+      throw new BadRequestException('Adjuntá el archivo del documento (PDF o imagen).');
+    }
+
+    const [solicitud, usuario] = await Promise.all([
+      this.prisma.solicitudInscripcion.findUnique({
+        where: { id: solicitudId },
+        include: { disciplina: { select: { nombre: true } } },
+      }),
+      this.prisma.usuario.findUnique({
+        where: { id: usuarioId },
+        select: { personaId: true },
+      }),
+    ]);
+    if (!solicitud || !usuario?.personaId || solicitud.personaId !== usuario.personaId) {
+      throw new NotFoundException('Solicitud de inscripción no encontrada');
+    }
+    if (
+      solicitud.estado !== EstadoSolicitudInscripcion.PENDIENTE &&
+      solicitud.estado !== EstadoSolicitudInscripcion.PENDIENTE_DOCUMENTACION
+    ) {
+      throw new BadRequestException(
+        'Solo se puede adjuntar documentación a solicitudes pendientes',
+      );
+    }
+
+    const rawFecha = dto.fechaVencimiento?.trim();
+    if (!rawFecha && requiereVencimiento(dto.tipoDocumento)) {
+      throw new BadRequestException('La fecha de vencimiento es obligatoria.');
+    }
+    const fechaVencimiento = rawFecha ? new Date(`${rawFecha}T00:00:00`) : null;
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    if (fechaVencimiento && fechaVencimiento < hoy) {
+      throw new BadRequestException(
+        'La fecha de vencimiento no puede ser anterior a la fecha actual.',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const documentacion = await tx.documentacion.create({
+        data: {
+          tipoDocumento: dto.tipoDocumento,
+          tipo: dto.tipo?.trim() || dto.tipoDocumento,
+          fechaVencimiento,
+          personaId: usuario.personaId,
+          archivoNombre: archivo.originalname,
+          archivoRuta: archivo.filename,
+          mimeType: archivo.mimetype,
+          tamano: archivo.size,
+          estadoRevision: 'PENDIENTE_REVISION',
+          cargadoPorTitular: true,
+        },
+      });
+      await tx.solicitudInscripcion.update({
+        where: { id: solicitudId },
+        data: { estado: EstadoSolicitudInscripcion.PENDIENTE_DOCUMENTACION },
+      });
+      await this.auditoria.registrar(
+        {
+          accion: 'CREAR',
+          entidad: 'Documentacion',
+          idEntidad: documentacion.id,
+          responsableId: usuarioId,
+          detalle: `Documento adjuntado a la solicitud ${solicitudId} de ${solicitud.disciplina.nombre}`,
+        },
+        tx,
+      );
+      return documentacion;
     });
   }
 }
