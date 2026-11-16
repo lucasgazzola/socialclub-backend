@@ -96,9 +96,11 @@ describe('InscripcionController', () => {
       const expected = { items: [], total: 0, pagina: 1, porPagina: 10 };
       mockInscripcionService.findAll.mockResolvedValue(expected);
 
-      const result = await controller.findAll(query);
+      const usuario = { id: 7, email: 'diego@club.local', roles: ['DELEGADO'] };
+      const result = await controller.findAll(query, usuario as never);
 
-      expect(mockInscripcionService.findAll).toHaveBeenCalledWith(query);
+      // H07: el controller pasa el usuario para acotar el listado del delegado.
+      expect(mockInscripcionService.findAll).toHaveBeenCalledWith(query, usuario);
       expect(result).toEqual(expected);
     });
 
