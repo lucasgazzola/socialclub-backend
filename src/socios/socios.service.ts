@@ -90,6 +90,7 @@ export class SociosService {
       creadoEn: persona.creadoEn,
       actualizadoEn: persona.actualizadoEn,
       membresias: persona.membresias ?? [],
+      estadoCuenta: persona.estadoCuenta ?? null,
     };
   }
 
@@ -494,6 +495,17 @@ export class SociosService {
         const estA = this.aSocioDto(a.persona)?.activo ? 1 : 0;
         const estB = this.aSocioDto(b.persona)?.activo ? 1 : 0;
         return direccion === 'asc' ? estA - estB : estB - estA;
+      });
+    } else if (
+      campoOrden === 'estadocuenta' ||
+      campoOrden === 'estado_cuenta' ||
+      campoOrden === 'cuenta'
+    ) {
+      filas.sort((a, b) => {
+        const aEstado = a.vencidos > 0 ? 'MOROSO' : 'AL_DIA';
+        const bEstado = b.vencidos > 0 ? 'MOROSO' : 'AL_DIA';
+        const diff = aEstado.localeCompare(bEstado, 'es', { sensitivity: 'base' });
+        return direccion === 'asc' ? diff : -diff;
       });
     } else if (!ordenaEnBase) {
       filas.sort((a, b) => {

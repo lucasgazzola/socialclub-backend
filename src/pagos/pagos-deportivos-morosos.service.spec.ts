@@ -263,25 +263,93 @@ describe('US-23 · PagosDeportivosService.getMorosos', () => {
       ]);
     });
 
-    it('por monto total, de mayor a menor por defecto', async () => {
-      const r = await service.getMorosos({}, HOY);
-      expect(r.items.map((m) => [m.apellido, m.montoTotalDeuda])).toEqual([
+    it('por monto total, descendente y ascendente', async () => {
+      const rDesc = await service.getMorosos(
+        { ordenarPor: CriterioOrdenMorosos.MONTO, orden: SentidoOrden.DESC },
+        HOY,
+      );
+      expect(rDesc.items.map((m) => [m.apellido, m.montoTotalDeuda])).toEqual([
         ['MasDeuda', 40000],
         ['MuchosPeriodos', 30000],
         ['Poca', 10000],
       ]);
-      expect(r.deudaTotal).toBe(80000);
+      expect(rDesc.deudaTotal).toBe(80000);
+
+      const rAsc = await service.getMorosos(
+        { ordenarPor: CriterioOrdenMorosos.MONTO, orden: SentidoOrden.ASC },
+        HOY,
+      );
+      expect(rAsc.items.map((m) => [m.apellido, m.montoTotalDeuda])).toEqual([
+        ['Poca', 10000],
+        ['MuchosPeriodos', 30000],
+        ['MasDeuda', 40000],
+      ]);
     });
 
-    it('por cantidad de períodos, ascendente', async () => {
-      const r = await service.getMorosos(
+    it('por cantidad de períodos, descendente y ascendente', async () => {
+      const rAsc = await service.getMorosos(
         { ordenarPor: CriterioOrdenMorosos.PERIODOS, orden: SentidoOrden.ASC },
         HOY,
       );
-      expect(r.items.map((m) => [m.apellido, m.cantidadPeriodos])).toEqual([
+      expect(rAsc.items.map((m) => [m.apellido, m.cantidadPeriodos])).toEqual([
         ['Poca', 1],
         ['MuchosPeriodos', 3],
         ['MasDeuda', 3],
+      ]);
+
+      const rDesc = await service.getMorosos(
+        { ordenarPor: CriterioOrdenMorosos.PERIODOS, orden: SentidoOrden.DESC },
+        HOY,
+      );
+      expect(rDesc.items.map((m) => [m.apellido, m.cantidadPeriodos])).toEqual([
+        ['MuchosPeriodos', 3],
+        ['MasDeuda', 3],
+        ['Poca', 1],
+      ]);
+    });
+
+    it('por nombre (apellido, nombre), ascendente y descendente', async () => {
+      const rAsc = await service.getMorosos(
+        { ordenarPor: CriterioOrdenMorosos.NOMBRE, orden: SentidoOrden.ASC },
+        HOY,
+      );
+      expect(rAsc.items.map((m) => m.apellido)).toEqual([
+        'MasDeuda',
+        'MuchosPeriodos',
+        'Poca',
+      ]);
+
+      const rDesc = await service.getMorosos(
+        { ordenarPor: CriterioOrdenMorosos.NOMBRE, orden: SentidoOrden.DESC },
+        HOY,
+      );
+      expect(rDesc.items.map((m) => m.apellido)).toEqual([
+        'Poca',
+        'MuchosPeriodos',
+        'MasDeuda',
+      ]);
+    });
+
+    it('por DNI, ascendente y descendente', async () => {
+      // id 1: 30000001, id 2: 30000002, id 3: 30000003
+      const rAsc = await service.getMorosos(
+        { ordenarPor: CriterioOrdenMorosos.DNI, orden: SentidoOrden.ASC },
+        HOY,
+      );
+      expect(rAsc.items.map((m) => m.dni)).toEqual([
+        '30000001',
+        '30000002',
+        '30000003',
+      ]);
+
+      const rDesc = await service.getMorosos(
+        { ordenarPor: CriterioOrdenMorosos.DNI, orden: SentidoOrden.DESC },
+        HOY,
+      );
+      expect(rDesc.items.map((m) => m.dni)).toEqual([
+        '30000003',
+        '30000002',
+        '30000001',
       ]);
     });
 

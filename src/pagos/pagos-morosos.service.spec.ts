@@ -275,7 +275,7 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
     expect(resAsc.items[1].dni).toBe('222');
   });
 
-  it('CA 2: Permite ordenar por cantidad de períodos adeudados', async () => {
+  it('CA 2: Permite ordenar por cantidad de períodos adeudados (ascendente y descendente)', async () => {
     const haceUnMes = new Date(HOY.getFullYear(), HOY.getMonth() - 1, 1);
     const haceDosMeses = new Date(HOY.getFullYear(), HOY.getMonth() - 2, 1);
 
@@ -309,18 +309,176 @@ describe('PagosService · US-19 · getMorososCuotaSocial', () => {
 
     mockPrisma.configuracionCuotaSocial.findFirst.mockResolvedValue({ monto: 5000 });
 
-    const res = await service.getMorososCuotaSocial(
+    const resDesc = await service.getMorososCuotaSocial(
       {
         ordenarPor: CriterioOrdenMorosos.PERIODOS,
         orden: SentidoOrden.DESC,
       },
       HOY,
     );
+    expect(resDesc.items[0].dni).toBe('2');
+    expect(resDesc.items[0].cantidadPeriodos).toBe(3);
+    expect(resDesc.items[1].dni).toBe('1');
+    expect(resDesc.items[1].cantidadPeriodos).toBe(2);
 
-    expect(res.items[0].dni).toBe('2');
-    expect(res.items[0].cantidadPeriodos).toBe(3);
-    expect(res.items[1].dni).toBe('1');
-    expect(res.items[1].cantidadPeriodos).toBe(2);
+    const resAsc = await service.getMorososCuotaSocial(
+      {
+        ordenarPor: CriterioOrdenMorosos.PERIODOS,
+        orden: SentidoOrden.ASC,
+      },
+      HOY,
+    );
+    expect(resAsc.items[0].dni).toBe('1');
+    expect(resAsc.items[0].cantidadPeriodos).toBe(2);
+    expect(resAsc.items[1].dni).toBe('2');
+    expect(resAsc.items[1].cantidadPeriodos).toBe(3);
+  });
+
+  it('CA 2: Permite ordenar por nombre de socio (ascendente y descendente)', async () => {
+    const haceUnMes = new Date(HOY.getFullYear(), HOY.getMonth() - 1, 1);
+
+    mockPrisma.persona.findMany.mockResolvedValue([
+      {
+        id: 1,
+        nombre: 'Carlos',
+        apellido: 'Zapata',
+        dni: '100',
+        membresias: [
+          { activo: true, fechaAlta: haceUnMes, categoriaId: 1, categoria: { nombre: 'General' } },
+        ],
+        pagos: [],
+      },
+      {
+        id: 2,
+        nombre: 'Ana',
+        apellido: 'Alvarez',
+        dni: '200',
+        membresias: [
+          { activo: true, fechaAlta: haceUnMes, categoriaId: 1, categoria: { nombre: 'General' } },
+        ],
+        pagos: [],
+      },
+    ]);
+
+    mockPrisma.configuracionCuotaSocial.findFirst.mockResolvedValue({ monto: 5000 });
+
+    const resAsc = await service.getMorososCuotaSocial(
+      {
+        ordenarPor: CriterioOrdenMorosos.NOMBRE,
+        orden: SentidoOrden.ASC,
+      },
+      HOY,
+    );
+    expect(resAsc.items[0].apellido).toBe('Alvarez');
+    expect(resAsc.items[1].apellido).toBe('Zapata');
+
+    const resDesc = await service.getMorososCuotaSocial(
+      {
+        ordenarPor: CriterioOrdenMorosos.NOMBRE,
+        orden: SentidoOrden.DESC,
+      },
+      HOY,
+    );
+    expect(resDesc.items[0].apellido).toBe('Zapata');
+    expect(resDesc.items[1].apellido).toBe('Alvarez');
+  });
+
+  it('CA 2: Permite ordenar por DNI de socio (ascendente y descendente)', async () => {
+    const haceUnMes = new Date(HOY.getFullYear(), HOY.getMonth() - 1, 1);
+
+    mockPrisma.persona.findMany.mockResolvedValue([
+      {
+        id: 1,
+        nombre: 'Juan',
+        apellido: 'Perez',
+        dni: '45000000',
+        membresias: [
+          { activo: true, fechaAlta: haceUnMes, categoriaId: 1, categoria: { nombre: 'General' } },
+        ],
+        pagos: [],
+      },
+      {
+        id: 2,
+        nombre: 'Mario',
+        apellido: 'Gomez',
+        dni: '12000000',
+        membresias: [
+          { activo: true, fechaAlta: haceUnMes, categoriaId: 1, categoria: { nombre: 'General' } },
+        ],
+        pagos: [],
+      },
+    ]);
+
+    mockPrisma.configuracionCuotaSocial.findFirst.mockResolvedValue({ monto: 5000 });
+
+    const resAsc = await service.getMorososCuotaSocial(
+      {
+        ordenarPor: CriterioOrdenMorosos.DNI,
+        orden: SentidoOrden.ASC,
+      },
+      HOY,
+    );
+    expect(resAsc.items[0].dni).toBe('12000000');
+    expect(resAsc.items[1].dni).toBe('45000000');
+
+    const resDesc = await service.getMorososCuotaSocial(
+      {
+        ordenarPor: CriterioOrdenMorosos.DNI,
+        orden: SentidoOrden.DESC,
+      },
+      HOY,
+    );
+    expect(resDesc.items[0].dni).toBe('45000000');
+    expect(resDesc.items[1].dni).toBe('12000000');
+  });
+
+  it('CA 2: Permite ordenar por categoría de socio (ascendente y descendente)', async () => {
+    const haceUnMes = new Date(HOY.getFullYear(), HOY.getMonth() - 1, 1);
+
+    mockPrisma.persona.findMany.mockResolvedValue([
+      {
+        id: 1,
+        nombre: 'Juan',
+        apellido: 'Perez',
+        dni: '100',
+        membresias: [
+          { activo: true, fechaAlta: haceUnMes, categoriaId: 1, categoria: { nombre: 'Vitalicio' } },
+        ],
+        pagos: [],
+      },
+      {
+        id: 2,
+        nombre: 'Mario',
+        apellido: 'Gomez',
+        dni: '200',
+        membresias: [
+          { activo: true, fechaAlta: haceUnMes, categoriaId: 2, categoria: { nombre: 'Activo' } },
+        ],
+        pagos: [],
+      },
+    ]);
+
+    mockPrisma.configuracionCuotaSocial.findFirst.mockResolvedValue({ monto: 5000 });
+
+    const resAsc = await service.getMorososCuotaSocial(
+      {
+        ordenarPor: CriterioOrdenMorosos.CATEGORIA,
+        orden: SentidoOrden.ASC,
+      },
+      HOY,
+    );
+    expect(resAsc.items[0].categoria).toBe('Activo');
+    expect(resAsc.items[1].categoria).toBe('Vitalicio');
+
+    const resDesc = await service.getMorososCuotaSocial(
+      {
+        ordenarPor: CriterioOrdenMorosos.CATEGORIA,
+        orden: SentidoOrden.DESC,
+      },
+      HOY,
+    );
+    expect(resDesc.items[0].categoria).toBe('Vitalicio');
+    expect(resDesc.items[1].categoria).toBe('Activo');
   });
 
   it('CA 3: Aplica filtros por búsqueda y categoría en la consulta a la base de datos', async () => {

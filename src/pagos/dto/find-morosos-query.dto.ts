@@ -5,6 +5,9 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 export enum CriterioOrdenMorosos {
   MONTO = 'monto',
   PERIODOS = 'periodos',
+  NOMBRE = 'nombre',
+  DNI = 'dni',
+  CATEGORIA = 'categoria',
 }
 
 export enum SentidoOrden {

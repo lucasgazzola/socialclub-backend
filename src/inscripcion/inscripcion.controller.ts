@@ -24,6 +24,7 @@ import { FindSolicitudesInscripcionQueryDto } from './dto/find-solicitudes-inscr
 import { RechazarSolicitudInscripcionDto } from './dto/rechazar-solicitud-inscripcion.dto';
 import { SubirSolicitudDocumentacionDto } from './dto/subir-solicitud-documentacion.dto';
 import { CrearHabilitacionExcepcionalDto } from './dto/crear-habilitacion-excepcional.dto';
+import { ActivarParticipanteDto } from './dto/activar-participante.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -327,6 +328,23 @@ export class InscripcionController {
     return this.inscripcionService.findByPersonaId(personaId, incluirBajas === 'true', user);
   }
 
+  @Get('persona/:personaId/pre-alta')
+  @Roles('ADMIN', 'DELEGADO')
+  @ApiOperation({
+    summary:
+      'Pre-evaluar reactivación de un participante: deudas pendientes e historial de disciplinas con validación de restricciones',
+  })
+  @ApiOkResponse({ description: 'Resumen de deuda e historial de disciplinas para re-alta' })
+  @ApiErrores({
+    400: VALIDACION,
+    401: 'Unauthorized',
+    403: 'No tenés permisos suficientes para esta operación',
+    404: 'Participante no encontrado',
+  })
+  preEvaluarAlta(@Param('personaId', ParseIntPipe) personaId: number) {
+    return this.inscripcionService.preEvaluarAlta(personaId);
+  }
+
   @Get(':id')
   @Roles('ADMIN', 'DELEGADO')
   @ApiOperation({ summary: 'Obtener una inscripción por id' })
@@ -392,8 +410,9 @@ export class InscripcionController {
   activarParticipante(
     @Param('personaId', ParseIntPipe) personaId: number,
     @CurrentUser() user: AuthenticatedUser,
+    @Body() dto?: ActivarParticipanteDto,
   ) {
-    return this.inscripcionService.activarParticipante(personaId, user.id);
+    return this.inscripcionService.activarParticipante(personaId, user.id, dto);
   }
 
   @Post(':id/habilitacion-excepcional')

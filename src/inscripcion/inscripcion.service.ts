@@ -4,6 +4,7 @@ import {
   ConflictException,
   ForbiddenException,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { EstadoSolicitudInscripcion, Prisma, TipoDocumentacionDisciplina } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
@@ -15,6 +16,7 @@ import { FindSolicitudesInscripcionQueryDto } from './dto/find-solicitudes-inscr
 import { RechazarSolicitudInscripcionDto } from './dto/rechazar-solicitud-inscripcion.dto';
 import { CrearHabilitacionExcepcionalDto } from './dto/crear-habilitacion-excepcional.dto';
 import { SubirSolicitudDocumentacionDto } from './dto/subir-solicitud-documentacion.dto';
+import { ActivarParticipanteDto } from './dto/activar-participante.dto';
 import {
   EstadoDocumentalFiltro,
   EstadoInscripcionFiltro,
@@ -37,6 +39,7 @@ import {
   VerificacionEmailService,
 } from '../verificacion-email/verificacion-email.service';
 import type { ArchivoSubido } from '../documentacion/storage.config';
+import { PagosDeportivosService } from '../pagos/pagos-deportivos.service';
 
 type InscConRelaciones = Pick<
   Prisma.InscripcionGetPayload<{
@@ -63,6 +66,7 @@ export class InscripcionService {
     private readonly auditoria: AuditoriaService,
     private readonly estadoDocumental: EstadoDocumentalService,
     private readonly verificacion: VerificacionEmailService,
+    @Optional() private readonly pagosDeportivos?: PagosDeportivosService,
   ) {}
 
   /**
@@ -145,38 +149,69 @@ export class InscripcionService {
   }
 
   async create(dto: CreateInscripcionDto, responsableId: number) {
-    const disciplina = await this.prisma.disciplina.findUnique({
-      where: { id: dto.disciplinaId },
-      include: { categorias: true },
-    });
+    const disciplinasSolicitadas = dto.disciplinas?.length
+      ? dto.disciplinas
+      : dto.disciplinaId
+        ? [{ disciplinaId: dto.disciplinaId, categoriaDisciplinaId: dto.categoriaDisciplinaId }]
+        : [];
 
-    if (!disciplina) {
-      throw new NotFoundException('Disciplina no encontrada');
+    if (disciplinasSolicitadas.length === 0) {
+      throw new BadRequestException('Debe indicar al menos una disciplina');
     }
 
-    if (!disciplina.activo) {
-      throw new BadRequestException('Disciplina inactiva');
+    const idsUnicos = new Set(disciplinasSolicitadas.map((d) => d.disciplinaId));
+    if (idsUnicos.size !== disciplinasSolicitadas.length) {
+      throw new BadRequestException('No podés seleccionar la misma disciplina más de una vez');
     }
 
-    // US-50: una categoría dada de baja no se ofrece para nuevas inscripciones,
-    // así que solo las activas obligan a elegir categoría.
-    const tieneCategorias = disciplina.categorias.some((c) => c.activo);
+    type DisciplinaConCategorias = Prisma.DisciplinaGetPayload<{ include: { categorias: true } }>;
+    const destinos: {
+      disciplina: DisciplinaConCategorias;
+      categoria: DisciplinaConCategorias['categorias'][number] | undefined;
+      disciplinaId: number;
+      categoriaDisciplinaId?: number;
+    }[] = [];
+    for (const item of disciplinasSolicitadas) {
+      const disciplina = await this.prisma.disciplina.findUnique({
+        where: { id: item.disciplinaId },
+        include: { categorias: true },
+      });
 
-    if (tieneCategorias && !dto.categoriaDisciplinaId) {
-      throw new BadRequestException(
-        'Debe seleccionar una categoría para inscribirse en esta disciplina',
-      );
-    }
+      if (!disciplina) {
+        throw new NotFoundException('Disciplina no encontrada');
+      }
 
-    if (dto.categoriaDisciplinaId) {
-      const categoriaValida = disciplina.categorias.some(
-        (c) => c.id === dto.categoriaDisciplinaId && c.activo,
-      );
-      if (!categoriaValida) {
+      if (!disciplina.activo) {
+        throw new BadRequestException('Disciplina inactiva');
+      }
+
+      // US-50: una categoría dada de baja no se ofrece para nuevas inscripciones,
+      // así que solo las activas obligan a elegir categoría.
+      const tieneCategorias = disciplina.categorias.some((c) => c.activo);
+
+      if (tieneCategorias && !item.categoriaDisciplinaId) {
         throw new BadRequestException(
-          'La categoría indicada no pertenece a esta disciplina o no está activa',
+          'Debe seleccionar una categoría para inscribirse en esta disciplina',
         );
       }
+
+      if (item.categoriaDisciplinaId) {
+        const categoriaValida = disciplina.categorias.some(
+          (c) => c.id === item.categoriaDisciplinaId && c.activo,
+        );
+        if (!categoriaValida) {
+          throw new BadRequestException(
+            'La categoría indicada no pertenece a esta disciplina o no está activa',
+          );
+        }
+      }
+
+      destinos.push({
+        disciplina,
+        categoria: disciplina.categorias.find((c) => c.id === item.categoriaDisciplinaId),
+        disciplinaId: disciplina.id,
+        categoriaDisciplinaId: item.categoriaDisciplinaId,
+      });
     }
 
     await this.validarEmailDisponible(dto.email, { id: dto.personaId, dni: dto.dni });
@@ -259,100 +294,175 @@ export class InscripcionService {
           );
         }
 
-        this.validarRestricciones(
-          { genero: persona.genero ?? null, fechaNacimiento: persona.fechaNacimiento ?? null },
-          disciplina,
-          disciplina.categorias.find((c) => c.id === dto.categoriaDisciplinaId),
-        );
+        const periodo = periodoActual();
+        const membresiaActiva = tx.membresia
+          ? await tx.membresia.findFirst({
+              where: { personaId: persona.id, activo: true },
+            })
+          : null;
+        const esSocio = !!membresiaActiva;
 
-        await this.exigirDocumentosAlInscribir(
-          tx,
-          persona.id,
-          dto.disciplinaId,
-          dto.categoriaDisciplinaId,
-          dto.documentos,
-        );
+        const inscripcionesCreadas = [];
+        const cuotasGeneradas = [];
 
-        const inscripcionExistente = await tx.inscripcion.findUnique({
-          where: {
-            personaId_disciplinaId: {
-              personaId: persona.id,
-              disciplinaId: dto.disciplinaId,
-            },
-          },
-        });
+        for (const destino of destinos) {
+          const { disciplina, categoria, disciplinaId, categoriaDisciplinaId } = destino;
 
-        if (inscripcionExistente?.activo) {
-          throw new ConflictException(
-            'Ya existe un participante con ese DNI inscripto en esta disciplina',
+          this.validarRestricciones(
+            { genero: persona.genero ?? null, fechaNacimiento: persona.fechaNacimiento ?? null },
+            disciplina,
+            categoria,
           );
-        }
 
-        let inscripcionFinal;
-        if (inscripcionExistente) {
-          const ahora = new Date();
-          const reactivada = await tx.inscripcion.update({
-            where: { id: inscripcionExistente.id },
-            data: {
-              activo: true,
-              fechaInscripcion: ahora,
-              fechaBaja: null,
-              requisitosDesde: null,
-              categoriaDisciplinaId: dto.categoriaDisciplinaId ?? null,
-            },
-          });
-          // DT-41: la reinscripción abre un período nuevo; los anteriores
-          // conservan su deuda.
-          await abrirPeriodo(tx, reactivada.id, ahora);
-
-          await this.auditoria.registrar(
-            {
-              accion: 'REACTIVAR',
-              entidad: 'Inscripcion',
-              idEntidad: reactivada.id,
-              detalle: `Re-inscripción de ${persona.apellido} ${persona.nombre}, ${persona.dni} en la disciplina ${disciplina.nombre}`,
-              responsableId,
-            },
+          await this.exigirDocumentosAlInscribir(
             tx,
+            persona.id,
+            disciplinaId,
+            categoriaDisciplinaId,
+            dto.documentos,
           );
 
-          inscripcionFinal = reactivada;
-        } else {
-          const inscripcion = await tx.inscripcion.create({
-            data: {
-              personaId: persona.id,
-              disciplinaId: dto.disciplinaId,
-              categoriaDisciplinaId: dto.categoriaDisciplinaId ?? null,
-            },
-          });
-          await abrirPeriodo(tx, inscripcion.id, inscripcion.fechaInscripcion ?? new Date());
-
-          await tx.registroAuditoria.create({
-            data: {
-              accion: 'CREAR',
-              entidad: 'Inscripcion',
-              idEntidad: inscripcion.id,
-              detalle: `Inscripción de ${persona.apellido} ${persona.nombre}, ${persona.dni} en la disciplina ${disciplina.nombre}`,
-              responsableId,
+          const inscripcionExistente = await tx.inscripcion.findUnique({
+            where: {
+              personaId_disciplinaId: {
+                personaId: persona.id,
+                disciplinaId,
+              },
             },
           });
 
-          inscripcionFinal = inscripcion;
+          if (inscripcionExistente?.activo) {
+            throw new ConflictException(
+              destinos.length > 1
+                ? `Ya existe un participante con ese DNI inscripto en ${disciplina.nombre}`
+                : 'Ya existe un participante con ese DNI inscripto en esta disciplina',
+            );
+          }
+
+          let inscripcionFinal;
+          if (inscripcionExistente) {
+            const ahora = new Date();
+            const reactivada = await tx.inscripcion.update({
+              where: { id: inscripcionExistente.id },
+              data: {
+                activo: true,
+                fechaInscripcion: ahora,
+                fechaBaja: null,
+                requisitosDesde: null,
+                categoriaDisciplinaId: categoriaDisciplinaId ?? null,
+              },
+            });
+            // DT-41: la reinscripción abre un período nuevo; los anteriores
+            // conservan su deuda.
+            await abrirPeriodo(tx, reactivada.id, ahora);
+
+            await this.auditoria.registrar(
+              {
+                accion: 'REACTIVAR',
+                entidad: 'Inscripcion',
+                idEntidad: reactivada.id,
+                detalle: `Re-inscripción de ${persona.apellido} ${persona.nombre}, ${persona.dni} en la disciplina ${disciplina.nombre}`,
+                responsableId,
+              },
+              tx,
+            );
+
+            inscripcionFinal = reactivada;
+          } else {
+            const inscripcion = await tx.inscripcion.create({
+              data: {
+                personaId: persona.id,
+                disciplinaId,
+                categoriaDisciplinaId: categoriaDisciplinaId ?? null,
+              },
+            });
+            await abrirPeriodo(tx, inscripcion.id, inscripcion.fechaInscripcion ?? new Date());
+
+            await tx.registroAuditoria.create({
+              data: {
+                accion: 'CREAR',
+                entidad: 'Inscripcion',
+                idEntidad: inscripcion.id,
+                detalle: `Inscripción de ${persona.apellido} ${persona.nombre}, ${persona.dni} en la disciplina ${disciplina.nombre}`,
+                responsableId,
+              },
+            });
+
+            inscripcionFinal = inscripcion;
+          }
+
+          inscripcionesCreadas.push(inscripcionFinal);
+
+          // US-05 Criterio 10: calcular la cuota generada correspondiente a esa disciplina
+          const rawTarifas = tx.configuracionCuotaDeportiva
+            ? await tx.configuracionCuotaDeportiva.findMany({
+                where: { disciplinaId, activo: true },
+              })
+            : [];
+          const tarifas = Array.isArray(rawTarifas) ? rawTarifas : [];
+          const tarifa = tarifaVigente(
+            tarifas.map((t) => ({
+              id: t.id,
+              categoriaDisciplinaId: t.categoriaDisciplinaId,
+              periodoAplicacion: t.periodoAplicacion,
+              monto: Number(t.monto),
+              descuentoSocioPorcentaje: t.descuentoSocioPorcentaje,
+              activo: t.activo,
+            })),
+            categoriaDisciplinaId ?? null,
+            periodo,
+          );
+          cuotasGeneradas.push(
+            tarifa
+              ? {
+                  disciplinaId,
+                  disciplinaNombre: disciplina.nombre,
+                  periodo,
+                  monto: montoACobrar(tarifa, esSocio),
+                  montoTarifa: Number(tarifa.monto),
+                  descuentoSocioPorcentaje: esSocio ? tarifa.descuentoSocioPorcentaje : 0,
+                  esSocio,
+                  sinTarifa: false,
+                }
+              : {
+                  disciplinaId,
+                  disciplinaNombre: disciplina.nombre,
+                  periodo,
+                  monto: null,
+                  montoTarifa: null,
+                  descuentoSocioPorcentaje: 0,
+                  esSocio,
+                  sinTarifa: true,
+                },
+          );
         }
 
         // US-05 Criterio 7: adjuntar documentos faltantes en la misma operación de alta
         if (dto.documentos && dto.documentos.length > 0) {
           const requisitos = tx.disciplinaRequerimientoDoc
             ? await tx.disciplinaRequerimientoDoc.findMany({
-                where: {
-                  disciplinaId: dto.disciplinaId,
-                  OR: [
-                    { categoriaDisciplinaId: null },
-                    ...(dto.categoriaDisciplinaId
-                      ? [{ categoriaDisciplinaId: dto.categoriaDisciplinaId }]
-                      : []),
-                  ],
-                },
+                where:
+                  destinos.length === 1
+                    ? {
+                        disciplinaId: destinos[0].disciplinaId,
+                        OR: [
+                          { categoriaDisciplinaId: null },
+                          ...(destinos[0].categoriaDisciplinaId
+                            ? [{ categoriaDisciplinaId: destinos[0].categoriaDisciplinaId }]
+                            : []),
+                        ],
+                      }
+                    : {
+                        OR: destinos.map((d) => ({
+                          disciplinaId: d.disciplinaId,
+                          OR: [
+                            { categoriaDisciplinaId: null },
+                            ...(d.categoriaDisciplinaId
+                              ? [{ categoriaDisciplinaId: d.categoriaDisciplinaId }]
+                              : []),
+                          ],
+                        })),
+                      },
               })
             : [];
           const tiposExigidos = new Set(requisitos.map((r) => r.tipoDocumento));
@@ -422,52 +532,13 @@ export class InscripcionService {
           }
         }
 
-        // US-05 Criterio 10: calcular la cuota generada correspondiente a esa disciplina
-        const periodo = periodoActual();
-        const rawTarifas = tx.configuracionCuotaDeportiva
-          ? await tx.configuracionCuotaDeportiva.findMany({
-              where: { disciplinaId: dto.disciplinaId, activo: true },
-            })
-          : [];
-        const tarifas = Array.isArray(rawTarifas) ? rawTarifas : [];
-        const membresiaActiva = tx.membresia
-          ? await tx.membresia.findFirst({
-              where: { personaId: persona.id, activo: true },
-            })
-          : null;
-
-        const tarifa = tarifaVigente(
-          tarifas.map((t) => ({
-            id: t.id,
-            categoriaDisciplinaId: t.categoriaDisciplinaId,
-            periodoAplicacion: t.periodoAplicacion,
-            monto: Number(t.monto),
-            descuentoSocioPorcentaje: t.descuentoSocioPorcentaje,
-            activo: t.activo,
-          })),
-          dto.categoriaDisciplinaId ?? null,
-          periodo,
-        );
-        const esSocio = !!membresiaActiva;
-        const cuotaGenerada = tarifa
-          ? {
-              periodo,
-              monto: montoACobrar(tarifa, esSocio),
-              montoTarifa: Number(tarifa.monto),
-              descuentoSocioPorcentaje: esSocio ? tarifa.descuentoSocioPorcentaje : 0,
-              esSocio,
-              sinTarifa: false,
-            }
-          : {
-              periodo,
-              monto: null,
-              montoTarifa: null,
-              descuentoSocioPorcentaje: 0,
-              esSocio,
-              sinTarifa: true,
-            };
-
-        return { persona, inscripcion: inscripcionFinal, cuotaGenerada };
+        return {
+          persona,
+          inscripcion: inscripcionesCreadas[0],
+          cuotaGenerada: cuotasGeneradas[0],
+          inscripciones: inscripcionesCreadas,
+          cuotasGeneradas,
+        };
       });
       await this.verificacion.enviar(enlace, responsableId);
       // US-05: al confirmar se informa qué documentación falta y hasta cuándo, y la cuota generada.
@@ -814,40 +885,202 @@ export class InscripcionService {
   }
 
   /**
+   * Pre-evalúa la reactivación de un participante dado de baja:
+   * - Informa si tiene deuda deportiva pendiente (cuotas de períodos anteriores).
+   * - Lista sus inscripciones anteriores en baja indicando si siguen activas
+   *   y si la persona cumple hoy las restricciones de edad/género.
+   */
+  async preEvaluarAlta(personaId: number) {
+    const persona = await this.prisma.persona.findUnique({
+      where: { id: personaId },
+      include: {
+        inscripciones: {
+          where: { activo: false },
+          include: { disciplina: true, categoriaDisciplina: true },
+          orderBy: { fechaBaja: 'desc' },
+        },
+      },
+    });
+    if (!persona) {
+      throw new NotFoundException('Participante no encontrado');
+    }
+
+    const deuda = this.pagosDeportivos
+      ? await this.pagosDeportivos.getPendientesPorPersona(personaId)
+      : null;
+
+    const inscripcionesAnteriores = persona.inscripciones.map((insc) => {
+      const disciplinaActiva = insc.disciplina.activo;
+      const categoriaActiva = insc.categoriaDisciplina ? insc.categoriaDisciplina.activo : true;
+      const motivos = motivosDeIncumplimiento(
+        persona,
+        restriccionesEfectivas(insc.disciplina, insc.categoriaDisciplina),
+      );
+      const motivosBloqueo = [
+        ...(!disciplinaActiva ? ['La disciplina ya no está activa'] : []),
+        ...(!categoriaActiva ? ['La categoría anterior ya no está activa'] : []),
+        ...motivos,
+      ];
+
+      return {
+        inscripcionId: insc.id,
+        disciplinaId: insc.disciplinaId,
+        disciplinaNombre: insc.disciplina.nombre,
+        categoriaDisciplinaId: insc.categoriaDisciplinaId ?? null,
+        categoriaNombre: insc.categoriaDisciplina?.nombre ?? null,
+        fechaBaja: insc.fechaBaja,
+        disciplinaActiva,
+        categoriaActiva,
+        cumpleRestricciones: motivosBloqueo.length === 0,
+        motivosBloqueo,
+      };
+    });
+
+    const deudaDeportivaTotal = deuda?.totalAdeudado ?? 0;
+
+    return {
+      persona: {
+        id: persona.id,
+        nombre: persona.nombre,
+        apellido: persona.apellido,
+        dni: persona.dni,
+        fechaNacimiento: persona.fechaNacimiento,
+        genero: persona.genero,
+        activo: persona.activo,
+      },
+      tieneDeuda: deudaDeportivaTotal > 0,
+      estadoDeuda: deuda?.estadoDeuda ?? 'AL_DIA',
+      deudaDeportivaTotal,
+      cuotasPendientes: deuda?.cuotasPendientes ?? [],
+      inscripcionesAnteriores,
+    };
+  }
+
+  /**
    * US-07: Reactivar a un participante dado de baja.
    *
-   * Es la única vía para que un participante inactivo vuelva a participar:
-   * inscribirlo mientras está dado de baja se rechaza (ver `create`). Solo
-   * cambia el estado del participante y lo audita; las disciplinas no se
-   * re-inscriben solas: cada nueva inscripción tiene su propio flujo (y su
-   * propia auditoría REACTIVAR de la fila de inscripción).
+   * Si recibe `disciplinas`, reactiva o crea cada inscripción dentro de la misma
+   * transacción atómica (validando disciplina, categoría y restricciones).
    */
-  async activarParticipante(personaId: number, responsableId: number) {
+  async activarParticipante(
+    personaId: number,
+    responsableId: number,
+    dto?: ActivarParticipanteDto,
+  ) {
     const persona = await this.prisma.persona.findUnique({ where: { id: personaId } });
     if (!persona) {
       throw new NotFoundException('Participante no encontrado');
     }
 
-    if (persona.activo !== false) {
+    const disciplinasSolicitadas = dto?.disciplinas ?? [];
+    if (persona.activo !== false && disciplinasSolicitadas.length === 0) {
       throw new BadRequestException('El participante ya está activo');
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.persona.update({ where: { id: personaId }, data: { activo: true } });
+    const disciplinasActivadas: number[] = [];
 
-      await this.auditoria.registrar(
-        {
-          accion: 'REACTIVAR',
-          entidad: 'Persona',
-          idEntidad: personaId,
-          detalle: `Reactivación del participante ${persona.apellido} ${persona.nombre}, DNI ${persona.dni}`,
-          responsableId,
-        },
-        tx,
-      );
+    await this.prisma.$transaction(async (tx) => {
+      if (persona.activo === false) {
+        await tx.persona.update({ where: { id: personaId }, data: { activo: true } });
+
+        await this.auditoria.registrar(
+          {
+            accion: 'REACTIVAR',
+            entidad: 'Persona',
+            idEntidad: personaId,
+            detalle: `Reactivación del participante ${persona.apellido} ${persona.nombre}, DNI ${persona.dni}`,
+            responsableId,
+          },
+          tx,
+        );
+      }
+
+      const ahora = new Date();
+      for (const item of disciplinasSolicitadas) {
+        const disciplina = await tx.disciplina.findUnique({
+          where: { id: item.disciplinaId },
+          include: { categorias: { where: { activo: true } } },
+        });
+        if (!disciplina || !disciplina.activo) {
+          throw new NotFoundException('Disciplina no encontrada o inactiva');
+        }
+
+        const categoria = item.categoriaDisciplinaId
+          ? disciplina.categorias.find((c) => c.id === item.categoriaDisciplinaId)
+          : undefined;
+        if (item.categoriaDisciplinaId && !categoria) {
+          throw new BadRequestException(
+            'La categoría indicada no pertenece a esta disciplina o no está activa',
+          );
+        }
+        if (!item.categoriaDisciplinaId && disciplina.categorias.length > 0) {
+          throw new BadRequestException(
+            `Debe seleccionar una categoría para la disciplina ${disciplina.nombre}`,
+          );
+        }
+
+        this.validarRestricciones(persona, disciplina, categoria);
+
+        const existente = await tx.inscripcion.findUnique({
+          where: {
+            personaId_disciplinaId: { personaId, disciplinaId: item.disciplinaId },
+          },
+        });
+
+        if (existente?.activo) {
+          throw new ConflictException(
+            `El participante ya está inscripto en ${disciplina.nombre}`,
+          );
+        }
+
+        if (existente) {
+          const reactivada = await tx.inscripcion.update({
+            where: { id: existente.id },
+            data: {
+              activo: true,
+              fechaInscripcion: ahora,
+              fechaBaja: null,
+              requisitosDesde: null,
+              categoriaDisciplinaId: item.categoriaDisciplinaId ?? null,
+            },
+          });
+          await abrirPeriodo(tx, reactivada.id, ahora);
+          await this.auditoria.registrar(
+            {
+              accion: 'REACTIVAR',
+              entidad: 'Inscripcion',
+              idEntidad: reactivada.id,
+              detalle: `Re-inscripción de ${persona.apellido} ${persona.nombre}, ${persona.dni} en la disciplina ${disciplina.nombre}`,
+              responsableId,
+            },
+            tx,
+          );
+          disciplinasActivadas.push(reactivada.id);
+        } else {
+          const nueva = await tx.inscripcion.create({
+            data: {
+              personaId,
+              disciplinaId: item.disciplinaId,
+              categoriaDisciplinaId: item.categoriaDisciplinaId ?? null,
+            },
+          });
+          await abrirPeriodo(tx, nueva.id, nueva.fechaInscripcion ?? ahora);
+          await this.auditoria.registrar(
+            {
+              accion: 'CREAR',
+              entidad: 'Inscripcion',
+              idEntidad: nueva.id,
+              detalle: `Inscripción de ${persona.apellido} ${persona.nombre}, ${persona.dni} en la disciplina ${disciplina.nombre}`,
+              responsableId,
+            },
+            tx,
+          );
+          disciplinasActivadas.push(nueva.id);
+        }
+      }
     });
 
-    return { personaId, activo: true };
+    return { personaId, activo: true, disciplinasActivadas };
   }
 
   /**

@@ -355,9 +355,27 @@ export class PagosDeportivosService {
       ];
     });
 
-    const clave = (m: (typeof items)[number]) =>
-      ordenarPor === CriterioOrdenMorosos.PERIODOS ? m.cantidadPeriodos : m.montoTotalDeuda;
-    items.sort((a, b) => (orden === SentidoOrden.ASC ? clave(a) - clave(b) : clave(b) - clave(a)));
+    items.sort((a, b) => {
+      let comparacion = 0;
+
+      switch (ordenarPor) {
+        case CriterioOrdenMorosos.PERIODOS:
+          comparacion = a.cantidadPeriodos - b.cantidadPeriodos;
+          break;
+        case CriterioOrdenMorosos.NOMBRE:
+          comparacion = `${a.apellido} ${a.nombre}`.localeCompare(`${b.apellido} ${b.nombre}`, 'es');
+          break;
+        case CriterioOrdenMorosos.DNI:
+          comparacion = (a.dni ?? '').localeCompare(b.dni ?? '', 'es', { numeric: true });
+          break;
+        case CriterioOrdenMorosos.MONTO:
+        default:
+          comparacion = a.montoTotalDeuda - b.montoTotalDeuda;
+          break;
+      }
+
+      return orden === SentidoOrden.ASC ? comparacion : -comparacion;
+    });
 
     const total = items.length;
     const deudaTotal = redondear(items.reduce((s, m) => s + m.montoTotalDeuda, 0));
