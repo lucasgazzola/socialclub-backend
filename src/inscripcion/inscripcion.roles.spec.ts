@@ -77,6 +77,8 @@ describe('DT-16 · InscripcionController · control de acceso', () => {
         'POST /inscripcion/solicitar': InscripcionController.prototype.solicitar,
         'GET /inscripcion/catalogo': InscripcionController.prototype.catalogo,
         'GET /inscripcion/mis-solicitudes': InscripcionController.prototype.misSolicitudes,
+        'PATCH /inscripcion/solicitudes/:id/cancelar':
+          InscripcionController.prototype.cancelarSolicitud,
       }).map(([ruta, handler]) => [
         ruta,
         reflector.getAllAndOverride<string[]>('roles', [handler, InscripcionController]) ?? null,
@@ -98,6 +100,7 @@ describe('DT-16 · InscripcionController · control de acceso', () => {
       'POST /inscripcion/solicitar': null,
       'GET /inscripcion/catalogo': null,
       'GET /inscripcion/mis-solicitudes': null,
+      'PATCH /inscripcion/solicitudes/:id/cancelar': null,
     });
   });
 
