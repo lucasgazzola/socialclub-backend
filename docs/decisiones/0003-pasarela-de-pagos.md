@@ -2,7 +2,7 @@
 
 - **Estado:** Aceptada
 - **Fecha:** 31/10/2026 · **TASK-51** · DT-31 (compra real de entradas), DT-35 (autoservicio)
-- **Código:** `src/pasarela/` · acreditadores en `src/pagos/` y `src/entradas/`
+- **Código:** `src/pasarela/` · acreditadores en `src/pagos/`, `src/entradas/` y `src/reservas/`
 
 ## Contexto
 
@@ -39,6 +39,7 @@ PasarelaService (Facade) ──── tabla ordenes_pago (orden primero, idempot
    │                    │
    │                    └─ ACREDITADORES (Registry por @Acreditador())
    │                         ├─ CuotaSocialAcreditador   (src/pagos)
+   │                         ├─ CuotaDeportivaAcreditador (src/pagos)
    │                         └─ EntradasAcreditador      (src/entradas)
    ▼
 PasarelaPago (interfaz, token PASARELA_PAGO)

@@ -75,5 +75,5 @@ Los endpoints públicos reciben el token en el body (`POST`), no en la URL de la
 - Las cuentas creadas por el club ya no tienen una contraseña elegida por otro, y todo email que entra al sistema fue confirmado por su dueño.
 - La tabla `tokens_usuario` sirve también para el **recupero de contraseña**: es sumar el tipo `RECUPERO` y otra plantilla.
 - Si la persona **no recibe el email** (SMTP sin configurar o caído), queda pendiente hasta que se reenvíe. La grilla de usuarios lo muestra.
-- **Pendiente:** si el administrador cambia el email de una cuenta ya verificada, hoy no se vuelve a verificar. Queda para una tarea aparte.
+- **Pendiente ([DT-59](../DEUDA-TECNICA.md#dt-59--cambiar-el-email-no-vuelve-a-verificarlo)):** si el administrador o el socio cambian un email ya verificado, hoy no se vuelve a verificar.
 - Los usuarios del seed nacen verificados para seguir entrando con `Admin123!`.

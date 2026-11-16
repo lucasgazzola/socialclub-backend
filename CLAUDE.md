@@ -13,7 +13,8 @@ Repo hermano: `socialclub-frontend` (SPA React que consume esta API).
 - Tests: **Jest** (unitarios con dependencias mockeadas) + supertest (e2e).
 
 ## Arquitectura y convenciones de código
-- **Un módulo por dominio** (`auth`, `usuarios`, `socios`, `categorias`, `disciplinas`, `cuotas`, `eventos`, `entradas`, `auditoria`, `alertas`). Escalabilidad modular.
+- **Un módulo por dominio** (`auth`, `usuarios`, `socios`, `categorias`, `disciplinas`, `cuotas`, `eventos`, `entradas`, `inscripcion`, `auditoria`, `alertas`). Escalabilidad modular.
+- **Solicitudes de inscripción (US-63 a US-66, en `dev` desde el 16/11/2026):** la persona pide, consulta las propias, cancela y adjunta documentación. ADMIN y DELEGADO listan, aprueban o rechazan (`/inscripcion/solicitudes`). Aprobar crea o reactiva la inscripción y genera la cuota deportiva. Cancelar una ya aprobada da de baja la inscripción. El aviso por email al socio sigue en DT-36.
 - **Avisos a usuarios: siempre por `NotificacionesService`** (`src/notificaciones/`, facade + canales + outbox). No enviar emails desde un módulo de dominio: se escribe una plantilla (`PlantillaEmail`) y se llama a `notificar`. Ver `docs/decisiones/0001-servicio-de-notificaciones.md`.
 - **Procesos automáticos: siempre como tarea de `TareasService`** (`src/tareas/`). Nada de `@nestjs/schedule` ni endpoints con token propios: la API escala a cero. Se crea una clase `@Tarea()` en el módulo de dominio y su `cron` en `.github/workflows/tareas-automaticas.yml`. Ver `docs/decisiones/0002-servicio-de-tareas-automaticas.md`.
 - **Cobros online: siempre por `PasarelaService`** (`src/pasarela/`, interfaces `PasarelaPago` + `AcreditadorCobro`). Nunca acreditar un pago sin que la pasarela lo confirme ni llamar a Mercado Pago desde un dominio: el dominio cotiza, llama a `iniciarCobro` y aporta un `@Acreditador()`. Sin `MP_ACCESS_TOKEN` corre la pasarela simulada. Ver `docs/decisiones/0003-pasarela-de-pagos.md`.
