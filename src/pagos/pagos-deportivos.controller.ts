@@ -64,6 +64,23 @@ export class PagosDeportivosController {
     return this.pagosDeportivosService.getMisPendientes(user.id);
   }
 
+  @Get('mias/historial')
+  // El titular puede consultar únicamente su propio historial.
+  @ApiOperation({
+    summary: 'Historial de cuotas deportivas de la persona autenticada',
+  })
+  @ApiOkResponse({ description: 'Historial de pagos deportivos propio' })
+  @ApiErrores({
+    401: 'Unauthorized',
+    404: 'No se encontró una ficha de persona asociada al usuario',
+  })
+  getMiHistorial(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: HistorialDeportivoQueryDto,
+  ) {
+    return this.pagosDeportivosService.getMiHistorial(user.id, query);
+  }
+
   @Post('checkout')
   // DT-62: sin @Roles. Cualquier titular con sesión paga lo propio (como
   // /documentacion/mi-documentacion): el registro público crea cuentas sin rol.

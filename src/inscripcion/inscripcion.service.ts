@@ -1028,9 +1028,7 @@ export class InscripcionService {
         });
 
         if (existente?.activo) {
-          throw new ConflictException(
-            `El participante ya está inscripto en ${disciplina.nombre}`,
-          );
+          throw new ConflictException(`El participante ya está inscripto en ${disciplina.nombre}`);
         }
 
         if (existente) {
@@ -1625,7 +1623,16 @@ export class InscripcionService {
           include: {
             membresias: { where: { activo: true } },
             inscripciones: { where: { activo: true } },
-            solicitudesInscripcion: { where: { estado: EstadoSolicitudInscripcion.PENDIENTE } },
+            solicitudesInscripcion: {
+              where: {
+                estado: {
+                  in: [
+                    EstadoSolicitudInscripcion.PENDIENTE,
+                    EstadoSolicitudInscripcion.PENDIENTE_DOCUMENTACION,
+                  ],
+                },
+              },
+            },
           },
         },
       },
@@ -1822,7 +1829,12 @@ export class InscripcionService {
       where: {
         personaId: persona.id,
         disciplinaId: disciplina.id,
-        estado: EstadoSolicitudInscripcion.PENDIENTE,
+        estado: {
+          in: [
+            EstadoSolicitudInscripcion.PENDIENTE,
+            EstadoSolicitudInscripcion.PENDIENTE_DOCUMENTACION,
+          ],
+        },
       },
     });
     if (solicitudPendiente) {
@@ -1963,6 +1975,15 @@ export class InscripcionService {
    */
   async listarSolicitudes(query: FindSolicitudesInscripcionQueryDto = {}) {
     const estadoFiltro = query.estado ?? EstadoSolicitudInscripcion.PENDIENTE;
+    const estadosSolicitudes =
+      estadoFiltro === EstadoSolicitudInscripcion.PENDIENTE
+        ? {
+            in: [
+              EstadoSolicitudInscripcion.PENDIENTE,
+              EstadoSolicitudInscripcion.PENDIENTE_DOCUMENTACION,
+            ],
+          }
+        : estadoFiltro;
     const termino = query.busqueda?.trim();
     const soloDigitos = termino ? termino.replace(/\D/g, '') : '';
     const palabras = termino ? termino.split(/[\s,]+/).filter(Boolean) : [];
@@ -1992,7 +2013,7 @@ export class InscripcionService {
 
     const solicitudes = await this.prisma.solicitudInscripcion.findMany({
       where: {
-        estado: estadoFiltro,
+        estado: estadosSolicitudes,
         ...(query.disciplinaId ? { disciplinaId: query.disciplinaId } : {}),
         ...(condicionesPersona.length > 0 ? { persona: { OR: condicionesPersona } } : {}),
       },
@@ -2042,6 +2063,32 @@ export class InscripcionService {
           s.personaId,
         );
         const documentos = previsualizacion?.documentos ?? [];
+        const documentosConArchivo = documentos.length
+          ? await this.prisma.documentacion.findMany({
+              where: {
+                personaId: s.personaId,
+                tipoDocumento: { in: documentos.map((d) => d.tipoDocumento) },
+                archivoRuta: { not: null },
+              },
+              select: { id: true, tipoDocumento: true, creadoEn: true },
+              orderBy: { creadoEn: 'desc' },
+            })
+          : [];
+        const archivoPorTipo = new Map<
+          TipoDocumentacionDisciplina,
+          (typeof documentosConArchivo)[number]
+        >();
+        for (const documento of documentosConArchivo) {
+          if (!documento.tipoDocumento) continue;
+          if (!archivoPorTipo.has(documento.tipoDocumento)) {
+            archivoPorTipo.set(documento.tipoDocumento, documento);
+          }
+        }
+        const documentosConEnlace = documentos.map((documento) => ({
+          ...documento,
+          // El ID documental solo se expone como enlace si el registro tiene archivo.
+          documentoId: archivoPorTipo.get(documento.tipoDocumento)?.id ?? null,
+        }));
         const requiereDocumentacion = documentos.length > 0;
         const faltantes = documentos
           .filter((d) => d.estado === 'FALTANTE' || d.estado === 'VENCIDO')
@@ -2055,7 +2102,7 @@ export class InscripcionService {
             estado: estadoResultante,
             completa,
             requiereDocumentacion,
-            documentos,
+            documentos: documentosConEnlace,
             faltantes,
             motivos: previsualizacion?.motivos ?? [],
           },

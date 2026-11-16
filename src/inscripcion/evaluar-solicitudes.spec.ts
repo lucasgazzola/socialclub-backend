@@ -33,6 +33,9 @@ describe('US-66 — Evaluar solicitudes de inscripción a una disciplina', () =>
       configuracionCuotaDeportiva: {
         findMany: jest.fn(),
       },
+      documentacion: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       membresia: {
         findFirst: jest.fn(),
       },
@@ -159,7 +162,12 @@ describe('US-66 — Evaluar solicitudes de inscripción a una disciplina', () =>
       expect(prismaMock.solicitudInscripcion.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
-            estado: EstadoSolicitudInscripcion.PENDIENTE,
+            estado: {
+              in: [
+                EstadoSolicitudInscripcion.PENDIENTE,
+                EstadoSolicitudInscripcion.PENDIENTE_DOCUMENTACION,
+              ],
+            },
           },
           orderBy: { fechaSolicitud: 'asc' },
         }),
@@ -194,7 +202,12 @@ describe('US-66 — Evaluar solicitudes de inscripción a una disciplina', () =>
       expect(prismaMock.solicitudInscripcion.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
-            estado: EstadoSolicitudInscripcion.PENDIENTE,
+            estado: {
+              in: [
+                EstadoSolicitudInscripcion.PENDIENTE,
+                EstadoSolicitudInscripcion.PENDIENTE_DOCUMENTACION,
+              ],
+            },
             disciplinaId: 2,
             persona: {
               OR: expect.arrayContaining([
