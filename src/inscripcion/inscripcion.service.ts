@@ -12,6 +12,7 @@ import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
 import { SolicitarInscripcionDto } from './dto/solicitar-inscripcion.dto';
 import { CrearHabilitacionExcepcionalDto } from './dto/crear-habilitacion-excepcional.dto';
 import {
+  EstadoDocumentalFiltro,
   EstadoInscripcionFiltro,
   FindParticipantesQueryDto,
 } from './dto/find-participantes-query.dto';
@@ -882,9 +883,22 @@ export class InscripcionService {
    * Cada fila representa a un participante con todas sus disciplinas.
    */
   async findAll(query: FindParticipantesQueryDto = { pagina: 1, porPagina: 10 }) {
-    const { busqueda, disciplinaId, estado, pagina, porPagina, ordenarPor, orden } = query;
+    const { busqueda, disciplinaId, estado, estadoDocumental, pagina, porPagina, ordenarPor, orden } =
+      query;
 
     const direccion: 'asc' | 'desc' = orden?.toLowerCase() === 'desc' ? 'desc' : 'asc';
+    const campoOrden = ordenarPor?.toLowerCase();
+    // Nombre y DNI se ordenan en la base. El estado documental se calcula después
+    // de leer, así que el orden por defecto (pendientes primero) y ese filtro
+    // se resuelven sobre el conjunto completo y recién ahí se pagina.
+    const ordenaEnBase =
+      campoOrden === 'dni' ||
+      campoOrden === 'fecha' ||
+      campoOrden === 'creadoen' ||
+      campoOrden === 'nombre' ||
+      campoOrden === 'apellido' ||
+      campoOrden === 'participante';
+    const paginarEnMemoria = !ordenaEnBase || Boolean(estadoDocumental);
     let orderBy: Prisma.PersonaOrderByWithRelationInput | Prisma.PersonaOrderByWithRelationInput[];
 
     if (!ordenarPor) {
@@ -958,8 +972,7 @@ export class InscripcionService {
           },
         },
         orderBy,
-        skip: (pagina - 1) * porPagina,
-        take: porPagina,
+        ...(paginarEnMemoria ? {} : { skip: (pagina - 1) * porPagina, take: porPagina }),
       }),
       this.prisma.persona.count({ where }),
       this.prisma.persona.count({ where: whereBase }),
@@ -968,7 +981,7 @@ export class InscripcionService {
     ]);
 
     const estados = await this.estadoDocumental.porPersonas(items.map((p) => p.id));
-    const resultadoItems = items.map((p) => {
+    let resultadoItems = items.map((p) => {
       const fila = this.aParticipanteAgrupado(p);
       const resumen = estados.get(p.id);
       return {
@@ -986,31 +999,70 @@ export class InscripcionService {
       };
     });
 
-    if (ordenarPor?.toLowerCase() === 'disciplinas') {
-      resultadoItems.sort((a, b) => {
-        const cantA = a.cantidadDisciplinas ?? a.disciplinas?.length ?? 0;
-        const cantB = b.cantidadDisciplinas ?? b.disciplinas?.length ?? 0;
-        return direccion === 'asc' ? cantA - cantB : cantB - cantA;
-      });
-    } else if (ordenarPor?.toLowerCase() === 'estado') {
-      resultadoItems.sort((a, b) => {
-        const estA = a.estado === 'INSCRIPTO' ? 1 : 0;
-        const estB = b.estado === 'INSCRIPTO' ? 1 : 0;
-        return direccion === 'asc' ? estA - estB : estB - estA;
-      });
-    } else if (ordenarPor?.toLowerCase() === 'documentacion') {
-      resultadoItems.sort((a, b) => {
-        const docA = a.estadoDocumental ?? '';
-        const docB = b.estadoDocumental ?? '';
-        return direccion === 'asc'
-          ? docA.localeCompare(docB, 'es', { sensitivity: 'base' })
-          : docB.localeCompare(docA, 'es', { sensitivity: 'base' });
-      });
+    let totalPagina = total;
+    if (paginarEnMemoria) {
+      const ids = items.map((p) => p.id);
+      const enRevision = new Set(
+        ids.length
+          ? (
+              await this.prisma.documentacion.findMany({
+                where: { personaId: { in: ids }, estadoRevision: 'PENDIENTE_REVISION' },
+                select: { personaId: true },
+                distinct: ['personaId'],
+              })
+            ).map((doc) => doc.personaId)
+          : [],
+      );
+
+      if (estadoDocumental === EstadoDocumentalFiltro.PENDIENTE_APROBACION) {
+        resultadoItems = resultadoItems.filter((item) => enRevision.has(item.personaId));
+      } else if (estadoDocumental) {
+        resultadoItems = resultadoItems.filter((item) => item.estadoDocumental === estadoDocumental);
+      }
+
+      const porNombre = (a: (typeof resultadoItems)[number], b: (typeof resultadoItems)[number]) =>
+        `${a.persona.apellido} ${a.persona.nombre}`.localeCompare(
+          `${b.persona.apellido} ${b.persona.nombre}`,
+          'es',
+          { sensitivity: 'base' },
+        );
+      const prioridad = (item: (typeof resultadoItems)[number]) => {
+        if (enRevision.has(item.personaId)) return 0;
+        if (item.estadoDocumental === 'PENDIENTE') return 1;
+        if (item.estadoDocumental === 'BLOQUEADO') return 2;
+        if (item.estadoDocumental === 'HABILITADO') return 3;
+        return 4;
+      };
+
+      if (campoOrden === 'disciplinas') {
+        resultadoItems.sort((a, b) => {
+          const diff = (a.cantidadDisciplinas ?? 0) - (b.cantidadDisciplinas ?? 0);
+          return direccion === 'asc' ? diff : -diff;
+        });
+      } else if (campoOrden === 'estado') {
+        resultadoItems.sort((a, b) => {
+          const diff = (a.estado === 'INSCRIPTO' ? 1 : 0) - (b.estado === 'INSCRIPTO' ? 1 : 0);
+          return direccion === 'asc' ? diff : -diff;
+        });
+      } else if (campoOrden === 'documentacion') {
+        resultadoItems.sort((a, b) => {
+          const diff = (a.estadoDocumental ?? '').localeCompare(b.estadoDocumental ?? '', 'es', {
+            sensitivity: 'base',
+          });
+          return direccion === 'asc' ? diff : -diff;
+        });
+      } else if (!ordenaEnBase) {
+        resultadoItems.sort((a, b) => prioridad(a) - prioridad(b) || porNombre(a, b));
+      }
+
+      totalPagina = resultadoItems.length;
+      const inicio = (pagina - 1) * porPagina;
+      resultadoItems = resultadoItems.slice(inicio, inicio + porPagina);
     }
 
     return {
       items: resultadoItems,
-      total,
+      total: totalPagina,
       pagina,
       porPagina,
       counts: {

@@ -27,7 +27,7 @@ El equipo pidió:
 | Panel | `/admin/*` | ADMIN, COLABORADOR, DELEGADO | `AppLayout` (el panel de siempre) |
 
 - **Path y no subdominio.** El panel vive en `/admin` dentro del mismo deploy. No hay que tocar la cookie de sesión, el CORS ni Vercel, y en local funciona sin configurar nada. Si más adelante se quiere `admin.dominio`, alcanza con elegir el árbol de rutas según `window.location.hostname`.
-- **Lo personal vive en Mi club, también para la gestión.** Perfil, cuotas, entradas, reservas e inscripciones propias salen del menú del panel. Quien tiene un rol de gestión entra al panel, que suma un acceso «Mi club» arriba a la derecha; desde Mi club vuelve con «Ir al panel de gestión» en el menú de la cuenta.
+- **Lo personal vive en Mi club.** Perfil, cuotas, entradas, reservas e inscripciones propias salen del menú del panel. El acceso de una zona a la otra quedó acotado por [0008](0008-sin-cruce-entre-panel-y-portal.md): solo lo ve quien tiene rol de gestión y además `SOCIO`. Un admin que no es socio no tiene botón «Mi club».
 - **Redirección al ingresar:** primero, la ruta que se pidió antes del login (`state.from`, solo rutas internas). Si no hay, la que dejó pendiente el alta de socio (`volverA`, en `localStorage`, porque la verificación del email se abre en otra pestaña). Si tampoco hay, el panel para la gestión y Mi club para el resto.
 - **Rutas viejas:** `/socios`, `/mis-entradas`, etc. redirigen a su lugar nuevo (`rutaNuevaDe`) y conservan la query.
 - **Rutas que arma la API:** `/verificar-email` y `/pagos/resultado` no se movieron, porque van en los emails y en las URL de vuelta de Mercado Pago.

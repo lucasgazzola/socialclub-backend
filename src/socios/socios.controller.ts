@@ -83,7 +83,8 @@ export class SociosController {
   @Get()
   @Roles('ADMIN', 'COLABORADOR')
   @ApiOperation({
-    summary: 'US-15 — Buscar y filtrar socios (nombre, DNI, categoría, estado) con paginación',
+    summary:
+      'US-15 — Buscar y filtrar socios (nombre, DNI, categoría, estado, cuenta) con paginación. Sin orden de columna, los morosos van primero.',
   })
   @ApiOkResponse({ description: 'Página de socios' })
   @ApiErrores({

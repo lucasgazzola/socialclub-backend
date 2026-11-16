@@ -2,6 +2,7 @@ import {
   cuotaVencida,
   DIA_VENCIMIENTO_CUOTA_DEPORTIVA,
   fechaVencimiento,
+  periodosVencidosImpagos,
 } from './vencimiento-cuota-deportiva';
 
 /** US-23 · La cuota deportiva de un mes vence el día 10 de ese mes. */
@@ -25,5 +26,13 @@ describe('US-23 · Vencimiento de la cuota deportiva', () => {
     expect(cuotaVencida('2026-09', hoy)).toBe(true);
     expect(cuotaVencida('2025-12', hoy)).toBe(true);
     expect(cuotaVencida('2026-11', hoy)).toBe(false);
+  });
+
+  it('cuenta solo los períodos impagos que ya vencieron', () => {
+    const hoy = new Date(2026, 10, 15);
+    expect(periodosVencidosImpagos(new Date(2026, 8, 1), hoy, ['2026-09'], hoy)).toBe(2);
+    expect(periodosVencidosImpagos(new Date(2026, 8, 1), hoy, ['2026-09', '2026-10', '2026-11'], hoy)).toBe(
+      0,
+    );
   });
 });

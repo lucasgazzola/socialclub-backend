@@ -102,7 +102,7 @@ export class InscripcionController {
   @Get()
   @Roles('ADMIN', 'COLABORADOR', 'DELEGADO')
   @ApiOperation({
-    summary: 'US-08 — Buscar y filtrar participantes (nombre, disciplina, estado)',
+    summary: 'US-08 — Buscar y filtrar participantes (nombre, disciplina, estado, documentación)',
   })
   @ApiOkResponse({ description: 'Página de participantes' })
   @ApiErrores({

@@ -19,6 +19,41 @@ export function fechaVencimiento(
   return `${periodo}-${String(diaCorte).padStart(2, '0')}`;
 }
 
+/**
+ * Meses "AAAA-MM" desde el mes de `fechaInicio` hasta el mes de `fechaFin`,
+ * inclusive. Usa el calendario local del servidor, igual que
+ * `PagosService.generarPeriodosHasta`.
+ */
+export function periodosDesdeHasta(fechaInicio: Date, fechaFin: Date = new Date()): string[] {
+  const periodos: string[] = [];
+  const inicio = new Date(fechaInicio.getFullYear(), fechaInicio.getMonth(), 1);
+  const fin = new Date(fechaFin.getFullYear(), fechaFin.getMonth(), 1);
+  const actual = new Date(inicio);
+  while (actual <= fin) {
+    const mes = String(actual.getMonth() + 1).padStart(2, '0');
+    periodos.push(`${actual.getFullYear()}-${mes}`);
+    actual.setMonth(actual.getMonth() + 1);
+  }
+  return periodos;
+}
+
+/**
+ * Cuotas sociales impagas y ya vencidas de una membresía.
+ * Misma regla que el listado de morosos (US-19): el mes en curso no cuenta
+ * hasta el día 10 inclusive.
+ */
+export function periodosVencidosImpagos(
+  fechaAlta: Date,
+  fechaCorte: Date,
+  periodosPagos: Iterable<string>,
+  hoy: Date = new Date(),
+): number {
+  const pagos = new Set(periodosPagos);
+  return periodosDesdeHasta(fechaAlta, fechaCorte).filter(
+    (periodo) => !pagos.has(periodo) && cuotaVencida(periodo, hoy),
+  ).length;
+}
+
 /** true si la cuota del período ya venció a la fecha `hoy`. */
 export function cuotaVencida(
   periodo: string,

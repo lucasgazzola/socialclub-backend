@@ -3,6 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { SociosService } from './socios.service';
+import { EstadoCuentaSocioFiltro } from './dto/find-socios-query.dto';
 import { VerificacionEmailService } from '../verificacion-email/verificacion-email.service';
 
 /** DT-54: la verificación de email se prueba en su propio spec. */
@@ -966,6 +967,59 @@ describe('SociosService', () => {
         orden: 'desc',
       });
       expect(resEst.items[0].activo).toBe(true);
+    });
+
+    it('sin orden de columna pone primero a quien tiene cuotas vencidas impagas', async () => {
+      const hoy = new Date();
+      const mes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+      const alDia = {
+        id: 1,
+        nombre: 'Lucia',
+        apellido: 'Vazquez',
+        dni: '1',
+        creadoEn: new Date('2026-11-01'),
+        membresias: [
+          {
+            activo: true,
+            fechaAlta: new Date(hoy.getFullYear(), hoy.getMonth(), 1),
+            fechaBaja: null,
+            categoria: { nombre: 'General' },
+          },
+        ],
+        pagos: hoy.getDate() > 10 ? [{ periodo: mes }] : [],
+      };
+      const moroso = {
+        id: 2,
+        nombre: 'Pablo',
+        apellido: 'Sosa',
+        dni: '2',
+        creadoEn: new Date('2020-01-01'),
+        membresias: [
+          {
+            activo: true,
+            fechaAlta: new Date(2020, 0, 1),
+            fechaBaja: null,
+            categoria: { nombre: 'General' },
+          },
+        ],
+        pagos: [],
+      };
+
+      prismaMock.$transaction.mockResolvedValueOnce([[alDia, moroso], 2, 2, 2, 0]);
+      const res = await service.findAll({ pagina: 1, porPagina: 10 });
+      expect(res.items.map((item) => item.id)).toEqual([2, 1]);
+      expect(prismaMock.persona.findMany).toHaveBeenCalledWith(
+        expect.not.objectContaining({ skip: expect.anything() }),
+      );
+
+      prismaMock.$transaction.mockResolvedValueOnce([[alDia, moroso], 2, 2, 2, 0]);
+      const filtrado = await service.findAll({
+        pagina: 1,
+        porPagina: 10,
+        estadoCuenta: EstadoCuentaSocioFiltro.MOROSO,
+      });
+      expect(filtrado.items.map((item) => item.id)).toEqual([2]);
+      expect(filtrado.total).toBe(1);
     });
   });
 });

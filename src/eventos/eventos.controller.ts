@@ -105,7 +105,7 @@ export class EventosController {
   @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({
     summary:
-      'US-53 — Consultar eventos paginados con filtros opcionales (?search=, ?fechaDesde=, ?fechaHasta=, ?pagina=, ?porPagina=)',
+      'US-53 — Consultar eventos paginados (?search=, ?estado=, ?fechaDesde=, ?fechaHasta=, ?ordenar=, ?pagina=, ?porPagina=). ordenar=fecha pone primero los que siguen en curso.',
   })
   @ApiOkResponse({ description: 'Eventos visibles para el usuario' })
   @ApiErrores({ 400: VALIDACION })

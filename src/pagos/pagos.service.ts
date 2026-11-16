@@ -13,6 +13,7 @@ import { RegistrarPagoSocioDto } from './dto/registrar-pago-socio.dto';
 import {
   cuotaVencida,
   DIA_VENCIMIENTO_CUOTA_SOCIAL,
+  periodosDesdeHasta,
   fechaVencimiento,
 } from './vencimiento-cuota-deportiva';
 import {
@@ -45,25 +46,9 @@ export class PagosService {
     private readonly pasarela: PasarelaService,
   ) {}
 
-  /** Formatea una fecha o Date object a formato YYYY-MM */
-  private toPeriodo(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    return `${year}-${month}`;
-  }
-
   /** Genera lista de períodos YYYY-MM desde una fecha inicial hasta una fecha final (por defecto hoy) */
   private generarPeriodosHasta(fechaInicio: Date, fechaFin: Date = new Date()): string[] {
-    const periodos: string[] = [];
-    const inicio = new Date(fechaInicio.getFullYear(), fechaInicio.getMonth(), 1);
-    const fin = new Date(fechaFin.getFullYear(), fechaFin.getMonth(), 1);
-
-    const actual = new Date(inicio);
-    while (actual <= fin) {
-      periodos.push(this.toPeriodo(actual));
-      actual.setMonth(actual.getMonth() + 1);
-    }
-    return periodos;
+    return periodosDesdeHasta(fechaInicio, fechaFin);
   }
 
   /**

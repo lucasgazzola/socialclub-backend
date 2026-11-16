@@ -12,6 +12,17 @@ export enum EstadoInscripcionFiltro {
 }
 
 /**
+ * Estado documental del participante (US-25) más el caso de un documento
+ * subido por el titular que todavía no se aprobó (TASK-60).
+ */
+export enum EstadoDocumentalFiltro {
+  PENDIENTE_APROBACION = 'PENDIENTE_APROBACION',
+  PENDIENTE = 'PENDIENTE',
+  BLOQUEADO = 'BLOQUEADO',
+  HABILITADO = 'HABILITADO',
+}
+
+/**
  * Query params soportados por GET /inscripcion (US-08).
  * Toda la búsqueda, el filtrado y la paginación se resuelven en el backend;
  * el frontend solo debe reflejar estos parámetros en el estado de UI.
@@ -32,6 +43,14 @@ export class FindParticipantesQueryDto {
   @IsOptional()
   @IsEnum(EstadoInscripcionFiltro)
   estado?: EstadoInscripcionFiltro;
+
+  /**
+   * Filtra por el estado documental que muestra el listado.
+   * PENDIENTE_APROBACION: hay un documento del titular esperando revisión.
+   */
+  @IsOptional()
+  @IsEnum(EstadoDocumentalFiltro)
+  estadoDocumental?: EstadoDocumentalFiltro;
 
   @IsOptional()
   @Type(() => Number)
