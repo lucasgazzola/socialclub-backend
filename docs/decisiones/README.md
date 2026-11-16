@@ -13,6 +13,9 @@ no se borra; se marca como *Reemplazada por* y se escribe la nueva.
 | [0004](0004-agenda-de-espacios-y-reservas.md) | Agenda de espacios y reservas | Aceptada | 01/11/2026 |
 | [0005](0005-verificacion-de-email.md) | Verificación de email con enlace de un solo uso | Aceptada | 11/11/2026 |
 | [0006](0006-landing-mi-club-y-panel.md) | Landing pública, portal «Mi club» y panel de gestión separados | Aceptada | 15/11/2026 |
+| [0007](0007-orden-de-listados-accionables.md) | Orden de los listados que piden una acción | Aceptada | 15/11/2026 |
+| [0008](0008-sin-cruce-entre-panel-y-portal.md) | El panel y Mi club no se navegan entre sí | Aceptada | 15/11/2026 |
+| [0009](0009-venta-de-entradas-en-secretaria.md) | Venta de entradas en secretaría, a nombre de otra persona | Propuesta | 15/11/2026 |
 
 ## Formato
 
