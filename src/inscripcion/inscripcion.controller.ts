@@ -320,10 +320,11 @@ export class InscripcionController {
     403: 'No tenés permisos suficientes para esta operación',
   })
   findByPersonaId(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('personaId', ParseIntPipe) personaId: number,
     @Query('incluirBajas') incluirBajas?: string,
   ) {
-    return this.inscripcionService.findByPersonaId(personaId, incluirBajas === 'true');
+    return this.inscripcionService.findByPersonaId(personaId, incluirBajas === 'true', user);
   }
 
   @Get(':id')
@@ -333,11 +334,14 @@ export class InscripcionController {
   @ApiErrores({
     400: VALIDACION,
     401: 'Unauthorized',
-    403: 'No tenés permisos suficientes para esta operación',
+    403: [
+      'No tenés permisos suficientes para esta operación',
+      'La inscripción es de una disciplina que no tenés a cargo',
+    ],
     404: 'Inscripción no encontrada',
   })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.inscripcionService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.inscripcionService.findOne(id, user);
   }
 
   @Delete(':id')
@@ -427,10 +431,16 @@ export class InscripcionController {
   @ApiErrores({
     400: VALIDACION,
     401: 'Unauthorized',
-    403: 'No tenés permisos suficientes para esta operación',
+    403: [
+      'No tenés permisos suficientes para esta operación',
+      'La inscripción es de una disciplina que no tenés a cargo',
+    ],
     404: 'Inscripción no encontrada',
   })
-  listarHabilitacionesExcepcionales(@Param('id', ParseIntPipe) id: number) {
-    return this.inscripcionService.listarHabilitacionesExcepcionales(id);
+  listarHabilitacionesExcepcionales(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.inscripcionService.listarHabilitacionesExcepcionales(id, user);
   }
 }

@@ -8,6 +8,12 @@ estrategia de testing y su secuencia.
 - **Medido el:** 18/10/2026, sobre `dev` + TASK-46 (medición anterior: 04/10/2026)
 - **Versión navegable:** <https://claude.ai/code/artifact/b817ba9b-ac31-44c8-9dfb-c72ac923b7a3>
 
+> **Conteo al 16/11/2026** (sin medir cobertura de nuevo): backend 1313 tests
+> unitarios ✅ (+5 contra Postgres), frontend 857 ✅, E2E 41 casos ✅ en 9
+> flujos. Ese día se actualizaron cinco E2E que H13 había dejado
+> desactualizados (TC-017, TC-091, TC-162, TC-176 y TC-201). La tabla de abajo
+> sigue siendo la medición completa del 18/10.
+
 ---
 
 ## Estado al 18/10/2026

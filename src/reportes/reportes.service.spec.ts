@@ -228,6 +228,8 @@ describe('US-35 · ReportesService.estadoFinanciero', () => {
       adeudado: 50000,
       morosos: 2,
       ingresadoPorFechaDeCobro: 95000,
+      // DT-63: la cobranza sigue midiendo solo cuotas (75000 de 125000).
+      porcentajeCobranza: 60,
     });
     expect(r.porConcepto).toEqual(
       expect.arrayContaining([
@@ -242,12 +244,43 @@ describe('US-35 · ReportesService.estadoFinanciero', () => {
     ]);
   });
 
-  it('el ingreso por fecha de cobro toma los pagos con fecha dentro del rango', async () => {
+  it('el ingreso por fecha de cobro toma los pagos con fecha dentro del rango, en el huso del club', async () => {
     await service.estadoFinanciero({ desde: '2026-07', hasta: '2026-09' }, HOY);
 
-    const { where } = prisma.pago.aggregate.mock.calls[0][0];
-    expect(where.fechaPago.gte).toEqual(new Date(2026, 6, 1));
-    expect(where.fechaPago.lt).toEqual(new Date(2026, 9, 1));
+    // DT-63: 00:00 de Córdoba (UTC-3), no la hora del servidor.
+    const desde = new Date('2026-07-01T03:00:00.000Z');
+    const hasta = new Date('2026-10-01T03:00:00.000Z');
+    for (const agregado of [prisma.pago.aggregate, prisma.pagoCuotaDeportiva.aggregate]) {
+      const { where } = agregado.mock.calls[0][0];
+      expect(where.fechaPago).toEqual({ gte: desde, lt: hasta });
+    }
+  });
+
+  it('DT-63 · una entrada comprada online cuenta en el mes en que se aprobó el pago', async () => {
+    prisma.compraEntrada.findMany.mockResolvedValue([
+      {
+        montoTotal: 4000,
+        creadoEn: new Date('2026-06-30T23:50:00.000Z'),
+        ordenPago: { resueltaEn: new Date('2026-07-01T12:00:00.000Z') },
+      },
+    ]);
+
+    const r = await service.estadoFinanciero({ desde: '2026-07', hasta: '2026-07' }, HOY);
+
+    const { where } = prisma.compraEntrada.findMany.mock.calls[0][0];
+    const rango = {
+      gte: new Date('2026-07-01T03:00:00.000Z'),
+      lt: new Date('2026-08-01T03:00:00.000Z'),
+    };
+    expect(where.OR).toEqual([
+      { ordenPagoId: null, creadoEn: rango },
+      { ordenPago: { resueltaEn: rango } },
+    ]);
+    expect(r.porConcepto).toEqual(
+      expect.arrayContaining([expect.objectContaining({ concepto: 'ENTRADAS', recaudado: 4000 })]),
+    );
+    expect(r.porMes[0].periodo).toBe('2026-07');
+    expect(r.porMes[0].recaudado).toBeGreaterThanOrEqual(4000);
   });
 
   it('sin cobros ni deuda el porcentaje de cobranza es null', async () => {

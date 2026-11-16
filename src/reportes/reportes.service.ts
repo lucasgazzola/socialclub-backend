@@ -209,14 +209,20 @@ export class ReportesService {
     if (incluyeSocial) {
       const desdeInstante = inicioMesClub(desde);
       const hastaInstante = finMesClubExclusivo(hasta);
+      // DT-63: una compra online cuenta el día que la pasarela la aprobó; la de
+      // secretaría, el día que se registró.
+      const rango = { gte: desdeInstante, lt: hastaInstante };
       const compras = await this.prisma.compraEntrada.findMany({
-        where: { estado: 'APROBADA', creadoEn: { gte: desdeInstante, lt: hastaInstante } },
-        select: { montoTotal: true, creadoEn: true },
+        where: {
+          estado: 'APROBADA',
+          OR: [{ ordenPagoId: null, creadoEn: rango }, { ordenPago: { resueltaEn: rango } }],
+        },
+        select: { montoTotal: true, creadoEn: true, ordenPago: { select: { resueltaEn: true } } },
       });
       for (const c of compras) {
         const monto = Number(c.montoTotal);
         entradas.recaudado += monto;
-        const mes = porMes.get(periodoClub(c.creadoEn));
+        const mes = porMes.get(periodoClub(c.ordenPago?.resueltaEn ?? c.creadoEn));
         if (mes) mes.recaudado += monto;
       }
       const reservasCobradas = await this.prisma.reserva.findMany({
@@ -235,8 +241,8 @@ export class ReportesService {
     }
 
     // ── Caja: lo cobrado con fecha de pago dentro del rango ────────────────
-    const [anioH, mesH] = hasta.split('-').map(Number);
-    const fechas = { gte: new Date(`${desde}-01T00:00:00`), lt: new Date(anioH, mesH, 1) };
+    // DT-63: los meses se cortan en el huso del club, igual que entradas y señas.
+    const fechas = { gte: inicioMesClub(desde), lt: finMesClubExclusivo(hasta) };
     const [cajaDeportiva, cajaSocial] = await Promise.all([
       this.prisma.pagoCuotaDeportiva.aggregate({
         _sum: { monto: true },
@@ -259,6 +265,12 @@ export class ReportesService {
           social.recaudado + deportiva.recaudado + entradas.recaudado + senas.recaudado,
           social.adeudado + deportiva.adeudado,
           morosos,
+        ),
+        // DT-63: la cobranza mide cuotas. Entradas y señas no generan deuda y
+        // la inflarían.
+        porcentajeCobranza: porcentaje(
+          social.recaudado + deportiva.recaudado,
+          social.adeudado + deportiva.adeudado,
         ),
         ingresadoPorFechaDeCobro: redondear(
           Number(cajaDeportiva._sum.monto ?? 0) +

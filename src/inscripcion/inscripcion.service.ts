@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { EstadoSolicitudInscripcion, Prisma, TipoDocumentacionDisciplina } from '@prisma/client';
@@ -21,6 +22,7 @@ import {
 } from './dto/find-participantes-query.dto';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { EstadoDocumentalService } from '../documentacion/estado-documental.service';
+import { estadoGeneral } from '../documentacion/estado-documental';
 import {
   motivosDeIncumplimiento,
   restriccionesEfectivas,
@@ -981,12 +983,16 @@ export class InscripcionService {
       }
     }
 
+    // DT-61: para el delegado, «inscripto» y «baja» se miden en sus disciplinas.
+    const activaVisible: Prisma.InscripcionWhereInput = disciplinasDelegado
+      ? { activo: true, disciplinaId: { in: disciplinasDelegado } }
+      : { activo: true };
     const whereBase: Prisma.PersonaWhereInput = { AND: filtrosBase };
     const whereInscriptos: Prisma.PersonaWhereInput = {
-      AND: [...filtrosBase, { inscripciones: { some: { activo: true } } }],
+      AND: [...filtrosBase, { inscripciones: { some: activaVisible } }],
     };
     const whereBaja: Prisma.PersonaWhereInput = {
-      AND: [...filtrosBase, { inscripciones: { none: { activo: true } } }],
+      AND: [...filtrosBase, { inscripciones: { none: activaVisible } }],
     };
 
     let where: Prisma.PersonaWhereInput = whereBase;
@@ -1029,29 +1035,54 @@ export class InscripcionService {
     let resultadoItems = itemsVisibles.map((p) => {
       const fila = this.aParticipanteAgrupado(p);
       const resumen = estados.get(p.id);
+      const disciplinas = fila.disciplinas.map((d) => {
+        const detalle = resumen?.inscripciones.find((i) => i.inscripcionId === d.inscripcionId);
+        return {
+          ...d,
+          estadoDocumental: detalle?.estado ?? null,
+          motivosDocumentacion: detalle?.motivos ?? [],
+        };
+      });
       return {
         ...fila,
         // US-08/25: estado documental del participante (el peor de sus inscripciones).
-        estadoDocumental: resumen?.estado ?? null,
-        disciplinas: fila.disciplinas.map((d) => {
-          const detalle = resumen?.inscripciones.find((i) => i.inscripcionId === d.inscripcionId);
-          return {
-            ...d,
-            estadoDocumental: detalle?.estado ?? null,
-            motivosDocumentacion: detalle?.motivos ?? [],
-          };
-        }),
+        // DT-61: el delegado lo ve calculado solo con las disciplinas que tiene a cargo.
+        estadoDocumental: disciplinasDelegado
+          ? estadoGeneral(
+              disciplinas
+                .map((d) => d.estadoDocumental)
+                .filter((e): e is NonNullable<typeof e> => e != null),
+            )
+          : (resumen?.estado ?? null),
+        disciplinas,
       };
     });
 
     let totalPagina = total;
     if (paginarEnMemoria) {
       const ids = items.map((p) => p.id);
+      // DT-61: para el delegado cuentan solo los tipos que exigen sus disciplinas.
+      const tiposDelegado = disciplinasDelegado
+        ? [
+            ...new Set(
+              (
+                await this.prisma.disciplinaRequerimientoDoc.findMany({
+                  where: { disciplinaId: { in: disciplinasDelegado } },
+                  select: { tipoDocumento: true },
+                })
+              ).map((r) => r.tipoDocumento),
+            ),
+          ]
+        : null;
       const enRevision = new Set(
-        ids.length
+        ids.length && (!tiposDelegado || tiposDelegado.length)
           ? (
               await this.prisma.documentacion.findMany({
-                where: { personaId: { in: ids }, estadoRevision: 'PENDIENTE_REVISION' },
+                where: {
+                  personaId: { in: ids },
+                  estadoRevision: 'PENDIENTE_REVISION',
+                  ...(tiposDelegado ? { tipoDocumento: { in: tiposDelegado } } : {}),
+                },
                 select: { personaId: true },
                 distinct: ['personaId'],
               })
@@ -1120,6 +1151,17 @@ export class InscripcionService {
     };
   }
 
+  /** DT-61: un delegado solo consulta inscripciones de las disciplinas que tiene a cargo. */
+  private async exigirDisciplinaACargo(
+    usuario: { id: number; roles: readonly string[] } | undefined,
+    disciplinaId: number,
+  ) {
+    const disciplinasDelegado = await this.disciplinasDeDelegado(usuario);
+    if (disciplinasDelegado && !disciplinasDelegado.includes(disciplinaId)) {
+      throw new ForbiddenException('La inscripción es de una disciplina que no tenés a cargo');
+    }
+  }
+
   /**
    * Disciplinas a cargo de un delegado. `null` si el usuario ve todo el padrón
    * (sin usuario en los tests, o con rol ADMIN o COLABORADOR).
@@ -1145,9 +1187,19 @@ export class InscripcionService {
    * de baja (US-07): sigue siendo participante aunque no tenga disciplinas
    * activas.
    */
-  async findByPersonaId(personaId: number, incluirBajas = false) {
+  async findByPersonaId(
+    personaId: number,
+    incluirBajas = false,
+    usuario?: { id: number; roles: readonly string[] },
+  ) {
+    // DT-61: el delegado ve solo las inscripciones de sus disciplinas.
+    const disciplinasDelegado = await this.disciplinasDeDelegado(usuario);
     return this.prisma.inscripcion.findMany({
-      where: incluirBajas ? { personaId } : { personaId, activo: true },
+      where: {
+        personaId,
+        ...(incluirBajas ? {} : { activo: true }),
+        ...(disciplinasDelegado ? { disciplinaId: { in: disciplinasDelegado } } : {}),
+      },
       include: {
         persona: true,
         disciplina: true,
@@ -1157,7 +1209,7 @@ export class InscripcionService {
     });
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, usuario?: { id: number; roles: readonly string[] }) {
     const inscripcion = await this.prisma.inscripcion.findUnique({
       where: { id },
       include: {
@@ -1169,6 +1221,7 @@ export class InscripcionService {
     if (!inscripcion) {
       throw new NotFoundException('Inscripción no encontrada');
     }
+    await this.exigirDisciplinaACargo(usuario, inscripcion.disciplinaId);
     const estadoDocumental = inscripcion.activo
       ? await this.estadoDocumentalDe(inscripcion.personaId, inscripcion.id)
       : null;
@@ -1305,12 +1358,16 @@ export class InscripcionService {
   /**
    * Listar las habilitaciones excepcionales registradas para una inscripción (US-28).
    */
-  async listarHabilitacionesExcepcionales(inscripcionId: number) {
+  async listarHabilitacionesExcepcionales(
+    inscripcionId: number,
+    usuario?: { id: number; roles: readonly string[] },
+  ) {
     const inscripcion = await this.prisma.inscripcion.findUnique({
       where: { id: inscripcionId },
-      select: { id: true },
+      select: { id: true, disciplinaId: true },
     });
     if (!inscripcion) throw new NotFoundException('Inscripción no encontrada');
+    await this.exigirDisciplinaACargo(usuario, inscripcion.disciplinaId);
 
     return this.prisma.habilitacionExcepcional.findMany({
       where: { inscripcionId },

@@ -1,5 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
@@ -541,6 +546,130 @@ describe('InscripcionService', () => {
       await service.findAll({ pagina: 1, porPagina: 10 }, { id: 1, roles: ['ADMIN'] });
 
       expect(mockPrisma.delegadoDisciplina.findMany).not.toHaveBeenCalled();
+    });
+
+    describe('DT-61 · el delegado ve el estado documental de sus disciplinas', () => {
+      const delegado = { id: 4, roles: ['DELEGADO'] };
+
+      beforeEach(() => {
+        mockPrisma.delegadoDisciplina.findMany.mockResolvedValue([{ disciplinaId: 1 }]);
+        mockPrisma.persona.findMany.mockResolvedValue([participanteDosDisciplinas]);
+        mockPrisma.persona.count.mockResolvedValue(1);
+        // Futbol habilitado, Voley (ajena) bloqueado: el resumen general es BLOQUEADO.
+        mockEstadoDocumental.porPersonas.mockResolvedValueOnce(
+          new Map([
+            [
+              10,
+              {
+                estado: 'BLOQUEADO',
+                inscripciones: [
+                  { inscripcionId: 1, estado: 'HABILITADO', motivos: [] },
+                  { inscripcionId: 2, estado: 'BLOQUEADO', motivos: ['DNI: vencido'] },
+                ],
+              },
+            ],
+          ]),
+        );
+      });
+
+      it('la fila toma el estado solo de las disciplinas a cargo', async () => {
+        const result = await service.findAll({ pagina: 1, porPagina: 10 }, delegado);
+
+        expect(result.items[0].estadoDocumental).toBe('HABILITADO');
+      });
+
+      it('el filtro por estado usa ese mismo estado', async () => {
+        mockPrisma.disciplinaRequerimientoDoc.findMany.mockResolvedValue([]);
+
+        const bloqueados = await service.findAll(
+          { pagina: 1, porPagina: 10, estadoDocumental: 'BLOQUEADO' as never },
+          delegado,
+        );
+
+        expect(bloqueados.items).toHaveLength(0);
+      });
+
+      it('«pendiente de aprobación» cuenta solo los tipos que exigen sus disciplinas', async () => {
+        mockPrisma.disciplinaRequerimientoDoc.findMany.mockResolvedValue([
+          { tipoDocumento: 'CERTIFICADO_MEDICO_APTITUD_FISICA' },
+        ]);
+        mockPrisma.documentacion.findMany.mockResolvedValue([]);
+
+        await service.findAll({ pagina: 1, porPagina: 10 }, delegado);
+
+        expect(mockPrisma.disciplinaRequerimientoDoc.findMany).toHaveBeenCalledWith({
+          where: { disciplinaId: { in: [1] } },
+          select: { tipoDocumento: true },
+        });
+        expect(mockPrisma.documentacion.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              tipoDocumento: { in: ['CERTIFICADO_MEDICO_APTITUD_FISICA'] },
+            }),
+          }),
+        );
+      });
+
+      it('las pestañas Inscriptos y Baja miran solo sus disciplinas', async () => {
+        mockPrisma.disciplinaRequerimientoDoc.findMany.mockResolvedValue([]);
+
+        await service.findAll({ pagina: 1, porPagina: 10 }, delegado);
+
+        const activa = { activo: true, disciplinaId: { in: [1] } };
+        const wheres = mockPrisma.persona.count.mock.calls.map(
+          (c: [{ where: { AND: unknown[] } }]) => c[0].where.AND,
+        );
+        expect(wheres).toEqual(
+          expect.arrayContaining([
+            expect.arrayContaining([{ inscripciones: { some: activa } }]),
+            expect.arrayContaining([{ inscripciones: { none: activa } }]),
+          ]),
+        );
+      });
+    });
+
+    describe('DT-61 · consultas por id del delegado', () => {
+      const delegado = { id: 4, roles: ['DELEGADO'] };
+
+      beforeEach(() => {
+        mockPrisma.delegadoDisciplina.findMany.mockResolvedValue([{ disciplinaId: 1 }]);
+      });
+
+      it('las inscripciones de una persona se acotan a sus disciplinas', async () => {
+        mockPrisma.inscripcion.findMany.mockResolvedValue([]);
+
+        await service.findByPersonaId(10, true, delegado);
+
+        expect(mockPrisma.inscripcion.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({ where: { personaId: 10, disciplinaId: { in: [1] } } }),
+        );
+      });
+
+      it('un admin ve todas las inscripciones de la persona', async () => {
+        mockPrisma.inscripcion.findMany.mockResolvedValue([]);
+
+        await service.findByPersonaId(10, false, { id: 1, roles: ['ADMIN'] });
+
+        expect(mockPrisma.inscripcion.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({ where: { personaId: 10, activo: true } }),
+        );
+      });
+
+      it('rechaza el detalle de una inscripción de otra disciplina', async () => {
+        mockPrisma.inscripcion.findUnique.mockResolvedValue({ ...inscripcionVoley, persona: personaBase });
+
+        await expect(service.findOne(2, delegado)).rejects.toThrow(
+          'La inscripción es de una disciplina que no tenés a cargo',
+        );
+      });
+
+      it('rechaza las habilitaciones excepcionales de otra disciplina', async () => {
+        mockPrisma.inscripcion.findUnique.mockResolvedValue({ id: 2, disciplinaId: 2 });
+
+        await expect(service.listarHabilitacionesExcepcionales(2, delegado)).rejects.toThrow(
+          ForbiddenException,
+        );
+      });
     });
 
     it('TC-230 (TC-0801): busca por coincidencia parcial y agrupa por participante', async () => {

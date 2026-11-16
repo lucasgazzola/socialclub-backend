@@ -186,6 +186,9 @@ export class UsuariosService {
         OR: [
           { nombre: { contains: t, mode: 'insensitive' } },
           { apellido: { contains: t, mode: 'insensitive' } },
+          // El buscador promete DNI; el email ayuda a ubicar una cuenta puntual.
+          { persona: { dni: { contains: t } } },
+          { email: { contains: t, mode: 'insensitive' } },
         ],
       }));
     }

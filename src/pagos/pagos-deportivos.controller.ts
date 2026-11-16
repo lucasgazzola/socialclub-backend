@@ -50,14 +50,14 @@ export class PagosDeportivosController {
   }
 
   @Get('mias')
-  @Roles('SOCIO', 'ADMIN', 'COLABORADOR', 'DELEGADO')
+  // DT-62: sin @Roles. Cualquier titular con sesión paga lo propio (como
+  // /documentacion/mi-documentacion): el registro público crea cuentas sin rol.
   @ApiOperation({
     summary: 'DT-35 — Cuotas deportivas pendientes de la persona autenticada',
   })
   @ApiOkResponse({ description: 'Cuotas deportivas pendientes de quien está logueado' })
   @ApiErrores({
     401: 'Unauthorized',
-    403: 'No tenés permisos suficientes para esta operación',
     404: 'No se encontró una ficha de persona asociada al usuario',
   })
   getMias(@CurrentUser() user: AuthenticatedUser) {
@@ -65,7 +65,8 @@ export class PagosDeportivosController {
   }
 
   @Post('checkout')
-  @Roles('SOCIO', 'ADMIN', 'COLABORADOR', 'DELEGADO')
+  // DT-62: sin @Roles. Cualquier titular con sesión paga lo propio (como
+  // /documentacion/mi-documentacion): el registro público crea cuentas sin rol.
   @ApiOperation({
     summary:
       'DT-35 — Iniciar el pago online de cuotas deportivas propias (devuelve la URL de la pasarela)',
@@ -80,7 +81,6 @@ export class PagosDeportivosController {
       'No hay una tarifa configurada para … en el período …',
     ],
     401: 'Unauthorized',
-    403: 'No tenés permisos suficientes para esta operación',
     404: 'No se encontró una ficha de persona asociada al usuario',
     409: 'No es posible procesar el pago: el/los período(s) […] ya figuran como pagados.',
     502: 'La pasarela de pagos no respondió. Intentá nuevamente.',

@@ -46,7 +46,7 @@ describe('US-21 · PagosDeportivosController · control de acceso', () => {
     });
   });
 
-  describe('DT-35 · GET /mias y POST /checkout (la persona paga lo propio)', () => {
+  describe('DT-35 · DT-62 · GET /mias y POST /checkout (la persona paga lo propio)', () => {
     const propios = {
       'GET /pagos-deportivos/mias': PagosDeportivosController.prototype.getMias,
       'POST /pagos-deportivos/checkout': PagosDeportivosController.prototype.iniciarPagoOnline,
@@ -59,6 +59,13 @@ describe('US-21 · PagosDeportivosController · control de acceso', () => {
     it.each(Object.entries(propios))('%s permite a un DELEGADO', (_ruta, handler) => {
       expect(guard.canActivate(contextoPara(handler, ['DELEGADO']))).toBe(true);
     });
+
+    it.each(Object.entries(propios))(
+      '%s permite a una cuenta sin roles (participante que no es socio)',
+      (_ruta, handler) => {
+        expect(guard.canActivate(contextoPara(handler, []))).toBe(true);
+      },
+    );
   });
 
   it('ningún endpoint queda sin roles declarados', () => {

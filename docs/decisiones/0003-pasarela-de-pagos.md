@@ -40,7 +40,8 @@ PasarelaService (Facade) ──── tabla ordenes_pago (orden primero, idempot
    │                    └─ ACREDITADORES (Registry por @Acreditador())
    │                         ├─ CuotaSocialAcreditador   (src/pagos)
    │                         ├─ CuotaDeportivaAcreditador (src/pagos)
-   │                         └─ EntradasAcreditador      (src/entradas)
+   │                         ├─ EntradasAcreditador      (src/entradas)
+   │                         └─ ReservaAcreditador       (src/reservas)
    ▼
 PasarelaPago (interfaz, token PASARELA_PAGO)
    ├─ PasarelaMercadoPago  (Checkout Pro, API REST con fetch)
@@ -112,7 +113,7 @@ PasarelaPago (interfaz, token PASARELA_PAGO)
 **A favor**
 
 - Cambiar de pasarela es implementar `PasarelaPago` y registrarla en `elegirPasarela`. Los dominios y el front no cambian (el front solo redirige a `urlPago`).
-- Un cobro nuevo (seña de reservas, cuota deportiva del socio, merchandising) es un endpoint de checkout en su dominio y un `@Acreditador()`.
+- Un cobro nuevo es un endpoint de checkout en su dominio y un `@Acreditador()`. Así se sumaron la seña de reservas (US-60) y la cuota deportiva desde Mi club (DT-35: `GET /pagos-deportivos/mias` y `POST /pagos-deportivos/checkout`, abiertos desde DT-62 a cualquier titular con sesión, sea socio o no). Merchandising entraría igual.
 - Nadie puede acreditar sin pagar, y ningún pago aprobado se pierde: queda acreditado o en `REQUIERE_REVISION`, siempre auditado.
 - Los E2E prueban el circuito completo con la pasarela simulada.
 
