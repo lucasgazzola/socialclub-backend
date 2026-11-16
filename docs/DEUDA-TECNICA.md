@@ -5,7 +5,7 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
 `socialclub-frontend`).
 
 - **Equipo:** Nullpointer
-- **Última actualización:** 16/11/2026 (revisión de la rama `fix/correcciones-prueba-integral`: DT-60, DT-61, DT-62 y DT-63 nuevas); 16/11/2026 (DT-35 resuelta: el socio paga la cuota deportiva desde Mi club; DT-29 resuelta: US-65 y US-66 en `dev`; DT-59 resuelta: cambiar el email vuelve a verificarlo); 15/11/2026 (DT-54 y DT-51 pasadas a resueltas; DT-59 nueva por el email que se cambia sin re-verificar; DT-27 y DT-29 alineadas con el código); 16/11/2026 (TASK-60 · integración del portal de socios y documentación con revisión: DT-58 resuelta); 15/11/2026 (TASK-60 · landing, Mi club y panel separados: DT-57 resuelta, DT-58 nueva); 02/11/2026 (devolución del profesor en la 3ra reunión: DT-54, DT-55, DT-56 y DT-57 nuevas); 01/11/2026 (TASK-57 · DT-46 y DT-47: error en formulario de usuario y formato de DNI unificado; TASK-56 · DT-06, DT-09, DT-36: confirmación de compra de entradas y actualización de deuda técnica; US-60/61/62 · reservas, DT-53 nueva; registro DT-50, DT-51 y DT-52; TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
+- **Última actualización:** 16/11/2026 (DT-61 y DT-63 resueltas; DT-62 con opciones para decidir); 16/11/2026 (revisión de la rama `fix/correcciones-prueba-integral`: DT-60, DT-61, DT-62 y DT-63 nuevas); 16/11/2026 (DT-35 resuelta: el socio paga la cuota deportiva desde Mi club; DT-29 resuelta: US-65 y US-66 en `dev`; DT-59 resuelta: cambiar el email vuelve a verificarlo); 15/11/2026 (DT-54 y DT-51 pasadas a resueltas; DT-59 nueva por el email que se cambia sin re-verificar; DT-27 y DT-29 alineadas con el código); 16/11/2026 (TASK-60 · integración del portal de socios y documentación con revisión: DT-58 resuelta); 15/11/2026 (TASK-60 · landing, Mi club y panel separados: DT-57 resuelta, DT-58 nueva); 02/11/2026 (devolución del profesor en la 3ra reunión: DT-54, DT-55, DT-56 y DT-57 nuevas); 01/11/2026 (TASK-57 · DT-46 y DT-47: error en formulario de usuario y formato de DNI unificado; TASK-56 · DT-06, DT-09, DT-36: confirmación de compra de entradas y actualización de deuda técnica; US-60/61/62 · reservas, DT-53 nueva; registro DT-50, DT-51 y DT-52; TASK-51 · Pasarela de pagos con Mercado Pago: DT-31 resuelta, DT-35 avanza, DT-49 nueva)
 - **Mantener este documento:** al cerrar un ítem, moverlo a
   [Resuelta](#deuda-resuelta) con su PR y fecha. Al detectar uno nuevo, sumarlo
   a [Pendiente](#deuda-pendiente) con un ID `DT-XX` correlativo.
@@ -35,13 +35,11 @@ atacarla, qué se resolvió y cómo. Cubre los dos repos (`socialclub-backend` y
     - [DT-27 · Documentación por disciplina: requisitos, estados y vigencia](#dt-27--documentación-por-disciplina-requisitos-estados-y-vigencia)
     - [DT-60 · Un menor no puede pedir inscripción si la categoría exige un documento con plazo 0](#dt-60--un-menor-no-puede-pedir-inscripción-si-la-categoría-exige-un-documento-con-plazo-0)
   - [🟡 Medias](#-medias)
-    - [DT-61 · El delegado ve el estado documental de disciplinas que no tiene a cargo](#dt-61--el-delegado-ve-el-estado-documental-de-disciplinas-que-no-tiene-a-cargo)
     - [DT-62 · Quien no es ni fue socio no paga la cuota deportiva desde Mi club](#dt-62--quien-no-es-ni-fue-socio-no-paga-la-cuota-deportiva-desde-mi-club)
     - [DT-34 · No hay cancelación, devolución ni transferencia de entradas](#dt-34--no-hay-cancelación-devolución-ni-transferencia-de-entradas)
     - [DT-55 · La inscripción es de a una disciplina por vez](#dt-55--la-inscripción-es-de-a-una-disciplina-por-vez)
     - [DT-56 · Faltan filtros por rango de fechas en morosos y reportes](#dt-56--faltan-filtros-por-rango-de-fechas-en-morosos-y-reportes)
   - [⚪ Bajas](#-bajas)
-    - [DT-63 · Detalles del reporte financiero y del pago deportivo online](#dt-63--detalles-del-reporte-financiero-y-del-pago-deportivo-online)
     - [DT-09 · Imágenes en eventos](#dt-09--imágenes-en-eventos)
     - [DT-36 · No hay notificaciones de vencimiento o resolución](#dt-36--no-hay-notificaciones-de-vencimiento-o-resolución)
 - [Deuda resuelta](#deuda-resuelta)
@@ -68,10 +66,10 @@ esfuerzo, respetando dependencias. De mayor a menor peso:
 | Estado | Ítems |
 |---|---|
 | 🧭 Decisiones del equipo | [DT-15](#persistencia-de-los-adjuntos-en-azure-dt-15---riesgo-activo), [migración a inglés](#estandarización-del-código-a-inglés---costo-creciente) |
-| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-29, DT-30, DT-31, DT-32, DT-33, DT-35, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48, DT-49, DT-50, DT-51, DT-53, DT-54, DT-59, DT-06, DT-46, DT-47, DT-57, DT-58 |
+| ✅ Resueltas | DT-01, DT-02, DT-03, DT-04, DT-05, DT-07, DT-08, DT-10, DT-11, DT-13, DT-14, DT-16, DT-17, DT-18, DT-19, DT-20, DT-21, DT-22, DT-23, DT-24, DT-25, DT-26, DT-28, DT-29, DT-30, DT-31, DT-32, DT-33, DT-35, DT-37, DT-38, DT-39, DT-40, DT-41, DT-42, DT-43, DT-44, DT-45, DT-48, DT-49, DT-50, DT-51, DT-53, DT-54, DT-59, DT-61, DT-63, DT-06, DT-46, DT-47, DT-57, DT-58 |
 | 🟠 Altas pendientes | DT-60, DT-52, DT-27 (configuración, estado documental, alertas, revisión, habilitación excepcional y plazo 0 al inscribir resueltos) |
-| 🟡 Medias pendientes | DT-61, DT-62, DT-34, DT-55, DT-56 |
-| ⚪ Bajas pendientes | DT-63, DT-09 (campo e interfaz listos, subida pendiente de DT-15), DT-36 (servicio resuelto en TASK-35, alertas en US-26, reservas en US-60/61/62, compra de entradas en TASK-56; restan la solicitud de inscripción y las cuotas) |
+| 🟡 Medias pendientes | DT-62, DT-34, DT-55, DT-56 |
+| ⚪ Bajas pendientes | DT-09 (campo e interfaz listos, subida pendiente de DT-15), DT-36 (servicio resuelto en TASK-35, alertas en US-26, reservas en US-60/61/62, compra de entradas en TASK-56; restan la solicitud de inscripción y las cuotas) |
 
 **Cobertura de tests** (medida el 01/11/2026, objetivo DoD **70 %**):
 
@@ -229,27 +227,26 @@ panel sigue exigiéndolo como ahora.
 
 ### 🟡 Medias
 
-#### DT-61 · El delegado ve el estado documental de disciplinas que no tiene a cargo
-*Nuevo · revisión del 16/11/2026 · resto de H07*
-
-El listado de participantes ya acota las filas y las disciplinas a las del
-delegado. Pero el `estadoDocumental` de la fila es el peor de **todas** las
-inscripciones de la persona (`EstadoDocumentalService.porPersonas`). Diego
-puede ver a alguien «Bloqueado» por Natación con todas sus disciplinas
-visibles habilitadas. El filtro por estado documental y el de pendientes de
-aprobación también cuentan documentos de otras disciplinas. El detalle de un
-participante por id sigue abierto para cualquier delegado.
-
-**Arreglo:** calcular el estado de la fila solo con las inscripciones
-visibles, aplicar los filtros sobre ese valor y acotar el detalle por id.
-
 #### DT-62 · Quien no es ni fue socio no paga la cuota deportiva desde Mi club
-*Nuevo · revisión del 16/11/2026 · alcance de DT-35*
+*Nuevo · revisión del 16/11/2026 · alcance de DT-35 · decisión pendiente*
 
-`PortalCuotasPage` corta la página si la persona no es ni fue socia, y
-`GET /pagos-deportivos/mias` exige un rol. Un participante que no es socio
-paga la cuota deportiva solo en secretaría. Confirmar con el PO si DT-35
-debía cubrirlo.
+DT-35 habilitó el pago online de la cuota deportiva solo para quien es o fue
+socio:
+
+- El front oculta «Mis cuotas» y redirige a Mi club si la persona no tiene
+  membresías (`soloSocioOExSocio` en `PortalSocioLayout`).
+- `GET /pagos-deportivos/mias` y `POST /pagos-deportivos/checkout` exigen
+  uno de los roles `SOCIO`, `ADMIN`, `COLABORADOR` o `DELEGADO`. El registro
+  público (US-38) crea la cuenta sin roles, así que un participante que no es
+  socio recibe 403.
+
+En el padrón demo hay 6 participantes activos que nunca fueron socios (de 83).
+Cinco son menores y solo uno tiene usuario propio. El modelo no tiene una
+relación entre un menor y su padre, madre o tutor.
+
+Opciones, en la respuesta de la revisión del 16/11/2026: (A) dejarlo como está
+y documentarlo; (B) abrir el pago a cualquier titular con usuario; (C) que un
+adulto pague por otra persona; (D) registrar al responsable de un menor.
 
 #### DT-59 · Cambiar el email no vuelve a verificarlo
 *Resto de DT-54 · resuelto el 16/11/2026*
@@ -343,22 +340,6 @@ rango.
 
 ### ⚪ Bajas
 
-#### DT-63 · Detalles del reporte financiero y del pago deportivo online
-*Nuevo · revisión del 16/11/2026*
-
-- El estado financiero suma entradas y señas al recaudado total (H08). Eso
-  sube el porcentaje de cobranza del total, que antes medía solo cuotas.
-- En la caja, entradas y señas se cortan por mes en el huso del club y las
-  cuotas con la hora del servidor (va con DT-56). Las entradas se fechan por
-  `creadoEn`, no por la fecha de pago.
-- Si no hay cuota social pendiente, Mis cuotas dice «Estás al día con tus
-  cuotas» con cuotas deportivas pendientes debajo.
-- `iniciarPagoOnline` cancela la orden pendiente anterior antes de validar la
-  nueva: si la validación falla, la anterior se pierde igual.
-- El perfil compara el email con `persona.email` y el backend con
-  `usuario.email`: si difieren, el backend pide confirmarlo sin que se vea el
-  campo.
-
 #### DT-09 · Imágenes en eventos
 *backend + frontend · 5 SP*
 
@@ -397,6 +378,45 @@ confirmada; o una cuota está vencida.
 ---
 
 ## Deuda resuelta
+
+### DT-61 · El delegado ve el estado documental de disciplinas que no tiene a cargo
+*Resuelta el 16/11/2026*
+
+En el listado de participantes, para el delegado, el estado de la fila se
+calcula con sus disciplinas. «Pendiente de aprobación» cuenta solo los tipos
+que exigen esas disciplinas, y las pestañas Inscriptos y Baja (con sus
+contadores) miran solo sus inscripciones. `GET /inscripcion/persona/:id`
+devuelve solo sus inscripciones. `GET /inscripcion/:id` y
+`GET /inscripcion/:id/habilitaciones-excepcionales` responden 403 si la
+disciplina no es suya. ADMIN y COLABORADOR no cambian.
+
+**Queda afuera:** las escrituras del delegado (alta, edición y bajas en
+disciplinas ajenas) y el listado de solicitudes de US-66. Van con DT-52, que
+replantea el rol.
+
+### DT-63 · Detalles del reporte financiero y del pago deportivo online
+*Resuelta el 16/11/2026*
+
+- El porcentaje de cobranza del total mide solo cuotas. En la tabla por
+  concepto, Entradas y Señas no muestran barra de cobranza.
+- La caja de cuotas corta los meses en el huso del club, igual que entradas y
+  señas.
+- Una entrada comprada online se fecha cuando la pasarela aprobó el pago
+  (`OrdenPago.resueltaEn`). La de secretaría, cuando se registró.
+- Mis cuotas dice «Estás al día con la cuota social» si quedan cuotas
+  deportivas pendientes.
+- El perfil toma como email original el del usuario, que es el que se
+  compara en el backend.
+- **De paso:** el buscador de Usuarios prometía buscar por DNI y solo miraba
+  nombre y apellido. Ahora busca también por DNI y email.
+- **E2E al día con H13:** TC-017 adjunta la ficha técnica en el alta, TC-091
+  la manda en la preparación por API, TC-162 ya no espera la alerta de la
+  ficha y TC-201 verifica el resumen «+N disciplinas más» de US-23. TC-176
+  busca al delegado por DNI, porque la base de los E2E acumula uno por corrida.
+- **No corresponde:** `iniciarPagoOnline` cancela las órdenes pendientes antes
+  de cotizar a propósito. Al cancelarlas pregunta a la pasarela si se pagaron
+  y, si se pagaron, las acredita. Así la cotización no vuelve a cobrar esos
+  meses. Si la validación falla, lo que se pierde es una orden sin pagar.
 
 ### DT-35 · El socio paga la cuota deportiva desde Mi club
 *16/11/2026*
