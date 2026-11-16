@@ -33,7 +33,7 @@ describe('US-29 · EventosService', () => {
   });
 
   describe('findAll', () => {
-    it('devuelve eventos paginados sin BORRADOR ordenados por fechaEvento asc', async () => {
+    it('devuelve eventos paginados sin BORRADOR', async () => {
       const mockItems = [
         {
           id: 1,
@@ -116,7 +116,7 @@ describe('US-29 · EventosService', () => {
     it('soporta alias de paginación page y limit', async () => {
       prismaMock.$transaction.mockResolvedValue([[], 0]);
 
-      const res = await service.findAll({ page: 2, limit: 10 });
+      const res = await service.findAll({ page: 2, limit: 10, ordenar: 'reciente' });
 
       expect(prismaMock.evento.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -126,6 +126,55 @@ describe('US-29 · EventosService', () => {
       );
       expect(res.pagina).toBe(2);
       expect(res.porPagina).toBe(10);
+    });
+
+    it('con el orden por fecha pone primero el publicado que todavía no terminó', async () => {
+      const pasado = {
+        id: 1,
+        nombre: 'Peña del día de la primavera',
+        estado: 'FINALIZADO',
+        fechaEvento: new Date('2020-09-21T14:00:00Z'),
+        fechaFin: new Date('2020-09-22T02:00:00Z'),
+        requiereEntrada: true,
+        precio: '8000',
+        _count: { entradas: 0 },
+      };
+      const proximo = {
+        id: 2,
+        nombre: 'Peña de socios',
+        estado: 'PUBLICADO',
+        fechaEvento: new Date('2099-11-16T14:00:00Z'),
+        fechaFin: new Date('2099-11-17T02:00:00Z'),
+        requiereEntrada: true,
+        precio: '8000',
+        _count: { entradas: 0 },
+      };
+      prismaMock.$transaction.mockResolvedValue([[pasado, proximo], 2]);
+
+      const res = await service.findAll();
+
+      expect(res.items.map((item) => item.id)).toEqual([2, 1]);
+      expect(prismaMock.evento.findMany).toHaveBeenCalledWith(
+        expect.not.objectContaining({ skip: expect.anything() }),
+      );
+    });
+
+    it('filtra por estado y no entrega borradores a quien no es admin', async () => {
+      prismaMock.$transaction.mockResolvedValue([[], 0]);
+
+      await service.findAll({ estado: 'PUBLICADO' });
+      expect(prismaMock.evento.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ estado: 'PUBLICADO' }),
+        }),
+      );
+
+      await service.findAll({ estado: 'BORRADOR' }, false);
+      expect(prismaMock.evento.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: -1 }),
+        }),
+      );
     });
 
     it('incluye borradores si es admin y lo solicita explícitamente', async () => {

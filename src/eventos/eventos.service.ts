@@ -11,7 +11,7 @@ import { CrearEventoDto } from './dto/crear-evento.dto';
 import { ActualizarEventoDto } from './dto/actualizar-evento.dto';
 import { FiltrarEventosDto } from './dto/filtrar-eventos.dto';
 import { mapEventoResponse } from './eventos.mapper';
-import { filtroEventoTerminado } from './fin-del-evento';
+import { eventoTerminado, filtroEventoTerminado } from './fin-del-evento';
 
 @Injectable()
 export class EventosService {
@@ -21,7 +21,7 @@ export class EventosService {
   ) {}
 
   async findAll(filtros?: FiltrarEventosDto, esAdmin = false) {
-    const { search, soloDisponibles, ordenar, incluirBorradores, fechaDesde, fechaHasta } =
+    const { search, soloDisponibles, ordenar, incluirBorradores, fechaDesde, fechaHasta, estado } =
       filtros ?? {};
     const paginaRaw = filtros?.page ?? filtros?.pagina ?? 1;
     const porPaginaRaw = filtros?.limit ?? filtros?.porPagina ?? 5;
@@ -29,6 +29,9 @@ export class EventosService {
     const porPagina = Math.min(50, Math.max(1, Number(porPaginaRaw)));
 
     const verBorradores = esAdmin && incluirBorradores === 'true';
+    // `fecha` (y la ausencia de orden) deja primero los publicados que todavía
+    // no terminaron. El valor del query no cambia para no romper clientes.
+    const ordenPorFecha = !ordenar || ordenar === 'fecha';
 
     let hastaDate: Date | undefined;
     if (fechaHasta) {
@@ -39,7 +42,7 @@ export class EventosService {
     }
 
     const where: any = {
-      ...(!verBorradores ? { estado: { not: EstadoEvento.BORRADOR } } : {}),
+      ...this.filtroEstado(estado, esAdmin, verBorradores),
       ...(search
         ? {
             OR: [
@@ -74,8 +77,7 @@ export class EventosService {
       this.prisma.evento.findMany({
         where,
         orderBy,
-        skip: (pagina - 1) * porPagina,
-        take: porPagina,
+        ...(ordenPorFecha ? {} : { skip: (pagina - 1) * porPagina, take: porPagina }),
         include: {
           _count: { select: { entradas: true } },
         },
@@ -83,15 +85,64 @@ export class EventosService {
       this.prisma.evento.count({ where }),
     ]);
 
-    const totalPaginas = Math.ceil(total / porPagina) || 1;
+    let paginaItems = items;
+    let totalPagina = total;
+    if (ordenPorFecha) {
+      const ordenados = [...items].sort((a, b) => this.compararPorVigencia(a, b));
+      totalPagina = ordenados.length;
+      const inicio = (pagina - 1) * porPagina;
+      paginaItems = ordenados.slice(inicio, inicio + porPagina);
+    }
+
+    const totalPaginas = Math.ceil(totalPagina / porPagina) || 1;
 
     return {
-      items: items.map((item) => mapEventoResponse(item)),
-      total,
+      items: paginaItems.map((item) => mapEventoResponse(item)),
+      total: totalPagina,
       pagina,
       porPagina,
       totalPaginas,
     };
+  }
+
+  /** Un borrador pedido por alguien que no es admin no devuelve nada. */
+  private filtroEstado(estado: EstadoEvento | undefined, esAdmin: boolean, verBorradores: boolean) {
+    if (estado === EstadoEvento.BORRADOR) {
+      return esAdmin ? { estado: EstadoEvento.BORRADOR } : { id: -1 };
+    }
+    if (estado) return { estado };
+    if (!verBorradores) return { estado: { not: EstadoEvento.BORRADOR } };
+    return {};
+  }
+
+  /**
+   * Publicados que todavía no terminaron, del más próximo al más lejano.
+   * El resto (finalizados, cancelados, borradores y publicados ya vencidos)
+   * va después, del más reciente al más antiguo.
+   */
+  private compararPorVigencia(
+    a: { id: number; estado: EstadoEvento; fechaEvento?: Date | null; fechaFin?: Date | null },
+    b: { id: number; estado: EstadoEvento; fechaEvento?: Date | null; fechaFin?: Date | null },
+  ) {
+    const aVigente = this.vigente(a);
+    const bVigente = this.vigente(b);
+    if (aVigente !== bVigente) return aVigente ? -1 : 1;
+    const fa = a.fechaEvento ? new Date(a.fechaEvento).getTime() : 0;
+    const fb = b.fechaEvento ? new Date(b.fechaEvento).getTime() : 0;
+    if (fa !== fb) return aVigente ? fa - fb : fb - fa;
+    return aVigente ? a.id - b.id : b.id - a.id;
+  }
+
+  private vigente(evento: {
+    estado: EstadoEvento;
+    fechaEvento?: Date | null;
+    fechaFin?: Date | null;
+  }) {
+    if (evento.estado !== EstadoEvento.PUBLICADO || !evento.fechaEvento) return false;
+    return !eventoTerminado({
+      fechaEvento: new Date(evento.fechaEvento),
+      fechaFin: evento.fechaFin ? new Date(evento.fechaFin) : null,
+    });
   }
 
   async findOne(id: number, esAdmin = false) {

@@ -4,12 +4,14 @@ import {
   IsIn,
   IsBooleanString,
   IsInt,
+  IsEnum,
   Min,
   Max,
   IsDateString,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+import { EstadoEvento } from '@prisma/client';
 
 export class FiltrarEventosDto {
   @ApiPropertyOptional({
@@ -36,6 +38,15 @@ export class FiltrarEventosDto {
   @IsOptional()
   @IsBooleanString()
   incluirBorradores?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Segmenta el listado por estado. BORRADOR solo se aplica si el usuario es ADMIN.',
+    enum: EstadoEvento,
+  })
+  @IsOptional()
+  @IsEnum(EstadoEvento)
+  estado?: EstadoEvento;
 
   @ApiPropertyOptional({
     description:

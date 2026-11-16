@@ -8,7 +8,12 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
-import { EstadoSocioFiltro, FindSociosQueryDto } from './dto/find-socios-query.dto';
+import {
+  EstadoCuentaSocioFiltro,
+  EstadoSocioFiltro,
+  FindSociosQueryDto,
+} from './dto/find-socios-query.dto';
+import { periodosVencidosImpagos } from '../pagos/vencimiento-cuota-deportiva';
 import { CreateSocioDto } from './dto/create-socio.dto';
 import { RegistrarSocioDto } from './dto/registrar-socio.dto';
 import { UpdateSocioDto } from './dto/update-socio.dto';
@@ -341,16 +346,50 @@ export class SociosService {
   }
 
   /**
+   * Períodos vencidos e impagos de la membresía que usa el badge "Moroso":
+   * la activa, o la última si no hay ninguna activa.
+   */
+  private periodosVencidosDe(persona: {
+    membresias?: { activo: boolean; fechaAlta: Date; fechaBaja: Date | null }[];
+    pagos?: { periodo: string }[];
+  }): number {
+    const activa = persona.membresias?.find((membresia) => membresia.activo);
+    const membresia = activa ?? persona.membresias?.[0];
+    if (!membresia?.fechaAlta) return 0;
+    return periodosVencidosImpagos(
+      new Date(membresia.fechaAlta),
+      membresia.fechaBaja ? new Date(membresia.fechaBaja) : new Date(),
+      (persona.pagos ?? []).map((pago) => pago.periodo),
+    );
+  }
+
+  /**
    * US-15: Buscar y filtrar socios.
    * - Búsqueda por nombre, apellido o DNI.
    * - Filtro por categoría de socio (membresía activa).
    * - Filtro por estado (ALTA: membresía activa, BAJA: sin membresía activa).
+   * - Filtro por estado de cuenta (MOROSO / AL_DIA), con la regla de US-19.
+   * - Sin orden de columna, los morosos van primero.
    * - Paginación resuelta en backend.
    */
   async findAll(query: FindSociosQueryDto) {
-    const { busqueda, categoriaId, estado, pagina, porPagina, ordenarPor, orden } = query;
+    const { busqueda, categoriaId, estado, estadoCuenta, pagina, porPagina, ordenarPor, orden } =
+      query;
 
     const direccion: 'asc' | 'desc' = orden?.toLowerCase() === 'desc' ? 'desc' : 'asc';
+    const campoOrden = ordenarPor?.toLowerCase();
+    const ordenaEnBase =
+      campoOrden === 'dni' ||
+      campoOrden === 'email' ||
+      campoOrden === 'nombre' ||
+      campoOrden === 'apellido' ||
+      campoOrden === 'socio' ||
+      campoOrden === 'fecha' ||
+      campoOrden === 'creadoen' ||
+      campoOrden === 'alta';
+    // La mora se calcula con las cuotas, así que el orden por defecto y el
+    // filtro de cuenta se resuelven sobre el conjunto completo.
+    const paginarEnMemoria = !ordenaEnBase || Boolean(estadoCuenta);
     let orderBy: Prisma.PersonaOrderByWithRelationInput | Prisma.PersonaOrderByWithRelationInput[];
 
     if (!ordenarPor) {
@@ -421,10 +460,10 @@ export class SociosService {
         include: {
           membresias: { include: { categoria: true }, orderBy: { fechaAlta: 'desc' } },
           usuario: { select: { id: true } },
+          ...(paginarEnMemoria ? { pagos: { select: { periodo: true } } } : {}),
         },
         orderBy,
-        skip: (pagina - 1) * porPagina,
-        take: porPagina,
+        ...(paginarEnMemoria ? {} : { skip: (pagina - 1) * porPagina, take: porPagina }),
       }),
       this.prisma.persona.count({ where }),
       this.prisma.persona.count({ where: whereBase }),
@@ -432,27 +471,58 @@ export class SociosService {
       this.prisma.persona.count({ where: whereBaja }),
     ]);
 
-    let resultadoItems = items.map((p) => this.aSocioDto(p));
+    let filas = items.map((persona) => ({
+      persona,
+      vencidos: paginarEnMemoria ? this.periodosVencidosDe(persona) : 0,
+    }));
 
-    if (ordenarPor?.toLowerCase() === 'categoria') {
-      resultadoItems = resultadoItems.sort((a, b) => {
-        const catA = a.categoria?.nombre ?? '';
-        const catB = b.categoria?.nombre ?? '';
-        return direccion === 'asc'
-          ? catA.localeCompare(catB, 'es', { sensitivity: 'base' })
-          : catB.localeCompare(catA, 'es', { sensitivity: 'base' });
+    if (paginarEnMemoria && estadoCuenta === EstadoCuentaSocioFiltro.MOROSO) {
+      filas = filas.filter((fila) => fila.vencidos > 0);
+    } else if (paginarEnMemoria && estadoCuenta === EstadoCuentaSocioFiltro.AL_DIA) {
+      filas = filas.filter((fila) => fila.vencidos === 0);
+    }
+
+    if (campoOrden === 'categoria') {
+      filas.sort((a, b) => {
+        const catA = this.aSocioDto(a.persona)?.categoria?.nombre ?? '';
+        const catB = this.aSocioDto(b.persona)?.categoria?.nombre ?? '';
+        const diff = catA.localeCompare(catB, 'es', { sensitivity: 'base' });
+        return direccion === 'asc' ? diff : -diff;
       });
-    } else if (ordenarPor?.toLowerCase() === 'estado') {
-      resultadoItems = resultadoItems.sort((a, b) => {
-        const estA = a.activo ? 1 : 0;
-        const estB = b.activo ? 1 : 0;
+    } else if (campoOrden === 'estado') {
+      filas.sort((a, b) => {
+        const estA = this.aSocioDto(a.persona)?.activo ? 1 : 0;
+        const estB = this.aSocioDto(b.persona)?.activo ? 1 : 0;
         return direccion === 'asc' ? estA - estB : estB - estA;
+      });
+    } else if (!ordenaEnBase) {
+      filas.sort((a, b) => {
+        const aMoroso = a.vencidos > 0;
+        const bMoroso = b.vencidos > 0;
+        if (aMoroso !== bMoroso) return aMoroso ? -1 : 1;
+        if (aMoroso && a.vencidos !== b.vencidos) return b.vencidos - a.vencidos;
+        if (!aMoroso) {
+          const fa = new Date(a.persona.creadoEn ?? 0).getTime();
+          const fb = new Date(b.persona.creadoEn ?? 0).getTime();
+          if (fa !== fb) return fb - fa;
+        }
+        return `${a.persona.apellido ?? ''} ${a.persona.nombre ?? ''}`.localeCompare(
+          `${b.persona.apellido ?? ''} ${b.persona.nombre ?? ''}`,
+          'es',
+          { sensitivity: 'base' },
+        );
       });
     }
 
+    const totalPagina = paginarEnMemoria ? filas.length : total;
+    if (paginarEnMemoria) {
+      const inicio = (pagina - 1) * porPagina;
+      filas = filas.slice(inicio, inicio + porPagina);
+    }
+
     return {
-      items: resultadoItems,
-      total,
+      items: filas.map((fila) => this.aSocioDto(fila.persona)),
+      total: totalPagina,
       pagina,
       porPagina,
       counts: {

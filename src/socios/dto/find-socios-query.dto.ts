@@ -10,6 +10,12 @@ export enum EstadoSocioFiltro {
   BAJA = 'BAJA',
 }
 
+/** Estado de la cuota social, con la misma regla de vencimiento que US-19. */
+export enum EstadoCuentaSocioFiltro {
+  MOROSO = 'MOROSO',
+  AL_DIA = 'AL_DIA',
+}
+
 /**
  * Query params soportados por GET /socios (US-15).
  * Toda la búsqueda, el filtrado y la paginación se resuelven en el backend;
@@ -47,6 +53,11 @@ export class FindSociosQueryDto {
   @IsOptional()
   @IsEnum(EstadoSocioFiltro)
   estado?: EstadoSocioFiltro;
+
+  /** Filtra por la cuota social: MOROSO (hay períodos vencidos impagos) o AL_DIA. */
+  @IsOptional()
+  @IsEnum(EstadoCuentaSocioFiltro)
+  estadoCuenta?: EstadoCuentaSocioFiltro;
 
   @IsOptional()
   @Type(() => Number)

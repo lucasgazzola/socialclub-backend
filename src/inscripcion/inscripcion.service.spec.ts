@@ -6,7 +6,10 @@ import { AuditoriaService } from '../auditoria/auditoria.service';
 import { EstadoDocumentalService } from '../documentacion/estado-documental.service';
 import { InscripcionService } from './inscripcion.service';
 import { UpdateInscripcionDto } from './dto/update-inscripcion.dto';
-import { EstadoInscripcionFiltro } from './dto/find-participantes-query.dto';
+import {
+  EstadoDocumentalFiltro,
+  EstadoInscripcionFiltro,
+} from './dto/find-participantes-query.dto';
 import { VerificacionEmailService } from '../verificacion-email/verificacion-email.service';
 
 const mockPrisma: any = {
@@ -649,19 +652,79 @@ describe('InscripcionService', () => {
       });
     });
 
-    it('TC-235 (TC-0808): sin filtros lista personas paginado y respeta skip/take', async () => {
-      mockPrisma.persona.findMany.mockResolvedValue([participanteDosDisciplinas]);
-      mockPrisma.persona.count.mockResolvedValue(15);
+    it('TC-235 (TC-0808): sin filtros pone primero al pendiente de aprobación y pagina en memoria', async () => {
+      const habilitado = {
+        ...personaBase,
+        id: 11,
+        apellido: 'Alvarez',
+        nombre: 'Ana',
+        inscripciones: [{ ...inscripcionFutbol, id: 3, personaId: 11 }],
+      };
+      mockPrisma.persona.findMany.mockResolvedValue([habilitado, participanteDosDisciplinas]);
+      mockPrisma.persona.count.mockResolvedValue(2);
+      mockPrisma.documentacion.findMany.mockResolvedValue([{ personaId: 10 }]);
+      mockEstadoDocumental.porPersonas.mockResolvedValueOnce(
+        new Map([
+          [10, { estado: 'BLOQUEADO', inscripciones: [] }],
+          [11, { estado: 'HABILITADO', inscripciones: [] }],
+        ]),
+      );
 
-      const result = await service.findAll({ pagina: 2, porPagina: 5 });
+      const result = await service.findAll({ pagina: 1, porPagina: 1 });
 
       const args = mockPrisma.persona.findMany.mock.calls[0][0];
       expect(args.where).toEqual({ AND: [{ inscripciones: { some: {} } }] });
+      expect(args.skip).toBeUndefined();
+      expect(args.take).toBeUndefined();
+      expect(result.total).toBe(2);
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].personaId).toBe(10);
+      expect(result.pagina).toBe(1);
+      expect(result.porPagina).toBe(1);
+    });
+
+    it('filtra por estado documental y deja afuera al resto', async () => {
+      const pendiente = {
+        ...personaBase,
+        id: 12,
+        apellido: 'Sosa',
+        inscripciones: [{ ...inscripcionFutbol, id: 4, personaId: 12 }],
+      };
+      mockPrisma.persona.findMany.mockResolvedValue([participanteDosDisciplinas, pendiente]);
+      mockPrisma.persona.count.mockResolvedValue(2);
+      mockEstadoDocumental.porPersonas.mockResolvedValueOnce(
+        new Map([
+          [10, { estado: 'HABILITADO', inscripciones: [] }],
+          [12, { estado: 'PENDIENTE', inscripciones: [] }],
+        ]),
+      );
+
+      const result = await service.findAll({
+        estadoDocumental: EstadoDocumentalFiltro.PENDIENTE,
+        pagina: 1,
+        porPagina: 10,
+      });
+
+      expect(result.total).toBe(1);
+      expect(result.items[0].personaId).toBe(12);
+      expect(result.items[0].estadoDocumental).toBe('PENDIENTE');
+    });
+
+    it('al ordenar por nombre pagina en la base', async () => {
+      mockPrisma.persona.findMany.mockResolvedValue([participanteDosDisciplinas]);
+      mockPrisma.persona.count.mockResolvedValue(15);
+
+      const result = await service.findAll({
+        ordenarPor: 'nombre',
+        orden: 'asc',
+        pagina: 2,
+        porPagina: 5,
+      });
+
+      const args = mockPrisma.persona.findMany.mock.calls[0][0];
       expect(args.skip).toBe(5);
       expect(args.take).toBe(5);
       expect(result.total).toBe(15);
-      expect(result.pagina).toBe(2);
-      expect(result.porPagina).toBe(5);
     });
   });
   describe('US-07 · Dar de baja participante (estado propio + baja en todas sus disciplinas)', () => {
